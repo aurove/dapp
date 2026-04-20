@@ -1,8 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #050910;
+  --surface: #0a1220;
+  --surface-strong: #111a2a;
+  --foreground: #ebf2ff;
+  --muted: #99a7c0;
+  --border: rgba(166, 189, 230, 0.2);
+  --brand: #5deda2;
+  --brand-soft: rgba(93, 237, 162, 0.18);
+  --accent: #7ac5ff;
+  --ring: rgba(93, 237, 162, 0.45);
 }
 
 @theme inline {
@@ -12,15 +20,83 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 55% -8%, rgba(120, 174, 255, 0.28), transparent 34%),
+    radial-gradient(circle at 90% 12%, rgba(93, 237, 162, 0.14), transparent 36%),
+    radial-gradient(circle at 14% 90%, rgba(122, 197, 255, 0.12), transparent 40%),
+    var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+.grid-overlay {
+  background-image:
+    linear-gradient(to right, rgba(166, 189, 230, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(166, 189, 230, 0.06) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+.protocol-panel {
+  background:
+    linear-gradient(160deg, rgba(10, 18, 32, 0.96), rgba(7, 12, 22, 0.96));
+  border: 1px solid var(--border);
+  box-shadow:
+    0 26px 55px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(235, 242, 255, 0.08) inset;
+}
+
+.glass-card {
+  background: color-mix(in srgb, var(--surface) 92%, black 8%);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.hero-surface {
+  background:
+    radial-gradient(circle at 50% -12%, rgba(235, 242, 255, 0.24), transparent 38%),
+    linear-gradient(160deg, rgba(8, 15, 27, 0.96), rgba(6, 10, 19, 0.96));
+  border: 1px solid rgba(166, 189, 230, 0.24);
+}
+
+.neon-ring {
+  box-shadow:
+    0 0 0 1px rgba(235, 242, 255, 0.26),
+    0 0 36px rgba(93, 237, 162, 0.22),
+    inset 0 0 30px rgba(122, 197, 255, 0.1);
+}
+
+.signal-line {
+  background: linear-gradient(90deg, transparent, rgba(166, 189, 230, 0.42), transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fade-up {
+    animation: fade-up 0.64s ease-out both;
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
