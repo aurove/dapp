@@ -12,6 +12,8 @@ type TradeAssetCardProps = {
 export function TradeAssetCard({ asset }: TradeAssetCardProps) {
   const hasChange = typeof asset.change24hPct === "number";
   const hasVolume = typeof asset.volume24hUsd === "number";
+  const change24hPct = asset.change24hPct ?? 0;
+  const volume24hUsd = asset.volume24hUsd ?? 0;
 
   return (
     <Card className="h-full">
@@ -33,12 +35,12 @@ export function TradeAssetCard({ asset }: TradeAssetCardProps) {
           {hasChange ? (
             <span
               className={
-                asset.change24hPct >= 0
+                change24hPct >= 0
                   ? "rounded-md border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-200"
                   : "rounded-md border border-red-400/30 bg-red-500/10 px-2 py-1 text-xs font-medium text-red-200"
               }
             >
-              {formatPct(asset.change24hPct)}
+              {formatPct(change24hPct)}
             </span>
           ) : null}
         </div>
@@ -50,7 +52,7 @@ export function TradeAssetCard({ asset }: TradeAssetCardProps) {
           </p>
           {hasVolume ? (
             <p className="text-sm text-[var(--muted)]">
-              24h Volume: {formatCompactUsd(asset.volume24hUsd)}
+              24h Volume: {formatCompactUsd(volume24hUsd)}
             </p>
           ) : null}
         </div>

@@ -20,3 +20,13 @@ export type TradeSortOption =
   | "change_asc";
 
 export type TradeChangeFilter = "all" | "gainers" | "losers";
+
+export type TradeVeAssetType = "veBTC" | "veMEZO";
+
+export type CreateVeTradeListingInput = {
+  veAssetType: TradeVeAssetType;
+  veNftTokenId: bigint;
+  listAmount: string;
+  unitPriceUsd: string;
+  expiryDays: number;
+};

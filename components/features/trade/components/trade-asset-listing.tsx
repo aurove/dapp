@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@fractals/ui/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
 import { useTradeListing } from "../hooks/use-trade-listing";
+import type { TradeAsset } from "../types";
 import { TradeAssetGrid } from "./trade-asset-grid";
 import { TradeAssetTable } from "./trade-asset-table";
+import { TradeCreateListingDialog } from "./trade-create-listing-dialog";
 import { TradeEmptyState } from "./trade-empty-state";
 import { TradeListingToolbar } from "./trade-listing-toolbar";
 import { TradeLoadingState } from "./trade-loading-state";
@@ -21,9 +24,12 @@ export function TradeAssetListing() {
     setCategoryFilter,
     isLoading,
     refreshListing,
+    createVeListing,
+    isSubmittingListing,
     filteredAssets,
     totalCount,
   } = useTradeListing();
+  const [lastCreated, setLastCreated] = useState<TradeAsset | null>(null);
 
   const hasAssets = filteredAssets.length > 0;
 
@@ -38,11 +44,23 @@ export function TradeAssetListing() {
     <section className="space-y-6">
       <Card>
         <CardHeader>
-          <Badge className="w-fit">Trade</Badge>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Badge className="w-fit">Trade</Badge>
+            <TradeCreateListingDialog
+              onCreateListing={createVeListing}
+              onCreated={setLastCreated}
+              isSubmitting={isSubmittingListing}
+            />
+          </div>
           <CardTitle className="text-2xl sm:text-3xl">Browse and trade available assets.</CardTitle>
           <p className="max-w-3xl text-sm leading-7 text-[var(--muted)] sm:text-base">
             Explore tradeable ve exposure assets with search, filters, and sortable market metrics.
           </p>
+          {lastCreated ? (
+            <p className="max-w-3xl text-sm text-emerald-300">
+              Published listing: {lastCreated.symbol} at ${lastCreated.priceUsd.toFixed(3)}.
+            </p>
+          ) : null}
         </CardHeader>
       </Card>
 

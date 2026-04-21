@@ -21,9 +21,7 @@
     "paths": {
       "@/*": ["./*"],
       "@fractals/ui": ["../packages/ui/src/index.ts"],
-      "@fractals/ui/*": ["../packages/ui/src/*"],
-      "@fractals/tx-flow": ["../packages/tx-flow/src/index.ts"],
-      "@fractals/tx-flow/*": ["../packages/tx-flow/src/*"]
+      "@fractals/ui/*": ["../packages/ui/src/*"]
     }
   },
   "include": [

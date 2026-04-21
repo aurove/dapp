@@ -42,7 +42,7 @@ export function TradeListingToolbar({
           />
         </label>
 
-        <Button variant="secondary" onClick={onRefresh} disabled={isLoading}>
+        <Button variant="secondary" onClick={onRefresh} disabled={Boolean(isLoading)}>
           <SlidersHorizontal className="h-4 w-4" />
           {isLoading ? "Refreshing..." : "Refresh"}
         </Button>
