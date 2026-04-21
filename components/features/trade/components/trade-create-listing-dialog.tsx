@@ -55,7 +55,7 @@ export function TradeCreateListingDialog({
   }
 
   async function submitListing() {
-    let veNftTokenId = BigInt(0);
+    let veNftTokenId = 0n;
     try {
       veNftTokenId = BigInt(form.veNftTokenId || "0");
     } catch {
@@ -66,7 +66,7 @@ export function TradeCreateListingDialog({
     const unitPriceUsd = form.unitPriceUsd.trim();
     const expiryDays = Number.parseInt(form.expiryDays, 10);
 
-    if (veNftTokenId < BigInt(1)) {
+    if (veNftTokenId < 1n) {
       setError("veNFT token ID must be greater than 0.");
       return;
     }

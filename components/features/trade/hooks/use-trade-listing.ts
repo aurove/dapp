@@ -1,38 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatUnits, parseUnits } from "viem";
+import { useCallback, useMemo, useState } from "react";
+import { parseUnits } from "viem";
 import { executeAddressWrite, useTransactionFlowContext } from "@fractals/tx-flow";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { getRuntimeConfig } from "@/lib/config/env";
+import { useChainId } from "wagmi";
+import { useTradeMarketData } from "../data/use-trade-market-data";
 import type {
   CreateVeTradeListingInput,
   TradeAsset,
   TradeChangeFilter,
   TradeSortOption,
 } from "../types";
-import { useChainId, usePublicClient } from "wagmi";
-
-type ListingView = {
-  listingId: bigint;
-  tokenId: bigint;
-  amountRemaining: bigint;
-  paymentToken: `0x${string}`;
-  pricePerUnit: bigint;
-  totalPriceRemaining?: bigint;
-};
-
-const LISTINGS_PAGE_SIZE = BigInt(100);
-const ERC20_DECIMALS_ABI = [
-  {
-    inputs: [],
-    name: "decimals",
-    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
 
 function applySort(items: TradeAsset[], sortBy: TradeSortOption): TradeAsset[] {
   return [...items].sort((a, b) => {
@@ -55,14 +36,6 @@ function applySort(items: TradeAsset[], sortBy: TradeSortOption): TradeAsset[] {
   });
 }
 
-function inferVeLabelFromUri(uri: string | undefined): string {
-  if (!uri) return "veAsset";
-  const normalized = uri.toLowerCase();
-  if (normalized.includes("vebtc")) return "veBTC";
-  if (normalized.includes("vemezo")) return "veMEZO";
-  return "veAsset";
-}
-
 export function useTradeListing() {
   const txFlowChainId = useChainId();
   const activeChain = getActiveChain(resolveAppEnvironment());
@@ -70,178 +43,30 @@ export function useTradeListing() {
   const txContext = useTransactionFlowContext();
   const runtime = getRuntimeConfig();
 
-  const marketplace = getContractConfig(chainId, "Marketplace");
   const listingWrapper = getContractConfig(chainId, "VeNftFractionListing");
-  const paymentRouter = getContractConfig(chainId, "PaymentRouter");
-  const assetLedger = getContractConfig(chainId, "AssetLedger");
 
-  const publicReadClient = usePublicClient({ chainId });
+  const {
+    assets: chainAssets,
+    defaultPaymentToken,
+    defaultPaymentTokenDecimals,
+    isLoading,
+    isRefreshing,
+    error,
+    refresh,
+  } = useTradeMarketData({
+    chainId,
+    runtimeDefaultPaymentToken: runtime.trading.defaultPaymentTokenAddress as `0x${string}` | null,
+  });
 
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<TradeSortOption>("price_desc");
   const [changeFilter, setChangeFilter] = useState<TradeChangeFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [isSubmittingListing, setIsSubmittingListing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [listings, setListings] = useState<ListingView[]>([]);
-  const [tokenUriMap, setTokenUriMap] = useState<Record<string, string>>({});
-  const [paymentTokenDecimalsMap, setPaymentTokenDecimalsMap] = useState<Record<string, number>>(
-    {},
-  );
-  const [defaultPaymentToken, setDefaultPaymentToken] = useState<`0x${string}` | null>(null);
-  const [defaultPaymentTokenDecimals, setDefaultPaymentTokenDecimals] = useState<number>(18);
-  const [reloadToken, setReloadToken] = useState(0);
 
-  const refreshListing = useCallback(async () => {
-    setReloadToken((current) => current + 1);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchChainData() {
-      if (!publicReadClient || !marketplace?.address || !marketplace.abi) {
-        if (!cancelled) {
-          setListings([]);
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        const listingTuple = (await publicReadClient.readContract({
-          address: marketplace.address,
-          abi: marketplace.abi,
-          functionName: "getActiveListings",
-          args: [BigInt(0), LISTINGS_PAGE_SIZE],
-        })) as readonly [readonly ListingView[], bigint, boolean];
-
-        const chainListings = [...(listingTuple?.[0] ?? [])];
-        const uniqueTrancheIds = [
-          ...new Set(chainListings.map((item) => item.tokenId.toString())),
-        ].map((v) => BigInt(v));
-        const uniquePaymentTokens = [
-          ...new Set(chainListings.map((item) => item.paymentToken.toLowerCase())),
-        ] as `0x${string}`[];
-
-        const [tokenUris, tokenDecimals, configuredDefaultToken] = await Promise.all([
-          assetLedger?.address && assetLedger.abi
-            ? Promise.all(
-                uniqueTrancheIds.map(async (tokenId) => {
-                  try {
-                    const uri = (await publicReadClient.readContract({
-                      address: assetLedger.address,
-                      abi: assetLedger.abi,
-                      functionName: "uri",
-                      args: [tokenId],
-                    })) as string;
-                    return [tokenId.toString(), uri] as const;
-                  } catch {
-                    return [tokenId.toString(), ""] as const;
-                  }
-                }),
-              )
-            : Promise.resolve([] as ReadonlyArray<readonly [string, string]>),
-          Promise.all(
-            uniquePaymentTokens.map(async (token) => {
-              try {
-                const decimals = (await publicReadClient.readContract({
-                  address: token,
-                  abi: ERC20_DECIMALS_ABI,
-                  functionName: "decimals",
-                })) as number;
-                return [token.toLowerCase(), Number(decimals)] as const;
-              } catch {
-                return [token.toLowerCase(), 18] as const;
-              }
-            }),
-          ),
-          paymentRouter?.address && paymentRouter.abi
-            ? publicReadClient
-                .readContract({
-                  address: paymentRouter.address,
-                  abi: paymentRouter.abi,
-                  functionName: "MUSD",
-                })
-                .then((value) => value as `0x${string}`)
-                .catch(() => null)
-            : Promise.resolve(null),
-        ]);
-
-        const resolvedDefaultToken =
-          configuredDefaultToken ||
-          (runtime.trading.defaultPaymentTokenAddress as `0x${string}` | null);
-        let resolvedDefaultTokenDecimals = 18;
-        if (resolvedDefaultToken) {
-          try {
-            resolvedDefaultTokenDecimals = Number(
-              (await publicReadClient.readContract({
-                address: resolvedDefaultToken,
-                abi: ERC20_DECIMALS_ABI,
-                functionName: "decimals",
-              })) as number,
-            );
-          } catch {
-            resolvedDefaultTokenDecimals = 18;
-          }
-        }
-
-        if (cancelled) return;
-
-        setListings(chainListings);
-        setTokenUriMap(Object.fromEntries(tokenUris));
-        setPaymentTokenDecimalsMap(Object.fromEntries(tokenDecimals));
-        setDefaultPaymentToken(resolvedDefaultToken);
-        setDefaultPaymentTokenDecimals(resolvedDefaultTokenDecimals);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-
-    void fetchChainData();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    assetLedger?.abi,
-    assetLedger?.address,
-    marketplace?.abi,
-    marketplace?.address,
-    paymentRouter?.abi,
-    paymentRouter?.address,
-    publicReadClient,
-    reloadToken,
-    runtime.trading.defaultPaymentTokenAddress,
-  ]);
-
-  const chainAssets = useMemo(() => {
-    return listings.map((listing) => {
-      const listingId = Number(listing.listingId);
-      const tokenId = Number(listing.tokenId);
-      const paymentTokenKey = listing.paymentToken.toLowerCase();
-      const paymentDecimals = paymentTokenDecimalsMap[paymentTokenKey] ?? 18;
-      const unitPrice = Number(formatUnits(listing.pricePerUnit, paymentDecimals));
-      const amount = Number(formatUnits(listing.amountRemaining, 18));
-      const uri = tokenUriMap[listing.tokenId.toString()];
-      const veLabel = inferVeLabelFromUri(uri);
-      const totalValue =
-        typeof listing.totalPriceRemaining === "bigint"
-          ? Number(formatUnits(listing.totalPriceRemaining, paymentDecimals))
-          : unitPrice * amount;
-
-      return {
-        id: `listing-${listingId}`,
-        name: `${veLabel} Fraction #${tokenId}`,
-        symbol: `${veLabel}-${tokenId}`,
-        thumbnail: veLabel === "veBTC" ? "🟧" : veLabel === "veMEZO" ? "🟩" : "🧩",
-        priceUsd: unitPrice,
-        volume24hUsd: totalValue,
-        change24hPct: undefined,
-        category: "locked",
-      } satisfies TradeAsset;
-    });
-  }, [listings, paymentTokenDecimalsMap, tokenUriMap]);
+  const refreshListing = useCallback(() => {
+    refresh();
+  }, [refresh]);
 
   const filteredAssets = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -276,8 +101,7 @@ export function useTradeListing() {
       );
     }
 
-    const paymentToken =
-      defaultPaymentToken || (runtime.trading.defaultPaymentTokenAddress as `0x${string}` | null);
+    const paymentToken = defaultPaymentToken;
     if (!paymentToken) {
       throw new Error(
         "No payment token configured. Set NEXT_PUBLIC_DEFAULT_PAYMENT_TOKEN_ADDRESS or configure PaymentRouter.MUSD.",
@@ -311,7 +135,7 @@ export function useTradeListing() {
         },
       });
 
-      await refreshListing();
+      refreshListing();
 
       return {
         id: txResult.hash,
@@ -337,7 +161,8 @@ export function useTradeListing() {
     setChangeFilter,
     categoryFilter,
     setCategoryFilter,
-    isLoading,
+    isLoading: isLoading || isRefreshing,
+    error,
     refreshListing,
     createVeListing,
     isSubmittingListing,
