@@ -26,6 +26,10 @@ export function TradeAssetListing() {
     refreshListing,
     createVeListing,
     isSubmittingListing,
+    paymentTokenOptions,
+    isLoadingPaymentTokens,
+    paymentTokenError,
+    refreshPaymentTokens,
     filteredAssets,
     totalCount,
   } = useTradeListing();
@@ -50,6 +54,10 @@ export function TradeAssetListing() {
               onCreateListing={createVeListing}
               onCreated={setLastCreated}
               isSubmitting={isSubmittingListing}
+              paymentTokenOptions={paymentTokenOptions}
+              isLoadingPaymentTokens={isLoadingPaymentTokens}
+              paymentTokenError={paymentTokenError}
+              onRefreshPaymentTokens={refreshPaymentTokens}
             />
           </div>
           <CardTitle className="text-2xl sm:text-3xl">Browse and trade available assets.</CardTitle>

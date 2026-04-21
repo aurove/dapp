@@ -25,8 +25,11 @@ export type TradeVeAssetType = "veBTC" | "veMEZO";
 
 export type CreateVeTradeListingInput = {
   veAssetType: TradeVeAssetType;
+  veNftAddress: `0x${string}`;
   veNftTokenId: bigint;
   listAmount: string;
+  paymentToken: `0x${string}`;
+  paymentTokenDecimals: number;
   unitPriceUsd: string;
   expiryDays: number;
 };
