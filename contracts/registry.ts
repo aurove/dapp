@@ -14,6 +14,7 @@ const contracts = {
             { internalType: "address", name: "ledger_", type: "address" },
             { internalType: "contract IVotingEscrow", name: "veNFT_", type: "address" },
             { internalType: "string", name: "name_", type: "string" },
+            { internalType: "string", name: "symbol_", type: "string" },
             { internalType: "uint256", name: "trancheId_", type: "uint256" },
           ],
           stateMutability: "nonpayable",
@@ -173,6 +174,13 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "decimals",
+          outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [{ internalType: "uint256", name: "index_", type: "uint256" }],
           name: "heldVeNftAt",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -277,6 +285,13 @@ const contracts = {
         },
         {
           inputs: [],
+          name: "symbol",
+          outputs: [{ internalType: "string", name: "", type: "string" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "targetEnd",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
@@ -332,6 +347,7 @@ const contracts = {
           inputs: [
             { internalType: "contract IVotingEscrow", name: "veNFT_", type: "address" },
             { internalType: "string", name: "name_", type: "string" },
+            { internalType: "string", name: "symbol_", type: "string" },
             { internalType: "uint256", name: "trancheId_", type: "uint256" },
           ],
           name: "deploy",
