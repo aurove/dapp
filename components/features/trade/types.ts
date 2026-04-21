@@ -32,4 +32,7 @@ export type CreateVeTradeListingInput = {
   paymentTokenDecimals: number;
   unitPriceUsd: string;
   expiryDays: number;
+  requiresVeNftApproval?: boolean;
+  requiresListingOperatorApproval?: boolean;
+  requiresFractionTransferApproval?: boolean;
 };

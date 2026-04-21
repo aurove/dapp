@@ -20,7 +20,8 @@
     "react-dom": "19.2.4",
     "react-icons": "^5.6.0",
     "viem": "2.48.1",
-    "wagmi": "2.19.5"
+    "wagmi": "2.19.5",
+    "yup": "^1.7.1"
   },
   "dependenciesMeta": {
     "@fractals/tx-flow": {

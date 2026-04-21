@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useFormik } from "formik";
+import * as yup from "yup";
+import { TransactionFlowButton, type TxStep } from "@fractals/tx-flow";
 import { Button } from "@fractals/ui/components/ui/button";
 import {
   Dialog,
@@ -14,19 +16,56 @@ import {
 } from "@fractals/ui/components/ui/dialog";
 import { Input } from "@fractals/ui/components/ui/input";
 import { Skeleton } from "@fractals/ui/components/ui/skeleton";
-import { RefreshCw } from "lucide-react";
-import { useUserVeTokens } from "../hooks/use-user-ve-tokens";
+import { CheckCircle2, CircleAlert, RefreshCw } from "lucide-react";
+import { erc721Abi, formatUnits, parseUnits } from "viem";
+import { useAccount, useReadContract } from "wagmi";
+import { useListingPreview } from "../hooks/use-listing-preview";
+import { useUserVeNFTs } from "../hooks/use-user-ve-nfts";
 import type { CreateVeTradeListingInput, TradeAsset, TradeVeAssetType } from "../types";
 
+const MARKETPLACE_OPERATOR_ABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "seller", type: "address" },
+      { internalType: "address", name: "operator", type: "address" },
+    ],
+    name: "isListingOperator",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+const ERC1155_APPROVAL_ABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "account", type: "address" },
+      { internalType: "address", name: "operator", type: "address" },
+    ],
+    name: "isApprovedForAll",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
 type TradeCreateListingDialogProps = {
-  onCreateListing: (input: CreateVeTradeListingInput) => Promise<TradeAsset>;
+  createVeListingSteps: (input: CreateVeTradeListingInput) => TxStep[];
+  canCreateListing: boolean;
+  mapCreatedListingAsset: (input: CreateVeTradeListingInput, hash: string) => TradeAsset;
   onCreated?: (asset: TradeAsset) => void;
-  isSubmitting?: boolean;
+  listingWorkflowContracts: {
+    listingWrapperAddress: `0x${string}`;
+    assetLedgerAddress: `0x${string}`;
+    marketplaceAddress: `0x${string}`;
+  } | null;
+  blockExplorerUrl: string | null;
   paymentTokenOptions: Array<{
     address: `0x${string}`;
     symbol: string;
     decimals: number;
   }>;
+  protocolFeeBps?: number | null;
   isLoadingPaymentTokens?: boolean;
   paymentTokenError?: Error | null;
   onRefreshPaymentTokens?: () => void;
@@ -46,182 +85,416 @@ const INITIAL_FORM: FormState = {
   veNftTokenId: "",
   listAmount: "1",
   paymentToken: "",
-  unitPriceUsd: "0.90",
+  unitPriceUsd: "0",
   expiryDays: "30",
 };
 
+const EXPIRY_PRESETS = [7, 14, 30] as const;
+
+function formatTokenValue(value: number): string {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value);
+}
+
+function normalizeInputAmount(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "0";
+  return value.toFixed(6).replace(/\.?0+$/, "");
+}
+
+function asTrimmedString(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value).trim();
+  return "";
+}
+
 export function TradeCreateListingDialog({
-  onCreateListing,
+  createVeListingSteps,
+  canCreateListing,
+  mapCreatedListingAsset,
   onCreated,
-  isSubmitting = false,
+  listingWorkflowContracts,
+  blockExplorerUrl,
   paymentTokenOptions,
+  protocolFeeBps = null,
   isLoadingPaymentTokens = false,
   paymentTokenError = null,
   onRefreshPaymentTokens,
 }: TradeCreateListingDialogProps) {
   const [open, setOpen] = useState(false);
-  const { veTokens, isConnected, isLoading, isFetching, error, refresh } = useUserVeTokens();
+  const [stepIndex, setStepIndex] = useState(1);
+  const [stepValidationErrors, setStepValidationErrors] = useState<string[]>([]);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [successHash, setSuccessHash] = useState<`0x${string}` | null>(null);
+  const { address: userAddress } = useAccount();
+  const {
+    veCollections,
+    isConnected,
+    isLoading,
+    isFetching,
+    error,
+    refresh: refreshVeNfts,
+  } = useUserVeNFTs();
+
+  const resolveCollection = (values: FormState) =>
+    veCollections.find((collection) => collection.assetType === values.veAssetType) ?? null;
+  const resolveSelectedNft = (values: FormState) => {
+    const collection = resolveCollection(values);
+    if (!collection) return null;
+    return (
+      collection.veNfts.find((veNft) => veNft.tokenId.toString() === values.veNftTokenId) ?? null
+    );
+  };
+  const validationSchema = useMemo(() => {
+    return yup.object({
+      veAssetType: yup
+        .string()
+        .required("Select a ve asset with available NFTs.")
+        .test("wallet-connected", "Connect your wallet to load veNFTs.", () => isConnected)
+        .test("asset-has-positions", "Select a ve asset with available NFTs.", (value) => {
+          if (!value) return false;
+          return veCollections.some(
+            (collection) => collection.assetType === value && collection.veNfts.length > 0,
+          );
+        }),
+      veNftTokenId: yup
+        .string()
+        .required("Choose a veNFT from your wallet.")
+        .test("token-exists", "Choose a veNFT from your wallet.", function (value) {
+          const parent = this.parent as FormState;
+          const selected = resolveSelectedNft(parent);
+          if (!value) return false;
+          return Boolean(selected && selected.tokenId.toString() === value);
+        }),
+      listAmount: yup
+        .string()
+        .required("List amount must be greater than 0.")
+        .test("list-valid", "List amount must be a valid number.", (value) => {
+          if (!value) return false;
+          return Number.isFinite(Number.parseFloat(value.trim()));
+        })
+        .test("list-positive", "List amount must be greater than 0.", (value) => {
+          if (!value) return false;
+          return Number.parseFloat(value.trim()) > 0;
+        })
+        .test(
+          "list-under-capacity",
+          "List amount cannot exceed available fraction capacity.",
+          function (value) {
+            const parent = this.parent as FormState;
+            const selected = resolveSelectedNft(parent);
+            if (!selected || !value) return true;
+            try {
+              const listRaw = parseUnits(value.trim(), 18);
+              return listRaw <= selected.availableFractionCapacityRaw;
+            } catch {
+              return false;
+            }
+          },
+        ),
+      paymentToken: yup.string().required("Select a supported payment token."),
+      unitPriceUsd: yup
+        .string()
+        .required("Unit price must be greater than 0.")
+        .test("unit-price-valid", "Unit price must be greater than 0.", (value) => {
+          if (!value) return false;
+          const parsed = Number.parseFloat(value.trim());
+          return Number.isFinite(parsed) && parsed > 0;
+        }),
+      expiryDays: yup
+        .string()
+        .required("Expiry must be at least 1 day.")
+        .test("expiry-valid", "Expiry must be at least 1 day.", (value) => {
+          if (!value) return false;
+          const parsed = Number.parseInt(value, 10);
+          return Number.isFinite(parsed) && parsed >= 1;
+        }),
+    });
+  }, [isConnected, veCollections]);
 
   const formik = useFormik<FormState>({
     initialValues: INITIAL_FORM,
-    validate(values) {
-      const errors: Partial<Record<keyof FormState, string>> = {};
-      const selectedToken = veTokens.find((token) => token.assetType === values.veAssetType);
+    validationSchema,
+    onSubmit: () => undefined,
+  });
 
-      if (!isConnected) {
-        errors.veAssetType = "Connect your wallet to load ve token balances.";
-      }
+  const selectedCollection = useMemo(
+    () => resolveCollection(formik.values),
+    [formik.values, veCollections],
+  );
+  const selectedNft = useMemo(
+    () => resolveSelectedNft(formik.values),
+    [formik.values, selectedCollection],
+  );
 
-      if (!selectedToken) {
-        errors.veAssetType = "Select an available ve token with a non-zero balance.";
-      }
+  const selectedPaymentToken = useMemo(
+    () =>
+      paymentTokenOptions.find(
+        (token) => token.address.toLowerCase() === formik.values.paymentToken.toLowerCase(),
+      ) ?? null,
+    [formik.values.paymentToken, paymentTokenOptions],
+  );
 
-      let veNftTokenId = 0n;
-      try {
-        veNftTokenId = BigInt(values.veNftTokenId || "0");
-      } catch {
-        errors.veNftTokenId = "veNFT token ID must be a valid integer.";
-      }
+  const canReadApprovals = Boolean(userAddress && selectedCollection && listingWorkflowContracts);
 
-      if (!errors.veNftTokenId && veNftTokenId < 1n) {
-        errors.veNftTokenId = "veNFT token ID must be greater than 0.";
-      }
-      if (selectedToken && !selectedToken.tokenIds.some((tokenId) => tokenId === veNftTokenId)) {
-        errors.veNftTokenId = "Choose a veNFT token ID from your wallet balance.";
-      }
-
-      if (Number.parseFloat(values.listAmount.trim()) <= 0) {
-        errors.listAmount = "List amount must be greater than 0.";
-      }
-      if (!values.paymentToken) {
-        errors.paymentToken = "Select a supported payment token.";
-      }
-
-      if (Number.parseFloat(values.unitPriceUsd.trim()) <= 0) {
-        errors.unitPriceUsd = "Unit price must be greater than 0.";
-      }
-
-      const expiryDays = Number.parseInt(values.expiryDays, 10);
-      if (!Number.isFinite(expiryDays) || expiryDays < 1) {
-        errors.expiryDays = "Expiry must be at least 1 day.";
-      }
-
-      return errors;
-    },
-    async onSubmit(values, actions) {
-      let veNftTokenId = 0n;
-      try {
-        veNftTokenId = BigInt(values.veNftTokenId || "0");
-      } catch {
-        actions.setStatus("veNFT token ID must be a valid integer.");
-        actions.setSubmitting(false);
-        return;
-      }
-
-      try {
-        actions.setStatus(undefined);
-        const selectedPaymentToken = paymentTokenOptions.find(
-          (token) => token.address.toLowerCase() === values.paymentToken.toLowerCase(),
-        );
-        if (!selectedToken || !selectedPaymentToken) {
-          actions.setStatus("Select a valid ve token and payment token before publishing.");
-          actions.setSubmitting(false);
-          return;
-        }
-        const created = await onCreateListing({
-          veAssetType: values.veAssetType,
-          veNftAddress: selectedToken.contractAddress,
-          veNftTokenId,
-          listAmount: values.listAmount.trim(),
-          paymentToken: selectedPaymentToken.address,
-          paymentTokenDecimals: selectedPaymentToken.decimals,
-          unitPriceUsd: values.unitPriceUsd.trim(),
-          expiryDays: Number.parseInt(values.expiryDays, 10),
-        });
-        onCreated?.(created);
-        setOpen(false);
-        actions.resetForm();
-      } catch (submitError) {
-        actions.setStatus(
-          submitError instanceof Error ? submitError.message : "Failed to publish listing.",
-        );
-      } finally {
-        actions.setSubmitting(false);
-      }
+  const veNftApprovalRead = useReadContract({
+    address: selectedCollection?.contractAddress,
+    abi: erc721Abi,
+    functionName: "isApprovedForAll",
+    args:
+      userAddress && listingWorkflowContracts
+        ? [userAddress, listingWorkflowContracts.listingWrapperAddress]
+        : undefined,
+    query: {
+      enabled: canReadApprovals,
+      staleTime: 20_000,
+      gcTime: 5 * 60_000,
     },
   });
-  const selectedToken =
-    veTokens.find((token) => token.assetType === formik.values.veAssetType) ?? null;
-  const setFieldValue = formik.setFieldValue;
-  const veAssetTypeValue = formik.values.veAssetType;
-  const veNftTokenIdValue = formik.values.veNftTokenId;
-  const paymentTokenValue = formik.values.paymentToken;
-  const submitting = isSubmitting || formik.isSubmitting;
-  const selectionDisabled =
-    submitting || isLoading || isFetching || !isConnected || veTokens.length === 0;
-  const canSubmit =
-    !selectionDisabled &&
-    selectedToken !== null &&
-    selectedToken.tokenIds.length > 0 &&
-    formik.values.paymentToken.length > 0 &&
-    formik.values.veNftTokenId.trim().length > 0;
 
-  useEffect(() => {
-    if (veTokens.length === 0) return;
-    if (!veTokens.some((token) => token.assetType === veAssetTypeValue)) {
-      void setFieldValue("veAssetType", veTokens[0].assetType);
+  const marketplaceOperatorRead = useReadContract({
+    address: listingWorkflowContracts?.marketplaceAddress,
+    abi: MARKETPLACE_OPERATOR_ABI,
+    functionName: "isListingOperator",
+    args:
+      userAddress && listingWorkflowContracts
+        ? [userAddress, listingWorkflowContracts.listingWrapperAddress]
+        : undefined,
+    query: {
+      enabled: canReadApprovals,
+      staleTime: 20_000,
+      gcTime: 5 * 60_000,
+    },
+  });
+
+  const fractionApprovalRead = useReadContract({
+    address: listingWorkflowContracts?.assetLedgerAddress,
+    abi: ERC1155_APPROVAL_ABI,
+    functionName: "isApprovedForAll",
+    args:
+      userAddress && listingWorkflowContracts
+        ? [userAddress, listingWorkflowContracts.marketplaceAddress]
+        : undefined,
+    query: {
+      enabled: canReadApprovals,
+      staleTime: 20_000,
+      gcTime: 5 * 60_000,
+    },
+  });
+
+  const approvals = useMemo(() => {
+    const veNftTransferApproved = veNftApprovalRead.data === true;
+    const marketplaceOperatorApproved = marketplaceOperatorRead.data === true;
+    const fractionTransferApproved = fractionApprovalRead.data === true;
+    const isChecking =
+      veNftApprovalRead.isPending ||
+      marketplaceOperatorRead.isPending ||
+      fractionApprovalRead.isPending ||
+      veNftApprovalRead.isFetching ||
+      marketplaceOperatorRead.isFetching ||
+      fractionApprovalRead.isFetching;
+
+    return {
+      veNftTransferApproved,
+      marketplaceOperatorApproved,
+      fractionTransferApproved,
+      isChecking,
+    };
+  }, [
+    fractionApprovalRead.data,
+    fractionApprovalRead.isFetching,
+    fractionApprovalRead.isPending,
+    marketplaceOperatorRead.data,
+    marketplaceOperatorRead.isFetching,
+    marketplaceOperatorRead.isPending,
+    veNftApprovalRead.data,
+    veNftApprovalRead.isFetching,
+    veNftApprovalRead.isPending,
+  ]);
+
+  const maxListAmount = useMemo(() => {
+    if (!selectedNft) return 0;
+    return Number.parseFloat(formatUnits(selectedNft.availableFractionCapacityRaw, 18));
+  }, [selectedNft]);
+
+  const listAmountValue = Number.parseFloat(asTrimmedString(formik.values.listAmount) || "0");
+  const sliderValue = Number.isFinite(listAmountValue)
+    ? Math.min(Math.max(listAmountValue, 0), Number.isFinite(maxListAmount) ? maxListAmount : 0)
+    : 0;
+
+  const listingPreview = useListingPreview({
+    selectedNft,
+    listAmount: formik.values.listAmount,
+    unitPrice: formik.values.unitPriceUsd,
+    expiryDays: formik.values.expiryDays,
+    paymentTokenSymbol: selectedPaymentToken?.symbol ?? null,
+    protocolFeeBps,
+  });
+
+  const preparedListingInput = useMemo(() => {
+    if (!selectedCollection || !selectedNft || !selectedPaymentToken || !canCreateListing) {
+      return null;
     }
-  }, [setFieldValue, veAssetTypeValue, veTokens]);
+
+    const expiryDays = Number.parseInt(formik.values.expiryDays, 10);
+    const unitPriceInput = asTrimmedString(formik.values.unitPriceUsd);
+    const listAmount = asTrimmedString(formik.values.listAmount);
+    const unitPrice = Number.parseFloat(unitPriceInput || "0");
+
+    if (!Number.isFinite(expiryDays) || expiryDays < 1) return null;
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) return null;
+    if (listAmount.length === 0) return null;
+
+    try {
+      const listRaw = parseUnits(listAmount, 18);
+      if (listRaw <= 0n || listRaw > selectedNft.availableFractionCapacityRaw) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+
+    return {
+      veAssetType: formik.values.veAssetType,
+      veNftAddress: selectedCollection.contractAddress,
+      veNftTokenId: selectedNft.tokenId,
+      listAmount,
+      paymentToken: selectedPaymentToken.address,
+      paymentTokenDecimals: selectedPaymentToken.decimals,
+      unitPriceUsd: unitPriceInput,
+      expiryDays,
+      requiresVeNftApproval: !approvals.veNftTransferApproved,
+      requiresListingOperatorApproval: !approvals.marketplaceOperatorApproved,
+      requiresFractionTransferApproval: !approvals.fractionTransferApproved,
+    } satisfies CreateVeTradeListingInput;
+  }, [
+    approvals.fractionTransferApproved,
+    approvals.marketplaceOperatorApproved,
+    approvals.veNftTransferApproved,
+    canCreateListing,
+    formik.values.expiryDays,
+    formik.values.listAmount,
+    formik.values.unitPriceUsd,
+    formik.values.veAssetType,
+    selectedCollection,
+    selectedNft,
+    selectedPaymentToken,
+  ]);
+
+  const listingSteps = useMemo(() => {
+    if (!preparedListingInput) return [];
+    try {
+      return createVeListingSteps(preparedListingInput);
+    } catch {
+      return [];
+    }
+  }, [createVeListingSteps, preparedListingInput]);
+
+  const canSubmit =
+    Boolean(preparedListingInput) &&
+    listingSteps.length > 0 &&
+    !isLoading &&
+    !isFetching &&
+    !isBroadcasting &&
+    isConnected;
+
+  const primaryActionLabel = useMemo(() => {
+    if (!preparedListingInput) return "List Asset";
+    if (preparedListingInput.requiresVeNftApproval) return "Approve";
+    if (preparedListingInput.requiresListingOperatorApproval) return "Approve Marketplace";
+    if (preparedListingInput.requiresFractionTransferApproval) return "Approve Fractions";
+    return "List Asset";
+  }, [preparedListingInput]);
+
+  const selectedExpiryPreset = useMemo(() => {
+    const current = Number.parseInt(formik.values.expiryDays, 10);
+    return EXPIRY_PRESETS.find((preset) => preset === current) ?? null;
+  }, [formik.values.expiryDays]);
+
+  const successHref =
+    successHash && blockExplorerUrl ? `${blockExplorerUrl}/tx/${successHash}` : null;
 
   useEffect(() => {
-    if (!selectedToken) {
-      if (veNftTokenIdValue) {
-        void setFieldValue("veNftTokenId", "");
+    if (veCollections.length === 0) return;
+    if (!veCollections.some((collection) => collection.assetType === formik.values.veAssetType)) {
+      void formik.setFieldValue("veAssetType", veCollections[0].assetType);
+    }
+  }, [formik.setFieldValue, formik.values.veAssetType, veCollections]);
+
+  useEffect(() => {
+    if (!selectedCollection || selectedCollection.veNfts.length === 0) {
+      if (formik.values.veNftTokenId) {
+        void formik.setFieldValue("veNftTokenId", "");
       }
       return;
     }
 
-    const hasCurrentTokenId = selectedToken.tokenIds.some(
-      (tokenId) => tokenId.toString() === veNftTokenIdValue,
+    const hasCurrentToken = selectedCollection.veNfts.some(
+      (veNft) => veNft.tokenId.toString() === formik.values.veNftTokenId,
     );
-    if (!hasCurrentTokenId) {
-      void setFieldValue("veNftTokenId", selectedToken.tokenIds[0]?.toString() ?? "");
+
+    if (!hasCurrentToken) {
+      void formik.setFieldValue("veNftTokenId", selectedCollection.veNfts[0].tokenId.toString());
     }
-  }, [setFieldValue, veNftTokenIdValue, selectedToken]);
+  }, [formik.setFieldValue, formik.values.veNftTokenId, selectedCollection]);
 
   useEffect(() => {
     if (paymentTokenOptions.length === 0) {
-      if (paymentTokenValue) {
-        void setFieldValue("paymentToken", "");
+      if (formik.values.paymentToken) {
+        void formik.setFieldValue("paymentToken", "");
       }
       return;
     }
+
     const exists = paymentTokenOptions.some(
-      (token) => token.address.toLowerCase() === paymentTokenValue.toLowerCase(),
+      (token) => token.address.toLowerCase() === formik.values.paymentToken.toLowerCase(),
     );
+
     if (!exists) {
-      void setFieldValue("paymentToken", paymentTokenOptions[0].address);
+      void formik.setFieldValue("paymentToken", paymentTokenOptions[0].address);
     }
-  }, [paymentTokenOptions, paymentTokenValue, setFieldValue]);
+  }, [formik.setFieldValue, formik.values.paymentToken, paymentTokenOptions]);
 
-  const previewSymbol = useMemo(() => {
-    return `${formik.values.veAssetType}-#${formik.values.veNftTokenId || "?"}`;
-  }, [formik.values.veAssetType, formik.values.veNftTokenId]);
-  const validationError = useMemo(() => {
-    if (formik.submitCount < 1) return null;
-    return (
-      formik.errors.veAssetType ??
-      formik.errors.veNftTokenId ??
-      formik.errors.paymentToken ??
-      formik.errors.listAmount ??
-      formik.errors.unitPriceUsd ??
-      formik.errors.expiryDays ??
-      null
-    );
-  }, [formik.errors, formik.submitCount]);
-
-  function resetForm() {
+  function resetFlow() {
+    setStepIndex(1);
+    setStepValidationErrors([]);
+    setSuccessHash(null);
     formik.resetForm();
+  }
+
+  function getStepFields(step: number): Array<keyof FormState> {
+    if (step === 1) return ["veAssetType", "veNftTokenId"];
+    if (step === 2) return ["listAmount", "unitPriceUsd", "paymentToken", "expiryDays"];
+    return [];
+  }
+
+  async function handleNextStep() {
+    const errors = await formik.validateForm();
+    const stepFields = getStepFields(stepIndex);
+    const messages = Array.from(
+      new Set(
+        stepFields
+          .map((field) => errors[field])
+          .filter(
+            (message): message is string => typeof message === "string" && message.length > 0,
+          ),
+      ),
+    );
+
+    if (messages.length > 0) {
+      setStepValidationErrors(messages);
+      await Promise.all(stepFields.map((field) => formik.setFieldTouched(field, true, false)));
+      return;
+    }
+
+    setStepValidationErrors([]);
+
+    if (stepIndex === 1) {
+      setStepIndex(2);
+      return;
+    }
+
+    if (stepIndex === 2) {
+      setStepIndex(3);
+    }
   }
 
   return (
@@ -229,217 +502,500 @@ export function TradeCreateListingDialog({
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
-        if (!nextOpen) resetForm();
+        if (!nextOpen) resetFlow();
       }}
     >
       <DialogTrigger asChild>
         <Button size="sm">List ve Asset</Button>
       </DialogTrigger>
 
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>List veBTC or veMEZO for Trading</DialogTitle>
+          <DialogTitle>Create ve Listing</DialogTitle>
           <DialogDescription>
-            Configure a ve listing and publish it to the trade board.
+            Guided flow: select your veNFT, configure listing terms, then run on-chain approvals and
+            listing.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={formik.handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-              1. Select ve asset
-            </p>
-            {isLoading ? (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <Skeleton className="h-14 w-full rounded-xl" />
-                <Skeleton className="h-14 w-full rounded-xl" />
-              </div>
-            ) : null}
-
-            {!isLoading && isConnected && veTokens.length > 0 ? (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {veTokens.map((token) => (
-                  <button
-                    key={`${token.assetType}-${token.contractAddress}`}
-                    type="button"
-                    disabled={selectionDisabled}
-                    onClick={() => void formik.setFieldValue("veAssetType", token.assetType)}
-                    className={`rounded-xl border px-3 py-2 text-left transition ${
-                      formik.values.veAssetType === token.assetType
-                        ? "border-[#b58f5f] bg-[#b58f5f]/10"
-                        : "border-white/15 bg-white/[0.02] hover:border-white/30"
-                    }`}
+        {successHash ? (
+          <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+            <div className="flex items-center justify-between gap-3">
+              <p>Listing transaction submitted successfully.</p>
+              <div className="flex items-center gap-2">
+                {successHref ? (
+                  <a
+                    href={successHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-emerald-100 underline underline-offset-4"
                   >
-                    <p className="text-sm font-semibold text-[var(--foreground)]">{token.symbol}</p>
-                    <p className="text-xs text-[var(--muted)]">{token.balanceFormatted}</p>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
-            {!isLoading && isConnected && veTokens.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-3 text-sm text-[var(--muted)]">
-                No ve token balances found in this wallet on the current network.
-              </div>
-            ) : null}
-
-            {!isConnected ? (
-              <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-3 text-sm text-[var(--muted)]">
-                Connect your wallet to view available ve token balances.
-              </div>
-            ) : null}
-
-            {error ? (
-              <div className="rounded-xl border border-red-500/35 bg-red-500/10 p-3 text-sm text-red-200">
-                <p>Could not load ve token balances.</p>
+                    View Transaction
+                  </a>
+                ) : null}
                 <Button
                   type="button"
                   size="sm"
                   variant="secondary"
-                  className="mt-2"
-                  onClick={refresh}
-                  disabled={selectionDisabled}
+                  onClick={() => setSuccessHash(null)}
                 >
-                  <RefreshCw className="h-4 w-4" />
-                  Retry
+                  Dismiss
                 </Button>
               </div>
-            ) : null}
-            {paymentTokenError ? (
-              <div className="rounded-xl border border-red-500/35 bg-red-500/10 p-3 text-sm text-red-200">
-                <p>Could not load payment token configuration.</p>
-                {onRefreshPaymentTokens ? (
+            </div>
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-3 gap-2 rounded-xl bg-white/[0.02] p-2">
+          {[
+            { id: 1, title: "Select Asset" },
+            { id: 2, title: "Configure" },
+            { id: 3, title: "Review" },
+          ].map((step) => {
+            const isActive = stepIndex === step.id;
+            const isComplete = stepIndex > step.id;
+
+            return (
+              <div
+                key={step.id}
+                className={`rounded-lg px-3 py-2 text-xs ${
+                  isActive
+                    ? "bg-[#b58f5f]/20 text-[var(--foreground)]"
+                    : isComplete
+                      ? "bg-emerald-500/15 text-emerald-200"
+                      : "bg-white/[0.02] text-[var(--muted)]"
+                }`}
+              >
+                <p className="font-semibold">Step {step.id}</p>
+                <p>{step.title}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        <form className="space-y-4">
+          {stepIndex === 1 ? (
+            <div className="space-y-4 rounded-xl bg-white/[0.02] p-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
+                  Token selection
+                </p>
+                {isLoading ? (
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Skeleton className="h-14 w-full rounded-xl" />
+                    <Skeleton className="h-14 w-full rounded-xl" />
+                  </div>
+                ) : null}
+
+                {!isLoading && isConnected && veCollections.length > 0 ? (
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {veCollections.map((collection) => (
+                      <button
+                        key={`${collection.assetType}-${collection.contractAddress}`}
+                        type="button"
+                        disabled={isBroadcasting}
+                        onClick={() =>
+                          void formik.setFieldValue("veAssetType", collection.assetType)
+                        }
+                        className={`rounded-xl px-3 py-2 text-left transition ${
+                          formik.values.veAssetType === collection.assetType
+                            ? "bg-[#b58f5f]/15"
+                            : "bg-white/[0.02] hover:bg-white/[0.05]"
+                        }`}
+                      >
+                        <p className="text-sm font-semibold text-[var(--foreground)]">
+                          {collection.symbol}
+                        </p>
+                        <p className="text-xs text-[var(--muted)]">{collection.balanceFormatted}</p>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="h-px bg-white/10" />
+
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
+                  Owned veNFTs
+                </p>
+                <select
+                  name="veNftTokenId"
+                  value={formik.values.veNftTokenId}
+                  onChange={formik.handleChange}
+                  disabled={
+                    !selectedCollection || selectedCollection.veNfts.length === 0 || isBroadcasting
+                  }
+                  className="h-10 w-full rounded-xl bg-white/[0.02] px-3 text-sm text-white outline-none ring-offset-[#0c1117] focus-visible:ring-2 focus-visible:ring-[#b58f5f]"
+                >
+                  <option value="">Select veNFT</option>
+                  {(selectedCollection?.veNfts ?? []).map((veNft) => (
+                    <option key={veNft.tokenId.toString()} value={veNft.tokenId.toString()}>
+                      #{veNft.tokenId.toString()} • Lock {veNft.lockAmountFormatted}
+                    </option>
+                  ))}
+                </select>
+
+                {selectedNft ? (
+                  <div className="rounded-xl bg-white/[0.03] p-3 text-sm">
+                    <p className="font-semibold text-[var(--foreground)]">
+                      {selectedNft.symbol} #{selectedNft.tokenId.toString()}
+                    </p>
+                    <div className="mt-2 grid gap-2 text-xs text-[var(--muted)] sm:grid-cols-3">
+                      <p>Lock value: {selectedNft.lockAmountFormatted}</p>
+                      <p>Lock end: {selectedNft.lockEndLabel}</p>
+                      <p>Fraction capacity: {selectedNft.availableFractionCapacityFormatted}</p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {!isLoading && isConnected && veCollections.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-3 text-sm text-[var(--muted)]">
+                  No veNFTs available to list.
+                </div>
+              ) : null}
+
+              {!isConnected ? (
+                <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-3 text-sm text-[var(--muted)]">
+                  Connect your wallet to view available veNFT positions.
+                </div>
+              ) : null}
+
+              {error ? (
+                <div className="rounded-xl border border-red-500/35 bg-red-500/10 p-3 text-sm text-red-200">
+                  <p>Could not load veNFT data.</p>
                   <Button
                     type="button"
                     size="sm"
                     variant="secondary"
                     className="mt-2"
-                    onClick={onRefreshPaymentTokens}
-                    disabled={selectionDisabled}
+                    onClick={refreshVeNfts}
+                    disabled={isBroadcasting}
                   >
                     <RefreshCw className="h-4 w-4" />
                     Retry
                   </Button>
-                ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {stepIndex === 2 ? (
+            <div className="space-y-4 rounded-xl bg-white/[0.02] p-4">
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
+                  List amount
+                </p>
+                <Input
+                  name="listAmount"
+                  type="number"
+                  min={0}
+                  max={Number.isFinite(maxListAmount) ? maxListAmount : undefined}
+                  step={0.000001}
+                  value={formik.values.listAmount}
+                  onChange={formik.handleChange}
+                  disabled={!selectedNft || isBroadcasting}
+                />
+                <input
+                  type="range"
+                  min={0}
+                  max={Number.isFinite(maxListAmount) && maxListAmount > 0 ? maxListAmount : 1}
+                  step={0.000001}
+                  value={sliderValue}
+                  disabled={!selectedNft || maxListAmount <= 0 || isBroadcasting}
+                  onChange={(event) =>
+                    void formik.setFieldValue(
+                      "listAmount",
+                      normalizeInputAmount(Number.parseFloat(event.target.value)),
+                    )
+                  }
+                  className="w-full accent-[#b58f5f]"
+                />
+                <p className="text-xs text-[var(--muted)]">
+                  Max: {selectedNft?.availableFractionCapacityFormatted ?? "0"} fractions
+                </p>
               </div>
-            ) : null}
-          </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-2">
-              <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-                2. veNFT token ID
-              </p>
-              <select
-                name="veNftTokenId"
-                value={formik.values.veNftTokenId}
-                onChange={formik.handleChange}
-                disabled={selectionDisabled || !selectedToken || selectedToken.tokenIds.length === 0}
-                className="h-10 w-full rounded-xl border border-white/15 bg-white/[0.02] px-3 text-sm text-white outline-none ring-offset-[#0c1117] focus-visible:ring-2 focus-visible:ring-[#b58f5f]"
-              >
-                <option value="">Select token ID</option>
-                {(selectedToken?.tokenIds ?? []).map((tokenId) => (
-                  <option key={tokenId.toString()} value={tokenId.toString()}>
-                    #{tokenId.toString()}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <div className="h-px bg-white/10" />
 
-            <label className="space-y-2">
-              <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-                3. Payment token
-              </p>
-              <select
-                name="paymentToken"
-                value={formik.values.paymentToken}
-                onChange={formik.handleChange}
-                disabled={
-                  selectionDisabled || isLoadingPaymentTokens || paymentTokenOptions.length === 0
-                }
-                className="h-10 w-full rounded-xl border border-white/15 bg-white/[0.02] px-3 text-sm text-white outline-none ring-offset-[#0c1117] focus-visible:ring-2 focus-visible:ring-[#b58f5f]"
-              >
-                <option value="">Select payment token</option>
-                {paymentTokenOptions.map((token) => (
-                  <option key={token.address} value={token.address}>
-                    {token.symbol}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-2">
+                  <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
+                    Unit price
+                  </p>
+                  <Input
+                    name="unitPriceUsd"
+                    type="number"
+                    min={0}
+                    step={0.000001}
+                    value={formik.values.unitPriceUsd}
+                    onChange={formik.handleChange}
+                    disabled={isBroadcasting}
+                  />
+                  <p className="text-xs text-[var(--muted)]">Price per fraction.</p>
+                </label>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-2">
-              <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-                4. List amount
-              </p>
-              <Input
-                name="listAmount"
-                type="number"
-                min={0}
-                step={0.000001}
-                value={formik.values.listAmount}
-                onChange={formik.handleChange}
-                disabled={selectionDisabled}
-              />
-            </label>
-          </div>
+                <label className="space-y-2">
+                  <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
+                    Payment token
+                  </p>
+                  <select
+                    name="paymentToken"
+                    value={formik.values.paymentToken}
+                    onChange={formik.handleChange}
+                    disabled={
+                      isLoadingPaymentTokens || paymentTokenOptions.length === 0 || isBroadcasting
+                    }
+                    className="h-10 w-full rounded-xl bg-white/[0.02] px-3 text-sm text-white outline-none ring-offset-[#0c1117] focus-visible:ring-2 focus-visible:ring-[#b58f5f]"
+                  >
+                    <option value="">Select payment token</option>
+                    {paymentTokenOptions.map((token) => (
+                      <option key={token.address} value={token.address}>
+                        {token.symbol}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-2">
-              <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-                5. Unit price
-              </p>
-              <Input
-                name="unitPriceUsd"
-                type="number"
-                min={0}
-                step={0.000001}
-                value={formik.values.unitPriceUsd}
-                onChange={formik.handleChange}
-                disabled={selectionDisabled}
-              />
-            </label>
+              <div className="rounded-xl bg-white/[0.03] p-3 text-xs text-[var(--muted)]">
+                Total value preview: {listingPreview.totalValueLabel}
+              </div>
 
-            <label className="space-y-2">
-              <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-                6. Expiry (days)
-              </p>
-              <Input
-                name="expiryDays"
-                type="number"
-                min={1}
-                step={1}
-                value={formik.values.expiryDays}
-                onChange={formik.handleChange}
-                disabled={selectionDisabled}
-              />
-            </label>
-          </div>
+              <div className="h-px bg-white/10" />
 
-          <div className="rounded-xl border border-white/15 bg-white/[0.03] p-3 text-sm text-[var(--muted)]">
-            Preview Symbol:{" "}
-            <span className="font-semibold text-[var(--foreground)]">{previewSymbol}</span>
-          </div>
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">Expiry</p>
+                <div className="flex flex-wrap gap-2">
+                  {EXPIRY_PRESETS.map((preset) => (
+                    <Button
+                      key={preset}
+                      type="button"
+                      size="sm"
+                      variant={selectedExpiryPreset === preset ? "default" : "secondary"}
+                      onClick={() => void formik.setFieldValue("expiryDays", String(preset))}
+                      disabled={isBroadcasting}
+                    >
+                      {preset} days
+                    </Button>
+                  ))}
+                </div>
+                <Input
+                  name="expiryDays"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={formik.values.expiryDays}
+                  onChange={formik.handleChange}
+                  disabled={isBroadcasting}
+                />
+              </div>
 
-          {validationError || formik.status ? (
+              {paymentTokenError ? (
+                <div className="rounded-xl border border-red-500/35 bg-red-500/10 p-3 text-sm text-red-200">
+                  <p>Could not load payment token configuration.</p>
+                  {onRefreshPaymentTokens ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="mt-2"
+                      onClick={onRefreshPaymentTokens}
+                      disabled={isBroadcasting}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Retry
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {stepIndex === 3 ? (
+            <div className="space-y-4 rounded-xl bg-white/[0.02] p-4">
+              <div className="rounded-xl bg-white/[0.03] p-3">
+                <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
+                  Listing summary
+                </p>
+                <p className="mt-2 text-sm font-semibold text-[var(--foreground)]">
+                  {(selectedCollection?.symbol ?? formik.values.veAssetType) +
+                    " #" +
+                    (selectedNft?.tokenId.toString() ?? "?")}
+                </p>
+                <div className="mt-2 grid gap-2 text-xs text-[var(--muted)] sm:grid-cols-2">
+                  <p>{listingPreview.listedFractionsLabel} listed</p>
+                  <p>
+                    Price: {formatTokenValue(listingPreview.unitPriceValue)}{" "}
+                    {selectedPaymentToken?.symbol ?? ""} / unit
+                  </p>
+                  <p>Total value: {listingPreview.totalValueLabel}</p>
+                  <p>Expiry: {listingPreview.expiryLabel}</p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-white/[0.03] p-3 text-xs text-[var(--muted)]">
+                  <p className="font-semibold text-[var(--foreground)]">What you list</p>
+                  <p className="mt-1">{listingPreview.listedFractionsLabel}</p>
+                  <p className="mt-1">
+                    {listingPreview.listedPercentage.toFixed(2)}% of available capacity
+                  </p>
+                </div>
+                <div className="rounded-xl bg-white/[0.03] p-3 text-xs text-[var(--muted)]">
+                  <p className="font-semibold text-[var(--foreground)]">What you keep</p>
+                  <p className="mt-1">{listingPreview.remainingFractionsLabel}</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-white/[0.03] p-3 text-xs text-[var(--muted)]">
+                <p>Estimated fees: {listingPreview.feeAmountLabel}</p>
+                <p className="mt-1">
+                  Estimated seller proceeds: {listingPreview.sellerProceedsLabel}
+                </p>
+              </div>
+
+              <div className="h-px bg-white/10" />
+
+              <div className="space-y-2 text-xs">
+                <p className="uppercase tracking-[0.12em] text-[var(--muted)]">
+                  Approvals and transaction flow
+                </p>
+
+                <div className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2">
+                  <p className="text-[var(--muted)]">veNFT transfer approval</p>
+                  <p className="flex items-center gap-1 text-sm">
+                    {approvals.isChecking ? (
+                      <span className="text-[var(--muted)]">Checking...</span>
+                    ) : approvals.veNftTransferApproved ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                        <span className="text-emerald-300">Approved</span>
+                      </>
+                    ) : (
+                      <>
+                        <CircleAlert className="h-4 w-4 text-amber-300" />
+                        <span className="text-amber-300">Approval required</span>
+                      </>
+                    )}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2">
+                  <p className="text-[var(--muted)]">Marketplace operator approval</p>
+                  <p className="flex items-center gap-1 text-sm">
+                    {approvals.isChecking ? (
+                      <span className="text-[var(--muted)]">Checking...</span>
+                    ) : approvals.marketplaceOperatorApproved ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                        <span className="text-emerald-300">Approved</span>
+                      </>
+                    ) : (
+                      <>
+                        <CircleAlert className="h-4 w-4 text-amber-300" />
+                        <span className="text-amber-300">Approval required</span>
+                      </>
+                    )}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2">
+                  <p className="text-[var(--muted)]">Fraction transfer approval</p>
+                  <p className="flex items-center gap-1 text-sm">
+                    {approvals.isChecking ? (
+                      <span className="text-[var(--muted)]">Checking...</span>
+                    ) : approvals.fractionTransferApproved ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                        <span className="text-emerald-300">Approved</span>
+                      </>
+                    ) : (
+                      <>
+                        <CircleAlert className="h-4 w-4 text-amber-300" />
+                        <span className="text-amber-300">Approval required</span>
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {stepValidationErrors.length > 0 ? (
+            <div className="rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              {stepValidationErrors.map((message) => (
+                <p key={message}>{message}</p>
+              ))}
+            </div>
+          ) : null}
+          {formik.status ? (
             <p className="rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-              {String(validationError ?? formik.status)}
+              {String(formik.status)}
             </p>
           ) : null}
+
           <DialogFooter>
             <Button
               type="button"
               variant="secondary"
               onClick={() => setOpen(false)}
-              disabled={submitting}
+              disabled={isBroadcasting}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!canSubmit}>
-              {submitting ? "Publishing..." : "Publish Listing"}
-            </Button>
+
+            {stepIndex > 1 ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setStepValidationErrors([]);
+                  setStepIndex((current) => Math.max(1, current - 1));
+                }}
+                disabled={isBroadcasting}
+              >
+                Back
+              </Button>
+            ) : null}
+
+            {stepIndex < 3 ? (
+              <Button type="button" onClick={handleNextStep} disabled={isBroadcasting}>
+                Continue
+              </Button>
+            ) : (
+              <TransactionFlowButton
+                steps={listingSteps}
+                disabled={!canSubmit}
+                onStart={() => {
+                  setSuccessHash(null);
+                  setIsBroadcasting(true);
+                  formik.setStatus(undefined);
+                }}
+                onComplete={(results) => {
+                  const txHash = [...results].reverse().find((result) => result.hash)?.hash;
+                  if (preparedListingInput && txHash) {
+                    onCreated?.(mapCreatedListingAsset(preparedListingInput, txHash));
+                    setSuccessHash(txHash);
+                  }
+                  refreshVeNfts();
+                }}
+                onError={(message) => {
+                  formik.setStatus(message || "Failed to publish listing.");
+                }}
+                onRunningChange={(running) => {
+                  setIsBroadcasting(running);
+                }}
+                render={({ disabled, onClick, label }) => (
+                  <Button type="button" disabled={disabled} onClick={onClick}>
+                    {isBroadcasting ? String(label) : primaryActionLabel}
+                  </Button>
+                )}
+              >
+                {primaryActionLabel}
+              </TransactionFlowButton>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>

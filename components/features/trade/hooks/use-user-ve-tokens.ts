@@ -13,12 +13,14 @@ const ERC721_ENUMERABLE_ABI = [
       { internalType: "address", name: "owner", type: "address" },
       { internalType: "uint256", name: "index", type: "uint256" },
     ],
-    name: "tokenOfOwnerByIndex",
+    name: "ownerToNFTokenIdList",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
 ] as const;
+
+const MAX_TOKENS_PER_COLLECTION = 50;
 
 type UserVeToken = {
   assetType: TradeVeAssetType;
@@ -121,12 +123,17 @@ export function useUserVeTokens(): UseUserVeTokensResult {
       .map((candidate, index) => {
         const symbolResult = summaryReads.data?.[index * 2]?.result;
         const balanceResult = summaryReads.data?.[index * 2 + 1]?.result;
-        const balance = typeof balanceResult === "bigint" ? balanceResult : 0n;
+        const rawBalance = typeof balanceResult === "bigint" ? balanceResult : 0n;
+        const balance =
+          rawBalance > BigInt(MAX_TOKENS_PER_COLLECTION)
+            ? BigInt(MAX_TOKENS_PER_COLLECTION)
+            : rawBalance;
 
         return {
           ...candidate,
           symbol: typeof symbolResult === "string" ? symbolResult : candidate.assetType,
           balance,
+          rawBalance,
         };
       })
       .filter((item) => item.balance > 0n);
@@ -148,7 +155,7 @@ export function useUserVeTokens(): UseUserVeTokensResult {
         contracts.push({
           address: token.contractAddress,
           abi: ERC721_ENUMERABLE_ABI,
-          functionName: "tokenOfOwnerByIndex",
+          functionName: "ownerToNFTokenIdList",
           args: [userAddress, BigInt(index)],
           chainId,
         });
@@ -191,8 +198,8 @@ export function useUserVeTokens(): UseUserVeTokensResult {
         assetType: token.assetType,
         contractAddress: token.contractAddress,
         symbol: token.symbol,
-        balance: token.balance,
-        balanceFormatted: formatBalance(token.balance),
+        balance: token.rawBalance,
+        balanceFormatted: formatBalance(token.rawBalance),
         tokenIds,
       } satisfies UserVeToken;
     });

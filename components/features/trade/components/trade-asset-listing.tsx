@@ -24,9 +24,13 @@ export function TradeAssetListing() {
     setCategoryFilter,
     isLoading,
     refreshListing,
-    createVeListing,
-    isSubmittingListing,
+    createVeListingSteps,
+    canCreateListing,
+    mapCreatedListingAsset,
+    listingWorkflowContracts,
+    blockExplorerUrl,
     paymentTokenOptions,
+    protocolFeeBps,
     isLoadingPaymentTokens,
     paymentTokenError,
     refreshPaymentTokens,
@@ -51,10 +55,14 @@ export function TradeAssetListing() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Badge className="w-fit">Trade</Badge>
             <TradeCreateListingDialog
-              onCreateListing={createVeListing}
+              createVeListingSteps={createVeListingSteps}
+              canCreateListing={canCreateListing}
+              mapCreatedListingAsset={mapCreatedListingAsset}
+              listingWorkflowContracts={listingWorkflowContracts}
+              blockExplorerUrl={blockExplorerUrl}
               onCreated={setLastCreated}
-              isSubmitting={isSubmittingListing}
               paymentTokenOptions={paymentTokenOptions}
+              protocolFeeBps={protocolFeeBps}
               isLoadingPaymentTokens={isLoadingPaymentTokens}
               paymentTokenError={paymentTokenError}
               onRefreshPaymentTokens={refreshPaymentTokens}

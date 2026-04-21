@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useFormik } from "formik";
-import { parseUnits, erc20Abi, type Address } from "viem";
-import { executeAddressWrite, useTransactionFlowContext } from "@fractals/tx-flow";
+import { parseUnits, erc20Abi, erc721Abi, type Address } from "viem";
+import { createAddressWriteStep, type TxStep } from "@fractals/tx-flow";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { getRuntimeConfig } from "@/lib/config/env";
@@ -49,10 +49,11 @@ export function useTradeListing() {
   const txFlowChainId = useChainId();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = txFlowChainId ?? activeChain.id;
-  const txContext = useTransactionFlowContext();
   const runtime = getRuntimeConfig();
 
   const listingWrapper = getContractConfig(chainId, "VeNftFractionListing");
+  const assetLedger = getContractConfig(chainId, "AssetLedger");
+  const marketplace = getContractConfig(chainId, "Marketplace");
   const paymentRouter = getContractConfig(chainId, "PaymentRouter");
 
   const {
@@ -66,7 +67,6 @@ export function useTradeListing() {
     runtimeDefaultPaymentToken: runtime.trading.defaultPaymentTokenAddress as `0x${string}` | null,
   });
 
-  const [isSubmittingListing, setIsSubmittingListing] = useState(false);
   const paymentTokenConfigContracts = useMemo(
     () =>
       paymentRouter?.address && paymentRouter.abi
@@ -95,6 +95,12 @@ export function useTradeListing() {
               functionName: "MUSD",
               chainId,
             },
+            {
+              address: paymentRouter.address,
+              abi: paymentRouter.abi,
+              functionName: "protocolFeeBps",
+              chainId,
+            },
           ]
         : [],
     [chainId, paymentRouter],
@@ -120,6 +126,13 @@ export function useTradeListing() {
   const btcAddress = paymentTokenConfigReads.data?.[1]?.result as Address | undefined;
   const mezoAddress = paymentTokenConfigReads.data?.[2]?.result as Address | undefined;
   const musdAddress = paymentTokenConfigReads.data?.[3]?.result as Address | undefined;
+  const protocolFeeBpsResult = paymentTokenConfigReads.data?.[4]?.result;
+  const protocolFeeBps =
+    typeof protocolFeeBpsResult === "bigint"
+      ? Number(protocolFeeBpsResult)
+      : typeof protocolFeeBpsResult === "number"
+        ? protocolFeeBpsResult
+        : null;
   const paymentTokenMetadataContracts = useMemo(
     () =>
       supportedPaymentTokens.flatMap((token) => {
@@ -259,14 +272,16 @@ export function useTradeListing() {
     return applySort(result, sortBy);
   }, [categoryFilter, changeFilter, chainAssets, query, sortBy]);
 
-  async function createVeListing(input: CreateVeTradeListingInput) {
+  function createVeListingSteps(input: CreateVeTradeListingInput) {
     if (!listingWrapper?.address || !listingWrapper.abi) {
       throw new Error("VeNftFractionListing contract is unavailable for the connected network.");
     }
-    if (!txContext) {
-      throw new Error("Connect your wallet to create a listing.");
+    if (!assetLedger?.address || !assetLedger.abi) {
+      throw new Error("AssetLedger contract is unavailable for the connected network.");
     }
-
+    if (!marketplace?.address || !marketplace.abi) {
+      throw new Error("Marketplace contract is unavailable for the connected network.");
+    }
     if (!input.veNftAddress) {
       throw new Error("Missing selected ve token contract address.");
     }
@@ -276,48 +291,94 @@ export function useTradeListing() {
       );
     }
 
-    const safeExpiryDays = Math.max(1, Math.floor(input.expiryDays));
-    const expiry = BigInt(Math.floor(Date.now() / 1000) + safeExpiryDays * 24 * 60 * 60);
-    const listAmount = parseUnits(input.listAmount, 18);
-    const pricePerUnit = parseUnits(input.unitPriceUsd, input.paymentTokenDecimals);
+    const steps: TxStep[] = [];
 
-    setIsSubmittingListing(true);
-    try {
-      const txResult = await executeAddressWrite({
+    if (input.requiresVeNftApproval) {
+      steps.push(
+        createAddressWriteStep({
+          key: "approve-venft",
+          label: "Approve",
+          address: input.veNftAddress,
+          abi: erc721Abi,
+          displayLabelButton: true,
+          variables: {
+            functionName: "setApprovalForAll",
+            args: [listingWrapper.address, true],
+          },
+        }),
+      );
+    }
+
+    if (input.requiresListingOperatorApproval) {
+      steps.push(
+        createAddressWriteStep({
+          key: "approve-marketplace-operator",
+          label: "Approve Marketplace",
+          address: marketplace.address,
+          abi: marketplace.abi,
+          displayLabelButton: true,
+          variables: {
+            functionName: "setListingOperator",
+            args: [listingWrapper.address, true],
+          },
+        }),
+      );
+    }
+
+    if (input.requiresFractionTransferApproval) {
+      steps.push(
+        createAddressWriteStep({
+          key: "approve-fraction-transfer",
+          label: "Approve Fraction Transfer",
+          address: assetLedger.address,
+          abi: assetLedger.abi,
+          displayLabelButton: true,
+          variables: {
+            functionName: "setApprovalForAll",
+            args: [marketplace.address, true],
+          },
+        }),
+      );
+    }
+
+    steps.push(
+      createAddressWriteStep({
         key: "fractionalize-list",
-        label: "Fractionalize and list",
-        ctx: txContext,
-        prev: [],
+        label: "List Asset",
         address: listingWrapper.address,
         abi: listingWrapper.abi,
+        displayLabelButton: true,
         variables: {
           functionName: "fractionalizeAndList",
           args: [
             input.veNftAddress,
             input.veNftTokenId,
-            listAmount,
+            parseUnits(input.listAmount, 18),
             input.paymentToken,
-            pricePerUnit,
-            expiry,
+            parseUnits(input.unitPriceUsd, input.paymentTokenDecimals),
+            BigInt(
+              Math.floor(Date.now() / 1000) +
+                Math.max(1, Math.floor(input.expiryDays)) * 24 * 60 * 60,
+            ),
           ],
         },
-      });
+      }),
+    );
 
-      refreshListing();
+    return steps;
+  }
 
-      return {
-        id: txResult.hash,
-        name: `${input.veAssetType} Fraction #${input.veNftTokenId.toString()}`,
-        symbol: `${input.veAssetType}-${input.veNftTokenId.toString()}`,
-        thumbnail: input.veAssetType === "veBTC" ? "🟧" : "🟩",
-        priceUsd: Number(input.unitPriceUsd),
-        volume24hUsd: 0,
-        change24hPct: undefined,
-        category: "locked",
-      } satisfies TradeAsset;
-    } finally {
-      setIsSubmittingListing(false);
-    }
+  function mapCreatedListingAsset(input: CreateVeTradeListingInput, hash: string): TradeAsset {
+    return {
+      id: hash,
+      name: `${input.veAssetType} Fraction #${input.veNftTokenId.toString()}`,
+      symbol: `${input.veAssetType}-${input.veNftTokenId.toString()}`,
+      thumbnail: input.veAssetType === "veBTC" ? "🟧" : "🟩",
+      priceUsd: Number(input.unitPriceUsd),
+      volume24hUsd: 0,
+      change24hPct: undefined,
+      category: "locked",
+    } satisfies TradeAsset;
   }
 
   return {
@@ -332,16 +393,28 @@ export function useTradeListing() {
     isLoading: isLoading || isRefreshing,
     error,
     refreshListing,
+    listingWorkflowContracts:
+      listingWrapper?.address && assetLedger?.address && marketplace?.address
+        ? {
+            listingWrapperAddress: listingWrapper.address,
+            assetLedgerAddress: assetLedger.address,
+            marketplaceAddress: marketplace.address,
+          }
+        : null,
+    blockExplorerUrl: activeChain.blockExplorers?.default?.url ?? null,
     paymentTokenOptions,
-    isLoadingPaymentTokens: paymentTokenConfigReads.isPending || paymentTokenMetadataReads.isPending,
+    protocolFeeBps,
+    isLoadingPaymentTokens:
+      paymentTokenConfigReads.isPending || paymentTokenMetadataReads.isPending,
     isFetchingPaymentTokens:
       paymentTokenConfigReads.isFetching || paymentTokenMetadataReads.isFetching,
     paymentTokenError:
       (paymentTokenConfigReads.error as Error | null) ||
       (paymentTokenMetadataReads.error as Error | null),
     refreshPaymentTokens,
-    createVeListing,
-    isSubmittingListing,
+    createVeListingSteps,
+    canCreateListing: Boolean(listingWrapper?.address && listingWrapper.abi),
+    mapCreatedListingAsset,
     filteredAssets,
     totalCount: chainAssets.length,
   };
