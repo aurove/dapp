@@ -24,10 +24,9 @@ export function Web3Providers({ children }: { children: React.ReactNode }) {
     () => ({
       initialChain: activeChain,
       theme: darkTheme({
-        accentColor: "#5deda2",
-        accentColorForeground: "#06110a",
+        accentColor: "#a78858",
+        accentColorForeground: "#fefaf0",
         borderRadius: "medium",
-        fontStack: "system",
         overlayBlur: "small",
       }),
     }),

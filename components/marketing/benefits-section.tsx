@@ -1,3 +1,4 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
 import { SectionHeading } from "@/components/site/section-heading";
 
 const benefits = [
@@ -9,28 +10,28 @@ const benefits = [
 
 export function BenefitsSection() {
   return (
-    <section id="architecture" className="mx-auto w-full max-w-6xl px-6 py-14 lg:px-8 lg:py-20">
-      <div className="protocol-panel rounded-3xl p-7 sm:p-10">
-        <SectionHeading
-          eyebrow="Yield & Liquidity Outcomes"
-          title="Built for usable liquidity without abandoning Mezo Earn conviction."
-          description="Fractals is designed as a flexible operating layer for locked positions, where liquidity, settlement, and yield routing are intentionally connected."
-        />
+    <section id="architecture" className="mt-20">
+      <SectionHeading
+        badge="Yield & Liquidity Outcomes"
+        title="Built for usable liquidity without abandoning Mezo Earn conviction."
+        description="Fractals is designed as a flexible operating layer for locked positions, where liquidity, settlement, and yield routing are intentionally connected."
+      />
 
-        <ul className="mt-8 grid gap-4 md:grid-cols-2">
-          {benefits.map((benefit) => (
-            <li
-              key={benefit}
-              className="glass-card rounded-2xl p-5 text-sm leading-7 text-[var(--foreground)]"
-            >
+      <div className="mt-8 grid gap-4 md:grid-cols-2">
+        {benefits.map((benefit) => (
+          <Card key={benefit} className="h-full">
+            <CardHeader>
+              <CardTitle className="text-lg">Liquidity + Yield Alignment</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 text-sm leading-relaxed text-[var(--muted)]">
               <span
-                className="mr-3 inline-block h-2 w-2 rounded-full bg-[var(--accent)]"
-                aria-hidden
+                aria-hidden="true"
+                className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent-soft)]"
               />
               {benefit}
-            </li>
-          ))}
-        </ul>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </section>
   );

@@ -1,0 +1,95 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo } from "react";
+import { BellRing, ShieldCheck } from "lucide-react";
+import { Badge } from "@fractals/ui/components/ui/badge";
+import { AppNav } from "@/components/app/app-nav";
+import { WalletConnectButton } from "@/components/app/wallet-connect-button";
+import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
+import { PendingTransactionsPanel, useTxFlowChainId } from "@fractals/tx-flow";
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const chainId = useTxFlowChainId();
+  const expectedChain = useMemo(() => getActiveChain(resolveAppEnvironment()), []);
+  const wrongNetwork = chainId !== undefined && chainId !== expectedChain.id;
+  const year = useMemo(() => new Date().getFullYear(), []);
+
+  return (
+    <div className="min-h-screen pb-24 lg:pb-0">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0f15]/85 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-xl px-2 py-1 text-white"
+            >
+              <span className="text-lg font-semibold tracking-tight">Fractals</span>
+            </Link>
+            <div className="hidden lg:block">
+              <AppNav variant="inline" />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:block">
+              <PendingTransactionsPanel />
+            </div>
+            <WalletConnectButton />
+            <Link
+              href="/"
+              className="hidden rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.08] hover:text-white sm:inline-flex"
+            >
+              Marketing Site
+            </Link>
+          </div>
+        </div>
+
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-2 px-4 pb-3 md:px-6">
+          <Badge className="normal-case tracking-normal border-white/20 bg-white/5 text-xs text-white/70">
+            <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+            Fractals protocol surface
+          </Badge>
+          <Badge
+            className={
+              wrongNetwork
+                ? "normal-case tracking-normal border-red-400/30 bg-red-500/10 text-red-100"
+                : "normal-case tracking-normal border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+            }
+          >
+            <BellRing className="mr-1 h-3.5 w-3.5" />
+            {wrongNetwork
+              ? `Wrong network (expected ${expectedChain.name})`
+              : `Network ${expectedChain.name}`}
+          </Badge>
+        </div>
+      </header>
+
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-8">
+        <div className="grid gap-6 lg:grid-cols-[248px_1fr]">
+          <aside className="hidden lg:block">
+            <div className="rounded-2xl border border-[var(--line)] bg-[linear-gradient(160deg,rgba(18,23,30,0.96),rgba(12,16,22,0.94))] p-3 shadow-[0_18px_44px_rgba(0,0,0,0.28)]">
+              <p className="px-3 pb-2 pt-1 text-xs font-semibold uppercase tracking-[0.13em] text-[var(--muted)]">
+                Navigation
+              </p>
+              <AppNav variant="sidebar" />
+            </div>
+          </aside>
+
+          <main>{children}</main>
+        </div>
+      </div>
+
+      <footer className="mx-auto w-full max-w-7xl px-4 pb-8 pt-2 text-xs text-white/40 md:px-6">
+        <p>
+          © {year} Fractals. This interface reflects configured contract state. Verify transaction
+          details and destination contracts before signing.
+        </p>
+      </footer>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0a0f15]/96 px-3 py-2 backdrop-blur lg:hidden">
+        <AppNav variant="bottom" />
+      </div>
+    </div>
+  );
+}

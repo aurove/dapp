@@ -1,23 +1,37 @@
 import Link from "next/link";
 
+const navItems = [
+  { label: "Overview", href: "#overview" },
+  { label: "How It Works", href: "#how-it-works" },
+  { label: "Architecture", href: "#architecture" },
+] as const;
+
 export function SiteFooter() {
   return (
-    <footer className="mt-8 border-t border-[var(--border)]">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-8 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+    <footer className="mt-20 border-t border-white/10 py-9">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 sm:px-6 lg:px-8 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-base font-semibold tracking-tight text-[var(--foreground)]">
             Fractals
           </p>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Fractional liquidity for locked Mezo Earn positions.
+            Fractional liquidity and settlement routing for locked Mezo Earn exposure.
           </p>
         </div>
-        <Link
-          href="/app"
-          className="text-sm font-medium text-[var(--foreground)] underline decoration-[var(--border)] underline-offset-4 transition hover:text-[var(--brand)] hover:decoration-[var(--brand)]"
-        >
-          Enter App
-        </Link>
+        <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--muted)]">
+          {navItems.map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="transition hover:text-[var(--foreground)]"
+            >
+              {item.label}
+            </a>
+          ))}
+          <Link href="/app" className="transition hover:text-[var(--foreground)]">
+            App
+          </Link>
+        </div>
       </div>
     </footer>
   );

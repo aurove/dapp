@@ -1,3 +1,4 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
 import { SectionHeading } from "@/components/site/section-heading";
 
 const cards = [
@@ -17,21 +18,23 @@ const cards = [
 
 export function OverviewSection() {
   return (
-    <section id="overview" className="mx-auto w-full max-w-6xl px-6 py-14 lg:px-8 lg:py-20">
+    <section id="overview" className="mt-20">
       <SectionHeading
-        eyebrow="Why Fractals"
+        badge="Why Fractals"
         title="Locked positions stay valuable. Their liquidity becomes usable."
         description="Fractals gives veBTC and veMEZO holders a cleaner structure for transferability, exit flexibility, and ongoing yield alignment without awkward manual veNFT handling."
       />
 
-      <div className="mt-9 grid gap-4 md:grid-cols-3">
+      <div className="mt-8 grid gap-4 md:grid-cols-3">
         {cards.map((card) => (
-          <article key={card.title} className="glass-card rounded-2xl p-6 md:p-7">
-            <h3 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
-              {card.title}
-            </h3>
-            <p className="mt-3 text-sm leading-7 text-[var(--muted)]">{card.body}</p>
-          </article>
+          <Card key={card.title} className="h-full">
+            <CardHeader>
+              <CardTitle className="text-lg">{card.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 text-sm leading-relaxed text-[var(--muted)]">
+              {card.body}
+            </CardContent>
+          </Card>
         ))}
       </div>
     </section>

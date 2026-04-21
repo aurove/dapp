@@ -1,3 +1,4 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
 import { SectionHeading } from "@/components/site/section-heading";
 
 const steps = [
@@ -21,26 +22,28 @@ const steps = [
 
 export function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="mx-auto w-full max-w-6xl px-6 py-14 lg:px-8 lg:py-20">
+    <section id="how-it-works" className="mt-20">
       <SectionHeading
-        eyebrow="How It Works"
+        badge="How It Works"
         title="A clear flow for structured exposure and liquidity."
         description="Fractals turns complex lock management into an understandable protocol flow, balancing transferability with settlement discipline."
       />
 
-      <ol className="mt-9 grid gap-4 md:grid-cols-2">
+      <div className="mt-8 grid gap-4 md:grid-cols-2">
         {steps.map((step, index) => (
-          <li key={step.title} className="glass-card rounded-2xl p-6 md:p-7">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
-              Step {index + 1}
-            </p>
-            <h3 className="mt-3 text-lg font-semibold tracking-tight text-[var(--foreground)]">
-              {step.title}
-            </h3>
-            <p className="mt-3 text-sm leading-7 text-[var(--muted)]">{step.body}</p>
-          </li>
+          <Card key={step.title}>
+            <CardHeader>
+              <p className="text-xs font-semibold uppercase tracking-[0.13em] text-[var(--accent-soft)]">
+                Step {index + 1}
+              </p>
+              <CardTitle className="text-lg">{step.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 text-sm leading-relaxed text-[var(--muted)]">
+              {step.body}
+            </CardContent>
+          </Card>
         ))}
-      </ol>
+      </div>
     </section>
   );
 }

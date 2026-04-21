@@ -1,25 +1,37 @@
 import type { ReactNode } from "react";
+import { Badge } from "@fractals/ui/components/ui/badge";
 
 type SectionHeadingProps = {
-  eyebrow: string;
+  badge?: string;
+  eyebrow?: string;
   title: string;
-  description: string;
+  description?: string;
   actions?: ReactNode;
+  align?: "left" | "center";
 };
 
-export function SectionHeading({ eyebrow, title, description, actions }: SectionHeadingProps) {
+export function SectionHeading({
+  badge,
+  eyebrow,
+  title,
+  description,
+  actions,
+  align = "left",
+}: SectionHeadingProps) {
+  const label = badge ?? eyebrow;
+
   return (
-    <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-      <div className="max-w-2xl space-y-3.5">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-          {eyebrow}
+    <div className={align === "center" ? "mx-auto max-w-3xl text-center" : "max-w-3xl"}>
+      {label ? <Badge className="mb-4">{label}</Badge> : null}
+      <h2 className="text-balance text-3xl font-semibold leading-tight text-[var(--foreground)] sm:text-4xl">
+        {title}
+      </h2>
+      {description ? (
+        <p className="mt-4 text-pretty text-base leading-relaxed text-[var(--muted)]">
+          {description}
         </p>
-        <h2 className="text-2xl font-semibold leading-tight tracking-[-0.015em] text-[var(--foreground)] sm:text-[2rem]">
-          {title}
-        </h2>
-        <p className="text-sm leading-7 text-[var(--muted)] sm:text-[1.01rem]">{description}</p>
-      </div>
-      {actions ? <div>{actions}</div> : null}
+      ) : null}
+      {actions ? <div className="mt-6">{actions}</div> : null}
     </div>
   );
 }

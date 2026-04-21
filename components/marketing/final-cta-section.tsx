@@ -1,25 +1,38 @@
 import Link from "next/link";
+import { ArrowUpRight, Workflow } from "lucide-react";
+import { Badge } from "@fractals/ui/components/ui/badge";
+import { buttonVariants } from "@fractals/ui/components/ui/button";
 
 export function FinalCtaSection() {
   return (
-    <section className="mx-auto w-full max-w-6xl px-6 py-14 lg:px-8 lg:py-20">
-      <div className="glass-card rounded-3xl p-8 text-center shadow-[0_18px_46px_rgba(0,0,0,0.34)] sm:p-12">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
-          Enter Fractals
-        </p>
-        <h2 className="mx-auto mt-4 max-w-2xl text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl">
-          Access the structured liquidity layer for locked veBTC and veMEZO exposure.
-        </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)] sm:text-base">
-          Move from manual lock management into a cleaner protocol surface for transferability,
-          settlement, and yield routing.
-        </p>
-        <Link
-          href="/app"
-          className="mt-8 inline-flex rounded-full border border-[color:color-mix(in_srgb,var(--brand)_65%,white_35%)] bg-[var(--brand)] px-7 py-3 text-sm font-medium text-[#0b0f12] transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
-        >
-          Launch App
-        </Link>
+    <section className="mt-20 pb-4">
+      <div className="relative overflow-hidden rounded-3xl border border-[var(--accent)]/40 bg-[linear-gradient(140deg,rgba(18,20,24,0.96),rgba(23,18,10,0.94))] p-8 shadow-[0_25px_70px_rgba(0,0,0,0.36)] sm:p-10">
+        <div className="pointer-events-none absolute -right-20 -top-16 h-60 w-60 rounded-full bg-[radial-gradient(circle,rgba(216,181,106,0.33),rgba(216,181,106,0))]" />
+        <div className="pointer-events-none absolute -bottom-24 left-16 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(77,96,130,0.24),rgba(77,96,130,0))]" />
+
+        <div className="relative z-10 max-w-3xl">
+          <Badge className="mb-4">Enter Fractals</Badge>
+          <h2 className="text-balance text-3xl font-semibold leading-tight text-[var(--foreground)] sm:text-4xl">
+            Access structured liquidity operations for locked veBTC and veMEZO exposure.
+          </h2>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
+            Move from manual lock handling into a cleaner protocol surface for transferability,
+            settlement windows, and yield routing controls.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link href="/app" className={buttonVariants({ size: "lg", className: "gap-2" })}>
+              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              Launch App
+            </Link>
+            <a
+              href="#how-it-works"
+              className={buttonVariants({ variant: "secondary", size: "lg", className: "gap-2" })}
+            >
+              <Workflow className="h-4 w-4" aria-hidden="true" />
+              Review Flow
+            </a>
+          </div>
+        </div>
       </div>
     </section>
   );
