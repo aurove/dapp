@@ -14,7 +14,7 @@ export function BenefitsSection() {
         <SectionHeading
           eyebrow="Yield & Liquidity Outcomes"
           title="Built for usable liquidity without abandoning Mezo Earn conviction."
-          description="Fractals is designed as a high-trust operating layer for locked positions, where liquidity, settlement, and yield routing are intentionally connected."
+          description="Fractals is designed as a flexible operating layer for locked positions, where liquidity, settlement, and yield routing are intentionally connected."
         />
 
         <ul className="mt-8 grid gap-4 md:grid-cols-2">

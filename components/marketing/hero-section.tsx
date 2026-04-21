@@ -19,7 +19,7 @@ export function HeroSection() {
           </h1>
           <p className="max-w-2xl text-base leading-8 text-[var(--muted)] sm:text-[1.08rem]">
             Fractals transforms time-locked Mezo Earn positions into transferable claims, so you can
-            keep long-duration exposure while improving exits, ownership flexibility, and yield
+            keep your locked exposure while improving exits, ownership flexibility, and yield
             outcomes.
           </p>
         </div>
@@ -65,7 +65,7 @@ export function HeroSection() {
               </p>
               <div className="mt-3 flex items-end justify-between">
                 <p className="text-xl font-semibold">veBTC / veMEZO</p>
-                <p className="text-sm text-[var(--muted)]">Duration: 24m</p>
+                <p className="text-sm text-[var(--muted)]">Duration: Flexible</p>
               </div>
             </div>
 
