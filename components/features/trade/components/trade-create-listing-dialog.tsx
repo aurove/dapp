@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useFormik } from "formik";
 import { Button } from "@fractals/ui/components/ui/button";
 import {
   Dialog,
@@ -42,65 +43,87 @@ export function TradeCreateListingDialog({
   isSubmitting = false,
 }: TradeCreateListingDialogProps) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(INITIAL_FORM);
-  const [error, setError] = useState<string | null>(null);
+
+  const formik = useFormik<FormState>({
+    initialValues: INITIAL_FORM,
+    validate(values) {
+      const errors: Partial<Record<keyof FormState, string>> = {};
+
+      let veNftTokenId = 0n;
+      try {
+        veNftTokenId = BigInt(values.veNftTokenId || "0");
+      } catch {
+        errors.veNftTokenId = "veNFT token ID must be a valid integer.";
+      }
+
+      if (!errors.veNftTokenId && veNftTokenId < 1n) {
+        errors.veNftTokenId = "veNFT token ID must be greater than 0.";
+      }
+
+      if (Number.parseFloat(values.listAmount.trim()) <= 0) {
+        errors.listAmount = "List amount must be greater than 0.";
+      }
+
+      if (Number.parseFloat(values.unitPriceUsd.trim()) <= 0) {
+        errors.unitPriceUsd = "Unit price must be greater than 0.";
+      }
+
+      const expiryDays = Number.parseInt(values.expiryDays, 10);
+      if (!Number.isFinite(expiryDays) || expiryDays < 1) {
+        errors.expiryDays = "Expiry must be at least 1 day.";
+      }
+
+      return errors;
+    },
+    async onSubmit(values, actions) {
+      let veNftTokenId = 0n;
+      try {
+        veNftTokenId = BigInt(values.veNftTokenId || "0");
+      } catch {
+        actions.setStatus("veNFT token ID must be a valid integer.");
+        actions.setSubmitting(false);
+        return;
+      }
+
+      try {
+        actions.setStatus(undefined);
+        const created = await onCreateListing({
+          veAssetType: values.veAssetType,
+          veNftTokenId,
+          listAmount: values.listAmount.trim(),
+          unitPriceUsd: values.unitPriceUsd.trim(),
+          expiryDays: Number.parseInt(values.expiryDays, 10),
+        });
+        onCreated?.(created);
+        setOpen(false);
+        actions.resetForm();
+      } catch (submitError) {
+        actions.setStatus(
+          submitError instanceof Error ? submitError.message : "Failed to publish listing.",
+        );
+      } finally {
+        actions.setSubmitting(false);
+      }
+    },
+  });
+  const submitting = isSubmitting || formik.isSubmitting;
 
   const previewSymbol = useMemo(() => {
-    return `${form.veAssetType}-#${form.veNftTokenId || "?"}`;
-  }, [form.veAssetType, form.veNftTokenId]);
+    return `${formik.values.veAssetType}-#${formik.values.veNftTokenId || "?"}`;
+  }, [formik.values.veAssetType, formik.values.veNftTokenId]);
+  const validationError = useMemo(() => {
+    if (formik.submitCount < 1) return null;
+    return (
+      formik.errors.veNftTokenId ??
+      formik.errors.listAmount ??
+      formik.errors.unitPriceUsd ??
+      formik.errors.expiryDays ??
+      null
+    );
+  }, [formik.errors, formik.submitCount]);
 
   function resetForm() {
-    setForm(INITIAL_FORM);
-    setError(null);
-  }
-
-  async function submitListing() {
-    let veNftTokenId = 0n;
-    try {
-      veNftTokenId = BigInt(form.veNftTokenId || "0");
-    } catch {
-      setError("veNFT token ID must be a valid integer.");
-      return;
-    }
-    const listAmount = form.listAmount.trim();
-    const unitPriceUsd = form.unitPriceUsd.trim();
-    const expiryDays = Number.parseInt(form.expiryDays, 10);
-
-    if (veNftTokenId < 1n) {
-      setError("veNFT token ID must be greater than 0.");
-      return;
-    }
-
-    if (Number.parseFloat(listAmount) <= 0) {
-      setError("List amount must be greater than 0.");
-      return;
-    }
-
-    if (Number.parseFloat(unitPriceUsd) <= 0) {
-      setError("Unit price must be greater than 0.");
-      return;
-    }
-
-    if (!Number.isFinite(expiryDays) || expiryDays < 1) {
-      setError("Expiry must be at least 1 day.");
-      return;
-    }
-
-    try {
-      setError(null);
-      const created = await onCreateListing({
-        veAssetType: form.veAssetType,
-        veNftTokenId,
-        listAmount,
-        unitPriceUsd,
-        expiryDays,
-      });
-      onCreated?.(created);
-      setOpen(false);
-      resetForm();
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Failed to publish listing.");
-    }
+    formik.resetForm();
   }
 
   return (
@@ -123,7 +146,7 @@ export function TradeCreateListingDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <form onSubmit={formik.handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
               1. Select ve asset
@@ -131,17 +154,17 @@ export function TradeCreateListingDialog({
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
-                variant={form.veAssetType === "veBTC" ? "default" : "secondary"}
-                disabled={isSubmitting}
-                onClick={() => setForm((current) => ({ ...current, veAssetType: "veBTC" }))}
+                variant={formik.values.veAssetType === "veBTC" ? "default" : "secondary"}
+                disabled={submitting}
+                onClick={() => void formik.setFieldValue("veAssetType", "veBTC")}
               >
                 veBTC
               </Button>
               <Button
                 type="button"
-                variant={form.veAssetType === "veMEZO" ? "default" : "secondary"}
-                disabled={isSubmitting}
-                onClick={() => setForm((current) => ({ ...current, veAssetType: "veMEZO" }))}
+                variant={formik.values.veAssetType === "veMEZO" ? "default" : "secondary"}
+                disabled={submitting}
+                onClick={() => void formik.setFieldValue("veAssetType", "veMEZO")}
               >
                 veMEZO
               </Button>
@@ -154,14 +177,13 @@ export function TradeCreateListingDialog({
                 2. veNFT token ID
               </p>
               <Input
+                name="veNftTokenId"
                 type="number"
                 min={1}
                 step={1}
-                value={form.veNftTokenId}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, veNftTokenId: event.target.value }))
-                }
-                disabled={isSubmitting}
+                value={formik.values.veNftTokenId}
+                onChange={formik.handleChange}
+                disabled={submitting}
               />
             </label>
 
@@ -170,14 +192,13 @@ export function TradeCreateListingDialog({
                 3. List amount
               </p>
               <Input
+                name="listAmount"
                 type="number"
                 min={0}
                 step={0.000001}
-                value={form.listAmount}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, listAmount: event.target.value }))
-                }
-                disabled={isSubmitting}
+                value={formik.values.listAmount}
+                onChange={formik.handleChange}
+                disabled={submitting}
               />
             </label>
           </div>
@@ -188,14 +209,13 @@ export function TradeCreateListingDialog({
                 4. Unit price (USD)
               </p>
               <Input
+                name="unitPriceUsd"
                 type="number"
                 min={0}
                 step={0.000001}
-                value={form.unitPriceUsd}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, unitPriceUsd: event.target.value }))
-                }
-                disabled={isSubmitting}
+                value={formik.values.unitPriceUsd}
+                onChange={formik.handleChange}
+                disabled={submitting}
               />
             </label>
 
@@ -204,14 +224,13 @@ export function TradeCreateListingDialog({
                 5. Expiry (days)
               </p>
               <Input
+                name="expiryDays"
                 type="number"
                 min={1}
                 step={1}
-                value={form.expiryDays}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, expiryDays: event.target.value }))
-                }
-                disabled={isSubmitting}
+                value={formik.values.expiryDays}
+                onChange={formik.handleChange}
+                disabled={submitting}
               />
             </label>
           </div>
@@ -221,26 +240,25 @@ export function TradeCreateListingDialog({
             <span className="font-semibold text-[var(--foreground)]">{previewSymbol}</span>
           </div>
 
-          {error ? (
+          {validationError || formik.status ? (
             <p className="rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-              {error}
+              {String(validationError ?? formik.status)}
             </p>
           ) : null}
-        </div>
-
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setOpen(false)}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button type="button" onClick={() => void submitListing()} disabled={isSubmitting}>
-            {isSubmitting ? "Publishing..." : "Publish Listing"}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setOpen(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Publishing..." : "Publish Listing"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

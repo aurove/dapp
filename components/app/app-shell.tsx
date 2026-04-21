@@ -36,12 +36,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <PendingTransactionsPanel />
             </div>
             <WalletConnectButton />
-            <Link
-              href="/"
-              className="hidden rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.08] hover:text-white sm:inline-flex"
-            >
-              Marketing Site
-            </Link>
           </div>
         </div>
 

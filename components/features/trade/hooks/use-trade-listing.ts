@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useFormik } from "formik";
 import { parseUnits } from "viem";
 import { executeAddressWrite, useTransactionFlowContext } from "@fractals/tx-flow";
 import { getContractConfig } from "@/contracts/client";
@@ -58,11 +59,37 @@ export function useTradeListing() {
     runtimeDefaultPaymentToken: runtime.trading.defaultPaymentTokenAddress as `0x${string}` | null,
   });
 
-  const [query, setQuery] = useState("");
-  const [sortBy, setSortBy] = useState<TradeSortOption>("price_desc");
-  const [changeFilter, setChangeFilter] = useState<TradeChangeFilter>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [isSubmittingListing, setIsSubmittingListing] = useState(false);
+  const filterForm = useFormik({
+    initialValues: {
+      query: "",
+      sortBy: "price_desc" as TradeSortOption,
+      changeFilter: "all" as TradeChangeFilter,
+      categoryFilter: "all",
+    },
+    onSubmit: () => undefined,
+  });
+
+  const query = filterForm.values.query;
+  const sortBy = filterForm.values.sortBy;
+  const changeFilter = filterForm.values.changeFilter;
+  const categoryFilter = filterForm.values.categoryFilter;
+
+  function setQuery(value: string) {
+    void filterForm.setFieldValue("query", value);
+  }
+
+  function setSortBy(value: TradeSortOption) {
+    void filterForm.setFieldValue("sortBy", value);
+  }
+
+  function setChangeFilter(value: TradeChangeFilter) {
+    void filterForm.setFieldValue("changeFilter", value);
+  }
+
+  function setCategoryFilter(value: string) {
+    void filterForm.setFieldValue("categoryFilter", value);
+  }
 
   const refreshListing = useCallback(() => {
     refresh();
