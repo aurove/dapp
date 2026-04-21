@@ -1,23 +1,24 @@
-import type { TradeChangeFilter, TradeSortOption } from "./types";
+import type { TradeMarketSortOption, TradeMarketState } from "./types";
 
-export const TRADE_SORT_OPTIONS: Array<{ label: string; value: TradeSortOption }> = [
-  { label: "Price: High to Low", value: "price_desc" },
+export const TRADE_MARKET_SORT_OPTIONS: Array<{ label: string; value: TradeMarketSortOption }> = [
+  { label: "Liquidity: High to Low", value: "liquidity_desc" },
+  { label: "Liquidity: Low to High", value: "liquidity_asc" },
   { label: "Price: Low to High", value: "price_asc" },
-  { label: "Name: A to Z", value: "name_asc" },
-  { label: "Name: Z to A", value: "name_desc" },
-  { label: "24h Change: High to Low", value: "change_desc" },
-  { label: "24h Change: Low to High", value: "change_asc" },
+  { label: "Price: High to Low", value: "price_desc" },
+  { label: "Activity: High to Low", value: "activity_desc" },
+  { label: "Activity: Low to High", value: "activity_asc" },
 ];
 
-export const TRADE_CHANGE_FILTERS: Array<{ label: string; value: TradeChangeFilter }> = [
-  { label: "All", value: "all" },
-  { label: "Gainers", value: "gainers" },
-  { label: "Losers", value: "losers" },
-];
+export const TRADE_MARKET_STATE_FILTERS: Array<{ label: string; value: "all" | TradeMarketState }> =
+  [
+    { label: "All markets", value: "all" },
+    { label: "Active", value: "active" },
+    { label: "Illiquid", value: "illiquid" },
+    { label: "Expired", value: "expired" },
+  ];
 
-export const TRADE_CATEGORY_FILTERS = [
-  { label: "All categories", value: "all" },
-  { label: "Locked Exposure", value: "locked" },
-  { label: "Liquid Exposure", value: "liquid" },
-  { label: "Yield Route", value: "yield" },
+export const TRADE_FRACTION_FILTERS = [
+  { label: "All fractions", value: "all" },
+  { label: "fveBTC", value: "veBTC" },
+  { label: "fveMEZO", value: "veMEZO" },
 ] as const;

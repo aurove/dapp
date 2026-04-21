@@ -1,20 +1,12 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { useFormik } from "formik";
 import { parseUnits, erc20Abi, erc721Abi, type Address } from "viem";
 import { createAddressWriteStep, type TxStep } from "@fractals/tx-flow";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
-import { getRuntimeConfig } from "@/lib/config/env";
 import { useChainId, useReadContracts } from "wagmi";
-import { useTradeMarketData } from "../data/use-trade-market-data";
-import type {
-  CreateVeTradeListingInput,
-  TradeAsset,
-  TradeChangeFilter,
-  TradeSortOption,
-} from "../types";
+import type { CreateVeTradeListingInput, TradeAsset } from "../types";
 
 type TradePaymentTokenOption = {
   address: `0x${string}`;
@@ -24,48 +16,15 @@ type TradePaymentTokenOption = {
 
 const NATIVE_TOKEN_DECIMALS = 18;
 
-function applySort(items: TradeAsset[], sortBy: TradeSortOption): TradeAsset[] {
-  return [...items].sort((a, b) => {
-    switch (sortBy) {
-      case "price_desc":
-        return b.priceUsd - a.priceUsd;
-      case "price_asc":
-        return a.priceUsd - b.priceUsd;
-      case "name_asc":
-        return a.name.localeCompare(b.name);
-      case "name_desc":
-        return b.name.localeCompare(a.name);
-      case "change_desc":
-        return (b.change24hPct ?? 0) - (a.change24hPct ?? 0);
-      case "change_asc":
-        return (a.change24hPct ?? 0) - (b.change24hPct ?? 0);
-      default:
-        return 0;
-    }
-  });
-}
-
 export function useTradeListing() {
   const txFlowChainId = useChainId();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = txFlowChainId ?? activeChain.id;
-  const runtime = getRuntimeConfig();
 
   const listingWrapper = getContractConfig(chainId, "VeNftFractionListing");
   const assetLedger = getContractConfig(chainId, "AssetLedger");
   const marketplace = getContractConfig(chainId, "Marketplace");
   const paymentRouter = getContractConfig(chainId, "PaymentRouter");
-
-  const {
-    assets: chainAssets,
-    isLoading,
-    isRefreshing,
-    error,
-    refresh,
-  } = useTradeMarketData({
-    chainId,
-    runtimeDefaultPaymentToken: runtime.trading.defaultPaymentTokenAddress as `0x${string}` | null,
-  });
 
   const paymentTokenConfigContracts = useMemo(
     () =>
@@ -133,6 +92,7 @@ export function useTradeListing() {
       : typeof protocolFeeBpsResult === "number"
         ? protocolFeeBpsResult
         : null;
+
   const paymentTokenMetadataContracts = useMemo(
     () =>
       supportedPaymentTokens.flatMap((token) => {
@@ -216,61 +176,11 @@ export function useTradeListing() {
     musdAddress,
     paymentTokenMetadataReads.data,
   ]);
-  const filterForm = useFormik({
-    initialValues: {
-      query: "",
-      sortBy: "price_desc" as TradeSortOption,
-      changeFilter: "all" as TradeChangeFilter,
-      categoryFilter: "all",
-    },
-    onSubmit: () => undefined,
-  });
 
-  const query = filterForm.values.query;
-  const sortBy = filterForm.values.sortBy;
-  const changeFilter = filterForm.values.changeFilter;
-  const categoryFilter = filterForm.values.categoryFilter;
-
-  function setQuery(value: string) {
-    void filterForm.setFieldValue("query", value);
-  }
-
-  function setSortBy(value: TradeSortOption) {
-    void filterForm.setFieldValue("sortBy", value);
-  }
-
-  function setChangeFilter(value: TradeChangeFilter) {
-    void filterForm.setFieldValue("changeFilter", value);
-  }
-
-  function setCategoryFilter(value: string) {
-    void filterForm.setFieldValue("categoryFilter", value);
-  }
-
-  const refreshListing = useCallback(() => {
-    refresh();
-  }, [refresh]);
   const refreshPaymentTokens = useCallback(() => {
     void paymentTokenConfigReads.refetch();
     void paymentTokenMetadataReads.refetch();
   }, [paymentTokenConfigReads, paymentTokenMetadataReads]);
-
-  const filteredAssets = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    const result = chainAssets.filter((asset) => {
-      const matchesQuery =
-        normalizedQuery.length === 0 ||
-        asset.name.toLowerCase().includes(normalizedQuery) ||
-        asset.symbol.toLowerCase().includes(normalizedQuery);
-      const matchesCategory = categoryFilter === "all" || asset.category === categoryFilter;
-      const change = asset.change24hPct ?? 0;
-      const matchesChange =
-        changeFilter === "all" || (changeFilter === "gainers" ? change >= 0 : change < 0);
-      return matchesQuery && matchesCategory && matchesChange;
-    });
-
-    return applySort(result, sortBy);
-  }, [categoryFilter, changeFilter, chainAssets, query, sortBy]);
 
   function createVeListingSteps(input: CreateVeTradeListingInput) {
     if (!listingWrapper?.address || !listingWrapper.abi) {
@@ -382,17 +292,6 @@ export function useTradeListing() {
   }
 
   return {
-    query,
-    setQuery,
-    sortBy,
-    setSortBy,
-    changeFilter,
-    setChangeFilter,
-    categoryFilter,
-    setCategoryFilter,
-    isLoading: isLoading || isRefreshing,
-    error,
-    refreshListing,
     listingWorkflowContracts:
       listingWrapper?.address && assetLedger?.address && marketplace?.address
         ? {
@@ -415,7 +314,5 @@ export function useTradeListing() {
     createVeListingSteps,
     canCreateListing: Boolean(listingWrapper?.address && listingWrapper.abi),
     mapCreatedListingAsset,
-    filteredAssets,
-    totalCount: chainAssets.length,
   };
 }

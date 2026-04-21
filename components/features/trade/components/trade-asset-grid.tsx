@@ -1,8 +1,8 @@
-import type { TradeAsset } from "../types";
+import type { TradeMarket } from "../types";
 import { TradeAssetCard } from "./trade-asset-card";
 
 type TradeAssetGridProps = {
-  assets: TradeAsset[];
+  assets: TradeMarket[];
 };
 
 export function TradeAssetGrid({ assets }: TradeAssetGridProps) {

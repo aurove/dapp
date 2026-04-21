@@ -8,11 +8,19 @@ export const LISTINGS_PAGE_SIZE = 100n;
 
 type TradeListingTuple = {
   listingId: bigint;
+  seller: Address;
+  collection: Address;
   tokenId: bigint;
   amountRemaining: bigint;
   paymentToken: Address;
   pricePerUnit: bigint;
-  totalPriceRemaining?: bigint;
+  totalPriceRemaining: bigint;
+  createdAt: bigint;
+  updatedAt: bigint;
+  expiry: bigint;
+  status: number;
+  isExpired: boolean;
+  isActive: boolean;
 };
 
 export type ActiveListingsReadResult = readonly [readonly TradeListingTuple[], bigint, boolean];
@@ -92,6 +100,11 @@ export function buildTradeMetadataContracts({
     contracts.push({
       address: paymentToken,
       abi: erc20Abi,
+      functionName: "symbol",
+    });
+    contracts.push({
+      address: paymentToken,
+      abi: erc20Abi,
       functionName: "decimals",
     });
   }
@@ -114,7 +127,7 @@ export function buildTradeMetadataContracts({
   return {
     contracts,
     uriReads,
-    paymentTokenReads: paymentTokens.length,
+    paymentTokenReads: paymentTokens.length * 2,
     defaultPaymentDecimalsReadIndex,
   };
 }

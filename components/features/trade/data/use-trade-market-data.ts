@@ -27,6 +27,11 @@ function toDecimals(value: unknown): number {
   return DEFAULT_DECIMALS;
 }
 
+function toTokenSymbol(value: unknown, fallbackAddress: Address): string {
+  if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  return `${fallbackAddress.slice(0, 6)}...${fallbackAddress.slice(-4)}`;
+}
+
 type UseTradeMarketDataParams = {
   chainId: number;
   runtimeDefaultPaymentToken: Address | null;
@@ -132,28 +137,31 @@ export function useTradeMarketData({
   }, [metadataPlan.uriReads, metadataReads.data, uniqueTrancheIds]);
 
   const paymentTokenDecimalsMap = useMemo(() => {
+    const symbols: Array<readonly [string, string]> = [];
     const entries: Array<readonly [string, number]> = [];
     const offset = metadataPlan.uriReads;
-    for (let index = 0; index < metadataPlan.paymentTokenReads; index += 1) {
-      const result = metadataReads.data?.[offset + index]?.result;
-      const token = uniquePaymentTokens[index];
-      entries.push([token.toLowerCase(), toDecimals(result)]);
+    for (let index = 0; index < uniquePaymentTokens.length; index += 1) {
+      const symbolResult = metadataReads.data?.[offset + index * 2]?.result;
+      const decimalsResult = metadataReads.data?.[offset + index * 2 + 1]?.result;
+      const token = uniquePaymentTokens[index]!;
+      symbols.push([token.toLowerCase(), toTokenSymbol(symbolResult, token)]);
+      entries.push([token.toLowerCase(), toDecimals(decimalsResult)]);
     }
-    return Object.fromEntries(entries);
-  }, [
-    metadataPlan.paymentTokenReads,
-    metadataPlan.uriReads,
-    metadataReads.data,
-    uniquePaymentTokens,
-  ]);
+    return {
+      paymentTokenSymbolsMap: Object.fromEntries(symbols) as Record<string, string>,
+      paymentTokenDecimalsMap: Object.fromEntries(entries) as Record<string, number>,
+    };
+  }, [metadataPlan.uriReads, metadataReads.data, uniquePaymentTokens]);
+
+  const paymentTokenSymbolsMap = paymentTokenDecimalsMap.paymentTokenSymbolsMap;
+  const decimalsByToken = paymentTokenDecimalsMap.paymentTokenDecimalsMap;
 
   const defaultPaymentTokenDecimals = useMemo(() => {
     if (!resolvedDefaultPaymentToken) {
       return DEFAULT_DECIMALS;
     }
 
-    const existingPaymentTokenDecimals =
-      paymentTokenDecimalsMap[resolvedDefaultPaymentToken.toLowerCase()];
+    const existingPaymentTokenDecimals = decimalsByToken[resolvedDefaultPaymentToken.toLowerCase()];
     if (typeof existingPaymentTokenDecimals === "number") {
       return existingPaymentTokenDecimals;
     }
@@ -166,9 +174,9 @@ export function useTradeMarketData({
       metadataReads.data?.[metadataPlan.defaultPaymentDecimalsReadIndex]?.result;
     return toDecimals(decimalsReadResult);
   }, [
+    decimalsByToken,
     metadataPlan.defaultPaymentDecimalsReadIndex,
     metadataReads.data,
-    paymentTokenDecimalsMap,
     resolvedDefaultPaymentToken,
   ]);
 
@@ -177,9 +185,10 @@ export function useTradeMarketData({
       buildTradeAssetViewModels({
         listings,
         tokenUriMap,
-        paymentTokenDecimalsMap,
+        paymentTokenDecimalsMap: decimalsByToken,
+        paymentTokenSymbolsMap,
       }),
-    [listings, paymentTokenDecimalsMap, tokenUriMap],
+    [decimalsByToken, listings, paymentTokenSymbolsMap, tokenUriMap],
   );
 
   const isLoading =
