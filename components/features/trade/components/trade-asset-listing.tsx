@@ -2,19 +2,15 @@
 
 import { useState } from "react";
 import { Badge } from "@fractals/ui/components/ui/badge";
-import { Button } from "@fractals/ui/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
 import { useMarkets } from "../hooks/use-markets";
 import { useTradeListing } from "../hooks/use-trade-listing";
 import type { TradeAsset } from "../types";
 import { TradeAssetGrid } from "./trade-asset-grid";
-import { TradeAssetTable } from "./trade-asset-table";
 import { TradeCreateListingDialog } from "./trade-create-listing-dialog";
 import { TradeEmptyState } from "./trade-empty-state";
 import { TradeListingToolbar } from "./trade-listing-toolbar";
 import { TradeLoadingState } from "./trade-loading-state";
-
-type ViewMode = "cards" | "table";
 
 export function TradeAssetListing() {
   const {
@@ -51,7 +47,6 @@ export function TradeAssetListing() {
     refreshMarkets,
   } = useMarkets();
 
-  const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [lastCreated, setLastCreated] = useState<TradeAsset | null>(null);
 
   const hasMarkets = markets.length > 0;
@@ -123,36 +118,13 @@ export function TradeAssetListing() {
           Showing <span className="font-semibold text-[var(--foreground)]">{markets.length}</span>{" "}
           of {totalCount} markets
         </p>
-
-        <div className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] p-1">
-          <Button
-            size="sm"
-            variant={viewMode === "cards" ? "default" : "ghost"}
-            onClick={() => setViewMode("cards")}
-          >
-            Cards
-          </Button>
-          <Button
-            size="sm"
-            variant={viewMode === "table" ? "default" : "ghost"}
-            onClick={() => setViewMode("table")}
-          >
-            Table
-          </Button>
-        </div>
       </div>
 
       {isLoading ? <TradeLoadingState /> : null}
 
       {!isLoading && !hasMarkets ? <TradeEmptyState onClear={clearFilters} /> : null}
 
-      {!isLoading && hasMarkets ? (
-        viewMode === "cards" ? (
-          <TradeAssetGrid assets={markets} />
-        ) : (
-          <TradeAssetTable assets={markets} />
-        )
-      ) : null}
+      {!isLoading && hasMarkets ? <TradeAssetGrid assets={markets} /> : null}
     </section>
   );
 }
