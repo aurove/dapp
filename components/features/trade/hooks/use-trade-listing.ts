@@ -6,7 +6,11 @@ import { createAddressWriteStep, type TxStep } from "@fractals/tx-flow";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { useChainId, useReadContracts } from "wagmi";
-import type { CreateVeTradeListingInput, TradeAsset } from "../types";
+import type {
+  CreateFractionTradeListingInput,
+  CreateVeTradeListingInput,
+  TradeAsset,
+} from "../types";
 
 type TradePaymentTokenOption = {
   address: `0x${string}`;
@@ -286,12 +290,94 @@ export function useTradeListing() {
     return steps;
   }
 
+  function createFractionListingSteps(input: CreateFractionTradeListingInput) {
+    if (!assetLedger?.address || !assetLedger.abi) {
+      throw new Error("AssetLedger contract is unavailable for the connected network.");
+    }
+    if (!marketplace?.address || !marketplace.abi) {
+      throw new Error("Marketplace contract is unavailable for the connected network.");
+    }
+    if (!input.paymentToken) {
+      throw new Error(
+        "No payment token selected. Configure PaymentRouter supported tokens and pick one.",
+      );
+    }
+    if (input.expiryMode === "timed" && input.expiryDays < 1) {
+      throw new Error("Expiry must be at least 1 day.");
+    }
+
+    const expiry =
+      input.expiryMode === "none"
+        ? 0n
+        : BigInt(
+            Math.floor(Date.now() / 1000) +
+              Math.max(1, Math.floor(input.expiryDays)) * 24 * 60 * 60,
+          );
+
+    const steps: TxStep[] = [];
+
+    if (input.requiresFractionTransferApproval) {
+      steps.push(
+        createAddressWriteStep({
+          key: "approve-fraction-transfer",
+          label: "Approve Fraction Transfer",
+          address: assetLedger.address,
+          abi: assetLedger.abi,
+          displayLabelButton: true,
+          variables: {
+            functionName: "setApprovalForAll",
+            args: [marketplace.address, true],
+          },
+        }),
+      );
+    }
+
+    steps.push(
+      createAddressWriteStep({
+        key: "create-fraction-listing",
+        label: "List Fractions",
+        address: marketplace.address,
+        abi: marketplace.abi,
+        displayLabelButton: true,
+        variables: {
+          functionName: "createListingWithExpiry",
+          args: [
+            assetLedger.address,
+            input.trancheId,
+            parseUnits(input.listAmount, 18),
+            input.paymentToken,
+            parseUnits(input.unitPrice, input.paymentTokenDecimals),
+            expiry,
+          ],
+        },
+      }),
+    );
+
+    return steps;
+  }
+
   function mapCreatedListingAsset(input: CreateVeTradeListingInput, hash: string): TradeAsset {
     return {
       id: hash,
       name: `${input.veAssetType} Fraction #${input.veNftTokenId.toString()}`,
       symbol: `${input.veAssetType}-${input.veNftTokenId.toString()}`,
       thumbnail: input.veAssetType === "veBTC" ? "🟧" : "🟩",
+      priceUsd: Number(input.unitPrice),
+      volume24hUsd: 0,
+      change24hPct: undefined,
+      category: "locked",
+    } satisfies TradeAsset;
+  }
+
+  function mapCreatedFractionListingAsset(
+    input: CreateFractionTradeListingInput,
+    hash: string,
+  ): TradeAsset {
+    return {
+      id: hash,
+      name: `Fraction Tranche #${input.trancheId.toString()}`,
+      symbol: `TRANCHE-${input.trancheId.toString()}`,
+      thumbnail: "🧩",
       priceUsd: Number(input.unitPrice),
       volume24hUsd: 0,
       change24hPct: undefined,
@@ -320,7 +406,11 @@ export function useTradeListing() {
       (paymentTokenMetadataReads.error as Error | null),
     refreshPaymentTokens,
     createVeListingSteps,
-    canCreateListing: Boolean(listingWrapper?.address && listingWrapper.abi),
+    createFractionListingSteps,
+    canCreateListing: Boolean(
+      marketplace?.address && marketplace.abi && assetLedger?.address && assetLedger.abi,
+    ),
     mapCreatedListingAsset,
+    mapCreatedFractionListingAsset,
   };
 }

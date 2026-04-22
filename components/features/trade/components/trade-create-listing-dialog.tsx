@@ -24,13 +24,24 @@ import { ListingReadinessPanel } from "./listing-readiness-panel";
 import { ListingReviewCard } from "./listing-review-card";
 import { useListingPreview } from "../hooks/use-listing-preview";
 import { useListingRequirements } from "../hooks/use-listing-requirements";
-import { useUserVeNFTs } from "../hooks/use-user-ve-nfts";
-import type { CreateVeTradeListingInput, TradeAsset, TradeVeAssetType } from "../types";
+import { useUserFractions } from "../hooks/use-user-fractions";
+import { useUserVeNFTs, type UserVeNft } from "../hooks/use-user-ve-nfts";
+import type {
+  CreateFractionTradeListingInput,
+  CreateVeTradeListingInput,
+  TradeAsset,
+  TradeVeAssetType,
+} from "../types";
 
 type TradeCreateListingDialogProps = {
   createVeListingSteps: (input: CreateVeTradeListingInput) => TxStep[];
+  createFractionListingSteps: (input: CreateFractionTradeListingInput) => TxStep[];
   canCreateListing: boolean;
   mapCreatedListingAsset: (input: CreateVeTradeListingInput, hash: string) => TradeAsset;
+  mapCreatedFractionListingAsset: (
+    input: CreateFractionTradeListingInput,
+    hash: string,
+  ) => TradeAsset;
   onCreated?: (asset: TradeAsset) => void;
   listingWorkflowContracts: {
     listingWrapperAddress: `0x${string}`;
@@ -50,8 +61,10 @@ type TradeCreateListingDialogProps = {
 };
 
 type FormState = {
+  listingMode: "ve_nft" | "fraction";
   veAssetType: TradeVeAssetType;
   veNftTokenId: string;
+  fractionTrancheId: string;
   listAmount: string;
   paymentToken: `0x${string}` | "";
   unitPrice: string;
@@ -60,12 +73,14 @@ type FormState = {
 };
 
 const INITIAL_FORM: FormState = {
+  listingMode: "ve_nft",
   veAssetType: "veBTC",
   veNftTokenId: "",
+  fractionTrancheId: "",
   listAmount: "1",
   paymentToken: "",
   unitPrice: "0",
-  expiryMode: "timed",
+  expiryMode: "none",
   expiryDays: "30",
 };
 
@@ -95,8 +110,10 @@ function isValidDecimalInput(value: string, maxDecimals: number): boolean {
 
 export function TradeCreateListingDialog({
   createVeListingSteps,
+  createFractionListingSteps,
   canCreateListing,
   mapCreatedListingAsset,
+  mapCreatedFractionListingAsset,
   onCreated,
   listingWorkflowContracts,
   blockExplorerUrl,
@@ -118,6 +135,13 @@ export function TradeCreateListingDialog({
   const isCorrectNetwork = (txFlowChainId ?? expectedChainId) === expectedChainId;
 
   const { veCollections, isLoading, isFetching, error, refresh: refreshVeNfts } = useUserVeNFTs();
+  const {
+    positions: ownedFractions,
+    isLoading: fractionsLoading,
+    isFetching: fractionsFetching,
+    error: fractionsError,
+    refresh: refreshFractions,
+  } = useUserFractions();
 
   const resolveCollection = useCallback(
     (values: FormState) =>
@@ -138,11 +162,14 @@ export function TradeCreateListingDialog({
 
   const validationSchema = useMemo(() => {
     return yup.object({
+      listingMode: yup.string().oneOf(["ve_nft", "fraction"]).required(),
       veAssetType: yup
         .string()
         .required("Select a ve asset with available NFTs.")
         .test("wallet-connected", "Connect your wallet to load veNFTs.", () => isConnected)
-        .test("asset-has-positions", "Select a ve asset with available NFTs.", (value) => {
+        .test("asset-has-positions", "Select a ve asset with available NFTs.", function (value) {
+          const parent = this.parent as FormState;
+          if (parent.listingMode === "fraction") return true;
           if (!value) return false;
           return veCollections.some(
             (collection) => collection.assetType === value && collection.veNfts.length > 0,
@@ -150,13 +177,30 @@ export function TradeCreateListingDialog({
         }),
       veNftTokenId: yup
         .string()
-        .required("Choose a veNFT from your wallet.")
+        .test("ve-required", "Choose a veNFT from your wallet.", function (value) {
+          const parent = this.parent as FormState;
+          if (parent.listingMode === "fraction") return true;
+          return Boolean(value);
+        })
         .test("token-exists", "Choose a veNFT from your wallet.", function (value) {
           const parent = this.parent as FormState;
+          if (parent.listingMode === "fraction") return true;
           const selected = resolveSelectedNft(parent);
           if (!value) return false;
           return Boolean(selected && selected.tokenId.toString() === value);
         }),
+      fractionTrancheId: yup
+        .string()
+        .test(
+          "fraction-required",
+          "Choose a fraction position from your wallet.",
+          function (value) {
+            const parent = this.parent as FormState;
+            if (parent.listingMode === "ve_nft") return true;
+            if (!value) return false;
+            return ownedFractions.some((position) => position.trancheId.toString() === value);
+          },
+        ),
       listAmount: yup
         .string()
         .required("List amount must be greater than 0.")
@@ -173,10 +217,18 @@ export function TradeCreateListingDialog({
           "List amount cannot exceed available fraction capacity.",
           function (value) {
             const parent = this.parent as FormState;
-            const selected = resolveSelectedNft(parent);
-            if (!selected || !value) return true;
+            if (!value) return true;
             try {
               const listRaw = parseUnits(value.trim(), 18);
+              if (parent.listingMode === "fraction") {
+                const selectedFraction = ownedFractions.find(
+                  (position) => position.trancheId.toString() === parent.fractionTrancheId,
+                );
+                if (!selectedFraction) return true;
+                return listRaw <= selectedFraction.balanceRaw;
+              }
+              const selected = resolveSelectedNft(parent);
+              if (!selected) return true;
               return listRaw <= selected.availableFractionCapacityRaw;
             } catch {
               return false;
@@ -203,7 +255,7 @@ export function TradeCreateListingDialog({
         return Number.isFinite(parsed) && parsed >= 1;
       }),
     });
-  }, [isConnected, resolveSelectedNft, veCollections]);
+  }, [isConnected, ownedFractions, resolveSelectedNft, veCollections]);
 
   const formik = useFormik<FormState>({
     initialValues: INITIAL_FORM,
@@ -228,25 +280,49 @@ export function TradeCreateListingDialog({
     [formik.values.paymentToken, paymentTokenOptions],
   );
 
+  const selectedFractionPosition = useMemo(
+    () =>
+      ownedFractions.find(
+        (position) => position.trancheId.toString() === formik.values.fractionTrancheId,
+      ) ?? null,
+    [formik.values.fractionTrancheId, ownedFractions],
+  );
+
   const requirements = useListingRequirements({
     sellerAddress: userAddress,
-    veNftCollectionAddress: selectedCollection?.contractAddress,
+    veNftCollectionAddress:
+      formik.values.listingMode === "ve_nft" ? selectedCollection?.contractAddress : undefined,
     listingWorkflowContracts,
     chainId: expectedChainId,
+    includeVeFlow: formik.values.listingMode === "ve_nft",
   });
 
   const maxListAmount = useMemo(() => {
+    if (formik.values.listingMode === "fraction") {
+      if (!selectedFractionPosition) return 0;
+      return Number.parseFloat(formatUnits(selectedFractionPosition.balanceRaw, 18));
+    }
     if (!selectedNft) return 0;
     return Number.parseFloat(formatUnits(selectedNft.availableFractionCapacityRaw, 18));
-  }, [selectedNft]);
+  }, [formik.values.listingMode, selectedFractionPosition, selectedNft]);
 
   const listAmountValue = Number.parseFloat(asTrimmedString(formik.values.listAmount) || "0");
   const sliderValue = Number.isFinite(listAmountValue)
     ? Math.min(Math.max(listAmountValue, 0), Number.isFinite(maxListAmount) ? maxListAmount : 0)
     : 0;
 
+  const selectedPreviewPosition = useMemo(() => {
+    if (formik.values.listingMode === "fraction") {
+      if (!selectedFractionPosition) return null;
+      return {
+        availableFractionCapacityRaw: selectedFractionPosition.balanceRaw,
+      };
+    }
+    return selectedNft;
+  }, [formik.values.listingMode, selectedFractionPosition, selectedNft]);
+
   const listingPreview = useListingPreview({
-    selectedNft,
+    selectedNft: selectedPreviewPosition as UserVeNft | null,
     listAmount: formik.values.listAmount,
     unitPrice: formik.values.unitPrice,
     expiryDays: formik.values.expiryMode === "none" ? "0" : formik.values.expiryDays,
@@ -254,37 +330,55 @@ export function TradeCreateListingDialog({
     protocolFeeBps,
   });
 
-  const preparedListingInput = useMemo(() => {
+  const commonListingInputs = useMemo(() => {
+    const unitPriceInput = asTrimmedString(formik.values.unitPrice);
+    const listAmount = asTrimmedString(formik.values.listAmount);
+    const unitPriceValue = Number.parseFloat(unitPriceInput || "0");
+    const expiryDays = Number.parseInt(formik.values.expiryDays, 10);
+
+    const hasValidCommonInputs =
+      Number.isFinite(unitPriceValue) &&
+      unitPriceValue > 0 &&
+      listAmount.length > 0 &&
+      isValidDecimalInput(listAmount, 18) &&
+      Boolean(selectedPaymentToken) &&
+      isValidDecimalInput(unitPriceInput, selectedPaymentToken?.decimals ?? 18) &&
+      (formik.values.expiryMode === "none" || (Number.isFinite(expiryDays) && expiryDays >= 1));
+
+    return {
+      listAmount,
+      unitPriceInput,
+      expiryDays,
+      hasValidCommonInputs,
+    };
+  }, [
+    formik.values.expiryDays,
+    formik.values.expiryMode,
+    formik.values.listAmount,
+    formik.values.unitPrice,
+    selectedPaymentToken,
+  ]);
+
+  const preparedVeListingInput = useMemo(() => {
     if (
+      formik.values.listingMode !== "ve_nft" ||
       !selectedCollection ||
       !selectedNft ||
       !selectedPaymentToken ||
       !canCreateListing ||
       !isConnected ||
-      !isCorrectNetwork
+      !isCorrectNetwork ||
+      !commonListingInputs.hasValidCommonInputs
     ) {
       return null;
     }
 
-    const unitPriceInput = asTrimmedString(formik.values.unitPrice);
-    const listAmount = asTrimmedString(formik.values.listAmount);
-    const unitPriceValue = Number.parseFloat(unitPriceInput || "0");
-
-    if (!Number.isFinite(unitPriceValue) || unitPriceValue <= 0) return null;
-    if (!isValidDecimalInput(unitPriceInput, selectedPaymentToken.decimals)) return null;
-    if (listAmount.length === 0 || !isValidDecimalInput(listAmount, 18)) return null;
-
-    const expiryDays = Number.parseInt(formik.values.expiryDays, 10);
-    if (formik.values.expiryMode === "timed") {
-      if (!Number.isFinite(expiryDays) || expiryDays < 1) return null;
-    }
-
     try {
-      const listRaw = parseUnits(listAmount, 18);
+      const listRaw = parseUnits(commonListingInputs.listAmount, 18);
       if (listRaw <= 0n || listRaw > selectedNft.availableFractionCapacityRaw) {
         return null;
       }
-      parseUnits(unitPriceInput, selectedPaymentToken.decimals);
+      parseUnits(commonListingInputs.unitPriceInput, selectedPaymentToken.decimals);
     } catch {
       return null;
     }
@@ -293,22 +387,24 @@ export function TradeCreateListingDialog({
       veAssetType: formik.values.veAssetType,
       veNftAddress: selectedCollection.contractAddress,
       veNftTokenId: selectedNft.tokenId,
-      listAmount,
+      listAmount: commonListingInputs.listAmount,
       paymentToken: selectedPaymentToken.address,
       paymentTokenDecimals: selectedPaymentToken.decimals,
-      unitPrice: unitPriceInput,
+      unitPrice: commonListingInputs.unitPriceInput,
       expiryMode: formik.values.expiryMode,
-      expiryDays: formik.values.expiryMode === "none" ? 0 : expiryDays,
+      expiryDays: formik.values.expiryMode === "none" ? 0 : commonListingInputs.expiryDays,
       requiresVeNftApproval: !requirements.veNftTransferApproved,
       requiresListingOperatorApproval: !requirements.marketplaceOperatorApproved,
       requiresFractionTransferApproval: !requirements.fractionTransferApproved,
     } satisfies CreateVeTradeListingInput;
   }, [
     canCreateListing,
-    formik.values.listAmount,
-    formik.values.expiryDays,
+    commonListingInputs.expiryDays,
+    commonListingInputs.hasValidCommonInputs,
+    commonListingInputs.listAmount,
+    commonListingInputs.unitPriceInput,
     formik.values.expiryMode,
-    formik.values.unitPrice,
+    formik.values.listingMode,
     formik.values.veAssetType,
     isConnected,
     isCorrectNetwork,
@@ -320,30 +416,98 @@ export function TradeCreateListingDialog({
     selectedPaymentToken,
   ]);
 
-  const listingSteps = useMemo(() => {
-    if (!preparedListingInput) return [];
+  const preparedFractionListingInput = useMemo(() => {
+    if (
+      formik.values.listingMode !== "fraction" ||
+      !selectedFractionPosition ||
+      !selectedPaymentToken ||
+      !canCreateListing ||
+      !isConnected ||
+      !isCorrectNetwork ||
+      !commonListingInputs.hasValidCommonInputs
+    ) {
+      return null;
+    }
+
     try {
-      return createVeListingSteps(preparedListingInput);
+      const listRaw = parseUnits(commonListingInputs.listAmount, 18);
+      if (listRaw <= 0n || listRaw > selectedFractionPosition.balanceRaw) {
+        return null;
+      }
+      parseUnits(commonListingInputs.unitPriceInput, selectedPaymentToken.decimals);
+    } catch {
+      return null;
+    }
+
+    return {
+      trancheId: selectedFractionPosition.trancheId,
+      listAmount: commonListingInputs.listAmount,
+      paymentToken: selectedPaymentToken.address,
+      paymentTokenDecimals: selectedPaymentToken.decimals,
+      unitPrice: commonListingInputs.unitPriceInput,
+      expiryMode: formik.values.expiryMode,
+      expiryDays: formik.values.expiryMode === "none" ? 0 : commonListingInputs.expiryDays,
+      requiresFractionTransferApproval: !requirements.fractionTransferApproved,
+    } satisfies CreateFractionTradeListingInput;
+  }, [
+    canCreateListing,
+    commonListingInputs.expiryDays,
+    commonListingInputs.hasValidCommonInputs,
+    commonListingInputs.listAmount,
+    commonListingInputs.unitPriceInput,
+    formik.values.expiryMode,
+    formik.values.listingMode,
+    isConnected,
+    isCorrectNetwork,
+    requirements.fractionTransferApproved,
+    selectedFractionPosition,
+    selectedPaymentToken,
+  ]);
+
+  const listingSteps = useMemo(() => {
+    try {
+      if (preparedFractionListingInput) {
+        return createFractionListingSteps(preparedFractionListingInput);
+      }
+      if (preparedVeListingInput) {
+        return createVeListingSteps(preparedVeListingInput);
+      }
+      return [];
     } catch {
       return [];
     }
-  }, [createVeListingSteps, preparedListingInput]);
+  }, [
+    createFractionListingSteps,
+    createVeListingSteps,
+    preparedFractionListingInput,
+    preparedVeListingInput,
+  ]);
 
   const canSubmit =
-    Boolean(preparedListingInput) &&
+    Boolean(preparedVeListingInput || preparedFractionListingInput) &&
     listingSteps.length > 0 &&
-    !isLoading &&
-    !isFetching &&
+    !(formik.values.listingMode === "ve_nft"
+      ? isLoading || isFetching
+      : fractionsLoading || fractionsFetching) &&
     !isBroadcasting &&
     !requirements.isChecking;
 
   const primaryActionLabel = useMemo(() => {
-    if (!preparedListingInput) return "Publish listing";
-    if (preparedListingInput.requiresVeNftApproval) return "Approve veNFT";
-    if (preparedListingInput.requiresListingOperatorApproval) return "Approve listing operator";
-    if (preparedListingInput.requiresFractionTransferApproval) return "Approve fraction transfers";
+    if (preparedVeListingInput) {
+      if (preparedVeListingInput.requiresVeNftApproval) return "Approve veNFT";
+      if (preparedVeListingInput.requiresListingOperatorApproval) return "Approve listing operator";
+      if (preparedVeListingInput.requiresFractionTransferApproval)
+        return "Approve fraction transfers";
+      return "Publish listing";
+    }
+    if (preparedFractionListingInput) {
+      if (preparedFractionListingInput.requiresFractionTransferApproval) {
+        return "Approve fraction transfers";
+      }
+      return "Publish listing";
+    }
     return "Publish listing";
-  }, [preparedListingInput]);
+  }, [preparedFractionListingInput, preparedVeListingInput]);
 
   const selectedExpiryPreset = useMemo(() => {
     if (formik.values.expiryMode === "none") return null;
@@ -368,18 +532,22 @@ export function TradeCreateListingDialog({
         detail: `Connect to chain ${expectedChainId} to use deployed Fractals contracts.`,
         ready: isCorrectNetwork,
       },
-      {
-        key: "venft",
-        label: "veNFT transfer approval",
-        detail: "Required for wrapper-driven fractionalization.",
-        ready: requirements.veNftTransferApproved,
-      },
-      {
-        key: "operator",
-        label: "Listing operator approval",
-        detail: "Allows wrapper to create listing on your behalf.",
-        ready: requirements.marketplaceOperatorApproved,
-      },
+      ...(formik.values.listingMode === "ve_nft"
+        ? [
+            {
+              key: "venft",
+              label: "veNFT transfer approval",
+              detail: "Required for wrapper-driven fractionalization.",
+              ready: requirements.veNftTransferApproved,
+            },
+            {
+              key: "operator",
+              label: "Listing operator approval",
+              detail: "Allows wrapper to create listing on your behalf.",
+              ready: requirements.marketplaceOperatorApproved,
+            },
+          ]
+        : []),
       {
         key: "fractions",
         label: "Fraction transfer approval",
@@ -391,6 +559,7 @@ export function TradeCreateListingDialog({
       expectedChainId,
       isConnected,
       isCorrectNetwork,
+      formik.values.listingMode,
       requirements.fractionTransferApproved,
       requirements.marketplaceOperatorApproved,
       requirements.veNftTransferApproved,
@@ -403,58 +572,58 @@ export function TradeCreateListingDialog({
   );
 
   const transactionPlanItems = useMemo(() => {
-    if (!preparedListingInput) {
-      return [
-        {
-          key: "listing-tx",
-          label: "Fractionalize + list",
-          detail: "Complete prior steps to prepare the listing transaction.",
-          ready: false,
-        },
-      ];
-    }
+    const hasPreparedInput = Boolean(preparedVeListingInput || preparedFractionListingInput);
+    if (!hasPreparedInput) return [];
 
     return [
-      {
-        key: "ve-approval",
-        label: "veNFT transfer approval",
-        detail: "A one-time approval transaction may be requested.",
-        ready: requirements.veNftTransferApproved,
-      },
-      {
-        key: "operator-approval",
-        label: "Wrapper listing operator",
-        detail: "A one-time operator approval may be requested.",
-        ready: requirements.marketplaceOperatorApproved,
-      },
+      ...(formik.values.listingMode === "ve_nft"
+        ? [
+            {
+              key: "ve-approval",
+              label: "veNFT transfer approval",
+              detail: "A one-time approval transaction may be requested.",
+              ready: requirements.veNftTransferApproved,
+            },
+            {
+              key: "operator-approval",
+              label: "Wrapper listing operator",
+              detail: "A one-time operator approval may be requested.",
+              ready: requirements.marketplaceOperatorApproved,
+            },
+          ]
+        : []),
       {
         key: "fraction-approval",
         label: "AssetLedger transfer approval",
         detail: "A one-time ERC1155 approval may be requested.",
         ready: requirements.fractionTransferApproved,
       },
-      {
-        key: "listing-tx",
-        label: "Fractionalize + list",
-        detail: "Final transaction mints fractions and creates your listing on-chain.",
-        ready: false,
-      },
     ].filter((item) => !item.ready);
   }, [
-    preparedListingInput,
+    formik.values.listingMode,
+    preparedFractionListingInput,
+    preparedVeListingInput,
     requirements.fractionTransferApproved,
     requirements.marketplaceOperatorApproved,
     requirements.veNftTransferApproved,
   ]);
 
   useEffect(() => {
+    if (formik.values.listingMode !== "ve_nft") return;
     if (veCollections.length === 0) return;
     if (!veCollections.some((collection) => collection.assetType === formik.values.veAssetType)) {
       void formik.setFieldValue("veAssetType", veCollections[0].assetType);
     }
-  }, [formik, formik.setFieldValue, formik.values.veAssetType, veCollections]);
+  }, [
+    formik,
+    formik.setFieldValue,
+    formik.values.listingMode,
+    formik.values.veAssetType,
+    veCollections,
+  ]);
 
   useEffect(() => {
+    if (formik.values.listingMode !== "ve_nft") return;
     if (!selectedCollection || selectedCollection.veNfts.length === 0) {
       if (formik.values.veNftTokenId) {
         void formik.setFieldValue("veNftTokenId", "");
@@ -469,7 +638,36 @@ export function TradeCreateListingDialog({
     if (!hasCurrentToken) {
       void formik.setFieldValue("veNftTokenId", selectedCollection.veNfts[0].tokenId.toString());
     }
-  }, [formik, formik.setFieldValue, formik.values.veNftTokenId, selectedCollection]);
+  }, [
+    formik,
+    formik.setFieldValue,
+    formik.values.listingMode,
+    formik.values.veNftTokenId,
+    selectedCollection,
+  ]);
+
+  useEffect(() => {
+    if (formik.values.listingMode !== "fraction") return;
+    if (ownedFractions.length === 0) {
+      if (formik.values.fractionTrancheId) {
+        void formik.setFieldValue("fractionTrancheId", "");
+      }
+      return;
+    }
+
+    const exists = ownedFractions.some(
+      (position) => position.trancheId.toString() === formik.values.fractionTrancheId,
+    );
+    if (!exists) {
+      void formik.setFieldValue("fractionTrancheId", ownedFractions[0].trancheId.toString());
+    }
+  }, [
+    formik,
+    formik.setFieldValue,
+    formik.values.fractionTrancheId,
+    formik.values.listingMode,
+    ownedFractions,
+  ]);
 
   useEffect(() => {
     if (paymentTokenOptions.length === 0) {
@@ -502,7 +700,12 @@ export function TradeCreateListingDialog({
   }
 
   function getStepFields(step: number): Array<keyof FormState> {
-    if (step === 1) return ["veAssetType", "veNftTokenId"];
+    if (step === 1) {
+      if (formik.values.listingMode === "fraction") {
+        return ["listingMode", "fractionTrancheId"];
+      }
+      return ["listingMode", "veAssetType", "veNftTokenId"];
+    }
     if (step === 2) return ["listAmount", "unitPrice", "paymentToken", "expiryMode", "expiryDays"];
     if (step === 3) return [];
     return [];
@@ -562,8 +765,8 @@ export function TradeCreateListingDialog({
         <DialogHeader>
           <DialogTitle>Create listing</DialogTitle>
           <DialogDescription>
-            Fractionalize a veNFT and publish a non-custodial listing backed by your AssetLedger
-            position.
+            {formik.values.listingMode == "ve_nft" ? "Fractionalize a veNFT and p" : "P"}ublish a
+            non-custodial listing backed by your fractals position.
           </DialogDescription>
         </DialogHeader>
 
@@ -626,104 +829,205 @@ export function TradeCreateListingDialog({
         <form className="space-y-4">
           {stepIndex === 1 ? (
             <div className="space-y-4 rounded-xl bg-white/[0.02] p-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-                  Select ve asset
-                </p>
-                {isLoading ? (
-                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <Skeleton className="h-14 w-full rounded-xl" />
-                    <Skeleton className="h-14 w-full rounded-xl" />
-                  </div>
-                ) : null}
-
-                {!isLoading && isConnected && veCollections.length > 0 ? (
-                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {veCollections.map((collection) => (
-                      <button
-                        key={`${collection.assetType}-${collection.contractAddress}`}
-                        type="button"
-                        disabled={isBroadcasting}
-                        onClick={() =>
-                          void formik.setFieldValue("veAssetType", collection.assetType)
-                        }
-                        className={`rounded-xl border px-3 py-2 text-left transition ${
-                          formik.values.veAssetType === collection.assetType
-                            ? "border-[#b58f5f]/50 bg-[#b58f5f]/15"
-                            : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
-                        }`}
-                      >
-                        <p className="text-sm font-semibold text-[var(--foreground)]">
-                          {collection.symbol}
-                        </p>
-                        <p className="text-xs text-[var(--muted)]">{collection.balanceFormatted}</p>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-                  Choose veNFT
+                  Listing source
                 </p>
-                <select
-                  name="veNftTokenId"
-                  value={formik.values.veNftTokenId}
-                  onChange={formik.handleChange}
-                  disabled={
-                    !selectedCollection || selectedCollection.veNfts.length === 0 || isBroadcasting
-                  }
-                  className="h-10 w-full rounded-xl border border-white/15 bg-white/[0.02] px-3 text-sm text-white outline-none ring-offset-[#0c1117] focus-visible:ring-2 focus-visible:ring-[#b58f5f]"
-                >
-                  <option value="">Select veNFT</option>
-                  {(selectedCollection?.veNfts ?? []).map((veNft) => (
-                    <option key={veNft.tokenId.toString()} value={veNft.tokenId.toString()}>
-                      #{veNft.tokenId.toString()} • Lock {veNft.lockAmountFormatted}
-                    </option>
-                  ))}
-                </select>
-
-                {selectedNft ? (
-                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm">
-                    <p className="font-semibold text-[var(--foreground)]">
-                      {selectedNft.symbol} #{selectedNft.tokenId.toString()}
-                    </p>
-                    <div className="mt-2 grid gap-2 text-xs text-[var(--muted)] sm:grid-cols-3">
-                      <p>Lock value: {selectedNft.lockAmountFormatted}</p>
-                      <p>Lock end: {selectedNft.lockEndLabel}</p>
-                      <p>Fraction capacity: {selectedNft.availableFractionCapacityFormatted}</p>
-                    </div>
-                  </div>
-                ) : null}
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                      formik.values.listingMode === "ve_nft"
+                        ? "border-[#b58f5f]/50 bg-[#b58f5f]/15"
+                        : "border-white/15 bg-white/[0.02]"
+                    }`}
+                    onClick={() => void formik.setFieldValue("listingMode", "ve_nft")}
+                  >
+                    Fractionalize veNFT + list
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                      formik.values.listingMode === "fraction"
+                        ? "border-[#b58f5f]/50 bg-[#b58f5f]/15"
+                        : "border-white/15 bg-white/[0.02]"
+                    }`}
+                    onClick={() => void formik.setFieldValue("listingMode", "fraction")}
+                  >
+                    List existing fractions
+                  </button>
+                </div>
               </div>
 
-              {!isLoading && isConnected && veCollections.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-3 text-sm text-[var(--muted)]">
-                  No veNFTs available to list.
+              {formik.values.listingMode === "ve_nft" ? (
+                <>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
+                      Select ve asset
+                    </p>
+                    {isLoading ? (
+                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <Skeleton className="h-14 w-full rounded-xl" />
+                        <Skeleton className="h-14 w-full rounded-xl" />
+                      </div>
+                    ) : null}
+
+                    {!isLoading && isConnected && veCollections.length > 0 ? (
+                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {veCollections.map((collection) => (
+                          <button
+                            key={`${collection.assetType}-${collection.contractAddress}`}
+                            type="button"
+                            disabled={isBroadcasting}
+                            onClick={() =>
+                              void formik.setFieldValue("veAssetType", collection.assetType)
+                            }
+                            className={`rounded-xl border px-3 py-2 text-left transition ${
+                              formik.values.veAssetType === collection.assetType
+                                ? "border-[#b58f5f]/50 bg-[#b58f5f]/15"
+                                : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
+                            }`}
+                          >
+                            <p className="text-sm font-semibold text-[var(--foreground)]">
+                              {collection.symbol}
+                            </p>
+                            <p className="text-xs text-[var(--muted)]">
+                              {collection.balanceFormatted}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
+                      Choose veNFT
+                    </p>
+                    <select
+                      name="veNftTokenId"
+                      value={formik.values.veNftTokenId}
+                      onChange={formik.handleChange}
+                      disabled={
+                        !selectedCollection ||
+                        selectedCollection.veNfts.length === 0 ||
+                        isBroadcasting
+                      }
+                      className="h-10 w-full rounded-xl border border-white/15 bg-white/[0.02] px-3 text-sm text-white outline-none ring-offset-[#0c1117] focus-visible:ring-2 focus-visible:ring-[#b58f5f]"
+                    >
+                      <option value="">Select veNFT</option>
+                      {(selectedCollection?.veNfts ?? []).map((veNft) => (
+                        <option key={veNft.tokenId.toString()} value={veNft.tokenId.toString()}>
+                          #{veNft.tokenId.toString()} • Lock {veNft.lockAmountFormatted}
+                        </option>
+                      ))}
+                    </select>
+
+                    {selectedNft ? (
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm">
+                        <p className="font-semibold text-[var(--foreground)]">
+                          {selectedNft.symbol} #{selectedNft.tokenId.toString()}
+                        </p>
+                        <div className="mt-2 grid gap-2 text-xs text-[var(--muted)] sm:grid-cols-3">
+                          <p>Lock value: {selectedNft.lockAmountFormatted}</p>
+                          <p>Lock end: {selectedNft.lockEndLabel}</p>
+                          <p>Fraction capacity: {selectedNft.availableFractionCapacityFormatted}</p>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {!isLoading && isConnected && veCollections.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-3 text-sm text-[var(--muted)]">
+                      No veNFTs available to list.
+                    </div>
+                  ) : null}
+
+                  {error ? (
+                    <div className="rounded-xl border border-red-500/35 bg-red-500/10 p-3 text-sm text-red-200">
+                      <p>Could not load veNFT data.</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="mt-2"
+                        onClick={refreshVeNfts}
+                        disabled={isBroadcasting}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Retry
+                      </Button>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
+                    Owned fraction positions
+                  </p>
+                  {fractionsLoading ? (
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <Skeleton className="h-14 w-full rounded-xl" />
+                      <Skeleton className="h-14 w-full rounded-xl" />
+                    </div>
+                  ) : null}
+                  <select
+                    name="fractionTrancheId"
+                    value={formik.values.fractionTrancheId}
+                    onChange={formik.handleChange}
+                    disabled={ownedFractions.length === 0 || isBroadcasting}
+                    className="h-10 w-full rounded-xl border border-white/15 bg-white/[0.02] px-3 text-sm text-white outline-none ring-offset-[#0c1117] focus-visible:ring-2 focus-visible:ring-[#b58f5f]"
+                  >
+                    <option value="">Select fraction tranche</option>
+                    {ownedFractions.map((position) => (
+                      <option
+                        key={position.trancheId.toString()}
+                        value={position.trancheId.toString()}
+                      >
+                        {position.symbol} • Tranche #{position.trancheId.toString()} • Balance{" "}
+                        {position.balanceFormatted}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedFractionPosition ? (
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm">
+                      <p className="font-semibold text-[var(--foreground)]">
+                        {selectedFractionPosition.symbol} • Tranche #
+                        {selectedFractionPosition.trancheId.toString()}
+                      </p>
+                      <div className="mt-2 grid gap-2 text-xs text-[var(--muted)] sm:grid-cols-2">
+                        <p>Base: {selectedFractionPosition.base}</p>
+                        <p>Wallet balance: {selectedFractionPosition.balanceFormatted}</p>
+                      </div>
+                    </div>
+                  ) : null}
+                  {!fractionsLoading && ownedFractions.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-3 text-sm text-[var(--muted)]">
+                      No fraction balances found in your wallet.
+                    </div>
+                  ) : null}
+                  {fractionsError ? (
+                    <div className="rounded-xl border border-red-500/35 bg-red-500/10 p-3 text-sm text-red-200">
+                      <p>Could not load fraction balances.</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="mt-2"
+                        onClick={refreshFractions}
+                        disabled={isBroadcasting}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Retry
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
+              )}
 
               {!isConnected ? (
                 <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-3 text-sm text-[var(--muted)]">
-                  Connect your wallet to view available veNFT positions.
-                </div>
-              ) : null}
-
-              {error ? (
-                <div className="rounded-xl border border-red-500/35 bg-red-500/10 p-3 text-sm text-red-200">
-                  <p>Could not load veNFT data.</p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    className="mt-2"
-                    onClick={refreshVeNfts}
-                    disabled={isBroadcasting}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Retry
-                  </Button>
+                  Connect your wallet to view available positions.
                 </div>
               ) : null}
             </div>
@@ -743,7 +1047,11 @@ export function TradeCreateListingDialog({
                   step={0.000001}
                   value={formik.values.listAmount}
                   onChange={formik.handleChange}
-                  disabled={!selectedNft || isBroadcasting}
+                  disabled={
+                    (formik.values.listingMode === "ve_nft" && !selectedNft) ||
+                    (formik.values.listingMode === "fraction" && !selectedFractionPosition) ||
+                    isBroadcasting
+                  }
                 />
                 <input
                   type="range"
@@ -751,7 +1059,12 @@ export function TradeCreateListingDialog({
                   max={Number.isFinite(maxListAmount) && maxListAmount > 0 ? maxListAmount : 1}
                   step={0.000001}
                   value={sliderValue}
-                  disabled={!selectedNft || maxListAmount <= 0 || isBroadcasting}
+                  disabled={
+                    (formik.values.listingMode === "ve_nft" && !selectedNft) ||
+                    (formik.values.listingMode === "fraction" && !selectedFractionPosition) ||
+                    maxListAmount <= 0 ||
+                    isBroadcasting
+                  }
                   onChange={(event) =>
                     void formik.setFieldValue(
                       "listAmount",
@@ -761,7 +1074,11 @@ export function TradeCreateListingDialog({
                   className="w-full accent-[#b58f5f]"
                 />
                 <p className="text-xs text-[var(--muted)]">
-                  Max: {selectedNft?.availableFractionCapacityFormatted ?? "0"} fractions
+                  Max:{" "}
+                  {formik.values.listingMode === "fraction"
+                    ? (selectedFractionPosition?.balanceFormatted ?? "0")
+                    : (selectedNft?.availableFractionCapacityFormatted ?? "0")}{" "}
+                  fractions
                 </p>
               </div>
 
@@ -924,7 +1241,11 @@ export function TradeCreateListingDialog({
           {stepIndex === 4 ? (
             <div className="space-y-4">
               <ListingReviewCard
-                pairLabel={`${selectedCollection?.symbol ?? formik.values.veAssetType} #${selectedNft?.tokenId.toString() ?? "?"}`}
+                pairLabel={
+                  formik.values.listingMode === "fraction"
+                    ? `${selectedFractionPosition?.symbol ?? "Fraction"} • Tranche #${selectedFractionPosition?.trancheId.toString() ?? "?"}`
+                    : `${selectedCollection?.symbol ?? formik.values.veAssetType} #${selectedNft?.tokenId.toString() ?? "?"}`
+                }
                 listedAmountLabel={listingPreview.listedFractionsLabel}
                 listedPercentage={listingPreview.listedPercentage}
                 remainingAmountLabel={listingPreview.remainingFractionsLabel}
@@ -961,7 +1282,7 @@ export function TradeCreateListingDialog({
             </p>
           ) : null}
 
-          {!preparedListingInput && stepIndex === 4 ? (
+          {!preparedVeListingInput && !preparedFractionListingInput && stepIndex === 4 ? (
             <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
               <p className="flex items-center gap-1">
                 <CircleAlert className="h-4 w-4" />
@@ -1009,12 +1330,19 @@ export function TradeCreateListingDialog({
                 }}
                 onComplete={(results) => {
                   const txHash = [...results].reverse().find((result) => result.hash)?.hash;
-                  if (preparedListingInput && txHash) {
-                    onCreated?.(mapCreatedListingAsset(preparedListingInput, txHash));
+                  if (txHash) {
+                    if (preparedVeListingInput) {
+                      onCreated?.(mapCreatedListingAsset(preparedVeListingInput, txHash));
+                    } else if (preparedFractionListingInput) {
+                      onCreated?.(
+                        mapCreatedFractionListingAsset(preparedFractionListingInput, txHash),
+                      );
+                    }
                     setSuccessHash(txHash);
                   }
                   resetFormState();
                   refreshVeNfts();
+                  refreshFractions();
                   requirements.refresh();
                 }}
                 onError={(message) => {

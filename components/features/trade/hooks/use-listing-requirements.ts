@@ -40,6 +40,7 @@ type UseListingRequirementsParams = {
   veNftCollectionAddress?: Address;
   listingWorkflowContracts: ListingWorkflowContracts | null;
   chainId?: number;
+  includeVeFlow?: boolean;
 };
 
 export function useListingRequirements({
@@ -47,9 +48,11 @@ export function useListingRequirements({
   veNftCollectionAddress,
   listingWorkflowContracts,
   chainId,
+  includeVeFlow = true,
 }: UseListingRequirementsParams) {
-  const canReadApprovals = Boolean(
-    sellerAddress && veNftCollectionAddress && listingWorkflowContracts,
+  const canReadSellerApprovals = Boolean(sellerAddress && listingWorkflowContracts);
+  const canReadVeNftApproval = Boolean(
+    includeVeFlow && sellerAddress && veNftCollectionAddress && listingWorkflowContracts,
   );
 
   const veNftApprovalRead = useReadContract({
@@ -62,7 +65,7 @@ export function useListingRequirements({
         : undefined,
     chainId,
     query: {
-      enabled: canReadApprovals,
+      enabled: canReadVeNftApproval,
       staleTime: 20_000,
       gcTime: 5 * 60_000,
     },
@@ -78,7 +81,7 @@ export function useListingRequirements({
         : undefined,
     chainId,
     query: {
-      enabled: canReadApprovals,
+      enabled: canReadSellerApprovals && includeVeFlow,
       staleTime: 20_000,
       gcTime: 5 * 60_000,
     },
@@ -94,27 +97,25 @@ export function useListingRequirements({
         : undefined,
     chainId,
     query: {
-      enabled: canReadApprovals,
+      enabled: canReadSellerApprovals,
       staleTime: 20_000,
       gcTime: 5 * 60_000,
     },
   });
 
-  const veNftTransferApproved = veNftApprovalRead.data === true;
-  const marketplaceOperatorApproved = marketplaceOperatorRead.data === true;
+  const veNftTransferApproved = includeVeFlow ? veNftApprovalRead.data === true : true;
+  const marketplaceOperatorApproved = includeVeFlow ? marketplaceOperatorRead.data === true : true;
   const fractionTransferApproved = fractionApprovalRead.data === true;
 
   const isChecking =
-    veNftApprovalRead.isPending ||
-    marketplaceOperatorRead.isPending ||
+    (includeVeFlow && (veNftApprovalRead.isPending || veNftApprovalRead.isFetching)) ||
+    (includeVeFlow && (marketplaceOperatorRead.isPending || marketplaceOperatorRead.isFetching)) ||
     fractionApprovalRead.isPending ||
-    veNftApprovalRead.isFetching ||
-    marketplaceOperatorRead.isFetching ||
     fractionApprovalRead.isFetching;
 
   const anyError =
-    (veNftApprovalRead.error as Error | null) ||
-    (marketplaceOperatorRead.error as Error | null) ||
+    (includeVeFlow ? (veNftApprovalRead.error as Error | null) : null) ||
+    (includeVeFlow ? (marketplaceOperatorRead.error as Error | null) : null) ||
     (fractionApprovalRead.error as Error | null) ||
     null;
 

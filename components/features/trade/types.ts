@@ -79,3 +79,14 @@ export type CreateVeTradeListingInput = {
   requiresListingOperatorApproval?: boolean;
   requiresFractionTransferApproval?: boolean;
 };
+
+export type CreateFractionTradeListingInput = {
+  trancheId: bigint;
+  listAmount: string;
+  paymentToken: `0x${string}`;
+  paymentTokenDecimals: number;
+  unitPrice: string;
+  expiryMode: "timed" | "none";
+  expiryDays: number;
+  requiresFractionTransferApproval?: boolean;
+};

@@ -22,8 +22,10 @@ export function TradeAssetListing() {
     paymentTokenError,
     refreshPaymentTokens,
     createVeListingSteps,
+    createFractionListingSteps,
     canCreateListing,
     mapCreatedListingAsset,
+    mapCreatedFractionListingAsset,
   } = useTradeListing();
 
   const {
@@ -68,8 +70,10 @@ export function TradeAssetListing() {
             <Badge className="w-fit">Trade Markets</Badge>
             <TradeCreateListingDialog
               createVeListingSteps={createVeListingSteps}
+              createFractionListingSteps={createFractionListingSteps}
               canCreateListing={canCreateListing}
               mapCreatedListingAsset={mapCreatedListingAsset}
+              mapCreatedFractionListingAsset={mapCreatedFractionListingAsset}
               listingWorkflowContracts={listingWorkflowContracts}
               blockExplorerUrl={blockExplorerUrl}
               onCreated={setLastCreated}
