@@ -88,6 +88,12 @@ const EXPIRY_PRESETS = [7, 14, 30] as const;
 const MAX_PRICE_DECIMALS = 18;
 
 function formatTokenValue(value: number): string {
+  if (Math.abs(value) >= 1_000) {
+    return new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value);
 }
 

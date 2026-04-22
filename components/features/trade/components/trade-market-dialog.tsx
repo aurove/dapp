@@ -80,6 +80,12 @@ const ADMIN_READ_ABI = [
 
 function formatTokenAmount(value: number): string {
   if (!Number.isFinite(value)) return "0";
+  if (Math.abs(value) >= 1_000) {
+    return new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value);
 }
 
@@ -467,7 +473,7 @@ export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMar
         <DialogHeader className="border-b border-white/10 px-6 py-5">
           <DialogTitle className="text-2xl">{market.pair} Market</DialogTitle>
           <DialogDescription>
-            Trade fraction tranche #{market.trancheId.toString()} with {market.paymentTokenSymbol}.
+            Trade {market.fractionName} with {market.paymentTokenSymbol}.
           </DialogDescription>
         </DialogHeader>
 
@@ -541,7 +547,7 @@ export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMar
                             #{listing.listingId.toString()}
                           </span>
                           <span className="font-medium text-[var(--foreground)]">
-                            {formatTokenAmount(listing.amount)} FRACT
+                            {formatTokenAmount(listing.amount)} {market.fractionSymbol}
                           </span>
                           <span className="font-medium text-[var(--foreground)]">
                             {formatTokenAmount(listing.price)} {market.paymentTokenSymbol}
@@ -577,7 +583,7 @@ export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMar
                         >
                           <span className="text-[var(--muted)]">#{bid.bidId.toString()}</span>
                           <span className="font-medium text-[var(--foreground)]">
-                            {formatTokenAmount(bid.amount)} FRACT
+                            {formatTokenAmount(bid.amount)} {market.fractionSymbol}
                           </span>
                           <span className="font-medium text-[var(--foreground)]">
                             {formatTokenAmount(bid.price)} {market.paymentTokenSymbol}
@@ -627,7 +633,7 @@ export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMar
                 {tab === "buy" ? (
                   <div className="space-y-3">
                     <label className="block text-xs text-[var(--muted)]">
-                      Amount to buy (fractions)
+                      Amount to buy ({market.fractionSymbol})
                       <Input
                         value={buyAmount}
                         onChange={(event) => setBuyAmount(event.target.value)}
@@ -663,7 +669,7 @@ export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMar
                 {tab === "sell" ? (
                   <div className="space-y-3">
                     <label className="block text-xs text-[var(--muted)]">
-                      Amount to sell (fractions)
+                      Amount to sell ({market.fractionSymbol})
                       <Input
                         value={sellAmount}
                         onChange={(event) => setSellAmount(event.target.value)}
@@ -698,7 +704,7 @@ export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMar
                 {tab === "bid" ? (
                   <div className="space-y-3">
                     <label className="block text-xs text-[var(--muted)]">
-                      Bid amount (fractions)
+                      Bid amount ({market.fractionSymbol})
                       <Input
                         value={bidAmount}
                         onChange={(event) => setBidAmount(event.target.value)}

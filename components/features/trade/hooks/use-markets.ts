@@ -58,6 +58,7 @@ type TradePaymentTokenInfo = {
 type FractionInfo = {
   address: Address;
   trancheId: bigint;
+  name: string;
   symbol: string;
   base: TradeMarketBase;
 };
@@ -409,16 +410,20 @@ export function useMarkets() {
     for (let index = 0; index < fractionAddresses.length; index += 1) {
       const cursor = index * 4;
       const symbolResult = fractionMetaReads.data?.[cursor]?.result;
+      const nameResult = fractionMetaReads.data?.[cursor + 1]?.result;
       const trancheResult = fractionMetaReads.data?.[cursor + 3]?.result;
       const symbol =
         typeof symbolResult === "string" && symbolResult.trim().length > 0
           ? symbolResult.trim()
           : `fraction-${index + 1}`;
+      const name =
+        typeof nameResult === "string" && nameResult.trim().length > 0 ? nameResult.trim() : symbol;
       const trancheId = typeof trancheResult === "bigint" ? trancheResult : BigInt(index + 1);
 
       items.push({
         address: fractionAddresses[index]!,
         trancheId,
+        name,
         symbol,
         base: inferFractionBase(symbol),
       });
@@ -640,6 +645,7 @@ export function useMarkets() {
 
         output.push({
           id: `${fraction.trancheId.toString()}-${token.address.toLowerCase()}`,
+          fractionName: fraction.name,
           pair: `${fraction.symbol}/${token.symbol}`,
           fractionSymbol: fraction.symbol,
           fractionAddress: fraction.address,

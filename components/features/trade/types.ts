@@ -45,6 +45,7 @@ export type TradeMarketBidPreview = {
 export type TradeMarket = {
   id: string;
   pair: string;
+  fractionName: string;
   fractionSymbol: string;
   fractionAddress: `0x${string}`;
   trancheId: bigint;

@@ -13,6 +13,12 @@ type TradeAssetCardProps = {
 };
 
 function formatAmount(value: number): string {
+  if (Math.abs(value) >= 1_000) {
+    return new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
 }
 
@@ -40,7 +46,7 @@ export function TradeAssetCard({ asset, onTradeExecuted }: TradeAssetCardProps) 
           <div>
             <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">Market pair</p>
             <h3 className="text-lg font-semibold text-[var(--foreground)]">{asset.pair}</h3>
-            <p className="text-xs text-[var(--muted)]">Tranche #{asset.trancheId.toString()}</p>
+            <p className="text-xs text-[var(--muted)]">{asset.fractionName} </p>
           </div>
           <span
             className={cn(

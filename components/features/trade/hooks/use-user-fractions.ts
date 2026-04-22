@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { erc20Abi, formatUnits, type Address } from "viem";
+import { formatUnits, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
@@ -9,6 +9,7 @@ import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 export type UserFractionPosition = {
   fractionAddress: Address;
   trancheId: bigint;
+  name: string;
   symbol: string;
   base: "veBTC" | "veMEZO" | "veAsset";
   balanceRaw: bigint;
@@ -40,6 +41,7 @@ export function useUserFractions() {
   const chainId = txFlowChainId ?? activeChain.id;
 
   const assetLedger = getContractConfig(chainId, "AssetLedger");
+  const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
 
   const countRead = useReadContracts({
     allowFailure: true,
@@ -101,21 +103,19 @@ export function useUserFractions() {
     contracts: fractionAddresses.flatMap((address) => [
       {
         address,
-        abi: erc20Abi,
+        abi: assetFractionAbi,
         functionName: "symbol",
         chainId,
       },
       {
         address,
-        abi: [
-          {
-            type: "function",
-            name: "trancheId",
-            stateMutability: "view",
-            inputs: [],
-            outputs: [{ name: "", type: "uint256" }],
-          },
-        ] as const,
+        abi: assetFractionAbi,
+        functionName: "name",
+        chainId,
+      },
+      {
+        address,
+        abi: assetFractionAbi,
         functionName: "trancheId",
         chainId,
       },
@@ -129,14 +129,19 @@ export function useUserFractions() {
 
   const fractions = useMemo(() => {
     return fractionAddresses.map((fractionAddress, index) => {
-      const symbolResult = fractionMetaReads.data?.[index * 2]?.result;
-      const trancheResult = fractionMetaReads.data?.[index * 2 + 1]?.result;
+      const cursor = index * 3;
+      const symbolResult = fractionMetaReads.data?.[cursor]?.result;
+      const nameResult = fractionMetaReads.data?.[cursor + 1]?.result;
+      const trancheResult = fractionMetaReads.data?.[cursor + 2]?.result;
       const symbol =
         typeof symbolResult === "string" && symbolResult.trim().length > 0
           ? symbolResult.trim()
           : `${fractionAddress.slice(0, 6)}...${fractionAddress.slice(-4)}`;
+      const name =
+        typeof nameResult === "string" && nameResult.trim().length > 0 ? nameResult.trim() : symbol;
       return {
         fractionAddress,
+        name,
         symbol,
         trancheId: typeof trancheResult === "bigint" ? trancheResult : 0n,
         base: inferFractionBase(symbol),

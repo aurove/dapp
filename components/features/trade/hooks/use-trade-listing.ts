@@ -375,8 +375,8 @@ export function useTradeListing() {
   ): TradeAsset {
     return {
       id: hash,
-      name: `Fraction Tranche #${input.trancheId.toString()}`,
-      symbol: `TRANCHE-${input.trancheId.toString()}`,
+      name: "Fraction Position",
+      symbol: "FRACTION",
       thumbnail: "🧩",
       priceUsd: Number(input.unitPrice),
       volume24hUsd: 0,

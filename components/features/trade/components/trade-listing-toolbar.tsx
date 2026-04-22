@@ -56,7 +56,7 @@ export function TradeListingToolbar({
           <Input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="Search by pair, symbol, or tranche"
+            placeholder="Search by pair, symbol, or fraction name"
             className="pl-9"
           />
         </label>
