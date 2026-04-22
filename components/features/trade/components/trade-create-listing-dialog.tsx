@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import { TransactionFlowButton, type TxStep } from "@fractals/tx-flow";
@@ -16,38 +16,16 @@ import {
 } from "@fractals/ui/components/ui/dialog";
 import { Input } from "@fractals/ui/components/ui/input";
 import { Skeleton } from "@fractals/ui/components/ui/skeleton";
-import { CheckCircle2, CircleAlert, RefreshCw } from "lucide-react";
-import { erc721Abi, formatUnits, parseUnits } from "viem";
-import { useAccount, useReadContract } from "wagmi";
+import { CircleAlert, Info, RefreshCw } from "lucide-react";
+import { formatUnits, parseUnits } from "viem";
+import { useAccount, useChainId } from "wagmi";
+import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
+import { ListingReadinessPanel } from "./listing-readiness-panel";
+import { ListingReviewCard } from "./listing-review-card";
 import { useListingPreview } from "../hooks/use-listing-preview";
+import { useListingRequirements } from "../hooks/use-listing-requirements";
 import { useUserVeNFTs } from "../hooks/use-user-ve-nfts";
 import type { CreateVeTradeListingInput, TradeAsset, TradeVeAssetType } from "../types";
-
-const MARKETPLACE_OPERATOR_ABI = [
-  {
-    inputs: [
-      { internalType: "address", name: "seller", type: "address" },
-      { internalType: "address", name: "operator", type: "address" },
-    ],
-    name: "isListingOperator",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
-
-const ERC1155_APPROVAL_ABI = [
-  {
-    inputs: [
-      { internalType: "address", name: "account", type: "address" },
-      { internalType: "address", name: "operator", type: "address" },
-    ],
-    name: "isApprovedForAll",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
 
 type TradeCreateListingDialogProps = {
   createVeListingSteps: (input: CreateVeTradeListingInput) => TxStep[];
@@ -76,7 +54,8 @@ type FormState = {
   veNftTokenId: string;
   listAmount: string;
   paymentToken: `0x${string}` | "";
-  unitPriceUsd: string;
+  unitPrice: string;
+  expiryMode: "timed" | "none";
   expiryDays: string;
 };
 
@@ -85,11 +64,13 @@ const INITIAL_FORM: FormState = {
   veNftTokenId: "",
   listAmount: "1",
   paymentToken: "",
-  unitPriceUsd: "0",
+  unitPrice: "0",
+  expiryMode: "timed",
   expiryDays: "30",
 };
 
 const EXPIRY_PRESETS = [7, 14, 30] as const;
+const MAX_PRICE_DECIMALS = 18;
 
 function formatTokenValue(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value);
@@ -104,6 +85,12 @@ function asTrimmedString(value: unknown): string {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number" && Number.isFinite(value)) return String(value).trim();
   return "";
+}
+
+function isValidDecimalInput(value: string, maxDecimals: number): boolean {
+  if (!/^\d+(\.\d+)?$/.test(value)) return false;
+  const fraction = value.split(".")[1] ?? "";
+  return fraction.length <= maxDecimals;
 }
 
 export function TradeCreateListingDialog({
@@ -124,25 +111,31 @@ export function TradeCreateListingDialog({
   const [stepValidationErrors, setStepValidationErrors] = useState<string[]>([]);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [successHash, setSuccessHash] = useState<`0x${string}` | null>(null);
-  const { address: userAddress } = useAccount();
-  const {
-    veCollections,
-    isConnected,
-    isLoading,
-    isFetching,
-    error,
-    refresh: refreshVeNfts,
-  } = useUserVeNFTs();
+  const { address: userAddress, isConnected } = useAccount();
+  const txFlowChainId = useChainId();
+  const activeChain = getActiveChain(resolveAppEnvironment());
+  const expectedChainId = activeChain.id;
+  const isCorrectNetwork = (txFlowChainId ?? expectedChainId) === expectedChainId;
 
-  const resolveCollection = (values: FormState) =>
-    veCollections.find((collection) => collection.assetType === values.veAssetType) ?? null;
-  const resolveSelectedNft = (values: FormState) => {
-    const collection = resolveCollection(values);
-    if (!collection) return null;
-    return (
-      collection.veNfts.find((veNft) => veNft.tokenId.toString() === values.veNftTokenId) ?? null
-    );
-  };
+  const { veCollections, isLoading, isFetching, error, refresh: refreshVeNfts } = useUserVeNFTs();
+
+  const resolveCollection = useCallback(
+    (values: FormState) =>
+      veCollections.find((collection) => collection.assetType === values.veAssetType) ?? null,
+    [veCollections],
+  );
+
+  const resolveSelectedNft = useCallback(
+    (values: FormState) => {
+      const collection = resolveCollection(values);
+      if (!collection) return null;
+      return (
+        collection.veNfts.find((veNft) => veNft.tokenId.toString() === values.veNftTokenId) ?? null
+      );
+    },
+    [resolveCollection],
+  );
+
   const validationSchema = useMemo(() => {
     return yup.object({
       veAssetType: yup
@@ -167,9 +160,9 @@ export function TradeCreateListingDialog({
       listAmount: yup
         .string()
         .required("List amount must be greater than 0.")
-        .test("list-valid", "List amount must be a valid number.", (value) => {
+        .test("list-valid", "List amount must be a valid decimal value.", (value) => {
           if (!value) return false;
-          return Number.isFinite(Number.parseFloat(value.trim()));
+          return isValidDecimalInput(value.trim(), 18);
         })
         .test("list-positive", "List amount must be greater than 0.", (value) => {
           if (!value) return false;
@@ -191,24 +184,26 @@ export function TradeCreateListingDialog({
           },
         ),
       paymentToken: yup.string().required("Select a supported payment token."),
-      unitPriceUsd: yup
+      unitPrice: yup
         .string()
         .required("Unit price must be greater than 0.")
-        .test("unit-price-valid", "Unit price must be greater than 0.", (value) => {
+        .test("unit-price-valid", "Unit price must be a valid decimal value.", (value) => {
           if (!value) return false;
-          const parsed = Number.parseFloat(value.trim());
+          const normalized = value.trim();
+          if (!isValidDecimalInput(normalized, MAX_PRICE_DECIMALS)) return false;
+          const parsed = Number.parseFloat(normalized);
           return Number.isFinite(parsed) && parsed > 0;
         }),
-      expiryDays: yup
-        .string()
-        .required("Expiry must be at least 1 day.")
-        .test("expiry-valid", "Expiry must be at least 1 day.", (value) => {
-          if (!value) return false;
-          const parsed = Number.parseInt(value, 10);
-          return Number.isFinite(parsed) && parsed >= 1;
-        }),
+      expiryMode: yup.string().oneOf(["timed", "none"]).required(),
+      expiryDays: yup.string().test("expiry-valid", "Expiry must be at least 1 day.", function (v) {
+        const parent = this.parent as FormState;
+        if (parent.expiryMode === "none") return true;
+        if (!v) return false;
+        const parsed = Number.parseInt(v, 10);
+        return Number.isFinite(parsed) && parsed >= 1;
+      }),
     });
-  }, [isConnected, veCollections]);
+  }, [isConnected, resolveSelectedNft, veCollections]);
 
   const formik = useFormik<FormState>({
     initialValues: INITIAL_FORM,
@@ -218,11 +213,11 @@ export function TradeCreateListingDialog({
 
   const selectedCollection = useMemo(
     () => resolveCollection(formik.values),
-    [formik.values, veCollections],
+    [formik.values, resolveCollection],
   );
   const selectedNft = useMemo(
     () => resolveSelectedNft(formik.values),
-    [formik.values, selectedCollection],
+    [formik.values, resolveSelectedNft],
   );
 
   const selectedPaymentToken = useMemo(
@@ -233,82 +228,12 @@ export function TradeCreateListingDialog({
     [formik.values.paymentToken, paymentTokenOptions],
   );
 
-  const canReadApprovals = Boolean(userAddress && selectedCollection && listingWorkflowContracts);
-
-  const veNftApprovalRead = useReadContract({
-    address: selectedCollection?.contractAddress,
-    abi: erc721Abi,
-    functionName: "isApprovedForAll",
-    args:
-      userAddress && listingWorkflowContracts
-        ? [userAddress, listingWorkflowContracts.listingWrapperAddress]
-        : undefined,
-    query: {
-      enabled: canReadApprovals,
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
-    },
+  const requirements = useListingRequirements({
+    sellerAddress: userAddress,
+    veNftCollectionAddress: selectedCollection?.contractAddress,
+    listingWorkflowContracts,
+    chainId: expectedChainId,
   });
-
-  const marketplaceOperatorRead = useReadContract({
-    address: listingWorkflowContracts?.marketplaceAddress,
-    abi: MARKETPLACE_OPERATOR_ABI,
-    functionName: "isListingOperator",
-    args:
-      userAddress && listingWorkflowContracts
-        ? [userAddress, listingWorkflowContracts.listingWrapperAddress]
-        : undefined,
-    query: {
-      enabled: canReadApprovals,
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
-    },
-  });
-
-  const fractionApprovalRead = useReadContract({
-    address: listingWorkflowContracts?.assetLedgerAddress,
-    abi: ERC1155_APPROVAL_ABI,
-    functionName: "isApprovedForAll",
-    args:
-      userAddress && listingWorkflowContracts
-        ? [userAddress, listingWorkflowContracts.marketplaceAddress]
-        : undefined,
-    query: {
-      enabled: canReadApprovals,
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
-    },
-  });
-
-  const approvals = useMemo(() => {
-    const veNftTransferApproved = veNftApprovalRead.data === true;
-    const marketplaceOperatorApproved = marketplaceOperatorRead.data === true;
-    const fractionTransferApproved = fractionApprovalRead.data === true;
-    const isChecking =
-      veNftApprovalRead.isPending ||
-      marketplaceOperatorRead.isPending ||
-      fractionApprovalRead.isPending ||
-      veNftApprovalRead.isFetching ||
-      marketplaceOperatorRead.isFetching ||
-      fractionApprovalRead.isFetching;
-
-    return {
-      veNftTransferApproved,
-      marketplaceOperatorApproved,
-      fractionTransferApproved,
-      isChecking,
-    };
-  }, [
-    fractionApprovalRead.data,
-    fractionApprovalRead.isFetching,
-    fractionApprovalRead.isPending,
-    marketplaceOperatorRead.data,
-    marketplaceOperatorRead.isFetching,
-    marketplaceOperatorRead.isPending,
-    veNftApprovalRead.data,
-    veNftApprovalRead.isFetching,
-    veNftApprovalRead.isPending,
-  ]);
 
   const maxListAmount = useMemo(() => {
     if (!selectedNft) return 0;
@@ -323,31 +248,43 @@ export function TradeCreateListingDialog({
   const listingPreview = useListingPreview({
     selectedNft,
     listAmount: formik.values.listAmount,
-    unitPrice: formik.values.unitPriceUsd,
-    expiryDays: formik.values.expiryDays,
+    unitPrice: formik.values.unitPrice,
+    expiryDays: formik.values.expiryMode === "none" ? "0" : formik.values.expiryDays,
     paymentTokenSymbol: selectedPaymentToken?.symbol ?? null,
     protocolFeeBps,
   });
 
   const preparedListingInput = useMemo(() => {
-    if (!selectedCollection || !selectedNft || !selectedPaymentToken || !canCreateListing) {
+    if (
+      !selectedCollection ||
+      !selectedNft ||
+      !selectedPaymentToken ||
+      !canCreateListing ||
+      !isConnected ||
+      !isCorrectNetwork
+    ) {
       return null;
     }
 
-    const expiryDays = Number.parseInt(formik.values.expiryDays, 10);
-    const unitPriceInput = asTrimmedString(formik.values.unitPriceUsd);
+    const unitPriceInput = asTrimmedString(formik.values.unitPrice);
     const listAmount = asTrimmedString(formik.values.listAmount);
-    const unitPrice = Number.parseFloat(unitPriceInput || "0");
+    const unitPriceValue = Number.parseFloat(unitPriceInput || "0");
 
-    if (!Number.isFinite(expiryDays) || expiryDays < 1) return null;
-    if (!Number.isFinite(unitPrice) || unitPrice <= 0) return null;
-    if (listAmount.length === 0) return null;
+    if (!Number.isFinite(unitPriceValue) || unitPriceValue <= 0) return null;
+    if (!isValidDecimalInput(unitPriceInput, selectedPaymentToken.decimals)) return null;
+    if (listAmount.length === 0 || !isValidDecimalInput(listAmount, 18)) return null;
+
+    const expiryDays = Number.parseInt(formik.values.expiryDays, 10);
+    if (formik.values.expiryMode === "timed") {
+      if (!Number.isFinite(expiryDays) || expiryDays < 1) return null;
+    }
 
     try {
       const listRaw = parseUnits(listAmount, 18);
       if (listRaw <= 0n || listRaw > selectedNft.availableFractionCapacityRaw) {
         return null;
       }
+      parseUnits(unitPriceInput, selectedPaymentToken.decimals);
     } catch {
       return null;
     }
@@ -359,21 +296,25 @@ export function TradeCreateListingDialog({
       listAmount,
       paymentToken: selectedPaymentToken.address,
       paymentTokenDecimals: selectedPaymentToken.decimals,
-      unitPriceUsd: unitPriceInput,
-      expiryDays,
-      requiresVeNftApproval: !approvals.veNftTransferApproved,
-      requiresListingOperatorApproval: !approvals.marketplaceOperatorApproved,
-      requiresFractionTransferApproval: !approvals.fractionTransferApproved,
+      unitPrice: unitPriceInput,
+      expiryMode: formik.values.expiryMode,
+      expiryDays: formik.values.expiryMode === "none" ? 0 : expiryDays,
+      requiresVeNftApproval: !requirements.veNftTransferApproved,
+      requiresListingOperatorApproval: !requirements.marketplaceOperatorApproved,
+      requiresFractionTransferApproval: !requirements.fractionTransferApproved,
     } satisfies CreateVeTradeListingInput;
   }, [
-    approvals.fractionTransferApproved,
-    approvals.marketplaceOperatorApproved,
-    approvals.veNftTransferApproved,
     canCreateListing,
-    formik.values.expiryDays,
     formik.values.listAmount,
-    formik.values.unitPriceUsd,
+    formik.values.expiryDays,
+    formik.values.expiryMode,
+    formik.values.unitPrice,
     formik.values.veAssetType,
+    isConnected,
+    isCorrectNetwork,
+    requirements.fractionTransferApproved,
+    requirements.marketplaceOperatorApproved,
+    requirements.veNftTransferApproved,
     selectedCollection,
     selectedNft,
     selectedPaymentToken,
@@ -394,30 +335,124 @@ export function TradeCreateListingDialog({
     !isLoading &&
     !isFetching &&
     !isBroadcasting &&
-    isConnected;
+    !requirements.isChecking;
 
   const primaryActionLabel = useMemo(() => {
-    if (!preparedListingInput) return "List Asset";
-    if (preparedListingInput.requiresVeNftApproval) return "Approve";
-    if (preparedListingInput.requiresListingOperatorApproval) return "Approve Marketplace";
-    if (preparedListingInput.requiresFractionTransferApproval) return "Approve Fractions";
-    return "List Asset";
+    if (!preparedListingInput) return "Publish listing";
+    if (preparedListingInput.requiresVeNftApproval) return "Approve veNFT";
+    if (preparedListingInput.requiresListingOperatorApproval) return "Approve listing operator";
+    if (preparedListingInput.requiresFractionTransferApproval) return "Approve fraction transfers";
+    return "Publish listing";
   }, [preparedListingInput]);
 
   const selectedExpiryPreset = useMemo(() => {
+    if (formik.values.expiryMode === "none") return null;
     const current = Number.parseInt(formik.values.expiryDays, 10);
     return EXPIRY_PRESETS.find((preset) => preset === current) ?? null;
-  }, [formik.values.expiryDays]);
+  }, [formik.values.expiryDays, formik.values.expiryMode]);
 
   const successHref =
     successHash && blockExplorerUrl ? `${blockExplorerUrl}/tx/${successHash}` : null;
+
+  const readinessItems = useMemo(
+    () => [
+      {
+        key: "wallet",
+        label: "Wallet connected",
+        detail: "A connected wallet is required to sign approvals and listing transactions.",
+        ready: isConnected,
+      },
+      {
+        key: "network",
+        label: "Correct network",
+        detail: `Connect to chain ${expectedChainId} to use deployed Fractals contracts.`,
+        ready: isCorrectNetwork,
+      },
+      {
+        key: "venft",
+        label: "veNFT transfer approval",
+        detail: "Required for wrapper-driven fractionalization.",
+        ready: requirements.veNftTransferApproved,
+      },
+      {
+        key: "operator",
+        label: "Listing operator approval",
+        detail: "Allows wrapper to create listing on your behalf.",
+        ready: requirements.marketplaceOperatorApproved,
+      },
+      {
+        key: "fractions",
+        label: "Fraction transfer approval",
+        detail: "Allows marketplace settlement transfers from your AssetLedger balance.",
+        ready: requirements.fractionTransferApproved,
+      },
+    ],
+    [
+      expectedChainId,
+      isConnected,
+      isCorrectNetwork,
+      requirements.fractionTransferApproved,
+      requirements.marketplaceOperatorApproved,
+      requirements.veNftTransferApproved,
+    ],
+  );
+
+  const pendingReadinessItems = useMemo(
+    () => readinessItems.filter((item) => !item.ready),
+    [readinessItems],
+  );
+
+  const transactionPlanItems = useMemo(() => {
+    if (!preparedListingInput) {
+      return [
+        {
+          key: "listing-tx",
+          label: "Fractionalize + list",
+          detail: "Complete prior steps to prepare the listing transaction.",
+          ready: false,
+        },
+      ];
+    }
+
+    return [
+      {
+        key: "ve-approval",
+        label: "veNFT transfer approval",
+        detail: "A one-time approval transaction may be requested.",
+        ready: requirements.veNftTransferApproved,
+      },
+      {
+        key: "operator-approval",
+        label: "Wrapper listing operator",
+        detail: "A one-time operator approval may be requested.",
+        ready: requirements.marketplaceOperatorApproved,
+      },
+      {
+        key: "fraction-approval",
+        label: "AssetLedger transfer approval",
+        detail: "A one-time ERC1155 approval may be requested.",
+        ready: requirements.fractionTransferApproved,
+      },
+      {
+        key: "listing-tx",
+        label: "Fractionalize + list",
+        detail: "Final transaction mints fractions and creates your listing on-chain.",
+        ready: false,
+      },
+    ].filter((item) => !item.ready);
+  }, [
+    preparedListingInput,
+    requirements.fractionTransferApproved,
+    requirements.marketplaceOperatorApproved,
+    requirements.veNftTransferApproved,
+  ]);
 
   useEffect(() => {
     if (veCollections.length === 0) return;
     if (!veCollections.some((collection) => collection.assetType === formik.values.veAssetType)) {
       void formik.setFieldValue("veAssetType", veCollections[0].assetType);
     }
-  }, [formik.setFieldValue, formik.values.veAssetType, veCollections]);
+  }, [formik, formik.setFieldValue, formik.values.veAssetType, veCollections]);
 
   useEffect(() => {
     if (!selectedCollection || selectedCollection.veNfts.length === 0) {
@@ -434,7 +469,7 @@ export function TradeCreateListingDialog({
     if (!hasCurrentToken) {
       void formik.setFieldValue("veNftTokenId", selectedCollection.veNfts[0].tokenId.toString());
     }
-  }, [formik.setFieldValue, formik.values.veNftTokenId, selectedCollection]);
+  }, [formik, formik.setFieldValue, formik.values.veNftTokenId, selectedCollection]);
 
   useEffect(() => {
     if (paymentTokenOptions.length === 0) {
@@ -451,7 +486,7 @@ export function TradeCreateListingDialog({
     if (!exists) {
       void formik.setFieldValue("paymentToken", paymentTokenOptions[0].address);
     }
-  }, [formik.setFieldValue, formik.values.paymentToken, paymentTokenOptions]);
+  }, [formik, formik.setFieldValue, formik.values.paymentToken, paymentTokenOptions]);
 
   function resetFlow() {
     setStepIndex(1);
@@ -460,9 +495,16 @@ export function TradeCreateListingDialog({
     formik.resetForm();
   }
 
+  function resetFormState() {
+    setStepIndex(1);
+    setStepValidationErrors([]);
+    formik.resetForm();
+  }
+
   function getStepFields(step: number): Array<keyof FormState> {
     if (step === 1) return ["veAssetType", "veNftTokenId"];
-    if (step === 2) return ["listAmount", "unitPriceUsd", "paymentToken", "expiryDays"];
+    if (step === 2) return ["listAmount", "unitPrice", "paymentToken", "expiryMode", "expiryDays"];
+    if (step === 3) return [];
     return [];
   }
 
@@ -479,6 +521,21 @@ export function TradeCreateListingDialog({
       ),
     );
 
+    if (stepIndex === 3) {
+      if (!isConnected) {
+        setStepValidationErrors(["Connect your wallet before publishing."]);
+        return;
+      }
+      if (!isCorrectNetwork) {
+        setStepValidationErrors(["Switch to the configured Fractals network before publishing."]);
+        return;
+      }
+      if (!canCreateListing || !listingWorkflowContracts) {
+        setStepValidationErrors(["Listing contracts are unavailable for this network."]);
+        return;
+      }
+    }
+
     if (messages.length > 0) {
       setStepValidationErrors(messages);
       await Promise.all(stepFields.map((field) => formik.setFieldTouched(field, true, false)));
@@ -486,15 +543,7 @@ export function TradeCreateListingDialog({
     }
 
     setStepValidationErrors([]);
-
-    if (stepIndex === 1) {
-      setStepIndex(2);
-      return;
-    }
-
-    if (stepIndex === 2) {
-      setStepIndex(3);
-    }
+    setStepIndex((current) => Math.min(4, current + 1));
   }
 
   return (
@@ -511,10 +560,10 @@ export function TradeCreateListingDialog({
 
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create ve Listing</DialogTitle>
+          <DialogTitle>Create listing</DialogTitle>
           <DialogDescription>
-            Guided flow: select your veNFT, configure listing terms, then run on-chain approvals and
-            listing.
+            Fractionalize a veNFT and publish a non-custodial listing backed by your AssetLedger
+            position.
           </DialogDescription>
         </DialogHeader>
 
@@ -530,7 +579,7 @@ export function TradeCreateListingDialog({
                     rel="noreferrer"
                     className="text-emerald-100 underline underline-offset-4"
                   >
-                    View Transaction
+                    View transaction
                   </a>
                 ) : null}
                 <Button
@@ -546,11 +595,12 @@ export function TradeCreateListingDialog({
           </div>
         ) : null}
 
-        <div className="grid grid-cols-3 gap-2 rounded-xl bg-white/[0.02] p-2">
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-white/[0.02] p-2 sm:grid-cols-4">
           {[
-            { id: 1, title: "Select Asset" },
+            { id: 1, title: "Asset" },
             { id: 2, title: "Configure" },
-            { id: 3, title: "Review" },
+            { id: 3, title: "Readiness" },
+            { id: 4, title: "Review" },
           ].map((step) => {
             const isActive = stepIndex === step.id;
             const isComplete = stepIndex > step.id;
@@ -578,7 +628,7 @@ export function TradeCreateListingDialog({
             <div className="space-y-4 rounded-xl bg-white/[0.02] p-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-                  Token selection
+                  Select ve asset
                 </p>
                 {isLoading ? (
                   <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -597,10 +647,10 @@ export function TradeCreateListingDialog({
                         onClick={() =>
                           void formik.setFieldValue("veAssetType", collection.assetType)
                         }
-                        className={`rounded-xl px-3 py-2 text-left transition ${
+                        className={`rounded-xl border px-3 py-2 text-left transition ${
                           formik.values.veAssetType === collection.assetType
-                            ? "bg-[#b58f5f]/15"
-                            : "bg-white/[0.02] hover:bg-white/[0.05]"
+                            ? "border-[#b58f5f]/50 bg-[#b58f5f]/15"
+                            : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
                         }`}
                       >
                         <p className="text-sm font-semibold text-[var(--foreground)]">
@@ -613,11 +663,9 @@ export function TradeCreateListingDialog({
                 ) : null}
               </div>
 
-              <div className="h-px bg-white/10" />
-
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-                  Owned veNFTs
+                  Choose veNFT
                 </p>
                 <select
                   name="veNftTokenId"
@@ -626,7 +674,7 @@ export function TradeCreateListingDialog({
                   disabled={
                     !selectedCollection || selectedCollection.veNfts.length === 0 || isBroadcasting
                   }
-                  className="h-10 w-full rounded-xl bg-white/[0.02] px-3 text-sm text-white outline-none ring-offset-[#0c1117] focus-visible:ring-2 focus-visible:ring-[#b58f5f]"
+                  className="h-10 w-full rounded-xl border border-white/15 bg-white/[0.02] px-3 text-sm text-white outline-none ring-offset-[#0c1117] focus-visible:ring-2 focus-visible:ring-[#b58f5f]"
                 >
                   <option value="">Select veNFT</option>
                   {(selectedCollection?.veNfts ?? []).map((veNft) => (
@@ -637,7 +685,7 @@ export function TradeCreateListingDialog({
                 </select>
 
                 {selectedNft ? (
-                  <div className="rounded-xl bg-white/[0.03] p-3 text-sm">
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm">
                     <p className="font-semibold text-[var(--foreground)]">
                       {selectedNft.symbol} #{selectedNft.tokenId.toString()}
                     </p>
@@ -717,23 +765,23 @@ export function TradeCreateListingDialog({
                 </p>
               </div>
 
-              <div className="h-px bg-white/10" />
-
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="space-y-2">
                   <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
                     Unit price
                   </p>
                   <Input
-                    name="unitPriceUsd"
+                    name="unitPrice"
                     type="number"
                     min={0}
                     step={0.000001}
-                    value={formik.values.unitPriceUsd}
+                    value={formik.values.unitPrice}
                     onChange={formik.handleChange}
                     disabled={isBroadcasting}
                   />
-                  <p className="text-xs text-[var(--muted)]">Price per fraction.</p>
+                  <p className="text-xs text-[var(--muted)]">
+                    Price per fraction in selected payment token.
+                  </p>
                 </label>
 
                 <label className="space-y-2">
@@ -747,7 +795,7 @@ export function TradeCreateListingDialog({
                     disabled={
                       isLoadingPaymentTokens || paymentTokenOptions.length === 0 || isBroadcasting
                     }
-                    className="h-10 w-full rounded-xl bg-white/[0.02] px-3 text-sm text-white outline-none ring-offset-[#0c1117] focus-visible:ring-2 focus-visible:ring-[#b58f5f]"
+                    className="h-10 w-full rounded-xl border border-white/15 bg-white/[0.02] px-3 text-sm text-white outline-none ring-offset-[#0c1117] focus-visible:ring-2 focus-visible:ring-[#b58f5f]"
                   >
                     <option value="">Select payment token</option>
                     {paymentTokenOptions.map((token) => (
@@ -759,37 +807,71 @@ export function TradeCreateListingDialog({
                 </label>
               </div>
 
-              <div className="rounded-xl bg-white/[0.03] p-3 text-xs text-[var(--muted)]">
+              <div className="rounded-xl border border-[var(--line)] bg-white/[0.03] p-3 text-xs text-[var(--muted)]">
                 Total value preview: {listingPreview.totalValueLabel}
               </div>
 
-              <div className="h-px bg-white/10" />
-
               <div className="space-y-2">
-                <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">Expiry</p>
-                <div className="flex flex-wrap gap-2">
-                  {EXPIRY_PRESETS.map((preset) => (
-                    <Button
-                      key={preset}
-                      type="button"
-                      size="sm"
-                      variant={selectedExpiryPreset === preset ? "default" : "secondary"}
-                      onClick={() => void formik.setFieldValue("expiryDays", String(preset))}
-                      disabled={isBroadcasting}
-                    >
-                      {preset} days
-                    </Button>
-                  ))}
+                <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
+                  Listing expiry
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                      formik.values.expiryMode === "timed"
+                        ? "border-[#b58f5f]/50 bg-[#b58f5f]/15"
+                        : "border-white/15 bg-white/[0.02]"
+                    }`}
+                    onClick={() => void formik.setFieldValue("expiryMode", "timed")}
+                  >
+                    Timed listing
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                      formik.values.expiryMode === "none"
+                        ? "border-[#b58f5f]/50 bg-[#b58f5f]/15"
+                        : "border-white/15 bg-white/[0.02]"
+                    }`}
+                    onClick={() => void formik.setFieldValue("expiryMode", "none")}
+                  >
+                    No expiry
+                  </button>
                 </div>
-                <Input
-                  name="expiryDays"
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={formik.values.expiryDays}
-                  onChange={formik.handleChange}
-                  disabled={isBroadcasting}
-                />
+
+                {formik.values.expiryMode === "timed" ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {EXPIRY_PRESETS.map((preset) => (
+                        <Button
+                          key={preset}
+                          type="button"
+                          size="sm"
+                          variant={selectedExpiryPreset === preset ? "default" : "secondary"}
+                          onClick={() => void formik.setFieldValue("expiryDays", String(preset))}
+                          disabled={isBroadcasting}
+                        >
+                          {preset} days
+                        </Button>
+                      ))}
+                    </div>
+                    <Input
+                      name="expiryDays"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={formik.values.expiryDays}
+                      onChange={formik.handleChange}
+                      disabled={isBroadcasting}
+                    />
+                  </>
+                ) : (
+                  <p className="text-xs text-[var(--muted)]">
+                    This will pass <code>expiry = 0</code> to the marketplace, so the listing
+                    remains active until filled or cancelled.
+                  </p>
+                )}
               </div>
 
               {paymentTokenError ? (
@@ -814,112 +896,54 @@ export function TradeCreateListingDialog({
           ) : null}
 
           {stepIndex === 3 ? (
-            <div className="space-y-4 rounded-xl bg-white/[0.02] p-4">
-              <div className="rounded-xl bg-white/[0.03] p-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-                  Listing summary
-                </p>
-                <p className="mt-2 text-sm font-semibold text-[var(--foreground)]">
-                  {(selectedCollection?.symbol ?? formik.values.veAssetType) +
-                    " #" +
-                    (selectedNft?.tokenId.toString() ?? "?")}
-                </p>
-                <div className="mt-2 grid gap-2 text-xs text-[var(--muted)] sm:grid-cols-2">
-                  <p>{listingPreview.listedFractionsLabel} listed</p>
-                  <p>
-                    Price: {formatTokenValue(listingPreview.unitPriceValue)}{" "}
-                    {selectedPaymentToken?.symbol ?? ""} / unit
-                  </p>
-                  <p>Total value: {listingPreview.totalValueLabel}</p>
-                  <p>Expiry: {listingPreview.expiryLabel}</p>
-                </div>
-              </div>
+            <div className="space-y-4">
+              <ListingReadinessPanel
+                title="Listing prerequisites"
+                isChecking={requirements.isChecking}
+                error={requirements.error?.message ?? null}
+                onRefresh={requirements.refresh}
+                items={pendingReadinessItems}
+                allDone={pendingReadinessItems.length === 0}
+                emptyLabel="All listing prerequisites are satisfied."
+              />
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl bg-white/[0.03] p-3 text-xs text-[var(--muted)]">
-                  <p className="font-semibold text-[var(--foreground)]">What you list</p>
-                  <p className="mt-1">{listingPreview.listedFractionsLabel}</p>
-                  <p className="mt-1">
-                    {listingPreview.listedPercentage.toFixed(2)}% of available capacity
-                  </p>
-                </div>
-                <div className="rounded-xl bg-white/[0.03] p-3 text-xs text-[var(--muted)]">
-                  <p className="font-semibold text-[var(--foreground)]">What you keep</p>
-                  <p className="mt-1">{listingPreview.remainingFractionsLabel}</p>
-                </div>
-              </div>
-
-              <div className="rounded-xl bg-white/[0.03] p-3 text-xs text-[var(--muted)]">
-                <p>Estimated fees: {listingPreview.feeAmountLabel}</p>
-                <p className="mt-1">
-                  Estimated seller proceeds: {listingPreview.sellerProceedsLabel}
+              <div className="rounded-xl border border-[var(--line)] bg-white/[0.02] p-3 text-xs text-[var(--muted)]">
+                <p className="mb-1 flex items-center gap-1 font-semibold text-[var(--foreground)]">
+                  <Info className="h-3.5 w-3.5" />
+                  Marketplace behavior
+                </p>
+                <p>
+                  Listings are non-custodial. Your fractions stay in your wallet and are transferred
+                  only when a trade executes. Keep sufficient balance and approvals active for
+                  successful fills.
                 </p>
               </div>
+            </div>
+          ) : null}
 
-              <div className="h-px bg-white/10" />
+          {stepIndex === 4 ? (
+            <div className="space-y-4">
+              <ListingReviewCard
+                pairLabel={`${selectedCollection?.symbol ?? formik.values.veAssetType} #${selectedNft?.tokenId.toString() ?? "?"}`}
+                listedAmountLabel={listingPreview.listedFractionsLabel}
+                listedPercentage={listingPreview.listedPercentage}
+                remainingAmountLabel={listingPreview.remainingFractionsLabel}
+                unitPriceLabel={`${formatTokenValue(listingPreview.unitPriceValue)} ${selectedPaymentToken?.symbol ?? ""}`}
+                totalValueLabel={listingPreview.totalValueLabel}
+                feeLabel={listingPreview.feeAmountLabel}
+                proceedsLabel={listingPreview.sellerProceedsLabel}
+                expiryLabel={
+                  formik.values.expiryMode === "none" ? "No expiry" : listingPreview.expiryLabel
+                }
+              />
 
-              <div className="space-y-2 text-xs">
-                <p className="uppercase tracking-[0.12em] text-[var(--muted)]">
-                  Approvals and transaction flow
-                </p>
-
-                <div className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2">
-                  <p className="text-[var(--muted)]">veNFT transfer approval</p>
-                  <p className="flex items-center gap-1 text-sm">
-                    {approvals.isChecking ? (
-                      <span className="text-[var(--muted)]">Checking...</span>
-                    ) : approvals.veNftTransferApproved ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                        <span className="text-emerald-300">Approved</span>
-                      </>
-                    ) : (
-                      <>
-                        <CircleAlert className="h-4 w-4 text-amber-300" />
-                        <span className="text-amber-300">Approval required</span>
-                      </>
-                    )}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2">
-                  <p className="text-[var(--muted)]">Marketplace operator approval</p>
-                  <p className="flex items-center gap-1 text-sm">
-                    {approvals.isChecking ? (
-                      <span className="text-[var(--muted)]">Checking...</span>
-                    ) : approvals.marketplaceOperatorApproved ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                        <span className="text-emerald-300">Approved</span>
-                      </>
-                    ) : (
-                      <>
-                        <CircleAlert className="h-4 w-4 text-amber-300" />
-                        <span className="text-amber-300">Approval required</span>
-                      </>
-                    )}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2">
-                  <p className="text-[var(--muted)]">Fraction transfer approval</p>
-                  <p className="flex items-center gap-1 text-sm">
-                    {approvals.isChecking ? (
-                      <span className="text-[var(--muted)]">Checking...</span>
-                    ) : approvals.fractionTransferApproved ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                        <span className="text-emerald-300">Approved</span>
-                      </>
-                    ) : (
-                      <>
-                        <CircleAlert className="h-4 w-4 text-amber-300" />
-                        <span className="text-amber-300">Approval required</span>
-                      </>
-                    )}
-                  </p>
-                </div>
-              </div>
+              {transactionPlanItems.length > 0 ? (
+                <ListingReadinessPanel
+                  title="Transaction plan"
+                  isChecking={requirements.isChecking}
+                  items={transactionPlanItems}
+                />
+              ) : null}
             </div>
           ) : null}
 
@@ -930,10 +954,20 @@ export function TradeCreateListingDialog({
               ))}
             </div>
           ) : null}
+
           {formik.status ? (
             <p className="rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-2 text-sm text-red-200">
               {String(formik.status)}
             </p>
+          ) : null}
+
+          {!preparedListingInput && stepIndex === 4 ? (
+            <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              <p className="flex items-center gap-1">
+                <CircleAlert className="h-4 w-4" />
+                Listing input is incomplete or invalid. Review previous steps before publishing.
+              </p>
+            </div>
           ) : null}
 
           <DialogFooter>
@@ -960,7 +994,7 @@ export function TradeCreateListingDialog({
               </Button>
             ) : null}
 
-            {stepIndex < 3 ? (
+            {stepIndex < 4 ? (
               <Button type="button" onClick={handleNextStep} disabled={isBroadcasting}>
                 Continue
               </Button>
@@ -979,9 +1013,12 @@ export function TradeCreateListingDialog({
                     onCreated?.(mapCreatedListingAsset(preparedListingInput, txHash));
                     setSuccessHash(txHash);
                   }
+                  resetFormState();
                   refreshVeNfts();
+                  requirements.refresh();
                 }}
                 onError={(message) => {
+                  resetFormState();
                   formik.setStatus(message || "Failed to publish listing.");
                 }}
                 onRunningChange={(running) => {

@@ -200,6 +200,17 @@ export function useTradeListing() {
         "No payment token selected. Configure PaymentRouter supported tokens and pick one.",
       );
     }
+    if (input.expiryMode === "timed" && input.expiryDays < 1) {
+      throw new Error("Expiry must be at least 1 day.");
+    }
+
+    const expiry =
+      input.expiryMode === "none"
+        ? 0n
+        : BigInt(
+            Math.floor(Date.now() / 1000) +
+              Math.max(1, Math.floor(input.expiryDays)) * 24 * 60 * 60,
+          );
 
     const steps: TxStep[] = [];
 
@@ -265,11 +276,8 @@ export function useTradeListing() {
             input.veNftTokenId,
             parseUnits(input.listAmount, 18),
             input.paymentToken,
-            parseUnits(input.unitPriceUsd, input.paymentTokenDecimals),
-            BigInt(
-              Math.floor(Date.now() / 1000) +
-                Math.max(1, Math.floor(input.expiryDays)) * 24 * 60 * 60,
-            ),
+            parseUnits(input.unitPrice, input.paymentTokenDecimals),
+            expiry,
           ],
         },
       }),
@@ -284,7 +292,7 @@ export function useTradeListing() {
       name: `${input.veAssetType} Fraction #${input.veNftTokenId.toString()}`,
       symbol: `${input.veAssetType}-${input.veNftTokenId.toString()}`,
       thumbnail: input.veAssetType === "veBTC" ? "🟧" : "🟩",
-      priceUsd: Number(input.unitPriceUsd),
+      priceUsd: Number(input.unitPrice),
       volume24hUsd: 0,
       change24hPct: undefined,
       category: "locked",

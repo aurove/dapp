@@ -72,7 +72,8 @@ export type CreateVeTradeListingInput = {
   listAmount: string;
   paymentToken: `0x${string}`;
   paymentTokenDecimals: number;
-  unitPriceUsd: string;
+  unitPrice: string;
+  expiryMode: "timed" | "none";
   expiryDays: number;
   requiresVeNftApproval?: boolean;
   requiresListingOperatorApproval?: boolean;
