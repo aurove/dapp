@@ -25,8 +25,21 @@ export type TradeMarketListingPreview = {
   listingId: bigint;
   seller: `0x${string}`;
   amount: number;
+  amountRaw: bigint;
   price: number;
+  priceRaw: bigint;
   expiry: number;
+};
+
+export type TradeMarketBidPreview = {
+  bidId: bigint;
+  bidder: `0x${string}`;
+  amount: number;
+  amountRaw: bigint;
+  price: number;
+  priceRaw: bigint;
+  expiry: number;
+  escrowedPaymentRaw: bigint;
 };
 
 export type TradeMarket = {
@@ -42,17 +55,22 @@ export type TradeMarket = {
   state: TradeMarketState;
   totalListedSupply: number;
   quoteLiquidity: number;
+  quoteDemand: number;
   floorPrice: number | null;
+  bestBidPrice: number | null;
   bestPrice: number | null;
   priceRangeLow: number | null;
   priceRangeHigh: number | null;
   activeListings: number;
   expiredListings: number;
+  activeBids: number;
+  expiredBids: number;
   recentActivity: number;
   lastActivityAt: number | null;
   userPosition: number;
   hasUserPosition: boolean;
   topListings: TradeMarketListingPreview[];
+  topBids: TradeMarketBidPreview[];
 };
 
 export type TradeMarketSortOption =

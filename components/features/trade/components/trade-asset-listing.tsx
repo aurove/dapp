@@ -46,6 +46,7 @@ export function TradeAssetListing() {
     paymentTokenOptions: marketPaymentTokens,
     isLoading,
     isRefreshing,
+    error,
     refreshMarkets,
   } = useMarkets();
 
@@ -84,12 +85,10 @@ export function TradeAssetListing() {
               onRefreshPaymentTokens={refreshPaymentTokens}
             />
           </div>
-          <CardTitle className="text-2xl sm:text-3xl">
-            Markets Overview: fraction symbols vs payment tokens
-          </CardTitle>
+          <CardTitle className="text-2xl sm:text-3xl">Fraction Markets</CardTitle>
           <p className="max-w-3xl text-sm leading-7 text-[var(--muted)] sm:text-base">
-            Scan on-chain market pairs by liquidity, floor price, listing depth, and recent
-            activity.
+            Browse market pairs grouped by fraction / payment token. Open a market to inspect
+            orderbook depth and execute supported on-chain actions.
           </p>
           {lastCreated ? (
             <p className="max-w-3xl text-sm text-emerald-300">
@@ -122,13 +121,20 @@ export function TradeAssetListing() {
           Showing <span className="font-semibold text-[var(--foreground)]">{markets.length}</span>{" "}
           of {totalCount} markets
         </p>
+        {error ? (
+          <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-100">
+            Failed to refresh markets: {error.message}
+          </p>
+        ) : null}
       </div>
 
       {isLoading ? <TradeLoadingState /> : null}
 
       {!isLoading && !hasMarkets ? <TradeEmptyState onClear={clearFilters} /> : null}
 
-      {!isLoading && hasMarkets ? <TradeAssetGrid assets={markets} /> : null}
+      {!isLoading && hasMarkets ? (
+        <TradeAssetGrid assets={markets} onTradeExecuted={refreshMarkets} />
+      ) : null}
     </section>
   );
 }

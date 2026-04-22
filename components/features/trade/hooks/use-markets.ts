@@ -31,6 +31,24 @@ type TradeListingTuple = {
   isActive: boolean;
 };
 
+type TradeBidTuple = {
+  bidId: bigint;
+  bidder: Address;
+  collection: Address;
+  tokenId: bigint;
+  amountRemaining: bigint;
+  paymentToken: Address;
+  pricePerUnit: bigint;
+  escrowedPayment: bigint;
+  totalBidValueRemaining: bigint;
+  createdAt: bigint;
+  updatedAt: bigint;
+  expiry: bigint;
+  status: number;
+  isExpired: boolean;
+  isActive: boolean;
+};
+
 type TradePaymentTokenInfo = {
   address: Address;
   symbol: string;
@@ -98,6 +116,14 @@ function applyMarketSort(items: TradeMarket[], sortBy: TradeMarketSortOption): T
   });
 }
 
+function parseBidsReadResult(value: unknown): TradeBidTuple[] {
+  const tuple = value as readonly [readonly TradeBidTuple[], bigint, boolean] | undefined;
+  if (!tuple || !Array.isArray(tuple[0])) {
+    return [];
+  }
+  return [...tuple[0]];
+}
+
 export function useMarkets() {
   const txFlowChainId = useChainId();
   const { address: userAddress } = useAccount();
@@ -122,8 +148,7 @@ export function useMarkets() {
   const canReadLedger = Boolean(assetLedger?.address && assetLedger.abi);
 
   const bootstrapContracts = useMemo(() => {
-    if (!canReadCore) return [];
-    if (!marketplace?.address || !paymentRouter?.address) return [];
+    if (!canReadCore || !marketplace?.address || !paymentRouter?.address) return [];
 
     const contracts: Array<{
       address: Address;
@@ -135,6 +160,12 @@ export function useMarkets() {
         address: marketplace.address,
         abi: marketplace.abi,
         functionName: "nextListingId",
+        chainId,
+      },
+      {
+        address: marketplace.address,
+        abi: marketplace.abi,
+        functionName: "nextBidId",
         chainId,
       },
       {
@@ -188,16 +219,19 @@ export function useMarkets() {
 
   const nextListingId = (bootstrapReads.data?.[0]?.result as bigint | undefined) ?? 1n;
   const listingCount = nextListingId > 0n ? nextListingId - 1n : 0n;
+  const nextBidId = (bootstrapReads.data?.[1]?.result as bigint | undefined) ?? 1n;
+  const bidCount = nextBidId > 0n ? nextBidId - 1n : 0n;
+
   const supportedTokens = useMemo(() => {
-    const value = bootstrapReads.data?.[1]?.result as unknown;
+    const value = bootstrapReads.data?.[2]?.result as unknown;
     if (!Array.isArray(value)) return [] as Address[];
     return value.filter((token): token is Address => typeof token === "string") as Address[];
   }, [bootstrapReads.data]);
 
-  const btcAddress = toAddress(bootstrapReads.data?.[2]?.result);
-  const mezoAddress = toAddress(bootstrapReads.data?.[3]?.result);
-  const musdAddress = toAddress(bootstrapReads.data?.[4]?.result);
-  const fractionCountResult = canReadLedger ? bootstrapReads.data?.[5]?.result : 0;
+  const btcAddress = toAddress(bootstrapReads.data?.[3]?.result);
+  const mezoAddress = toAddress(bootstrapReads.data?.[4]?.result);
+  const musdAddress = toAddress(bootstrapReads.data?.[5]?.result);
+  const fractionCountResult = canReadLedger ? bootstrapReads.data?.[6]?.result : 0;
   const fractionCount =
     typeof fractionCountResult === "bigint"
       ? Number(fractionCountResult)
@@ -206,7 +240,7 @@ export function useMarkets() {
         : 0;
 
   const listingPageContracts = useMemo(() => {
-    if (!canReadCore || listingCount === 0n) return [];
+    if (!canReadCore || listingCount === 0n || !marketplace?.address) return [];
 
     const contracts: Array<{
       address: Address;
@@ -215,8 +249,6 @@ export function useMarkets() {
       args: readonly [bigint, bigint];
       chainId: number;
     }> = [];
-
-    if (!marketplace?.address) return contracts;
 
     for (let cursor = 0n; cursor < listingCount; cursor += LISTINGS_PAGE_SIZE) {
       contracts.push({
@@ -242,6 +274,41 @@ export function useMarkets() {
     },
   });
 
+  const bidPageContracts = useMemo(() => {
+    if (!canReadCore || bidCount === 0n || !marketplace?.address) return [];
+
+    const contracts: Array<{
+      address: Address;
+      abi: Abi;
+      functionName: "getBids";
+      args: readonly [bigint, bigint];
+      chainId: number;
+    }> = [];
+
+    for (let cursor = 0n; cursor < bidCount; cursor += LISTINGS_PAGE_SIZE) {
+      contracts.push({
+        address: marketplace.address,
+        abi: marketplace.abi,
+        functionName: "getBids",
+        args: [cursor, LISTINGS_PAGE_SIZE],
+        chainId,
+      });
+    }
+
+    return contracts;
+  }, [bidCount, canReadCore, chainId, marketplace]);
+
+  const bidReads = useReadContracts({
+    allowFailure: true,
+    contracts: bidPageContracts,
+    query: {
+      enabled: bidPageContracts.length > 0,
+      staleTime: 15_000,
+      gcTime: 5 * 60_000,
+      refetchInterval: 30_000,
+    },
+  });
+
   const allListings = useMemo(() => {
     const rows: TradeListingTuple[] = [];
     for (const result of listingReads.data ?? []) {
@@ -249,6 +316,14 @@ export function useMarkets() {
     }
     return rows;
   }, [listingReads.data]);
+
+  const allBids = useMemo(() => {
+    const rows: TradeBidTuple[] = [];
+    for (const result of bidReads.data ?? []) {
+      rows.push(...parseBidsReadResult(result.result));
+    }
+    return rows;
+  }, [bidReads.data]);
 
   const fractionAddressContracts = useMemo(() => {
     if (!canReadLedger || fractionCount === 0) return [];
@@ -461,8 +536,8 @@ export function useMarkets() {
     if (fractions.length === 0 || paymentTokens.length === 0) return [];
 
     const activityCutoff = nowTimestamp - 24 * 60 * 60;
-
     const listingsByMarket = new Map<string, TradeListingTuple[]>();
+    const bidsByMarket = new Map<string, TradeBidTuple[]>();
 
     for (const listing of allListings) {
       const key = `${listing.tokenId.toString()}-${listing.paymentToken.toLowerCase()}`;
@@ -474,59 +549,92 @@ export function useMarkets() {
       }
     }
 
+    for (const bid of allBids) {
+      const key = `${bid.tokenId.toString()}-${bid.paymentToken.toLowerCase()}`;
+      const existing = bidsByMarket.get(key);
+      if (existing) {
+        existing.push(bid);
+      } else {
+        bidsByMarket.set(key, [bid]);
+      }
+    }
+
     const output: TradeMarket[] = [];
 
     for (const fraction of fractions) {
       for (const token of paymentTokens) {
-        const marketListings =
-          listingsByMarket.get(`${fraction.trancheId.toString()}-${token.address.toLowerCase()}`) ??
-          [];
-        if (marketListings.length === 0) continue;
+        const marketKey = `${fraction.trancheId.toString()}-${token.address.toLowerCase()}`;
+        const marketListings = listingsByMarket.get(marketKey) ?? [];
+        const marketBids = bidsByMarket.get(marketKey) ?? [];
+        if (marketListings.length === 0 && marketBids.length === 0) continue;
+
         const activeListings = marketListings.filter((listing) => listing.isActive);
         const expiredListings = marketListings.filter((listing) => listing.isExpired);
+        const activeBids = marketBids.filter((bid) => bid.isActive);
+        const expiredBids = marketBids.filter((bid) => bid.isExpired);
 
-        const sortedByPrice = [...activeListings].sort((a, b) =>
+        const asksSortedByPrice = [...activeListings].sort((a, b) =>
           a.pricePerUnit === b.pricePerUnit
             ? Number(a.listingId - b.listingId)
             : Number(a.pricePerUnit - b.pricePerUnit),
+        );
+
+        const bidsSortedByPrice = [...activeBids].sort((a, b) =>
+          a.pricePerUnit === b.pricePerUnit
+            ? Number(a.bidId - b.bidId)
+            : Number(b.pricePerUnit - a.pricePerUnit),
         );
 
         const quoteLiquidity = activeListings.reduce(
           (sum, listing) => sum + toSafeNumber(listing.totalPriceRemaining, token.decimals),
           0,
         );
+        const quoteDemand = activeBids.reduce(
+          (sum, bid) => sum + toSafeNumber(bid.totalBidValueRemaining, token.decimals),
+          0,
+        );
         const totalListedSupply = activeListings.reduce(
           (sum, listing) => sum + toSafeNumber(listing.amountRemaining, FRACTION_DECIMALS),
           0,
         );
+
         const floorPrice =
-          sortedByPrice.length > 0
-            ? toSafeNumber(sortedByPrice[0]!.pricePerUnit, token.decimals)
+          asksSortedByPrice.length > 0
+            ? toSafeNumber(asksSortedByPrice[0]!.pricePerUnit, token.decimals)
             : null;
-        const highestPrice =
-          sortedByPrice.length > 0
-            ? toSafeNumber(sortedByPrice[sortedByPrice.length - 1]!.pricePerUnit, token.decimals)
+        const highestAskPrice =
+          asksSortedByPrice.length > 0
+            ? toSafeNumber(
+                asksSortedByPrice[asksSortedByPrice.length - 1]!.pricePerUnit,
+                token.decimals,
+              )
+            : null;
+        const bestBidPrice =
+          bidsSortedByPrice.length > 0
+            ? toSafeNumber(bidsSortedByPrice[0]!.pricePerUnit, token.decimals)
             : null;
 
-        const recentActivity = marketListings.filter(
-          (listing) =>
-            Number(listing.createdAt) >= activityCutoff ||
-            Number(listing.updatedAt) >= activityCutoff,
+        const recentActivity = [...marketListings, ...marketBids].filter(
+          (order) =>
+            Number(order.createdAt) >= activityCutoff || Number(order.updatedAt) >= activityCutoff,
         ).length;
 
-        const lastActivityAt = marketListings.reduce<number | null>((latest, listing) => {
-          const candidate = Math.max(Number(listing.createdAt), Number(listing.updatedAt));
-          if (latest === null || candidate > latest) return candidate;
-          return latest;
-        }, null);
+        const lastActivityAt = [...marketListings, ...marketBids].reduce<number | null>(
+          (latest, order) => {
+            const candidate = Math.max(Number(order.createdAt), Number(order.updatedAt));
+            if (latest === null || candidate > latest) return candidate;
+            return latest;
+          },
+          null,
+        );
 
         const rawUserPosition = balanceByTranche.get(fraction.trancheId.toString()) ?? 0n;
         const userPosition = toSafeNumber(rawUserPosition, FRACTION_DECIMALS);
 
         let state: TradeMarketState = "illiquid";
-        if (activeListings.length > 0) {
+        if (activeListings.length > 0 || activeBids.length > 0) {
           state = "active";
-        } else if (expiredListings.length > 0) {
+        } else if (expiredListings.length > 0 || expiredBids.length > 0) {
           state = "expired";
         }
 
@@ -543,29 +651,45 @@ export function useMarkets() {
           state,
           totalListedSupply,
           quoteLiquidity,
+          quoteDemand,
           floorPrice,
+          bestBidPrice,
           bestPrice: floorPrice,
           priceRangeLow: floorPrice,
-          priceRangeHigh: highestPrice,
+          priceRangeHigh: highestAskPrice,
           activeListings: activeListings.length,
           expiredListings: expiredListings.length,
+          activeBids: activeBids.length,
+          expiredBids: expiredBids.length,
           recentActivity,
           lastActivityAt,
           userPosition,
           hasUserPosition: userPosition > 0,
-          topListings: sortedByPrice.slice(0, 3).map((listing) => ({
+          topListings: asksSortedByPrice.slice(0, 5).map((listing) => ({
             listingId: listing.listingId,
             seller: listing.seller,
             amount: toSafeNumber(listing.amountRemaining, FRACTION_DECIMALS),
+            amountRaw: listing.amountRemaining,
             price: toSafeNumber(listing.pricePerUnit, token.decimals),
+            priceRaw: listing.pricePerUnit,
             expiry: Number(listing.expiry),
+          })),
+          topBids: bidsSortedByPrice.slice(0, 5).map((bid) => ({
+            bidId: bid.bidId,
+            bidder: bid.bidder,
+            amount: toSafeNumber(bid.amountRemaining, FRACTION_DECIMALS),
+            amountRaw: bid.amountRemaining,
+            price: toSafeNumber(bid.pricePerUnit, token.decimals),
+            priceRaw: bid.pricePerUnit,
+            expiry: Number(bid.expiry),
+            escrowedPaymentRaw: bid.escrowedPayment,
           })),
         });
       }
     }
 
     return output;
-  }, [allListings, balanceByTranche, fractions, nowTimestamp, paymentTokens]);
+  }, [allBids, allListings, balanceByTranche, fractions, nowTimestamp, paymentTokens]);
 
   const filteredMarkets = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -590,6 +714,7 @@ export function useMarkets() {
   const isLoading =
     (canReadCore && bootstrapContracts.length > 0 && bootstrapReads.isPending) ||
     (listingPageContracts.length > 0 && listingReads.isPending) ||
+    (bidPageContracts.length > 0 && bidReads.isPending) ||
     (fractionAddressContracts.length > 0 && fractionAddressReads.isPending) ||
     (fractionMetaContracts.length > 0 && fractionMetaReads.isPending) ||
     (paymentTokenMetadataContracts.length > 0 && paymentTokenReads.isPending) ||
@@ -598,6 +723,7 @@ export function useMarkets() {
   const isRefreshing =
     (canReadCore && bootstrapContracts.length > 0 && bootstrapReads.isFetching) ||
     (listingPageContracts.length > 0 && listingReads.isFetching) ||
+    (bidPageContracts.length > 0 && bidReads.isFetching) ||
     (fractionAddressContracts.length > 0 && fractionAddressReads.isFetching) ||
     (fractionMetaContracts.length > 0 && fractionMetaReads.isFetching) ||
     (paymentTokenMetadataContracts.length > 0 && paymentTokenReads.isFetching) ||
@@ -606,6 +732,7 @@ export function useMarkets() {
   const error =
     (bootstrapReads.error as Error | null) ||
     (listingReads.error as Error | null) ||
+    (bidReads.error as Error | null) ||
     (fractionAddressReads.error as Error | null) ||
     (fractionMetaReads.error as Error | null) ||
     (paymentTokenReads.error as Error | null) ||
@@ -614,6 +741,7 @@ export function useMarkets() {
   function refreshMarkets() {
     void bootstrapReads.refetch();
     void listingReads.refetch();
+    void bidReads.refetch();
     void fractionAddressReads.refetch();
     void fractionMetaReads.refetch();
     void paymentTokenReads.refetch();

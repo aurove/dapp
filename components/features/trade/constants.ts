@@ -1,12 +1,12 @@
 import type { TradeMarketSortOption, TradeMarketState } from "./types";
 
 export const TRADE_MARKET_SORT_OPTIONS: Array<{ label: string; value: TradeMarketSortOption }> = [
-  { label: "Liquidity: High to Low", value: "liquidity_desc" },
-  { label: "Liquidity: Low to High", value: "liquidity_asc" },
-  { label: "Price: Low to High", value: "price_asc" },
-  { label: "Price: High to Low", value: "price_desc" },
-  { label: "Activity: High to Low", value: "activity_desc" },
-  { label: "Activity: Low to High", value: "activity_asc" },
+  { label: "Ask Liquidity: High to Low", value: "liquidity_desc" },
+  { label: "Ask Liquidity: Low to High", value: "liquidity_asc" },
+  { label: "Best Ask Price: Low to High", value: "price_asc" },
+  { label: "Best Ask Price: High to Low", value: "price_desc" },
+  { label: "Recent Activity: High to Low", value: "activity_desc" },
+  { label: "Recent Activity: Low to High", value: "activity_asc" },
 ];
 
 export const TRADE_MARKET_STATE_FILTERS: Array<{ label: string; value: "all" | TradeMarketState }> =

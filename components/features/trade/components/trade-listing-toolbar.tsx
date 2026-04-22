@@ -56,7 +56,7 @@ export function TradeListingToolbar({
           <Input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="Search by fraction symbol (e.g. fveBTC-W336)"
+            placeholder="Search by pair, symbol, or tranche"
             className="pl-9"
           />
         </label>
@@ -137,7 +137,7 @@ export function TradeListingToolbar({
           onChange={(event) => onActiveOnlyChange(event.target.checked)}
           className="h-4 w-4 rounded border-white/20 bg-transparent"
         />
-        Active markets only
+        Active markets only (asks or bids)
       </label>
     </div>
   );
