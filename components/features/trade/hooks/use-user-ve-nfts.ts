@@ -1,51 +1,18 @@
 "use client";
 
 import { useMemo } from "react";
-import { erc721Abi, formatUnits, type Abi, type Address } from "viem";
+import { formatUnits, type Abi, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
+import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
-import { getKnownVeTokenConfigs } from "../data/known-addresses";
 import type { TradeVeAssetType } from "../types";
-
-const ERC721_ENUMERABLE_ABI = [
-  {
-    inputs: [
-      { internalType: "address", name: "owner", type: "address" },
-      { internalType: "uint256", name: "index", type: "uint256" },
-    ],
-    name: "ownerToNFTokenIdList",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
-
-const VE_LOCKED_BALANCE_ABI = [
-  {
-    inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-    name: "locked",
-    outputs: [
-      {
-        components: [
-          { internalType: "int128", name: "amount", type: "int128" },
-          { internalType: "uint256", name: "end", type: "uint256" },
-          { internalType: "bool", name: "isPermanent", type: "bool" },
-        ],
-        internalType: "struct IVotingEscrow.LockedBalance",
-        name: "",
-        type: "tuple",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
 
 const MAX_TOKENS_PER_COLLECTION = 50;
 
 type VeTokenCandidate = {
   assetType: TradeVeAssetType;
   contractAddress: Address;
+  abi: Abi;
 };
 
 export type UserVeNft = {
@@ -166,14 +133,30 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = txFlowChainId ?? activeChain.id;
 
-  const candidates = useMemo<VeTokenCandidate[]>(
-    () =>
-      getKnownVeTokenConfigs(chainId).map((token) => ({
-        assetType: token.assetType,
-        contractAddress: token.address,
-      })),
-    [chainId],
-  );
+  const veBtc = getContractConfig(chainId, "VeBTC");
+  const veMezo = getContractConfig(chainId, "VeMEZO");
+
+  const candidates = useMemo<VeTokenCandidate[]>(() => {
+    const items: VeTokenCandidate[] = [];
+
+    if (veBtc?.address && veBtc.abi) {
+      items.push({
+        assetType: "veBTC",
+        contractAddress: veBtc.address as Address,
+        abi: veBtc.abi as Abi,
+      });
+    }
+
+    if (veMezo?.address && veMezo.abi) {
+      items.push({
+        assetType: "veMEZO",
+        contractAddress: veMezo.address as Address,
+        abi: veMezo.abi as Abi,
+      });
+    }
+
+    return items;
+  }, [veBtc, veMezo]);
 
   const summaryContracts = useMemo(() => {
     if (!userAddress) return [];
@@ -189,13 +172,13 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
     for (const candidate of candidates) {
       contracts.push({
         address: candidate.contractAddress,
-        abi: erc721Abi,
+        abi: candidate.abi,
         functionName: "symbol",
         chainId,
       });
       contracts.push({
         address: candidate.contractAddress,
-        abi: erc721Abi,
+        abi: candidate.abi,
         functionName: "balanceOf",
         args: [userAddress],
         chainId,
@@ -253,7 +236,7 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
       for (let index = 0; index < Number(token.balance); index += 1) {
         contracts.push({
           address: token.contractAddress,
-          abi: ERC721_ENUMERABLE_ABI,
+          abi: token.abi,
           functionName: "ownerToNFTokenIdList",
           args: [userAddress, BigInt(index)],
           chainId,
@@ -310,7 +293,7 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
       for (const tokenId of collection.tokenIds) {
         contracts.push({
           address: collection.summary.contractAddress,
-          abi: VE_LOCKED_BALANCE_ABI,
+          abi: collection.summary.abi,
           functionName: "locked",
           args: [tokenId],
           chainId,

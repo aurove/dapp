@@ -481,6 +481,7 @@ export function useMarkets() {
         const marketListings =
           listingsByMarket.get(`${fraction.trancheId.toString()}-${token.address.toLowerCase()}`) ??
           [];
+        if (marketListings.length === 0) continue;
         const activeListings = marketListings.filter((listing) => listing.isActive);
         const expiredListings = marketListings.filter((listing) => listing.isExpired);
 
