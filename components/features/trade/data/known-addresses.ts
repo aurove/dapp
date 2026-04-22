@@ -26,9 +26,9 @@ const KNOWN_VE_TOKENS_BY_CHAIN: Record<number, KnownVeTokenConfig[]> = {
   ],
   316: [
     { assetType: "veBTC", address: "0x7D807e9CE1ef73048FEe9A4214e75e894ea25914" },
-    // veMEZO mainnet address is not present in current repo deployment/test fixtures.
+    { assetType: "veMEZO", address: "0xb90fdAd3DFD180458D62Cc6acedc983D78E20122" },
   ],
-   31337: [
+  31337: [
     { assetType: "veBTC", address: "0xB63fcCd03521Cf21907627bd7fA465C129479231" },
     { assetType: "veMEZO", address: "0xaCE816CA2bcc9b12C59799dcC5A959Fb9b98111b" },
   ],
