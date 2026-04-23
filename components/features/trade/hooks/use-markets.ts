@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { erc20Abi, formatUnits, type Abi, type Address } from "viem";
+import { erc20Abi, formatUnits, zeroAddress, type Abi, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
@@ -13,6 +13,7 @@ import type {
   TradeMarketSortOption,
   TradeMarketState,
 } from "../types";
+import { decodeTrancheId, deriveFractionSymbol } from "../utils/tranche";
 
 type TradeListingTuple = {
   listingId: bigint;
@@ -91,6 +92,28 @@ function toDecimals(value: unknown): number {
 
 function toSafeNumber(value: bigint, decimals: number): number {
   return Number(formatUnits(value, decimals));
+}
+
+function buildFallbackFractionInfo(trancheId: bigint, address: Address): FractionInfo {
+  const decoded = decodeTrancheId(trancheId);
+  if (decoded) {
+    const symbol = deriveFractionSymbol(decoded.variant, decoded.trancheNumber);
+    return {
+      address,
+      trancheId,
+      name: symbol,
+      symbol,
+      base: decoded.variant,
+    };
+  }
+
+  return {
+    address,
+    trancheId,
+    name: `Unknown tranche #${trancheId.toString()}`,
+    symbol: `TRANCHE-${trancheId.toString()}`,
+    base: "veAsset",
+  };
 }
 
 function applyMarketSort(items: TradeMarket[], sortBy: TradeMarketSortOption): TradeMarket[] {
@@ -431,6 +454,35 @@ export function useMarkets() {
     return items;
   }, [fractionAddresses, fractionMetaReads.data]);
 
+  const marketTrancheIds = useMemo(() => {
+    const ids = new Map<string, bigint>();
+    for (const fraction of fractions) {
+      ids.set(fraction.trancheId.toString(), fraction.trancheId);
+    }
+    for (const listing of allListings) {
+      const key = listing.tokenId.toString();
+      if (!ids.has(key)) ids.set(key, listing.tokenId);
+    }
+    for (const bid of allBids) {
+      const key = bid.tokenId.toString();
+      if (!ids.has(key)) ids.set(key, bid.tokenId);
+    }
+    return [...ids.values()];
+  }, [allBids, allListings, fractions]);
+
+  const marketFractions = useMemo(() => {
+    const knownFractionsByTrancheId = new Map(
+      fractions.map((fraction) => [fraction.trancheId.toString(), fraction] as const),
+    );
+    const fallbackAddress = assetLedger?.address ?? zeroAddress;
+
+    return marketTrancheIds.map((trancheId) => {
+      const existingFraction = knownFractionsByTrancheId.get(trancheId.toString());
+      if (existingFraction) return existingFraction;
+      return buildFallbackFractionInfo(trancheId, fallbackAddress);
+    });
+  }, [assetLedger?.address, fractions, marketTrancheIds]);
+
   const paymentTokenMetadataContracts = useMemo(
     () =>
       supportedTokens.flatMap((token) => {
@@ -505,17 +557,17 @@ export function useMarkets() {
   }, [btcAddress, mezoAddress, musdAddress, paymentTokenReads.data, supportedTokens]);
 
   const balanceContracts = useMemo(() => {
-    if (!assetLedger?.address || !assetLedger.abi || !userAddress || fractions.length === 0)
+    if (!assetLedger?.address || !assetLedger.abi || !userAddress || marketFractions.length === 0)
       return [];
 
-    return fractions.map((fraction) => ({
+    return marketFractions.map((fraction) => ({
       address: assetLedger.address,
       abi: assetLedger.abi,
       functionName: "balanceOf",
       args: [userAddress, fraction.trancheId],
       chainId,
     }));
-  }, [assetLedger, chainId, fractions, userAddress]);
+  }, [assetLedger, chainId, marketFractions, userAddress]);
 
   const balanceReads = useReadContracts({
     allowFailure: true,
@@ -530,15 +582,18 @@ export function useMarkets() {
 
   const balanceByTranche = useMemo(() => {
     const values = new Map<string, bigint>();
-    for (let index = 0; index < fractions.length; index += 1) {
+    for (let index = 0; index < marketFractions.length; index += 1) {
       const result = balanceReads.data?.[index]?.result;
-      values.set(fractions[index]!.trancheId.toString(), typeof result === "bigint" ? result : 0n);
+      values.set(
+        marketFractions[index]!.trancheId.toString(),
+        typeof result === "bigint" ? result : 0n,
+      );
     }
     return values;
-  }, [balanceReads.data, fractions]);
+  }, [balanceReads.data, marketFractions]);
 
   const markets = useMemo<TradeMarket[]>(() => {
-    if (fractions.length === 0 || paymentTokens.length === 0) return [];
+    if (marketFractions.length === 0 || paymentTokens.length === 0) return [];
 
     const activityCutoff = nowTimestamp - 24 * 60 * 60;
     const listingsByMarket = new Map<string, TradeListingTuple[]>();
@@ -566,7 +621,7 @@ export function useMarkets() {
 
     const output: TradeMarket[] = [];
 
-    for (const fraction of fractions) {
+    for (const fraction of marketFractions) {
       for (const token of paymentTokens) {
         const marketKey = `${fraction.trancheId.toString()}-${token.address.toLowerCase()}`;
         const marketListings = listingsByMarket.get(marketKey) ?? [];
@@ -695,7 +750,7 @@ export function useMarkets() {
     }
 
     return output;
-  }, [allBids, allListings, balanceByTranche, fractions, nowTimestamp, paymentTokens]);
+  }, [allBids, allListings, balanceByTranche, marketFractions, nowTimestamp, paymentTokens]);
 
   const filteredMarkets = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
