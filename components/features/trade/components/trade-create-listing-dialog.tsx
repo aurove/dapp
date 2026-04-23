@@ -18,12 +18,11 @@ import { Input } from "@fractals/ui/components/ui/input";
 import { Skeleton } from "@fractals/ui/components/ui/skeleton";
 import { CircleAlert, Info, RefreshCw } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
-import { useAccount, useChainId } from "wagmi";
-import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
 import { ListingReviewCard } from "./listing-review-card";
 import { useListingPreview } from "../hooks/use-listing-preview";
 import { useListingRequirements } from "../hooks/use-listing-requirements";
+import { useTradeFlowContext } from "../hooks/use-trade-flow-context";
 import { useUserFractions } from "../hooks/use-user-fractions";
 import { useUserVeNFTs, type UserVeNft } from "../hooks/use-user-ve-nfts";
 import type {
@@ -32,6 +31,7 @@ import type {
   TradeAsset,
   TradeVeAssetType,
 } from "../types";
+import { asTrimmedString, isValidDecimalInput, normalizeInputAmount } from "../utils/form";
 
 type TradeCreateListingDialogProps = {
   createVeListingSteps: (input: CreateVeTradeListingInput) => TxStep[];
@@ -97,23 +97,6 @@ function formatTokenValue(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value);
 }
 
-function normalizeInputAmount(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return "0";
-  return value.toFixed(6).replace(/\.?0+$/, "");
-}
-
-function asTrimmedString(value: unknown): string {
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "number" && Number.isFinite(value)) return String(value).trim();
-  return "";
-}
-
-function isValidDecimalInput(value: string, maxDecimals: number): boolean {
-  if (!/^\d+(\.\d+)?$/.test(value)) return false;
-  const fraction = value.split(".")[1] ?? "";
-  return fraction.length <= maxDecimals;
-}
-
 export function TradeCreateListingDialog({
   createVeListingSteps,
   createFractionListingSteps,
@@ -134,11 +117,7 @@ export function TradeCreateListingDialog({
   const [stepValidationErrors, setStepValidationErrors] = useState<string[]>([]);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [successHash, setSuccessHash] = useState<`0x${string}` | null>(null);
-  const { address: userAddress, isConnected } = useAccount();
-  const txFlowChainId = useChainId();
-  const activeChain = getActiveChain(resolveAppEnvironment());
-  const expectedChainId = activeChain.id;
-  const isCorrectNetwork = (txFlowChainId ?? expectedChainId) === expectedChainId;
+  const { userAddress, isConnected, expectedChainId, isCorrectNetwork } = useTradeFlowContext();
 
   const { veCollections, isLoading, isFetching, error, refresh: refreshVeNfts } = useUserVeNFTs();
   const {
@@ -764,7 +743,7 @@ export function TradeCreateListingDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">List ve Asset</Button>
+        <Button size="sm">List Asset</Button>
       </DialogTrigger>
 
       <DialogContent className="max-h-[90vh] overflow-y-auto">

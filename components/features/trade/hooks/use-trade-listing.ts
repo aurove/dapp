@@ -4,8 +4,8 @@ import { useCallback, useMemo } from "react";
 import { parseUnits, erc20Abi, erc721Abi, type Address } from "viem";
 import { createAddressWriteStep, type TxStep } from "@fractals/tx-flow";
 import { getContractConfig } from "@/contracts/client";
-import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
-import { useChainId, useReadContracts } from "wagmi";
+import { useReadContracts } from "wagmi";
+import { useTradeFlowContext } from "./use-trade-flow-context";
 import type {
   CreateFractionTradeListingInput,
   CreateVeTradeListingInput,
@@ -21,9 +21,7 @@ type TradePaymentTokenOption = {
 const NATIVE_TOKEN_DECIMALS = 18;
 
 export function useTradeListing() {
-  const txFlowChainId = useChainId();
-  const activeChain = getActiveChain(resolveAppEnvironment());
-  const chainId = txFlowChainId ?? activeChain.id;
+  const { chainId, blockExplorerUrl } = useTradeFlowContext();
 
   const listingWrapper = getContractConfig(chainId, "VeNftFractionListing");
   const assetLedger = getContractConfig(chainId, "AssetLedger");
@@ -394,7 +392,7 @@ export function useTradeListing() {
             marketplaceAddress: marketplace.address,
           }
         : null,
-    blockExplorerUrl: activeChain.blockExplorers?.default?.url ?? null,
+    blockExplorerUrl,
     paymentTokenOptions,
     protocolFeeBps,
     isLoadingPaymentTokens:

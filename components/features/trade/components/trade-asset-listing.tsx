@@ -4,11 +4,13 @@ import { useState } from "react";
 import { Badge } from "@fractals/ui/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
 import { useMarkets } from "../hooks/use-markets";
+import { useTradeBidding } from "../hooks/use-trade-bidding";
 import { useTradeListing } from "../hooks/use-trade-listing";
 import type { TradeAsset } from "../types";
 import { TradeAssetGrid } from "./trade-asset-grid";
 import { TradeCreateListingDialog } from "./trade-create-listing-dialog";
 import { TradeEmptyState } from "./trade-empty-state";
+import { TradePlaceBidDialog } from "./trade-place-bid-dialog";
 import { TradeListingToolbar } from "./trade-listing-toolbar";
 import { TradeLoadingState } from "./trade-loading-state";
 
@@ -27,6 +29,7 @@ export function TradeAssetListing() {
     mapCreatedListingAsset,
     mapCreatedFractionListingAsset,
   } = useTradeListing();
+  const { createBidSteps, canPlaceBid, bidWorkflowContracts } = useTradeBidding();
 
   const {
     query,
@@ -69,21 +72,31 @@ export function TradeAssetListing() {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Badge className="w-fit">Trade Markets</Badge>
-            <TradeCreateListingDialog
-              createVeListingSteps={createVeListingSteps}
-              createFractionListingSteps={createFractionListingSteps}
-              canCreateListing={canCreateListing}
-              mapCreatedListingAsset={mapCreatedListingAsset}
-              mapCreatedFractionListingAsset={mapCreatedFractionListingAsset}
-              listingWorkflowContracts={listingWorkflowContracts}
-              blockExplorerUrl={blockExplorerUrl}
-              onCreated={setLastCreated}
-              paymentTokenOptions={paymentTokenOptions}
-              protocolFeeBps={protocolFeeBps}
-              isLoadingPaymentTokens={isLoadingPaymentTokens}
-              paymentTokenError={paymentTokenError}
-              onRefreshPaymentTokens={refreshPaymentTokens}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <TradeCreateListingDialog
+                createVeListingSteps={createVeListingSteps}
+                createFractionListingSteps={createFractionListingSteps}
+                canCreateListing={canCreateListing}
+                mapCreatedListingAsset={mapCreatedListingAsset}
+                mapCreatedFractionListingAsset={mapCreatedFractionListingAsset}
+                listingWorkflowContracts={listingWorkflowContracts}
+                blockExplorerUrl={blockExplorerUrl}
+                onCreated={setLastCreated}
+                paymentTokenOptions={paymentTokenOptions}
+                protocolFeeBps={protocolFeeBps}
+                isLoadingPaymentTokens={isLoadingPaymentTokens}
+                paymentTokenError={paymentTokenError}
+                onRefreshPaymentTokens={refreshPaymentTokens}
+              />
+              <TradePlaceBidDialog
+                markets={markets}
+                paymentTokenOptions={paymentTokenOptions}
+                createBidSteps={createBidSteps}
+                canPlaceBid={canPlaceBid}
+                bidWorkflowContracts={bidWorkflowContracts}
+                onBidPlaced={refreshMarkets}
+              />
+            </div>
           </div>
           <CardTitle className="text-2xl sm:text-3xl">Fraction Markets</CardTitle>
           <p className="max-w-3xl text-sm leading-7 text-[var(--muted)] sm:text-base">

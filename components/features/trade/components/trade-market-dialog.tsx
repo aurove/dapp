@@ -34,6 +34,7 @@ import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { cn } from "@fractals/ui/lib/cn";
 import type { TradeMarket } from "../types";
+import { quoteRequiredPaymentRaw } from "../utils/pricing";
 
 type TradeMarketDialogProps = {
   market: TradeMarket;
@@ -325,9 +326,17 @@ export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMar
     [bidPrice, market.paymentTokenDecimals],
   );
 
-  const buyRequiredPayment =
-    selectedListing && buyAmountRaw ? selectedListing.priceRaw * buyAmountRaw : null;
-  const bidRequiredPayment = bidAmountRaw && bidPriceRaw ? bidAmountRaw * bidPriceRaw : null;
+  const buyRequiredPayment = useMemo(
+    () =>
+      selectedListing && buyAmountRaw
+        ? quoteRequiredPaymentRaw(buyAmountRaw, selectedListing.priceRaw)
+        : null,
+    [buyAmountRaw, selectedListing],
+  );
+  const bidRequiredPayment = useMemo(
+    () => quoteRequiredPaymentRaw(bidAmountRaw, bidPriceRaw),
+    [bidAmountRaw, bidPriceRaw],
+  );
 
   const canBuy =
     Boolean(selectedListing) &&

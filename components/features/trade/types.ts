@@ -109,3 +109,19 @@ export type CreateFractionTradeListingInput = {
   expiryDays: number;
   requiresFractionTransferApproval?: boolean;
 };
+
+export type CreateTradeBidInput = {
+  collection: `0x${string}`;
+  tokenId: bigint;
+  bidAmountRaw: bigint;
+  bidAmount: string;
+  paymentToken: `0x${string}`;
+  paymentTokenSymbol: string;
+  paymentTokenDecimals: number;
+  bidPriceRaw: bigint;
+  unitPrice: string;
+  requiredPaymentRaw: bigint;
+  expiryMode: "timed" | "none";
+  expiryDays: number;
+  requiresPaymentApproval?: boolean;
+};
