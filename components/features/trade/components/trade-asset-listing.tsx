@@ -79,9 +79,11 @@ export function TradeAssetListing() {
                 canCreateListing={canCreateListing}
                 mapCreatedListingAsset={mapCreatedListingAsset}
                 mapCreatedFractionListingAsset={mapCreatedFractionListingAsset}
+                markets={markets}
                 listingWorkflowContracts={listingWorkflowContracts}
                 blockExplorerUrl={blockExplorerUrl}
                 onCreated={setLastCreated}
+                onListingCompleted={refreshMarkets}
                 paymentTokenOptions={paymentTokenOptions}
                 protocolFeeBps={protocolFeeBps}
                 isLoadingPaymentTokens={isLoadingPaymentTokens}

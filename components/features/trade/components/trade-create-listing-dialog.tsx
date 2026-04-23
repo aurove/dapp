@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { TransactionFlowButton, type TxStep } from "@fractals/tx-flow";
+import { TransactionFlowButton, createAddressWriteStep, type TxStep } from "@fractals/tx-flow";
 import { Button } from "@fractals/ui/components/ui/button";
 import {
   Dialog,
@@ -18,6 +18,7 @@ import { Input } from "@fractals/ui/components/ui/input";
 import { Skeleton } from "@fractals/ui/components/ui/skeleton";
 import { CircleAlert, Info, RefreshCw } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
+import { getContractConfig } from "@/contracts/client";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
 import { ListingReviewCard } from "./listing-review-card";
 import { useListingPreview } from "../hooks/use-listing-preview";
@@ -25,9 +26,11 @@ import { useListingRequirements } from "../hooks/use-listing-requirements";
 import { useTradeFlowContext } from "../hooks/use-trade-flow-context";
 import { useUserFractions } from "../hooks/use-user-fractions";
 import { useUserVeNFTs, type UserVeNft } from "../hooks/use-user-ve-nfts";
+import { buildListingAutoMatchCandidate, extractCreatedListingId } from "../utils/order-routing";
 import type {
   CreateFractionTradeListingInput,
   CreateVeTradeListingInput,
+  TradeMarket,
   TradeAsset,
   TradeVeAssetType,
 } from "../types";
@@ -43,6 +46,8 @@ type TradeCreateListingDialogProps = {
     hash: string,
   ) => TradeAsset;
   onCreated?: (asset: TradeAsset) => void;
+  onListingCompleted?: () => void;
+  markets: TradeMarket[];
   listingWorkflowContracts: {
     listingWrapperAddress: `0x${string}`;
     assetLedgerAddress: `0x${string}`;
@@ -104,6 +109,8 @@ export function TradeCreateListingDialog({
   mapCreatedListingAsset,
   mapCreatedFractionListingAsset,
   onCreated,
+  onListingCompleted,
+  markets,
   listingWorkflowContracts,
   blockExplorerUrl,
   paymentTokenOptions,
@@ -118,6 +125,7 @@ export function TradeCreateListingDialog({
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [successHash, setSuccessHash] = useState<`0x${string}` | null>(null);
   const { userAddress, isConnected, expectedChainId, isCorrectNetwork } = useTradeFlowContext();
+  const marketplace = getContractConfig(expectedChainId, "Marketplace");
 
   const { veCollections, isLoading, isFetching, error, refresh: refreshVeNfts } = useUserVeNFTs();
   const {
@@ -449,13 +457,84 @@ export function TradeCreateListingDialog({
     selectedPaymentToken,
   ]);
 
+  const listingAutoMatchCandidate = useMemo(() => {
+    if (preparedFractionListingInput) {
+      return buildListingAutoMatchCandidate({
+        markets,
+        tokenId: preparedFractionListingInput.trancheId,
+        paymentToken: preparedFractionListingInput.paymentToken,
+        askPriceRaw: parseUnits(
+          preparedFractionListingInput.unitPrice,
+          preparedFractionListingInput.paymentTokenDecimals,
+        ),
+        listAmountRaw: parseUnits(preparedFractionListingInput.listAmount, 18),
+        userAddress,
+      });
+    }
+    if (preparedVeListingInput) {
+      return buildListingAutoMatchCandidate({
+        markets,
+        tokenId: preparedVeListingInput.veNftTokenId,
+        paymentToken: preparedVeListingInput.paymentToken,
+        askPriceRaw: parseUnits(
+          preparedVeListingInput.unitPrice,
+          preparedVeListingInput.paymentTokenDecimals,
+        ),
+        listAmountRaw: parseUnits(preparedVeListingInput.listAmount, 18),
+        userAddress,
+      });
+    }
+    return null;
+  }, [markets, preparedFractionListingInput, preparedVeListingInput, userAddress]);
+
   const listingSteps = useMemo(() => {
     try {
+      const buildMatchStep = (
+        candidate: ReturnType<typeof buildListingAutoMatchCandidate>,
+        createdOrderExtractor: (
+          receipt?: Parameters<typeof extractCreatedListingId>[0],
+        ) => bigint | null,
+      ) => {
+        if (!candidate || !marketplace?.address || !marketplace.abi) return null;
+
+        return createAddressWriteStep({
+          key: "match-best-bid",
+          label: `Match ${candidate.marketLabel}`,
+          address: marketplace.address,
+          abi: marketplace.abi,
+          displayLabelButton: true,
+          variables: ({ prev }) => {
+            const previousReceipt = prev[prev.length - 1]?.receipt;
+            const createdOrderId = createdOrderExtractor(previousReceipt);
+            if (!createdOrderId) {
+              throw new Error("Unable to resolve created listing ID for auto-match.");
+            }
+
+            return {
+              functionName: "matchOrders",
+              args: [createdOrderId, candidate.opposingOrderId, candidate.fillAmountRaw] as const,
+            };
+          },
+        });
+      };
+
       if (preparedFractionListingInput) {
-        return createFractionListingSteps(preparedFractionListingInput);
+        const baseSteps = createFractionListingSteps(preparedFractionListingInput);
+        const matchStep = buildMatchStep(listingAutoMatchCandidate, extractCreatedListingId);
+        if (!matchStep) {
+          return baseSteps;
+        }
+
+        return [...baseSteps, matchStep];
       }
       if (preparedVeListingInput) {
-        return createVeListingSteps(preparedVeListingInput);
+        const baseSteps = createVeListingSteps(preparedVeListingInput);
+        const matchStep = buildMatchStep(listingAutoMatchCandidate, extractCreatedListingId);
+        if (!matchStep) {
+          return baseSteps;
+        }
+
+        return [...baseSteps, matchStep];
       }
       return [];
     } catch {
@@ -464,8 +543,13 @@ export function TradeCreateListingDialog({
   }, [
     createFractionListingSteps,
     createVeListingSteps,
+    markets,
     preparedFractionListingInput,
     preparedVeListingInput,
+    listingAutoMatchCandidate,
+    userAddress,
+    marketplace?.abi,
+    marketplace?.address,
   ]);
 
   const canSubmit =
@@ -483,16 +567,16 @@ export function TradeCreateListingDialog({
       if (preparedVeListingInput.requiresListingOperatorApproval) return "Approve listing operator";
       if (preparedVeListingInput.requiresFractionTransferApproval)
         return "Approve fraction transfers";
-      return "Publish listing";
+      return listingAutoMatchCandidate ? "Publish & match" : "Publish listing";
     }
     if (preparedFractionListingInput) {
       if (preparedFractionListingInput.requiresFractionTransferApproval) {
         return "Approve fraction transfers";
       }
-      return "Publish listing";
+      return listingAutoMatchCandidate ? "Publish & match" : "Publish listing";
     }
     return "Publish listing";
-  }, [preparedFractionListingInput, preparedVeListingInput]);
+  }, [listingAutoMatchCandidate, preparedFractionListingInput, preparedVeListingInput]);
 
   const selectedExpiryPreset = useMemo(() => {
     if (formik.values.expiryMode === "none") return null;
@@ -583,9 +667,20 @@ export function TradeCreateListingDialog({
         detail: "A one-time ERC1155 approval may be requested.",
         ready: requirements.fractionTransferApproved,
       },
+      ...(listingAutoMatchCandidate
+        ? [
+            {
+              key: "auto-match",
+              label: `Auto-match ${listingAutoMatchCandidate.marketLabel}`,
+              detail: `The listing will be matched against order #${listingAutoMatchCandidate.opposingOrderId.toString()} if the on-chain create transaction succeeds.`,
+              ready: false,
+            },
+          ]
+        : []),
     ].filter((item) => !item.ready);
   }, [
     formik.values.listingMode,
+    listingAutoMatchCandidate,
     preparedFractionListingInput,
     preparedVeListingInput,
     requirements.fractionTransferApproved,
@@ -1329,6 +1424,7 @@ export function TradeCreateListingDialog({
                   refreshVeNfts();
                   refreshFractions();
                   requirements.refresh();
+                  onListingCompleted?.();
                 }}
                 onError={(message) => {
                   resetFormState();

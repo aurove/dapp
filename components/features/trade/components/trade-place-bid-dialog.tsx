@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { TransactionFlowButton, type TxStep } from "@fractals/tx-flow";
+import { TransactionFlowButton, createAddressWriteStep, type TxStep } from "@fractals/tx-flow";
 import { Button } from "@fractals/ui/components/ui/button";
 import {
   Dialog,
@@ -22,6 +22,7 @@ import { getContractConfig } from "@/contracts/client";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
 import { useBidRequirements } from "../hooks/use-bid-requirements";
 import { useTradeFlowContext } from "../hooks/use-trade-flow-context";
+import { buildBidAutoMatchCandidate, extractCreatedBidId } from "../utils/order-routing";
 import type { CreateTradeBidInput, TradeMarket } from "../types";
 import { asTrimmedString, isValidDecimalInput } from "../utils/form";
 import { quoteRequiredPaymentRaw } from "../utils/pricing";
@@ -426,14 +427,63 @@ export function TradePlaceBidDialog({
     unitPriceInput,
   ]);
 
+  const bidAutoMatchCandidate = useMemo(() => {
+    if (!preparedBidInput) return null;
+
+    return buildBidAutoMatchCandidate({
+      markets,
+      tokenId: preparedBidInput.tokenId,
+      paymentToken: preparedBidInput.paymentToken,
+      bidPriceRaw: preparedBidInput.bidPriceRaw,
+      bidAmountRaw: preparedBidInput.bidAmountRaw,
+      userAddress,
+    });
+  }, [markets, preparedBidInput, userAddress]);
+
   const bidSteps = useMemo(() => {
     if (!preparedBidInput) return [];
     try {
-      return createBidSteps(preparedBidInput);
+      const baseSteps = createBidSteps(preparedBidInput);
+      if (!bidAutoMatchCandidate || !marketplace?.address || !marketplace.abi) {
+        return baseSteps;
+      }
+
+      return [
+        ...baseSteps,
+        createAddressWriteStep({
+          key: "match-best-listing",
+          label: `Match ${bidAutoMatchCandidate.marketLabel}`,
+          address: marketplace.address,
+          abi: marketplace.abi,
+          displayLabelButton: true,
+          variables: ({ prev }) => {
+            const previousReceipt = prev[prev.length - 1]?.receipt;
+            const createdBidId = extractCreatedBidId(previousReceipt);
+            if (!createdBidId) {
+              throw new Error("Unable to resolve created bid ID for auto-match.");
+            }
+
+            return {
+              functionName: "matchOrders",
+              args: [
+                bidAutoMatchCandidate.opposingOrderId,
+                createdBidId,
+                bidAutoMatchCandidate.fillAmountRaw,
+              ] as const,
+            };
+          },
+        }),
+      ];
     } catch {
       return [];
     }
-  }, [createBidSteps, preparedBidInput]);
+  }, [
+    bidAutoMatchCandidate,
+    createBidSteps,
+    marketplace?.abi,
+    marketplace?.address,
+    preparedBidInput,
+  ]);
 
   const canSubmit =
     Boolean(preparedBidInput) &&
@@ -446,8 +496,8 @@ export function TradePlaceBidDialog({
     if (preparedBidInput?.requiresPaymentApproval) {
       return `Approve ${preparedBidInput.paymentTokenSymbol}`;
     }
-    return "Place Bid";
-  }, [preparedBidInput]);
+    return bidAutoMatchCandidate ? "Place bid & match" : "Place Bid";
+  }, [bidAutoMatchCandidate, preparedBidInput]);
 
   const successHref =
     successHash && blockExplorerUrl ? `${blockExplorerUrl}/tx/${successHash}` : null;
@@ -486,6 +536,16 @@ export function TradePlaceBidDialog({
         detail: `Allowance to PaymentRouter: ${allowanceLabel}`,
         ready: !preparedBidInput?.requiresPaymentApproval,
       },
+      ...(bidAutoMatchCandidate
+        ? [
+            {
+              key: "auto-match",
+              label: `Auto-match ${bidAutoMatchCandidate.marketLabel}`,
+              detail: `The bid will be matched against order #${bidAutoMatchCandidate.opposingOrderId.toString()} if the create transaction succeeds.`,
+              ready: false,
+            },
+          ]
+        : []),
     ],
     [
       allowanceLabel,
@@ -494,6 +554,7 @@ export function TradePlaceBidDialog({
       isConnected,
       isCorrectNetwork,
       isPaused,
+      bidAutoMatchCandidate,
       preparedBidInput?.requiresPaymentApproval,
     ],
   );
@@ -505,18 +566,30 @@ export function TradePlaceBidDialog({
 
   const transactionPlanItems = useMemo(() => {
     if (!preparedBidInput) return [];
-    return preparedBidInput.requiresPaymentApproval
-      ? [
-          {
-            key: "approval",
-            label: `Approve ${preparedBidInput.paymentTokenSymbol}`,
-            detail:
-              "One ERC20 approval transaction may be required for PaymentRouter to pull quote funds.",
-            ready: false,
-          },
-        ]
-      : [];
-  }, [preparedBidInput]);
+    return [
+      ...(preparedBidInput.requiresPaymentApproval
+        ? [
+            {
+              key: "approval",
+              label: `Approve ${preparedBidInput.paymentTokenSymbol}`,
+              detail:
+                "One ERC20 approval transaction may be required for PaymentRouter to pull quote funds.",
+              ready: false,
+            },
+          ]
+        : []),
+      ...(bidAutoMatchCandidate
+        ? [
+            {
+              key: "auto-match",
+              label: `Auto-match ${bidAutoMatchCandidate.marketLabel}`,
+              detail: `The bid will be matched against order #${bidAutoMatchCandidate.opposingOrderId.toString()} if the create transaction succeeds.`,
+              ready: false,
+            },
+          ]
+        : []),
+    ];
+  }, [bidAutoMatchCandidate, preparedBidInput]);
 
   useEffect(() => {
     if (formik.values.assetVariant !== "veBTC" && formik.values.assetVariant !== "veMEZO") {
