@@ -1,33 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, usePublicClient, useWriteContract } from "wagmi";
-import { Address } from "viem";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount, useChainId, usePublicClient, useWriteContract } from "wagmi";
+import type { Address } from "viem";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { Button } from "@fractals/ui/components/ui/button";
 
-import { useTxFlowProvider } from "./context";
+import { useTxFlowRuntime } from "@/lib/providers/web3-providers";
+
 import { bindStepResultsStore, executePreparedWriteStep } from "./execute";
 import { getParsedError } from "./getParsedError";
 import type { TxFlowBuilder, TxIconState, TxStep, TxStepResult } from "./types";
-import WalletGate from "./WalletGate";
 
-type RenderState = {
-  connected: boolean;
-  wrongNetwork: boolean;
-  loading: boolean;
-  label: React.ReactNode;
-  iconState: TxIconState;
-  openConnectModal?: () => void;
-  openChainModal?: () => void;
-  run: () => void;
-};
-
-type Props = {
+type Props = Omit<ComponentPropsWithoutRef<typeof Button>, "children" | "onClick"> & {
   steps: TxStep[] | TxFlowBuilder;
-  children: React.ReactNode;
-  icon?: React.ReactNode;
-  renderStatusIcon?: (state: TxIconState) => React.ReactNode;
-  render?: (state: RenderState) => React.ReactNode;
-  className?: string;
+  children: ReactNode;
+  icon?: ReactNode;
+  renderStatusIcon?: (state: TxIconState) => ReactNode;
   disabled?: boolean;
   onComplete?: (results: TxStepResult[]) => void;
   onError?: (err: string, resultsSoFar: TxStepResult[]) => void;
@@ -42,13 +32,14 @@ export default function TransactionFlowButton({
   onError,
   icon,
   renderStatusIcon,
-  render,
   ...props
 }: Props) {
   const { address, chain } = useAccount();
-  const publicClient = usePublicClient()!;
+  const chainId = useChainId();
+  const publicClient = usePublicClient()!; // will be available since we wrap display in connect btn
   const { writeContractAsync } = useWriteContract();
-  const { contracts, notify, iconState, setIconState } = useTxFlowProvider();
+
+  const { contracts, notify, iconState, setIconState } = useTxFlowRuntime();
 
   const [running, setRunning] = useState(false);
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
@@ -122,41 +113,31 @@ export default function TransactionFlowButton({
   const label = running && activeLabel ? activeLabel : children;
 
   return (
-    <WalletGate>
-      {({ connected, wrongNetwork, openConnectModal, openChainModal }) => {
-        const state: RenderState = {
-          connected,
-          wrongNetwork,
-          loading: running,
-          label,
-          iconState,
-          openConnectModal,
-          openChainModal,
-          run: handleClick,
-        };
-
-        if (render) {
-          return render(state);
-        }
+    <ConnectButton.Custom>
+      {({ account, chain: walletChain, openChainModal, openConnectModal, mounted }) => {
+        const connected = Boolean(mounted && account && walletChain);
+        const wrongNetwork = Boolean(
+          connected && (walletChain?.unsupported || walletChain?.id !== chainId),
+        );
 
         const onClick = !connected ? openConnectModal : wrongNetwork ? openChainModal : handleClick;
         const isDisabled = !connected ? false : wrongNetwork ? false : !canRun;
 
         return (
-          <button
+          <Button
+            {...props}
             type="button"
             className={className}
             onClick={onClick}
             disabled={isDisabled}
             aria-busy={connected && !wrongNetwork ? running : false}
-            {...props}
           >
             {icon}
             <span>{!connected ? "Connect Wallet" : wrongNetwork ? "Wrong network" : label}</span>
             {connected && !wrongNetwork && renderStatusIcon ? renderStatusIcon(iconState) : null}
-          </button>
+          </Button>
         );
       }}
-    </WalletGate>
+    </ConnectButton.Custom>
   );
 }

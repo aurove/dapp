@@ -7,10 +7,14 @@ import { erc20Abi, formatUnits, parseUnits, type Abi, type Address } from "viem"
 import { Button } from "@fractals/ui/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
 import { Input } from "@fractals/ui/components/ui/input";
-import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
+import { Loader2 } from "lucide-react";
+import {
+  makeAddressWriteStep,
+  makeContractWriteStep,
+  TransactionFlowButton,
+  type TxStep,
+} from "@/lib/tx-flow";
 import type { TradeMarket, TradeMarketBidPreview, TradeMarketListingPreview } from "../types";
-import { TradeTxFlowButton } from "./trade-tx-flow-button";
-import { useTradeFlowContext } from "../hooks/use-trade-flow-context";
 import { quoteRequiredPaymentRaw } from "../utils/pricing";
 
 type ActionShellProps = {
@@ -211,8 +215,6 @@ export function BuyTradeAction({
   const approvalRequired = Boolean(
     paymentRouterAddress && requiredPayment > 0n && paymentAllowance < requiredPayment,
   );
-  const { expectedChainId } = useTradeFlowContext();
-
   const steps = useMemo<TxStep[]>(() => {
     if (!marketplaceAddress || !marketplaceAbi || !selectedListing || !amountRaw) return [];
 
@@ -254,16 +256,34 @@ export function BuyTradeAction({
     selectedListing,
   ]);
 
-  const handleRun = async () => {
+  const handleRun = async (): Promise<string | null> => {
     const errors = await formik.validateForm();
     if (Object.keys(errors).length > 0) {
-      formik.setStatus(String(Object.values(errors)[0]));
+      const message = String(Object.values(errors)[0]);
+      formik.setStatus(message);
       await formik.setTouched(touchAll(formik.values));
-      return false;
+      return message;
     }
 
-    return true;
+    return null;
   };
+
+  const buySteps: TxStep[] = [
+    {
+      type: "custom",
+      key: "buy-preflight",
+      label: `Buy ${market.fractionSymbol}`,
+      run: async () => {
+        formik.setStatus(undefined);
+        const validationError = await handleRun();
+        if (validationError) {
+          throw new Error(validationError);
+        }
+        return "skip";
+      },
+    },
+    ...steps,
+  ];
 
   return (
     <ActionShell
@@ -312,14 +332,9 @@ export function BuyTradeAction({
 
       <ActionStatus message={formik.status ? String(formik.status) : undefined} />
 
-      <TradeTxFlowButton
-        steps={steps}
+      <TransactionFlowButton
+        steps={buySteps}
         disabled={!marketplaceAddress || !marketplaceAbi}
-        targetChainId={expectedChainId}
-        beforeRun={handleRun}
-        onStart={() => {
-          formik.setStatus(undefined);
-        }}
         onComplete={() => {
           formik.resetForm();
           onTradeExecuted?.();
@@ -327,9 +342,12 @@ export function BuyTradeAction({
         onError={(message) => {
           formik.setStatus(message || "Failed to buy from listing.");
         }}
+        renderStatusIcon={(state) =>
+          state === "pending" ? <Loader2 className="h-4 w-4 animate-spin" /> : null
+        }
       >
         Buy
-      </TradeTxFlowButton>
+      </TransactionFlowButton>
     </ActionShell>
   );
 }
@@ -412,18 +430,34 @@ export function SellTradeAction({
       }),
     ];
   }, [amountRaw, marketplaceAbi, marketplaceAddress, selectedBid]);
-  const { expectedChainId } = useTradeFlowContext();
-
-  const handleRun = async () => {
+  const handleRun = async (): Promise<string | null> => {
     const errors = await formik.validateForm();
     if (Object.keys(errors).length > 0) {
-      formik.setStatus(String(Object.values(errors)[0]));
+      const message = String(Object.values(errors)[0]);
+      formik.setStatus(message);
       await formik.setTouched(touchAll(formik.values));
-      return false;
+      return message;
     }
 
-    return true;
+    return null;
   };
+
+  const sellSteps: TxStep[] = [
+    {
+      type: "custom",
+      key: "sell-preflight",
+      label: `Sell ${market.fractionSymbol}`,
+      run: async () => {
+        formik.setStatus(undefined);
+        const validationError = await handleRun();
+        if (validationError) {
+          throw new Error(validationError);
+        }
+        return "skip";
+      },
+    },
+    ...steps,
+  ];
 
   return (
     <ActionShell
@@ -466,14 +500,9 @@ export function SellTradeAction({
 
       <ActionStatus message={formik.status ? String(formik.status) : undefined} />
 
-      <TradeTxFlowButton
-        steps={steps}
+      <TransactionFlowButton
+        steps={sellSteps}
         disabled={!marketplaceAddress || !marketplaceAbi}
-        targetChainId={expectedChainId}
-        beforeRun={handleRun}
-        onStart={() => {
-          formik.setStatus(undefined);
-        }}
         onComplete={() => {
           formik.resetForm();
           onTradeExecuted?.();
@@ -481,9 +510,12 @@ export function SellTradeAction({
         onError={(message) => {
           formik.setStatus(message || "Failed to sell into bid.");
         }}
+        renderStatusIcon={(state) =>
+          state === "pending" ? <Loader2 className="h-4 w-4 animate-spin" /> : null
+        }
       >
         Sell
-      </TradeTxFlowButton>
+      </TransactionFlowButton>
     </ActionShell>
   );
 }
@@ -613,18 +645,34 @@ export function BidTradeAction({
     priceRaw,
     requiredPayment,
   ]);
-  const { expectedChainId } = useTradeFlowContext();
-
-  const handleRun = async () => {
+  const handleRun = async (): Promise<string | null> => {
     const errors = await formik.validateForm();
     if (Object.keys(errors).length > 0) {
-      formik.setStatus(String(Object.values(errors)[0]));
+      const message = String(Object.values(errors)[0]);
+      formik.setStatus(message);
       await formik.setTouched(touchAll(formik.values));
-      return false;
+      return message;
     }
 
-    return true;
+    return null;
   };
+
+  const bidStepsWithPreflight: TxStep[] = [
+    {
+      type: "custom",
+      key: "bid-preflight",
+      label: "Place bid",
+      run: async () => {
+        formik.setStatus(undefined);
+        const validationError = await handleRun();
+        if (validationError) {
+          throw new Error(validationError);
+        }
+        return "skip";
+      },
+    },
+    ...steps,
+  ];
 
   return (
     <ActionShell
@@ -710,14 +758,9 @@ export function BidTradeAction({
 
       <ActionStatus message={formik.status ? String(formik.status) : undefined} />
 
-      <TradeTxFlowButton
-        steps={steps}
+      <TransactionFlowButton
+        steps={bidStepsWithPreflight}
         disabled={!assetLedgerAddress || !marketplaceAddress || !marketplaceAbi}
-        targetChainId={expectedChainId}
-        beforeRun={handleRun}
-        onStart={() => {
-          formik.setStatus(undefined);
-        }}
         onComplete={() => {
           formik.resetForm();
           onTradeExecuted?.();
@@ -725,9 +768,12 @@ export function BidTradeAction({
         onError={(message) => {
           formik.setStatus(message || "Failed to place bid.");
         }}
+        renderStatusIcon={(state) =>
+          state === "pending" ? <Loader2 className="h-4 w-4 animate-spin" /> : null
+        }
       >
         Place bid
-      </TradeTxFlowButton>
+      </TransactionFlowButton>
     </ActionShell>
   );
 }

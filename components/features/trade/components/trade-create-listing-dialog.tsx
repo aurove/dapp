@@ -15,9 +15,9 @@ import {
 } from "@fractals/ui/components/ui/dialog";
 import { Input } from "@fractals/ui/components/ui/input";
 import { Skeleton } from "@fractals/ui/components/ui/skeleton";
-import { CircleAlert, Info, RefreshCw } from "lucide-react";
+import { CircleAlert, Info, Loader2, RefreshCw } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
-import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
+import { makeContractWriteStep, TransactionFlowButton, type TxStep } from "@/lib/tx-flow";
 import { getContractConfig } from "@/contracts/client";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
 import { ListingReviewCard } from "./listing-review-card";
@@ -27,7 +27,6 @@ import { useTradeFlowContext } from "../hooks/use-trade-flow-context";
 import { useUserFractions } from "../hooks/use-user-fractions";
 import { useUserVeNFTs, type UserVeNft } from "../hooks/use-user-ve-nfts";
 import { buildListingAutoMatchCandidate, extractCreatedListingId } from "../utils/order-routing";
-import { TradeTxFlowButton } from "./trade-tx-flow-button";
 
 import type {
   CreateFractionTradeListingInput,
@@ -567,6 +566,31 @@ export function TradeCreateListingDialog({
       : fractionsLoading || fractionsFetching) &&
     !isBroadcasting &&
     !requirements.isChecking;
+
+  const listingStepsWithPreflight: TxStep[] = [
+    {
+      type: "custom",
+      key: "listing-preflight",
+      label: "Publish listing",
+      run: async () => {
+        setSuccessHash(null);
+        setIsBroadcasting(true);
+        formik.setStatus(undefined);
+
+        const errors = await formik.validateForm();
+        if (Object.keys(errors).length > 0) {
+          resetFormState();
+          const message = String(Object.values(errors)[0]);
+          formik.setStatus(message);
+          await formik.setTouched(touchAll(formik.values));
+          throw new Error(message);
+        }
+
+        return "skip";
+      },
+    },
+    ...listingSteps,
+  ];
 
   const primaryActionLabel = useMemo(() => {
     if (preparedVeListingInput) {
@@ -1407,25 +1431,9 @@ export function TradeCreateListingDialog({
                 Continue
               </Button>
             ) : (
-              <TradeTxFlowButton
-                steps={listingSteps}
+              <TransactionFlowButton
+                steps={listingStepsWithPreflight}
                 disabled={!canSubmit}
-                targetChainId={expectedChainId}
-                beforeRun={async () => {
-                  const errors = await formik.validateForm();
-                  if (Object.keys(errors).length > 0) {
-                    resetFormState();
-                    formik.setStatus(String(Object.values(errors)[0]));
-                    await formik.setTouched(touchAll(formik.values));
-                    return false;
-                  }
-                  return true;
-                }}
-                onStart={() => {
-                  setSuccessHash(null);
-                  setIsBroadcasting(true);
-                  formik.setStatus(undefined);
-                }}
                 onComplete={(results) => {
                   const txHash = [...results].reverse().find((result) => result.hash)?.hash;
                   if (txHash) {
@@ -1443,17 +1451,19 @@ export function TradeCreateListingDialog({
                   refreshFractions();
                   requirements.refresh();
                   onListingCompleted?.();
+                  setIsBroadcasting(false);
                 }}
                 onError={(message) => {
                   resetFormState();
                   formik.setStatus(message || "Failed to publish listing.");
+                  setIsBroadcasting(false);
                 }}
-                onRunningChange={(running) => {
-                  setIsBroadcasting(running);
-                }}
+                renderStatusIcon={(state) =>
+                  state === "pending" ? <Loader2 className="h-4 w-4 animate-spin" /> : null
+                }
               >
                 {primaryActionLabel}
-              </TradeTxFlowButton>
+              </TransactionFlowButton>
             )}
           </DialogFooter>
         </form>

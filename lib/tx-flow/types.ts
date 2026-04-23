@@ -1,13 +1,10 @@
-import {
-  Abi,
-  AbiParameter,
-  AbiParameterToPrimitiveType,
-  AbiParametersToPrimitiveTypes,
-  ExtractAbiFunction,
-} from "abitype";
-import { Address, TransactionReceipt } from "viem";
+import type { ContractFunctionName, TransactionReceipt } from "viem";
+import type { WriteAbiStateMutability } from "@/contracts/types";
+import type { ContractAbi, ScaffoldWriteContractVariables } from "@/contracts/types";
 import type { RegistryContractConfig, RegistryContractName } from "@/contracts/client";
-import type contracts from "@/contracts/registry";
+import contracts from "@/contracts/registry";
+import type { usePublicClient, useWriteContract } from "wagmi";
+import type { Address } from "viem";
 
 export type TxIconState = "idle" | "error" | "success" | "pending";
 
@@ -17,6 +14,9 @@ export type TxContractName = RegistryContractName;
 
 export type TxContractMeta<TContractName extends TxContractName = TxContractName> =
   RegistryContractConfig<TContractName>;
+
+export type TxDeployedContractMeta<TContractName extends TxContractName = TxContractName> =
+  RegistryContractConfig<TContractName> & { address: Address };
 
 export type TxNotifyPatch = {
   chainId?: number;
@@ -44,89 +44,54 @@ export type TxStepResult = {
   receipt?: TransactionReceipt;
 };
 
-export type TxWriteAbiStateMutability = "nonpayable" | "payable";
-
-type TxDistributiveExtractAbiFunction<
-  TAbi extends Abi,
-  TFunctionName extends string,
-> = TAbi extends Abi ? ExtractAbiFunction<TAbi, TFunctionName> : never;
-
-type TxAbiFunctionFromName<
-  TAbi extends Abi,
-  TFunctionName extends string,
-> = TxDistributiveExtractAbiFunction<TAbi, TFunctionName>;
-
-export type TxNamedAbiParameter = AbiParameter & { name: string };
-
-export type TxFunctionInputs<
-  TAbi extends Abi,
-  TFunctionName extends string,
-> = TxAbiFunctionFromName<TAbi, TFunctionName>["inputs"];
-
-export type TxFunctionArguments<
-  TAbi extends Abi,
-  TFunctionName extends string,
-> = AbiParametersToPrimitiveTypes<TxFunctionInputs<TAbi, TFunctionName>>;
-
-export type TxFunctionNamedArgs<TAbi extends Abi, TFunctionName extends string> = {
-  [P in Extract<
-    TxFunctionInputs<TAbi, TFunctionName>[number],
-    TxNamedAbiParameter
-  > as P["name"]]: AbiParameterToPrimitiveType<P>;
+export type TxFlowRuntimeContext = {
+  account: `0x${string}`;
+  chainId: number;
+  publicClient: NonNullable<ReturnType<typeof usePublicClient>>;
+  writeAsync: ReturnType<typeof useWriteContract>["writeContractAsync"];
+  contracts: TxContractsDeclaration;
+  notify?: TxNotifyApi;
 };
 
-export type TxWriteFunctionName = string;
+export type TxWriteFunctionName<TAbi extends ContractAbi> = ContractFunctionName<
+  TAbi,
+  WriteAbiStateMutability
+>;
 
-export type TxWriteValue<
-  TAbi extends Abi,
-  TFunctionName extends TxWriteFunctionName,
-> = ExtractAbiFunction<TAbi, TFunctionName>["stateMutability"] extends "payable"
-  ? bigint | undefined
-  : undefined;
+export type TxContractWritePayload<
+  TAbi extends ContractAbi,
+  TFunctionName extends TxWriteFunctionName<TAbi>,
+> = ScaffoldWriteContractVariables<TAbi, TFunctionName>;
 
-export type TxContractWritePayload<TAbi extends Abi, TFunctionName extends TxWriteFunctionName> = {
-  functionName: TFunctionName;
-  args?: TxFunctionNamedArgs<TAbi, TFunctionName> | TxFunctionArguments<TAbi, TFunctionName>;
-  value?: TxWriteValue<TAbi, TFunctionName>;
-};
-
-export type TxAddressWritePayload<TAbi extends Abi, TFunctionName extends TxWriteFunctionName> = {
-  functionName: TFunctionName;
-  args?: TxFunctionNamedArgs<TAbi, TFunctionName> | TxFunctionArguments<TAbi, TFunctionName>;
-  value?: TxWriteValue<TAbi, TFunctionName>;
-};
-
-export type TxResolvedContract<TAbi extends Abi = Abi> = {
-  address?: Address;
-  abi: TAbi;
-};
+export type TxAddressWritePayload<
+  TAbi extends ContractAbi,
+  TFunctionName extends TxWriteFunctionName<TAbi>,
+> = ScaffoldWriteContractVariables<TAbi, TFunctionName>;
 
 export type TxWriteCall<
-  TAbi extends Abi = Abi,
-  TFunctionName extends TxWriteFunctionName = TxWriteFunctionName,
+  TAbi extends ContractAbi = ContractAbi,
+  TFunctionName extends TxWriteFunctionName<TAbi> = TxWriteFunctionName<TAbi>,
 > = {
-  contract: TxResolvedContract<TAbi>;
+  contract: TxDeployedContractMeta;
   request: TxContractWritePayload<TAbi, TFunctionName>;
   confirmations?: number;
 };
 
 export type TxPreparedWriteStep<
-  TAbi extends Abi = Abi,
-  TFunctionName extends TxWriteFunctionName = string,
+  TAbi extends import("viem").Abi = import("viem").Abi,
+  TFunctionName extends TxWriteFunctionName<TAbi> = TxWriteFunctionName<TAbi>,
 > = {
   type: "write";
   key: string;
   label: string;
   displayLabelBtn?: boolean;
-  shouldSkip?: (ctx: import("./context").TxFlowRuntimeContext) => Promise<boolean> | boolean;
+  shouldSkip?: (ctx: TxFlowRuntimeContext) => Promise<boolean> | boolean;
   prepare: (
-    ctx: import("./context").TxFlowRuntimeContext,
+    ctx: TxFlowRuntimeContext,
     prev: TxStepResult[],
   ) => Promise<TxWriteCall<TAbi, TFunctionName>> | TxWriteCall<TAbi, TFunctionName>;
   onSimulated?: (
-    simulation: Awaited<
-      ReturnType<import("./context").TxFlowRuntimeContext["publicClient"]["simulateContract"]>
-    >,
+    simulation: Awaited<ReturnType<TxFlowRuntimeContext["publicClient"]["simulateContract"]>>,
   ) => void;
 };
 
@@ -135,15 +100,13 @@ export type TxRunnableStep = {
   key: string;
   displayLabelBtn?: boolean;
   label: string;
-  run: (
-    ctx: import("./context").TxFlowRuntimeContext,
-  ) => Promise<"skip" | Omit<TxStepResult, "key" | "label">>;
+  run: (ctx: TxFlowRuntimeContext) => Promise<"skip" | Omit<TxStepResult, "key" | "label">>;
 };
 
 export type TxStep = TxRunnableStep | TxPreparedWriteStep;
 
-export type TxFlowBuilder = (ctx: { account: Address; chainId: number }) => TxStep[];
+export type TxFlowBuilder = (ctx: { account: `0x${string}`; chainId: number }) => TxStep[];
 
 export type TxContractResolver =
   | string
-  | ((ctx: import("./context").TxFlowRuntimeContext) => TxContractMeta | Promise<TxContractMeta>);
+  | ((ctx: TxFlowRuntimeContext) => TxContractMeta | Promise<TxContractMeta>);

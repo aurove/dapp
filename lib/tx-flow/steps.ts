@@ -1,23 +1,19 @@
-import { Abi, Address } from "viem";
+import type { Abi } from "viem";
 
-import type { TxFlowRuntimeContext } from "./context";
+import type { TxFlowRuntimeContext } from "./types";
 import type {
   TxAddressWritePayload,
   TxContractMeta,
+  TxDeployedContractMeta,
+  TxContractName,
   TxContractWritePayload,
   TxContractsDeclaration,
   TxPreparedWriteStep,
   TxStepResult,
-  TxContractName,
   TxWriteFunctionName,
 } from "./types";
 
-type ContractAbi<TContractName extends TxContractName> =
-  TxContractMeta<TContractName> extends {
-    abi: infer TAbi extends Abi;
-  }
-    ? TAbi
-    : Abi;
+type ContractAbiFor<TContractName extends TxContractName> = TxContractMeta<TContractName>["abi"];
 
 export function getContractMetaUnsafe<TContractName extends TxContractName>(
   contractName: TContractName,
@@ -25,18 +21,16 @@ export function getContractMetaUnsafe<TContractName extends TxContractName>(
   contracts: TxContractsDeclaration,
 ): TxContractMeta<TContractName> {
   const meta = contracts[chainId]?.[contractName];
-
   if (!meta?.address) {
     throw new Error(`Missing deployment or address for ${contractName} on chainId=${chainId}`);
   }
-
-  return meta as TxContractMeta<TContractName>;
+  return meta as TxDeployedContractMeta<TContractName>;
 }
 
 type ContractWriteStepConfig<
   TContractName extends TxContractName,
-  TAbi extends Abi = ContractAbi<TContractName>,
-  TFunctionName extends TxWriteFunctionName = TxWriteFunctionName,
+  TAbi extends ContractAbiFor<TContractName> = ContractAbiFor<TContractName>,
+  TFunctionName extends TxWriteFunctionName<TAbi> = TxWriteFunctionName<TAbi>,
 > = {
   key: string;
   label: string;
@@ -55,8 +49,8 @@ type ContractWriteStepConfig<
 
 export function makeContractWriteStep<
   const TContractName extends TxContractName,
-  TAbi extends Abi = ContractAbi<TContractName>,
-  TFunctionName extends TxWriteFunctionName = TxWriteFunctionName,
+  TAbi extends ContractAbiFor<TContractName> = ContractAbiFor<TContractName>,
+  TFunctionName extends TxWriteFunctionName<TAbi> = TxWriteFunctionName<TAbi>,
 >(
   cfg: ContractWriteStepConfig<TContractName, TAbi, TFunctionName>,
 ): TxPreparedWriteStep<TAbi, TFunctionName> {
@@ -67,15 +61,9 @@ export function makeContractWriteStep<
     shouldSkip: cfg.shouldSkip,
     onSimulated: cfg.onSimulated,
     prepare: async (ctx, prev) => {
-      const contract = getContractMetaUnsafe(
-        cfg.contractName,
-        ctx.chainId,
-        ctx.contracts,
-      ) as TxContractMeta<TContractName>;
-
+      const contract = getContractMetaUnsafe(cfg.contractName, ctx.chainId, ctx.contracts);
       const request =
         typeof cfg.variables === "function" ? await cfg.variables({ prev }) : cfg.variables;
-
       return {
         contract,
         request,
@@ -86,12 +74,12 @@ export function makeContractWriteStep<
   };
 }
 
-type AddressWriteStepConfig<TAbi extends Abi, TFunctionName extends TxWriteFunctionName> = {
+type AddressWriteStepConfig<TAbi extends Abi, TFunctionName extends TxWriteFunctionName<TAbi>> = {
   key: string;
   label: string;
   displayLabelBtn?: boolean;
   abi: TAbi;
-  address: Address;
+  address: `0x${string}`;
   variables:
     | TxAddressWritePayload<TAbi, TFunctionName>
     | ((args: { prev: TxStepResult[] }) => TxAddressWritePayload<TAbi, TFunctionName>)
@@ -103,9 +91,10 @@ type AddressWriteStepConfig<TAbi extends Abi, TFunctionName extends TxWriteFunct
   ) => void;
 };
 
-export function makeAddressWriteStep<TAbi extends Abi, TFunctionName extends TxWriteFunctionName>(
-  cfg: AddressWriteStepConfig<TAbi, TFunctionName>,
-): TxPreparedWriteStep<TAbi, TFunctionName> {
+export function makeAddressWriteStep<
+  TAbi extends Abi,
+  TFunctionName extends TxWriteFunctionName<TAbi>,
+>(cfg: AddressWriteStepConfig<TAbi, TFunctionName>): TxPreparedWriteStep<TAbi, TFunctionName> {
   return {
     key: cfg.key,
     label: cfg.label,
@@ -115,7 +104,6 @@ export function makeAddressWriteStep<TAbi extends Abi, TFunctionName extends TxW
     prepare: async (_ctx, prev) => {
       const request =
         typeof cfg.variables === "function" ? await cfg.variables({ prev }) : cfg.variables;
-
       return {
         contract: {
           address: cfg.address,

@@ -1,9 +1,13 @@
-import { Abi } from "abitype";
-
-import { normalizeFunctionArgs } from "./abi";
-import type { TxFlowRuntimeContext } from "./context";
+import { normalizeFunctionArgs } from "@/contracts/types";
 import { getParsedError } from "./getParsedError";
-import type { TxPreparedWriteStep, TxStepResult, TxWriteCall, TxWriteFunctionName } from "./types";
+import type { ContractAbi } from "@/contracts/types";
+import type {
+  TxFlowRuntimeContext,
+  TxPreparedWriteStep,
+  TxStepResult,
+  TxWriteCall,
+  TxWriteFunctionName,
+} from "./types";
 
 export const ctxPrevResultsStore = new WeakMap<object, TxStepResult[]>();
 
@@ -15,10 +19,10 @@ export function getPrevStepResults(ctx: object): TxStepResult[] {
   return ctxPrevResultsStore.get(ctx) ?? [];
 }
 
-async function simulateWriteCall<TAbi extends Abi, TFunctionName extends TxWriteFunctionName<TAbi>>(
-  ctx: TxFlowRuntimeContext,
-  call: TxWriteCall<TAbi, TFunctionName>,
-) {
+async function simulateWriteCall<
+  TAbi extends ContractAbi,
+  TFunctionName extends TxWriteFunctionName<TAbi>,
+>(ctx: TxFlowRuntimeContext, call: TxWriteCall<TAbi, TFunctionName>) {
   const { contract, request } = call;
   const { functionName, args: namedArgs, ...otherVars } = request;
 

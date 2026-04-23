@@ -14,9 +14,9 @@ import {
   DialogTrigger,
 } from "@fractals/ui/components/ui/dialog";
 import { Input } from "@fractals/ui/components/ui/input";
-import { CircleAlert, Info } from "lucide-react";
+import { CircleAlert, Info, Loader2 } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
-import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
+import { makeContractWriteStep, TransactionFlowButton, type TxStep } from "@/lib/tx-flow";
 import { useReadContract } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
@@ -33,7 +33,6 @@ import {
   TRANCHE_MIN,
   type CanonicalAssetVariant,
 } from "../utils/tranche";
-import { TradeTxFlowButton } from "./trade-tx-flow-button";
 
 type TradePlaceBidDialogProps = {
   markets: TradeMarket[];
@@ -497,6 +496,31 @@ export function TradePlaceBidDialog({
     !isPaused &&
     !isBroadcasting &&
     !bidRequirements.isChecking;
+
+  const bidStepsWithPreflight: TxStep[] = [
+    {
+      type: "custom",
+      key: "bid-preflight",
+      label: "Place bid",
+      run: async () => {
+        setSuccessHash(null);
+        setIsBroadcasting(true);
+        formik.setStatus(undefined);
+
+        const errors = await formik.validateForm();
+        if (Object.keys(errors).length > 0) {
+          resetFormState();
+          const message = parseBidError(String(Object.values(errors)[0]));
+          formik.setStatus(message);
+          await formik.setTouched(touchAll(formik.values));
+          throw new Error(message);
+        }
+
+        return "skip";
+      },
+    },
+    ...bidSteps,
+  ];
 
   const primaryActionLabel = useMemo(() => {
     if (preparedBidInput?.requiresPaymentApproval) {
@@ -1181,25 +1205,9 @@ export function TradePlaceBidDialog({
                 Continue
               </Button>
             ) : (
-              <TradeTxFlowButton
-                steps={bidSteps}
+              <TransactionFlowButton
+                steps={bidStepsWithPreflight}
                 disabled={!canSubmit}
-                targetChainId={expectedChainId}
-                beforeRun={async () => {
-                  const errors = await formik.validateForm();
-                  if (Object.keys(errors).length > 0) {
-                    resetFormState();
-                    formik.setStatus(parseBidError(String(Object.values(errors)[0])));
-                    await formik.setTouched(touchAll(formik.values));
-                    return false;
-                  }
-                  return true;
-                }}
-                onStart={() => {
-                  setSuccessHash(null);
-                  setIsBroadcasting(true);
-                  formik.setStatus(undefined);
-                }}
                 onComplete={(results) => {
                   const txHash = [...results].reverse().find((result) => result.hash)?.hash;
                   if (txHash) {
@@ -1208,17 +1216,19 @@ export function TradePlaceBidDialog({
                   resetFormState();
                   bidRequirements.refresh();
                   onBidPlaced?.();
+                  setIsBroadcasting(false);
                 }}
                 onError={(message) => {
                   resetFormState();
                   formik.setStatus(parseBidError(message ?? "Failed to place bid."));
+                  setIsBroadcasting(false);
                 }}
-                onRunningChange={(running) => {
-                  setIsBroadcasting(running);
-                }}
+                renderStatusIcon={(state) =>
+                  state === "pending" ? <Loader2 className="h-4 w-4 animate-spin" /> : null
+                }
               >
                 {primaryActionLabel}
-              </TradeTxFlowButton>
+              </TransactionFlowButton>
             )}
           </DialogFooter>
         </form>
