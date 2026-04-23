@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { erc20Abi, formatUnits, zeroAddress, type Abi, type Address } from "viem";
-import { useAccount, useChainId, useReadContracts } from "wagmi";
+import { useAccount, useBlock, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { TRADE_MARKET_SORT_OPTIONS } from "../constants";
@@ -153,6 +153,13 @@ export function useMarkets() {
   const { address: userAddress } = useAccount();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = txFlowChainId ?? activeChain.id;
+  const blockRead = useBlock({
+    chainId,
+    watch: true,
+    query: {
+      staleTime: 5_000,
+    },
+  });
 
   const marketplace = getContractConfig(chainId, "Marketplace");
   const paymentRouter = getContractConfig(chainId, "PaymentRouter");
@@ -165,6 +172,12 @@ export function useMarkets() {
   const [activeOnly, setActiveOnly] = useState(false);
   const [sortBy, setSortBy] = useState<TradeMarketSortOption>(TRADE_MARKET_SORT_OPTIONS[0]!.value);
   const [nowTimestamp] = useState(() => Math.floor(Date.now() / 1000));
+  const chainTimestamp =
+    typeof blockRead.data?.timestamp === "bigint"
+      ? Number(blockRead.data.timestamp)
+      : typeof blockRead.data?.timestamp === "number"
+        ? blockRead.data.timestamp
+        : null;
 
   const canReadCore = Boolean(
     marketplace?.address && marketplace.abi && paymentRouter?.address && paymentRouter.abi,
@@ -724,6 +737,7 @@ export function useMarkets() {
           expiredBids: expiredBids.length,
           recentActivity,
           lastActivityAt,
+          chainTimestamp,
           userPosition,
           hasUserPosition: userPosition > 0,
           topListings: asksSortedByPrice.slice(0, 5).map((listing) => ({

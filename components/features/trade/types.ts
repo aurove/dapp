@@ -68,6 +68,7 @@ export type TradeMarket = {
   expiredBids: number;
   recentActivity: number;
   lastActivityAt: number | null;
+  chainTimestamp: number | null;
   userPosition: number;
   hasUserPosition: boolean;
   topListings: TradeMarketListingPreview[];
