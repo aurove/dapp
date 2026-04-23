@@ -1,24 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  AlertCircle,
-  ArrowRightLeft,
-  CheckCircle2,
-  CircleDashed,
-  Loader2,
-  RefreshCw,
-  ShoppingCart,
-  Wallet,
-} from "lucide-react";
-import { erc20Abi, formatUnits, parseUnits, type Address } from "viem";
-import {
-  useAccount,
-  useChainId,
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from "wagmi";
+import { AlertCircle, ArrowRightLeft, CheckCircle2, ShoppingCart, Wallet } from "lucide-react";
+import { erc20Abi, type Address } from "viem";
+import { useAccount, useChainId, useReadContract } from "wagmi";
 import { Button } from "@fractals/ui/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
 import {
@@ -28,12 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@fractals/ui/components/ui/dialog";
-import { Input } from "@fractals/ui/components/ui/input";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { cn } from "@fractals/ui/lib/cn";
 import type { TradeMarket } from "../types";
-import { quoteRequiredPaymentRaw } from "../utils/pricing";
+import { BidTradeAction, BuyTradeAction, SellTradeAction } from "./trade-market-action-forms";
 
 type TradeMarketDialogProps = {
   market: TradeMarket;
@@ -43,8 +27,6 @@ type TradeMarketDialogProps = {
 };
 
 type TradeTab = "buy" | "sell" | "bid";
-
-type TxStage = "idle" | "pending" | "success" | "error";
 
 const ERC1155_APPROVAL_ABI = [
   {
@@ -103,51 +85,6 @@ function formatDate(timestamp: number): string {
   }).format(new Date(timestamp * 1000));
 }
 
-function parseTradeError(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error);
-  const normalized = text.toLowerCase();
-
-  if (normalized.includes("user rejected") || normalized.includes("user denied")) {
-    return "Transaction rejected in wallet.";
-  }
-  if (normalized.includes("insufficientpaymentallowance")) {
-    return "Allowance too low for this trade amount.";
-  }
-  if (normalized.includes("insufficientpaymentbalance")) {
-    return "Wallet balance is below required quote amount.";
-  }
-  if (normalized.includes("insufficientfractionbalance")) {
-    return "Fraction balance is below requested sell amount.";
-  }
-  if (normalized.includes("fractiontransfernotapproved")) {
-    return "Approve fraction transfers to marketplace before selling to a bid.";
-  }
-  if (normalized.includes("cannotbuyownlisting")) {
-    return "Cannot buy your own listing.";
-  }
-  if (normalized.includes("cannotselltoownbid")) {
-    return "Cannot sell into your own bid.";
-  }
-  if (normalized.includes("paused")) {
-    return "Marketplace is paused by admin.";
-  }
-  if (normalized.includes("listingnotactive") || normalized.includes("bidnotactive")) {
-    return "Selected order is no longer active. Refresh market data.";
-  }
-
-  return text.length > 220 ? `${text.slice(0, 220)}...` : text;
-}
-
-function parseAmountRaw(value: string, decimals: number): bigint | null {
-  try {
-    const parsed = parseUnits(value.trim(), decimals);
-    if (parsed <= 0n) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
 function ReadinessItem({ ok, label }: { ok: boolean; label: string }) {
   return (
     <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
@@ -170,15 +107,6 @@ export function TradeMarketDialog({
   const [tab, setTab] = useState<TradeTab>("buy");
   const [buyListingId, setBuyListingId] = useState<string>("");
   const [sellBidId, setSellBidId] = useState<string>("");
-  const [buyAmount, setBuyAmount] = useState("1");
-  const [sellAmount, setSellAmount] = useState("1");
-  const [bidAmount, setBidAmount] = useState("1");
-  const [bidPrice, setBidPrice] = useState("");
-  const [bidExpiryMode, setBidExpiryMode] = useState<"timed" | "none">("timed");
-  const [bidExpiryDays, setBidExpiryDays] = useState("7");
-  const [txStage, setTxStage] = useState<TxStage>("idle");
-  const [txError, setTxError] = useState<string | null>(null);
-  const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
 
   const { address: userAddress, isConnected } = useAccount();
   const txFlowChainId = useChainId();
@@ -186,18 +114,10 @@ export function TradeMarketDialog({
   const expectedChainId = activeChain.id;
   const chainId = txFlowChainId ?? expectedChainId;
   const isCorrectNetwork = chainId === expectedChainId;
-  const blockExplorerUrl = activeChain.blockExplorers?.default?.url ?? null;
 
   const marketplace = getContractConfig(expectedChainId, "Marketplace");
   const paymentRouter = getContractConfig(expectedChainId, "PaymentRouter");
   const assetLedger = getContractConfig(expectedChainId, "AssetLedger");
-
-  const { writeContractAsync } = useWriteContract();
-  const txReceipt = useWaitForTransactionReceipt({
-    chainId: expectedChainId,
-    hash: txHash ?? undefined,
-    query: { enabled: Boolean(txHash) },
-  });
 
   const selectedListing = useMemo(
     () => market.topListings.find((entry) => entry.listingId.toString() === buyListingId) ?? null,
@@ -215,27 +135,9 @@ export function TradeMarketDialog({
     const firstBid = market.topBids[0];
 
     setTab("buy");
-    setTxError(null);
-    setTxHash(null);
-    setTxStage("idle");
     setBuyListingId(firstListing?.listingId.toString() || "");
     setSellBidId(firstBid?.bidId.toString() || "");
-    setBidPrice(String(market.bestBidPrice ?? market.floorPrice ?? ""));
-  }, [market.bestBidPrice, market.floorPrice, market.id, market.topBids, market.topListings, open]);
-
-  useEffect(() => {
-    if (txReceipt.isSuccess) {
-      setTxStage("success");
-      onTradeExecuted?.();
-    }
-  }, [onTradeExecuted, txReceipt.isSuccess]);
-
-  useEffect(() => {
-    if (txReceipt.isError) {
-      setTxStage("error");
-      setTxError(parseTradeError(txReceipt.error));
-    }
-  }, [txReceipt.error, txReceipt.isError]);
+  }, [market.id, market.topBids, market.topListings, open]);
 
   const adminContractRead = useReadContract({
     address: marketplace?.address,
@@ -326,150 +228,6 @@ export function TradeMarketDialog({
   const fractionBalance = (fractionBalanceRead.data as bigint | undefined) ?? 0n;
   const fractionApproved = fractionApprovalRead.data === true;
 
-  const buyAmountRaw = useMemo(() => parseAmountRaw(buyAmount, 18), [buyAmount]);
-  const sellAmountRaw = useMemo(() => parseAmountRaw(sellAmount, 18), [sellAmount]);
-  const bidAmountRaw = useMemo(() => parseAmountRaw(bidAmount, 18), [bidAmount]);
-  const bidPriceRaw = useMemo(
-    () => parseAmountRaw(bidPrice, market.paymentTokenDecimals),
-    [bidPrice, market.paymentTokenDecimals],
-  );
-
-  const buyRequiredPayment = useMemo(
-    () =>
-      selectedListing && buyAmountRaw
-        ? quoteRequiredPaymentRaw(buyAmountRaw, selectedListing.priceRaw)
-        : null,
-    [buyAmountRaw, selectedListing],
-  );
-  const bidRequiredPayment = useMemo(
-    () => quoteRequiredPaymentRaw(bidAmountRaw, bidPriceRaw),
-    [bidAmountRaw, bidPriceRaw],
-  );
-
-  const canBuy =
-    Boolean(selectedListing) &&
-    Boolean(buyAmountRaw) &&
-    Boolean(buyRequiredPayment) &&
-    !isPaused &&
-    selectedListing!.seller.toLowerCase() !== userAddress?.toLowerCase() &&
-    buyAmountRaw! <= selectedListing!.amountRaw &&
-    paymentBalance >= buyRequiredPayment! &&
-    paymentAllowance >= buyRequiredPayment!;
-
-  const canSell =
-    Boolean(selectedBid) &&
-    Boolean(sellAmountRaw) &&
-    !isPaused &&
-    selectedBid!.bidder.toLowerCase() !== userAddress?.toLowerCase() &&
-    sellAmountRaw! <= selectedBid!.amountRaw &&
-    fractionBalance >= sellAmountRaw! &&
-    fractionApproved;
-
-  const parsedBidDays = Number.parseInt(bidExpiryDays, 10);
-  const bidExpiryValid =
-    bidExpiryMode === "none" || (Number.isFinite(parsedBidDays) && parsedBidDays >= 1);
-
-  const canPlaceBid =
-    Boolean(bidAmountRaw) &&
-    Boolean(bidPriceRaw) &&
-    Boolean(bidRequiredPayment) &&
-    !isPaused &&
-    bidExpiryValid &&
-    paymentBalance >= bidRequiredPayment! &&
-    paymentAllowance >= bidRequiredPayment!;
-
-  const anyPending =
-    txStage === "pending" || (txReceipt.data && txReceipt.isPending) || txReceipt.isLoading;
-
-  async function submitBuy() {
-    if (!marketplace?.address || !marketplace.abi || !selectedListing || !buyAmountRaw || !canBuy)
-      return;
-
-    try {
-      setTxError(null);
-      setTxStage("pending");
-      const hash = await writeContractAsync({
-        chainId: expectedChainId,
-        address: marketplace.address,
-        abi: marketplace.abi,
-        functionName: "buyFromListing",
-        args: [selectedListing.listingId, buyAmountRaw],
-      });
-      setTxHash(hash);
-    } catch (error) {
-      setTxError(parseTradeError(error));
-      setTxStage("error");
-    }
-  }
-
-  async function submitSell() {
-    if (!marketplace?.address || !marketplace.abi || !selectedBid || !sellAmountRaw || !canSell)
-      return;
-
-    try {
-      setTxError(null);
-      setTxStage("pending");
-      const hash = await writeContractAsync({
-        chainId: expectedChainId,
-        address: marketplace.address,
-        abi: marketplace.abi,
-        functionName: "sellToBid",
-        args: [selectedBid.bidId, sellAmountRaw],
-      });
-      setTxHash(hash);
-    } catch (error) {
-      setTxError(parseTradeError(error));
-      setTxStage("error");
-    }
-  }
-
-  async function submitBid() {
-    if (
-      !marketplace?.address ||
-      !marketplace.abi ||
-      !assetLedger?.address ||
-      !bidAmountRaw ||
-      !bidPriceRaw ||
-      !canPlaceBid
-    ) {
-      return;
-    }
-
-    const expiry =
-      bidExpiryMode === "none"
-        ? 0n
-        : BigInt(Math.floor(Date.now() / 1000) + Math.max(1, parsedBidDays) * 24 * 60 * 60);
-
-    try {
-      setTxError(null);
-      setTxStage("pending");
-      const hash = await writeContractAsync({
-        chainId: expectedChainId,
-        address: marketplace.address,
-        abi: marketplace.abi,
-        functionName: "placeBidWithExpiry",
-        args: [
-          assetLedger.address,
-          market.trancheId,
-          bidAmountRaw,
-          market.paymentToken,
-          bidPriceRaw,
-          expiry,
-        ],
-      });
-      setTxHash(hash);
-    } catch (error) {
-      setTxError(parseTradeError(error));
-      setTxStage("error");
-    }
-  }
-
-  function resetTransactionState() {
-    setTxError(null);
-    setTxHash(null);
-    setTxStage("idle");
-  }
-
   const readinessError = !isConnected
     ? "Connect a wallet to trade."
     : !isCorrectNetwork
@@ -483,7 +241,6 @@ export function TradeMarketDialog({
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next);
-        if (!next) resetTransactionState();
       }}
     >
       <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-0">
@@ -678,195 +435,51 @@ export function TradeMarketDialog({
                 </div>
 
                 {tab === "buy" ? (
-                  <div className="space-y-3">
-                    <label className="block text-xs text-[var(--muted)]">
-                      Amount to buy ({market.fractionSymbol})
-                      <Input
-                        value={buyAmount}
-                        onChange={(event) => setBuyAmount(event.target.value)}
-                      />
-                    </label>
-                    {selectedListing ? (
-                      <p className="text-xs text-[var(--muted)]">
-                        Listing #{selectedListing.listingId.toString()} by{" "}
-                        {formatAddress(selectedListing.seller)} | max{" "}
-                        {formatTokenAmount(selectedListing.amount)} | exp{" "}
-                        {formatDate(selectedListing.expiry)}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-amber-200">Select an ask from the orderbook.</p>
-                    )}
-                    <Button
-                      type="button"
-                      className="w-full"
-                      disabled={anyPending || !canBuy || Boolean(readinessError)}
-                      onClick={submitBuy}
-                    >
-                      {anyPending && tab === "buy" ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" /> Submitting
-                        </>
-                      ) : (
-                        "Buy from listing"
-                      )}
-                    </Button>
-                  </div>
+                  <BuyTradeAction
+                    key={selectedListing?.listingId.toString() ?? "buy-empty"}
+                    market={market}
+                    marketplaceAddress={marketplace?.address}
+                    marketplaceAbi={marketplace?.abi}
+                    paymentRouterAddress={paymentRouter?.address}
+                    paymentBalance={paymentBalance}
+                    paymentAllowance={paymentAllowance}
+                    selectedListing={selectedListing}
+                    isPaused={isPaused}
+                    userAddress={userAddress}
+                    onTradeExecuted={onTradeExecuted}
+                  />
                 ) : null}
 
                 {tab === "sell" ? (
-                  <div className="space-y-3">
-                    <label className="block text-xs text-[var(--muted)]">
-                      Amount to sell ({market.fractionSymbol})
-                      <Input
-                        value={sellAmount}
-                        onChange={(event) => setSellAmount(event.target.value)}
-                      />
-                    </label>
-                    {selectedBid ? (
-                      <p className="text-xs text-[var(--muted)]">
-                        Bid #{selectedBid.bidId.toString()} by {formatAddress(selectedBid.bidder)} |
-                        max {formatTokenAmount(selectedBid.amount)} | exp{" "}
-                        {formatDate(selectedBid.expiry)}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-amber-200">Select a bid from the orderbook.</p>
-                    )}
-                    <Button
-                      type="button"
-                      className="w-full"
-                      disabled={anyPending || !canSell || Boolean(readinessError)}
-                      onClick={submitSell}
-                    >
-                      {anyPending && tab === "sell" ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" /> Submitting
-                        </>
-                      ) : (
-                        "Sell into bid"
-                      )}
-                    </Button>
-                  </div>
+                  <SellTradeAction
+                    key={selectedBid?.bidId.toString() ?? "sell-empty"}
+                    market={market}
+                    marketplaceAddress={marketplace?.address}
+                    marketplaceAbi={marketplace?.abi}
+                    fractionBalance={fractionBalance}
+                    fractionApproved={fractionApproved}
+                    selectedBid={selectedBid}
+                    isPaused={isPaused}
+                    userAddress={userAddress}
+                    onTradeExecuted={onTradeExecuted}
+                  />
                 ) : null}
 
                 {tab === "bid" ? (
-                  <div className="space-y-3">
-                    <label className="block text-xs text-[var(--muted)]">
-                      Bid amount ({market.fractionSymbol})
-                      <Input
-                        value={bidAmount}
-                        onChange={(event) => setBidAmount(event.target.value)}
-                      />
-                    </label>
-                    <label className="block text-xs text-[var(--muted)]">
-                      Bid price per fraction ({market.paymentTokenSymbol})
-                      <Input
-                        value={bidPrice}
-                        onChange={(event) => setBidPrice(event.target.value)}
-                      />
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <select
-                        aria-label="Bid expiry mode"
-                        className="h-10 rounded-xl border border-white/15 bg-white/[0.02] px-3 text-sm"
-                        value={bidExpiryMode}
-                        onChange={(event) =>
-                          setBidExpiryMode(event.target.value as "timed" | "none")
-                        }
-                      >
-                        <option value="timed">Timed expiry</option>
-                        <option value="none">No expiry</option>
-                      </select>
-                      <Input
-                        value={bidExpiryDays}
-                        disabled={bidExpiryMode === "none"}
-                        onChange={(event) => setBidExpiryDays(event.target.value)}
-                        placeholder="Days"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      className="w-full"
-                      disabled={anyPending || !canPlaceBid || Boolean(readinessError)}
-                      onClick={submitBid}
-                    >
-                      {anyPending && tab === "bid" ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" /> Submitting
-                        </>
-                      ) : (
-                        "Place bid"
-                      )}
-                    </Button>
-                    <p className="text-xs text-[var(--muted)]">
-                      Bids are non-custodial in this contract: funds remain in your wallet until
-                      filled.
-                    </p>
-                  </div>
+                  <BidTradeAction
+                    key={`${market.id}-${market.bestBidPrice ?? market.floorPrice ?? "0"}`}
+                    market={market}
+                    assetLedgerAddress={assetLedger?.address}
+                    marketplaceAddress={marketplace?.address}
+                    marketplaceAbi={marketplace?.abi}
+                    paymentRouterAddress={paymentRouter?.address}
+                    paymentBalance={paymentBalance}
+                    paymentAllowance={paymentAllowance}
+                    initialBidPrice={String(market.bestBidPrice ?? market.floorPrice ?? "")}
+                    isPaused={isPaused}
+                    onTradeExecuted={onTradeExecuted}
+                  />
                 ) : null}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Transaction status</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 pb-5 pt-2 text-xs">
-                {txStage === "idle" ? (
-                  <div className="flex items-center gap-2 text-[var(--muted)]">
-                    <CircleDashed className="h-3.5 w-3.5" />
-                    Ready to submit.
-                  </div>
-                ) : null}
-                {txStage === "pending" ? (
-                  <div className="flex items-center gap-2 text-sky-200">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Waiting for confirmation.
-                  </div>
-                ) : null}
-                {txStage === "success" ? (
-                  <div className="flex items-center gap-2 text-emerald-300">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Confirmed on-chain.
-                  </div>
-                ) : null}
-                {txStage === "error" ? (
-                  <div className="space-y-1 text-red-200">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-3.5 w-3.5" />
-                      Transaction failed.
-                    </div>
-                    {txError ? <p>{txError}</p> : null}
-                  </div>
-                ) : null}
-
-                {txHash ? (
-                  <p className="text-[var(--muted)]">
-                    Tx:{" "}
-                    {blockExplorerUrl ? (
-                      <a
-                        href={`${blockExplorerUrl.replace(/\/$/, "")}/tx/${txHash}`}
-                        className="text-[#ccb98f] underline-offset-2 hover:underline"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {formatAddress(txHash)}
-                      </a>
-                    ) : (
-                      formatAddress(txHash)
-                    )}
-                  </p>
-                ) : null}
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="w-full"
-                  onClick={resetTransactionState}
-                  disabled={anyPending}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" /> Clear status
-                </Button>
               </CardContent>
             </Card>
           </div>
