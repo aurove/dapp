@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { erc20Abi } from "viem";
-import { createAddressWriteStep, type TxStep } from "@fractals/tx-flow";
+import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { getContractConfig } from "@/contracts/client";
 import { useTradeFlowContext } from "./use-trade-flow-context";
 import type { CreateTradeBidInput } from "../types";
@@ -56,12 +56,12 @@ export function useTradeBidding() {
 
     if (input.requiresPaymentApproval) {
       steps.push(
-        createAddressWriteStep({
+        makeAddressWriteStep({
           key: "approve-bid-payment",
           label: `Approve ${input.paymentTokenSymbol}`,
           address: input.paymentToken,
           abi: erc20Abi,
-          displayLabelButton: true,
+          displayLabelBtn: true,
           variables: {
             functionName: "approve",
             args: [paymentRouter.address, input.requiredPaymentRaw],
@@ -71,12 +71,10 @@ export function useTradeBidding() {
     }
 
     steps.push(
-      createAddressWriteStep({
+      makeContractWriteStep({
         key: "place-bid",
         label: "Place Bid",
-        address: marketplace.address,
-        abi: marketplace.abi,
-        displayLabelButton: true,
+        contractName: "Marketplace",
         variables: {
           functionName: "placeBidWithExpiry",
           args: [
@@ -86,7 +84,7 @@ export function useTradeBidding() {
             input.paymentToken,
             input.bidPriceRaw,
             expiry,
-          ],
+          ] as const,
         },
       }),
     );

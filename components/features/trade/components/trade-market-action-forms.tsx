@@ -3,13 +3,14 @@
 import { useMemo, type ReactNode } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { Loader2 } from "lucide-react";
 import { erc20Abi, formatUnits, parseUnits, type Abi, type Address } from "viem";
 import { Button } from "@fractals/ui/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
 import { Input } from "@fractals/ui/components/ui/input";
-import { TransactionFlowButton, createAddressWriteStep, type TxStep } from "@fractals/tx-flow";
+import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import type { TradeMarket, TradeMarketBidPreview, TradeMarketListingPreview } from "../types";
+import { TradeTxFlowButton } from "./trade-tx-flow-button";
+import { useTradeFlowContext } from "../hooks/use-trade-flow-context";
 import { quoteRequiredPaymentRaw } from "../utils/pricing";
 
 type ActionShellProps = {
@@ -210,13 +211,14 @@ export function BuyTradeAction({
   const approvalRequired = Boolean(
     paymentRouterAddress && requiredPayment > 0n && paymentAllowance < requiredPayment,
   );
+  const { expectedChainId } = useTradeFlowContext();
 
   const steps = useMemo<TxStep[]>(() => {
     if (!marketplaceAddress || !marketplaceAbi || !selectedListing || !amountRaw) return [];
 
     const approvalStep =
       paymentRouterAddress && approvalRequired
-        ? createAddressWriteStep({
+        ? makeAddressWriteStep({
             key: "approve-payment",
             label: `Approve ${market.paymentTokenSymbol}`,
             address: market.paymentToken,
@@ -230,11 +232,10 @@ export function BuyTradeAction({
 
     return [
       ...(approvalStep ? [approvalStep] : []),
-      createAddressWriteStep({
+      makeContractWriteStep({
         key: "buy-listing",
         label: `Buy listing #${selectedListing.listingId.toString()}`,
-        address: marketplaceAddress,
-        abi: marketplaceAbi,
+        contractName: "Marketplace",
         variables: {
           functionName: "buyFromListing",
           args: [selectedListing.listingId, amountRaw] as const,
@@ -253,15 +254,15 @@ export function BuyTradeAction({
     selectedListing,
   ]);
 
-  const handleRun = async (run: () => void) => {
+  const handleRun = async () => {
     const errors = await formik.validateForm();
     if (Object.keys(errors).length > 0) {
       formik.setStatus(String(Object.values(errors)[0]));
       await formik.setTouched(touchAll(formik.values));
-      return;
+      return false;
     }
 
-    run();
+    return true;
   };
 
   return (
@@ -311,9 +312,11 @@ export function BuyTradeAction({
 
       <ActionStatus message={formik.status ? String(formik.status) : undefined} />
 
-      <TransactionFlowButton
+      <TradeTxFlowButton
         steps={steps}
         disabled={!marketplaceAddress || !marketplaceAbi}
+        targetChainId={expectedChainId}
+        beforeRun={handleRun}
         onStart={() => {
           formik.setStatus(undefined);
         }}
@@ -324,20 +327,9 @@ export function BuyTradeAction({
         onError={(message) => {
           formik.setStatus(message || "Failed to buy from listing.");
         }}
-        render={({ disabled, onClick, label, running }) => (
-          <Button
-            type="button"
-            className="w-full"
-            onClick={() => void handleRun(onClick)}
-            disabled={disabled || running}
-          >
-            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {String(label)}
-          </Button>
-        )}
       >
         Buy
-      </TransactionFlowButton>
+      </TradeTxFlowButton>
     </ActionShell>
   );
 }
@@ -409,11 +401,10 @@ export function SellTradeAction({
     if (!marketplaceAddress || !marketplaceAbi || !selectedBid || !amountRaw) return [];
 
     return [
-      createAddressWriteStep({
+      makeContractWriteStep({
         key: "sell-to-bid",
         label: `Sell to bid #${selectedBid.bidId.toString()}`,
-        address: marketplaceAddress,
-        abi: marketplaceAbi,
+        contractName: "Marketplace",
         variables: {
           functionName: "sellToBid",
           args: [selectedBid.bidId, amountRaw] as const,
@@ -421,16 +412,17 @@ export function SellTradeAction({
       }),
     ];
   }, [amountRaw, marketplaceAbi, marketplaceAddress, selectedBid]);
+  const { expectedChainId } = useTradeFlowContext();
 
-  const handleRun = async (run: () => void) => {
+  const handleRun = async () => {
     const errors = await formik.validateForm();
     if (Object.keys(errors).length > 0) {
       formik.setStatus(String(Object.values(errors)[0]));
       await formik.setTouched(touchAll(formik.values));
-      return;
+      return false;
     }
 
-    run();
+    return true;
   };
 
   return (
@@ -474,9 +466,11 @@ export function SellTradeAction({
 
       <ActionStatus message={formik.status ? String(formik.status) : undefined} />
 
-      <TransactionFlowButton
+      <TradeTxFlowButton
         steps={steps}
         disabled={!marketplaceAddress || !marketplaceAbi}
+        targetChainId={expectedChainId}
+        beforeRun={handleRun}
         onStart={() => {
           formik.setStatus(undefined);
         }}
@@ -487,20 +481,9 @@ export function SellTradeAction({
         onError={(message) => {
           formik.setStatus(message || "Failed to sell into bid.");
         }}
-        render={({ disabled, onClick, label, running }) => (
-          <Button
-            type="button"
-            className="w-full"
-            onClick={() => void handleRun(onClick)}
-            disabled={disabled || running}
-          >
-            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {String(label)}
-          </Button>
-        )}
       >
         Sell
-      </TransactionFlowButton>
+      </TradeTxFlowButton>
     </ActionShell>
   );
 }
@@ -584,7 +567,7 @@ export function BidTradeAction({
 
     const approvalStep =
       paymentRouterAddress && approvalRequired
-        ? createAddressWriteStep({
+        ? makeAddressWriteStep({
             key: "approve-payment",
             label: `Approve ${market.paymentTokenSymbol}`,
             address: market.paymentToken,
@@ -598,11 +581,10 @@ export function BidTradeAction({
 
     return [
       ...(approvalStep ? [approvalStep] : []),
-      createAddressWriteStep({
+      makeContractWriteStep({
         key: "place-bid",
         label: "Place bid",
-        address: marketplaceAddress,
-        abi: marketplaceAbi,
+        contractName: "Marketplace",
         variables: {
           functionName: "placeBidWithExpiry",
           args: [
@@ -631,16 +613,17 @@ export function BidTradeAction({
     priceRaw,
     requiredPayment,
   ]);
+  const { expectedChainId } = useTradeFlowContext();
 
-  const handleRun = async (run: () => void) => {
+  const handleRun = async () => {
     const errors = await formik.validateForm();
     if (Object.keys(errors).length > 0) {
       formik.setStatus(String(Object.values(errors)[0]));
       await formik.setTouched(touchAll(formik.values));
-      return;
+      return false;
     }
 
-    run();
+    return true;
   };
 
   return (
@@ -727,9 +710,11 @@ export function BidTradeAction({
 
       <ActionStatus message={formik.status ? String(formik.status) : undefined} />
 
-      <TransactionFlowButton
+      <TradeTxFlowButton
         steps={steps}
         disabled={!assetLedgerAddress || !marketplaceAddress || !marketplaceAbi}
+        targetChainId={expectedChainId}
+        beforeRun={handleRun}
         onStart={() => {
           formik.setStatus(undefined);
         }}
@@ -740,20 +725,9 @@ export function BidTradeAction({
         onError={(message) => {
           formik.setStatus(message || "Failed to place bid.");
         }}
-        render={({ disabled, onClick, label, running }) => (
-          <Button
-            type="button"
-            className="w-full"
-            onClick={() => void handleRun(onClick)}
-            disabled={disabled || running}
-          >
-            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {String(label)}
-          </Button>
-        )}
       >
         Place bid
-      </TransactionFlowButton>
+      </TradeTxFlowButton>
     </ActionShell>
   );
 }

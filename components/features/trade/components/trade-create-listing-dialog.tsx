@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { TransactionFlowButton, createAddressWriteStep, type TxStep } from "@fractals/tx-flow";
 import { Button } from "@fractals/ui/components/ui/button";
 import {
   Dialog,
@@ -18,6 +17,7 @@ import { Input } from "@fractals/ui/components/ui/input";
 import { Skeleton } from "@fractals/ui/components/ui/skeleton";
 import { CircleAlert, Info, RefreshCw } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
+import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { getContractConfig } from "@/contracts/client";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
 import { ListingReviewCard } from "./listing-review-card";
@@ -27,6 +27,8 @@ import { useTradeFlowContext } from "../hooks/use-trade-flow-context";
 import { useUserFractions } from "../hooks/use-user-fractions";
 import { useUserVeNFTs, type UserVeNft } from "../hooks/use-user-ve-nfts";
 import { buildListingAutoMatchCandidate, extractCreatedListingId } from "../utils/order-routing";
+import { TradeTxFlowButton } from "./trade-tx-flow-button";
+
 import type {
   CreateFractionTradeListingInput,
   CreateVeTradeListingInput,
@@ -100,6 +102,13 @@ function formatTokenValue(value: number): string {
     }).format(value);
   }
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value);
+}
+
+function touchAll<T extends Record<string, unknown>>(values: T): Record<string, boolean> {
+  return Object.keys(values).reduce<Record<string, boolean>>((acc, key) => {
+    acc[key] = true;
+    return acc;
+  }, {});
 }
 
 export function TradeCreateListingDialog({
@@ -497,13 +506,11 @@ export function TradeCreateListingDialog({
       ) => {
         if (!candidate || !marketplace?.address || !marketplace.abi) return null;
 
-        return createAddressWriteStep({
+        return makeContractWriteStep({
           key: "match-best-bid",
           label: `Match ${candidate.marketLabel}`,
-          address: marketplace.address,
-          abi: marketplace.abi,
-          displayLabelButton: true,
-          variables: ({ prev }) => {
+          contractName: "Marketplace",
+          variables: ({ prev }: { prev: any[] }) => {
             const previousReceipt = prev[prev.length - 1]?.receipt;
             const createdOrderId = createdOrderExtractor(previousReceipt);
             if (!createdOrderId) {
@@ -1400,9 +1407,20 @@ export function TradeCreateListingDialog({
                 Continue
               </Button>
             ) : (
-              <TransactionFlowButton
+              <TradeTxFlowButton
                 steps={listingSteps}
                 disabled={!canSubmit}
+                targetChainId={expectedChainId}
+                beforeRun={async () => {
+                  const errors = await formik.validateForm();
+                  if (Object.keys(errors).length > 0) {
+                    resetFormState();
+                    formik.setStatus(String(Object.values(errors)[0]));
+                    await formik.setTouched(touchAll(formik.values));
+                    return false;
+                  }
+                  return true;
+                }}
                 onStart={() => {
                   setSuccessHash(null);
                   setIsBroadcasting(true);
@@ -1433,14 +1451,9 @@ export function TradeCreateListingDialog({
                 onRunningChange={(running) => {
                   setIsBroadcasting(running);
                 }}
-                render={({ disabled, onClick, label }) => (
-                  <Button type="button" disabled={disabled} onClick={onClick}>
-                    {isBroadcasting ? String(label) : primaryActionLabel}
-                  </Button>
-                )}
               >
                 {primaryActionLabel}
-              </TransactionFlowButton>
+              </TradeTxFlowButton>
             )}
           </DialogFooter>
         </form>

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { parseUnits, erc20Abi, erc721Abi, type Address } from "viem";
-import { createAddressWriteStep, type TxStep } from "@fractals/tx-flow";
+import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { getContractConfig } from "@/contracts/client";
 import { useReadContracts } from "wagmi";
 import { useTradeFlowContext } from "./use-trade-flow-context";
@@ -218,12 +218,12 @@ export function useTradeListing() {
 
     if (input.requiresVeNftApproval) {
       steps.push(
-        createAddressWriteStep({
+        makeAddressWriteStep({
           key: "approve-venft",
           label: "Approve",
           address: input.veNftAddress,
           abi: erc721Abi,
-          displayLabelButton: true,
+          displayLabelBtn: true,
           variables: {
             functionName: "setApprovalForAll",
             args: [listingWrapper.address, true],
@@ -234,12 +234,10 @@ export function useTradeListing() {
 
     if (input.requiresListingOperatorApproval) {
       steps.push(
-        createAddressWriteStep({
+        makeContractWriteStep({
           key: "approve-marketplace-operator",
           label: "Approve Marketplace",
-          address: marketplace.address,
-          abi: marketplace.abi,
-          displayLabelButton: true,
+          contractName: "Marketplace",
           variables: {
             functionName: "setListingOperator",
             args: [listingWrapper.address, true],
@@ -250,12 +248,10 @@ export function useTradeListing() {
 
     if (input.requiresFractionTransferApproval) {
       steps.push(
-        createAddressWriteStep({
+        makeContractWriteStep({
           key: "approve-fraction-transfer",
           label: "Approve Fraction Transfer",
-          address: assetLedger.address,
-          abi: assetLedger.abi,
-          displayLabelButton: true,
+          contractName: "AssetLedger",
           variables: {
             functionName: "setApprovalForAll",
             args: [marketplace.address, true],
@@ -265,12 +261,10 @@ export function useTradeListing() {
     }
 
     steps.push(
-      createAddressWriteStep({
+      makeContractWriteStep({
         key: "fractionalize-list",
         label: "List Asset",
-        address: listingWrapper.address,
-        abi: listingWrapper.abi,
-        displayLabelButton: true,
+        contractName: "VeNftFractionListing",
         variables: {
           functionName: "fractionalizeAndList",
           args: [
@@ -316,12 +310,10 @@ export function useTradeListing() {
 
     if (input.requiresFractionTransferApproval) {
       steps.push(
-        createAddressWriteStep({
+        makeContractWriteStep({
           key: "approve-fraction-transfer",
           label: "Approve Fraction Transfer",
-          address: assetLedger.address,
-          abi: assetLedger.abi,
-          displayLabelButton: true,
+          contractName: "AssetLedger",
           variables: {
             functionName: "setApprovalForAll",
             args: [marketplace.address, true],
@@ -331,12 +323,10 @@ export function useTradeListing() {
     }
 
     steps.push(
-      createAddressWriteStep({
+      makeContractWriteStep({
         key: "create-fraction-listing",
         label: "List Fractions",
-        address: marketplace.address,
-        abi: marketplace.abi,
-        displayLabelButton: true,
+        contractName: "Marketplace",
         variables: {
           functionName: "createListingWithExpiry",
           args: [

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { TransactionFlowButton, createAddressWriteStep, type TxStep } from "@fractals/tx-flow";
 import { Button } from "@fractals/ui/components/ui/button";
 import {
   Dialog,
@@ -17,6 +16,7 @@ import {
 import { Input } from "@fractals/ui/components/ui/input";
 import { CircleAlert, Info } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
+import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { useReadContract } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
@@ -33,6 +33,7 @@ import {
   TRANCHE_MIN,
   type CanonicalAssetVariant,
 } from "../utils/tranche";
+import { TradeTxFlowButton } from "./trade-tx-flow-button";
 
 type TradePlaceBidDialogProps = {
   markets: TradeMarket[];
@@ -101,6 +102,13 @@ function formatTokenValue(value: number): string {
     }).format(value);
   }
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value);
+}
+
+function touchAll<T extends Record<string, unknown>>(values: T): Record<string, boolean> {
+  return Object.keys(values).reduce<Record<string, boolean>>((acc, key) => {
+    acc[key] = true;
+    return acc;
+  }, {});
 }
 
 function parseBidError(error: unknown): string {
@@ -450,13 +458,11 @@ export function TradePlaceBidDialog({
 
       return [
         ...baseSteps,
-        createAddressWriteStep({
+        makeContractWriteStep({
           key: "match-best-listing",
           label: `Match ${bidAutoMatchCandidate.marketLabel}`,
-          address: marketplace.address,
-          abi: marketplace.abi,
-          displayLabelButton: true,
-          variables: ({ prev }) => {
+          contractName: "Marketplace",
+          variables: ({ prev }: { prev: any[] }) => {
             const previousReceipt = prev[prev.length - 1]?.receipt;
             const createdBidId = extractCreatedBidId(previousReceipt);
             if (!createdBidId) {
@@ -1175,9 +1181,20 @@ export function TradePlaceBidDialog({
                 Continue
               </Button>
             ) : (
-              <TransactionFlowButton
+              <TradeTxFlowButton
                 steps={bidSteps}
                 disabled={!canSubmit}
+                targetChainId={expectedChainId}
+                beforeRun={async () => {
+                  const errors = await formik.validateForm();
+                  if (Object.keys(errors).length > 0) {
+                    resetFormState();
+                    formik.setStatus(parseBidError(String(Object.values(errors)[0])));
+                    await formik.setTouched(touchAll(formik.values));
+                    return false;
+                  }
+                  return true;
+                }}
                 onStart={() => {
                   setSuccessHash(null);
                   setIsBroadcasting(true);
@@ -1199,14 +1216,9 @@ export function TradePlaceBidDialog({
                 onRunningChange={(running) => {
                   setIsBroadcasting(running);
                 }}
-                render={({ disabled, onClick, label }) => (
-                  <Button type="button" disabled={disabled} onClick={onClick}>
-                    {isBroadcasting ? String(label) : primaryActionLabel}
-                  </Button>
-                )}
               >
                 {primaryActionLabel}
-              </TransactionFlowButton>
+              </TradeTxFlowButton>
             )}
           </DialogFooter>
         </form>

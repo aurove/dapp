@@ -7,10 +7,10 @@ import { Badge } from "@fractals/ui/components/ui/badge";
 import { AppNav } from "@/components/app/app-nav";
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
-import { PendingTransactionsPanel, useTxFlowChainId } from "@fractals/tx-flow";
+import { useChainId } from "wagmi";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const chainId = useTxFlowChainId();
+  const chainId = useChainId();
   const expectedChain = useMemo(() => getActiveChain(resolveAppEnvironment()), []);
   const wrongNetwork = chainId !== undefined && chainId !== expectedChain.id;
   const year = useMemo(() => new Date().getFullYear(), []);
@@ -32,9 +32,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden sm:block">
-              <PendingTransactionsPanel />
-            </div>
             <WalletConnectButton />
           </div>
         </div>

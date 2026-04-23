@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @source "../../packages/ui/src";
-@source "../../packages/tx-flow/src";
 
 :root {
   --background: #0a0f15;

@@ -5,6 +5,7 @@ type ChainContracts = Registry[keyof Registry];
 export type RegistryContractName = keyof ChainContracts;
 export type RegistryChainId = keyof Registry & number;
 export type RegistryContractConfig<TName extends RegistryContractName> = ChainContracts[TName];
+export type ContractsRegistry = Registry[31337];
 
 const DEFAULT_CHAIN_ID = 31337;
 

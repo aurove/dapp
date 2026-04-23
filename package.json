@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@fractals/tx-flow": "workspace:^",
+    "abitype": "1.0.6",
     "@fractals/ui": "workspace:^",
     "@rainbow-me/rainbowkit": "2.2.10",
     "@tanstack/react-query": "5.99.2",
@@ -24,9 +24,6 @@
     "yup": "^1.7.1"
   },
   "dependenciesMeta": {
-    "@fractals/tx-flow": {
-      "injected": true
-    },
     "@fractals/ui": {
       "injected": true
     }

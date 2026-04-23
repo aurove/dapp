@@ -1,4 +1,4 @@
-import { createTxFlowWagmiConfig } from "@fractals/tx-flow";
+import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import type { Chain } from "viem";
 import { createConfig, http, type Config } from "wagmi";
 import { getRuntimeConfig } from "@/lib/config/env";
@@ -35,10 +35,10 @@ export function getWagmiConfig(activeChain: Chain): Config {
   }
 
   if (!wagmiConfig || wagmiConfigChainId !== activeChain.id) {
-    wagmiConfig = createTxFlowWagmiConfig({
+    wagmiConfig = getDefaultConfig({
       appName: "Fractals Marketplace",
-      walletConnectProjectId: runtime.walletConnectProjectId,
       chains: [activeChain],
+      projectId: runtime.walletConnectProjectId,
       ssr: true,
     });
     wagmiConfigChainId = activeChain.id;

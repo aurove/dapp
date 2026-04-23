@@ -1,6 +1,6 @@
 "use client";
 
-import { ConnectButton } from "@fractals/tx-flow";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@fractals/ui/components/ui/button";
 
