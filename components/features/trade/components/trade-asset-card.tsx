@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, CalendarDays, Clock3, Landmark, Layers, ShoppingCart } from "lucide-react";
 import { Button } from "@fractals/ui/components/ui/button";
@@ -7,11 +8,10 @@ import { Card, CardContent } from "@fractals/ui/components/ui/card";
 import { cn } from "@fractals/ui/lib/cn";
 import type { TradeMarket } from "../types";
 import { decodeTrancheId } from "../utils/tranche";
-import { TradeMarketDialog } from "./trade-market-dialog";
 
 type TradeAssetCardProps = {
   asset: TradeMarket;
-  onTradeExecuted?: () => void;
+  marketHref: string;
 };
 
 function formatAmount(value: number): string {
@@ -60,7 +60,7 @@ function formatLockEndsDuration(timestamp: number | null, nowTimestamp: number |
   return `${Math.max(1, minutes)}m`;
 }
 
-export function TradeAssetCard({ asset, onTradeExecuted }: TradeAssetCardProps) {
+export function TradeAssetCard({ asset, marketHref }: TradeAssetCardProps) {
   const spread =
     asset.floorPrice !== null && asset.bestBidPrice !== null
       ? asset.floorPrice - asset.bestBidPrice
@@ -199,15 +199,9 @@ export function TradeAssetCard({ asset, onTradeExecuted }: TradeAssetCardProps) 
           */}
 
         <div className="mt-auto">
-          <TradeMarketDialog
-            market={asset}
-            onTradeExecuted={onTradeExecuted}
-            trigger={
-              <Button size="sm" className="w-full">
-                Open market details
-              </Button>
-            }
-          />
+          <Button size="sm" className="w-full" asChild>
+            <Link href={marketHref}>Open market details</Link>
+          </Button>
         </div>
       </CardContent>
     </Card>

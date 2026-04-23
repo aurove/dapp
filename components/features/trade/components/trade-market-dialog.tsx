@@ -27,7 +27,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@fractals/ui/components/ui/dialog";
 import { Input } from "@fractals/ui/components/ui/input";
 import { getContractConfig } from "@/contracts/client";
@@ -38,8 +37,9 @@ import { quoteRequiredPaymentRaw } from "../utils/pricing";
 
 type TradeMarketDialogProps = {
   market: TradeMarket;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onTradeExecuted?: () => void;
-  trigger: React.ReactNode;
 };
 
 type TradeTab = "buy" | "sell" | "bid";
@@ -161,8 +161,12 @@ function ReadinessItem({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
-export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMarketDialogProps) {
-  const [open, setOpen] = useState(false);
+export function TradeMarketDialog({
+  market,
+  open,
+  onOpenChange,
+  onTradeExecuted,
+}: TradeMarketDialogProps) {
   const [tab, setTab] = useState<TradeTab>("buy");
   const [buyListingId, setBuyListingId] = useState<string>("");
   const [sellBidId, setSellBidId] = useState<string>("");
@@ -210,10 +214,14 @@ export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMar
     const firstListing = market.topListings[0];
     const firstBid = market.topBids[0];
 
-    setBuyListingId((current) => current || firstListing?.listingId.toString() || "");
-    setSellBidId((current) => current || firstBid?.bidId.toString() || "");
-    setBidPrice((current) => current || String(market.bestBidPrice ?? market.floorPrice ?? ""));
-  }, [market.bestBidPrice, market.floorPrice, market.topBids, market.topListings, open]);
+    setTab("buy");
+    setTxError(null);
+    setTxHash(null);
+    setTxStage("idle");
+    setBuyListingId(firstListing?.listingId.toString() || "");
+    setSellBidId(firstBid?.bidId.toString() || "");
+    setBidPrice(String(market.bestBidPrice ?? market.floorPrice ?? ""));
+  }, [market.bestBidPrice, market.floorPrice, market.id, market.topBids, market.topListings, open]);
 
   useEffect(() => {
     if (txReceipt.isSuccess) {
@@ -474,11 +482,10 @@ export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMar
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        setOpen(next);
+        onOpenChange(next);
         if (!next) resetTransactionState();
       }}
     >
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-0">
         <DialogHeader className="border-b border-white/10 px-6 py-5">
           <DialogTitle className="text-2xl">{market.pair} Market</DialogTitle>

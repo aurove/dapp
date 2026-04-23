@@ -148,6 +148,10 @@ function parseBidsReadResult(value: unknown): TradeBidTuple[] {
   return [...tuple[0]];
 }
 
+function buildMarketId(fraction: FractionInfo, token: TradePaymentTokenInfo): string {
+  return `${fraction.symbol}-${token.symbol}`;
+}
+
 export function useMarkets() {
   const txFlowChainId = useChainId();
   const { address: userAddress } = useAccount();
@@ -712,7 +716,7 @@ export function useMarkets() {
         }
 
         output.push({
-          id: `${fraction.trancheId.toString()}-${token.address.toLowerCase()}`,
+          id: buildMarketId(fraction, token),
           fractionName: fraction.name,
           pair: `${fraction.symbol}/${token.symbol}`,
           fractionSymbol: fraction.symbol,
@@ -836,6 +840,7 @@ export function useMarkets() {
     setActiveOnly,
     sortBy,
     setSortBy,
+    allMarkets: markets,
     markets: filteredMarkets,
     totalCount: markets.length,
     paymentTokenOptions: paymentTokens,
