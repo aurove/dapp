@@ -370,7 +370,8 @@ export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMar
     paymentBalance >= bidRequiredPayment! &&
     paymentAllowance >= bidRequiredPayment!;
 
-  const anyPending = txStage === "pending" || txReceipt.isPending || txReceipt.isLoading;
+  const anyPending =
+    txStage === "pending" || (txReceipt.data && txReceipt.isPending) || txReceipt.isLoading;
 
   async function submitBuy() {
     if (!marketplace?.address || !marketplace.abi || !selectedListing || !buyAmountRaw || !canBuy)
@@ -609,6 +610,36 @@ export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMar
           <div className="space-y-4">
             <Card>
               <CardHeader className="pb-2">
+                <CardTitle className="text-base">Readiness</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 pb-5 pt-2">
+                <ReadinessItem ok={isConnected} label="Wallet connected" />
+                <ReadinessItem ok={isCorrectNetwork} label={`Network: ${activeChain.name}`} />
+                <ReadinessItem ok={!isPaused} label="Marketplace not paused" />
+                <ReadinessItem
+                  ok={paymentAllowance > 0n}
+                  label={`Payment allowance set (${market.paymentTokenSymbol})`}
+                />
+                <ReadinessItem
+                  ok={fractionApproved}
+                  label="Fraction transfer approval for marketplace"
+                />
+                <ReadinessItem
+                  ok={paymentBalance > 0n}
+                  label={`Wallet holds ${market.paymentTokenSymbol}`}
+                />
+                <ReadinessItem ok={fractionBalance > 0n} label="Wallet holds market fractions" />
+
+                {readinessError ? (
+                  <p className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                    {readinessError}
+                  </p>
+                ) : null}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
                 <CardTitle className="text-base">Trade actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 pb-5 pt-2">
@@ -764,36 +795,6 @@ export function TradeMarketDialog({ market, onTradeExecuted, trigger }: TradeMar
                       filled.
                     </p>
                   </div>
-                ) : null}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Readiness</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 pb-5 pt-2">
-                <ReadinessItem ok={isConnected} label="Wallet connected" />
-                <ReadinessItem ok={isCorrectNetwork} label={`Network: ${activeChain.name}`} />
-                <ReadinessItem ok={!isPaused} label="Marketplace not paused" />
-                <ReadinessItem
-                  ok={paymentAllowance > 0n}
-                  label={`Payment allowance set (${market.paymentTokenSymbol})`}
-                />
-                <ReadinessItem
-                  ok={fractionApproved}
-                  label="Fraction transfer approval for marketplace"
-                />
-                <ReadinessItem
-                  ok={paymentBalance > 0n}
-                  label={`Wallet holds ${market.paymentTokenSymbol}`}
-                />
-                <ReadinessItem ok={fractionBalance > 0n} label="Wallet holds market fractions" />
-
-                {readinessError ? (
-                  <p className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                    {readinessError}
-                  </p>
                 ) : null}
               </CardContent>
             </Card>
