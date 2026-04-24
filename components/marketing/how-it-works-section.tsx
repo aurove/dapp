@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { SectionHeading } from "@/components/site/section-heading";
 
 const steps = [

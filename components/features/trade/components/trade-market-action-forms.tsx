@@ -4,9 +4,9 @@ import { useMemo, type ReactNode } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import { erc20Abi, formatUnits, parseUnits, type Abi, type Address } from "viem";
-import { Button } from "@fractals/ui/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
-import { Input } from "@fractals/ui/components/ui/input";
+import { Button } from "@fractals/ui/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
+import { Input } from "@fractals/ui/ui/input";
 import { Loader2 } from "lucide-react";
 import {
   makeAddressWriteStep,

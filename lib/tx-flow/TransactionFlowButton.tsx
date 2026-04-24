@@ -5,7 +5,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useChainId, usePublicClient, useWriteContract } from "wagmi";
 import type { Address } from "viem";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
-import { Button } from "@fractals/ui/components/ui/button";
+import { Button } from "@fractals/ui/ui/button";
 
 import { useTxFlowRuntime } from "@/lib/providers/web3-providers";
 

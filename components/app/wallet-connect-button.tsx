@@ -2,7 +2,7 @@
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ChevronDown } from "lucide-react";
-import { Button } from "@fractals/ui/components/ui/button";
+import { Button } from "@fractals/ui/ui/button";
 
 export function WalletConnectButton() {
   return (

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Badge } from "@fractals/ui/components/ui/badge";
+import { Badge } from "@fractals/ui/ui/badge";
 
 type SectionHeadingProps = {
   badge?: string;

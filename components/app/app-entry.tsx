@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ArrowRightLeft, Coins, Layers3, TrendingUp } from "lucide-react";
-import { Badge } from "@fractals/ui/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
-import { buttonVariants } from "@fractals/ui/components/ui/button";
+import { Badge } from "@fractals/ui/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
+import { buttonVariants } from "@fractals/ui/ui/button";
 
 const stats = [
   { label: "Active Fraction Books", value: "12", change: "+3 this epoch", icon: Layers3 },

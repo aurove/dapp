@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, CalendarDays, Clock3, Landmark, Layers, ShoppingCart } from "lucide-react";
-import { Button } from "@fractals/ui/components/ui/button";
-import { Card, CardContent } from "@fractals/ui/components/ui/card";
+import { Button } from "@fractals/ui/ui/button";
+import { Card, CardContent } from "@fractals/ui/ui/card";
 import { cn } from "@fractals/ui/lib/cn";
 import type { TradeMarket } from "../types";
 import { decodeTrancheId } from "../utils/tranche";

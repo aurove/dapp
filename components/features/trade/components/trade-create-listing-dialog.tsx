@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { Button } from "@fractals/ui/components/ui/button";
+import { Button } from "@fractals/ui/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,9 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@fractals/ui/components/ui/dialog";
-import { Input } from "@fractals/ui/components/ui/input";
-import { Skeleton } from "@fractals/ui/components/ui/skeleton";
+} from "@fractals/ui/ui/dialog";
+import { Input } from "@fractals/ui/ui/input";
+import { Skeleton } from "@fractals/ui/ui/skeleton";
 import { CircleAlert, Info, Loader2, RefreshCw } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
 import {

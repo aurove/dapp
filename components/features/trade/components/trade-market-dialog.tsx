@@ -4,15 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, ArrowRightLeft, CheckCircle2, ShoppingCart, Wallet } from "lucide-react";
 import { erc20Abi, type Address } from "viem";
 import { useAccount, useChainId, useReadContract } from "wagmi";
-import { Button } from "@fractals/ui/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
+import { Button } from "@fractals/ui/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@fractals/ui/components/ui/dialog";
+} from "@fractals/ui/ui/dialog";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { cn } from "@fractals/ui/lib/cn";

@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Badge } from "@fractals/ui/components/ui/badge";
-import { Card, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
+import { Badge } from "@fractals/ui/ui/badge";
+import { Card, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { useMarkets } from "../hooks/use-markets";
 import { useTradeBidding } from "../hooks/use-trade-bidding";
 import { useTradeListing } from "../hooks/use-trade-listing";

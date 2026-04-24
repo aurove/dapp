@@ -1,6 +1,6 @@
 import { Coins, Gauge, RefreshCcw, Timer } from "lucide-react";
-import { Badge } from "@fractals/ui/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/components/ui/card";
+import { Badge } from "@fractals/ui/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 
 const routes = [
   { name: "Stable Carry Route", apr: "13.2%", duration: "6-9 months", rollover: "Low" },

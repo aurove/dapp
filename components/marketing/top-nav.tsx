@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { buttonVariants } from "@fractals/ui/components/ui/button";
+import { buttonVariants } from "@fractals/ui/ui/button";
 
 const navItems = [
   { label: "Overview", href: "#overview" },

@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
-import { Button } from "@fractals/ui/components/ui/button";
+import { Button } from "@fractals/ui/ui/button";
 
 type ReadinessItem = {
   key: string;
