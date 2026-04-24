@@ -668,7 +668,7 @@ export function BidTradeAction({
     >
       <div className="grid gap-3 md:grid-cols-2">
         <label className="block text-xs text-[var(--muted)]">
-          Bid amount ({market.fractionSymbol})
+          Bid amount
           <Input
             name="amount"
             value={formik.values.amount}
