@@ -70,6 +70,7 @@ const INITIAL_FORM: FormState = {
   expiryDays: "7",
 };
 
+const MAX_VEBTC_BID_WEEKS = 4;
 const EXPIRY_PRESETS = [7, 14, 30] as const;
 const TRANCHE_PRESETS = [4, 12, 26, 52, 104, 208] as const;
 
@@ -229,10 +230,28 @@ export function TradePlaceBidDialog({
         trancheNumber: yup
           .string()
           .required("Tranche weeks are required.")
-          .test("tranche-range", `Tranche weeks must be ${TRANCHE_MIN}-${TRANCHE_MAX}.`, (v) => {
-            if (!v) return false;
+          .test("tranche-range", function (v) {
+            if (!v) {
+              return this.createError({ message: "Tranche weeks are required." });
+            }
+
             const parsed = Number.parseInt(v, 10);
-            return Number.isInteger(parsed) && parsed >= TRANCHE_MIN && parsed <= TRANCHE_MAX;
+            if (!Number.isInteger(parsed) || parsed < TRANCHE_MIN || parsed > TRANCHE_MAX) {
+              return this.createError({
+                message: `Tranche weeks must be ${TRANCHE_MIN}-${TRANCHE_MAX}.`,
+              });
+            }
+
+            if (
+              (this.parent as FormState).assetVariant === "veBTC" &&
+              parsed > MAX_VEBTC_BID_WEEKS
+            ) {
+              return this.createError({
+                message: `veBTC bids are limited to ${MAX_VEBTC_BID_WEEKS} weeks.`,
+              });
+            }
+
+            return true;
           }),
         paymentToken: yup.string().required("Select a payment token for this tranche market."),
         bidAmount: yup
@@ -271,7 +290,7 @@ export function TradePlaceBidDialog({
             return Number.isFinite(parsed) && parsed >= 1;
           }),
       }),
-    [],
+    [paymentTokenOptions],
   );
 
   const formik = useFormik<FormState>({
@@ -281,6 +300,7 @@ export function TradePlaceBidDialog({
   });
 
   const trancheNumberValue = Number.parseInt(formik.values.trancheNumber, 10);
+  const maxBidWeeks = formik.values.assetVariant === "veBTC" ? MAX_VEBTC_BID_WEEKS : TRANCHE_MAX;
 
   const computedTokenId = useMemo(() => {
     if (formik.values.assetVariant !== "veBTC" && formik.values.assetVariant !== "veMEZO") {
@@ -289,7 +309,8 @@ export function TradePlaceBidDialog({
     if (
       !Number.isInteger(trancheNumberValue) ||
       trancheNumberValue < TRANCHE_MIN ||
-      trancheNumberValue > TRANCHE_MAX
+      trancheNumberValue > TRANCHE_MAX ||
+      (formik.values.assetVariant === "veBTC" && trancheNumberValue > MAX_VEBTC_BID_WEEKS)
     ) {
       return null;
     }
@@ -308,7 +329,8 @@ export function TradePlaceBidDialog({
     if (
       !Number.isInteger(trancheNumberValue) ||
       trancheNumberValue < TRANCHE_MIN ||
-      trancheNumberValue > TRANCHE_MAX
+      trancheNumberValue > TRANCHE_MAX ||
+      (formik.values.assetVariant === "veBTC" && trancheNumberValue > MAX_VEBTC_BID_WEEKS)
     ) {
       return null;
     }
@@ -401,6 +423,14 @@ export function TradePlaceBidDialog({
       return null;
     }
 
+    if (
+      formik.values.assetVariant === "veBTC" &&
+      Number.isFinite(trancheNumberValue) &&
+      trancheNumberValue > MAX_VEBTC_BID_WEEKS
+    ) {
+      return null;
+    }
+
     return {
       collection: assetLedgerAddress,
       tokenId: computedTokenId,
@@ -431,6 +461,8 @@ export function TradePlaceBidDialog({
     parsedBidDays,
     requiredPaymentRaw,
     selectedPaymentToken,
+    formik.values.assetVariant,
+    trancheNumberValue,
     unitPriceInput,
   ]);
 
@@ -461,8 +493,10 @@ export function TradePlaceBidDialog({
           key: "match-best-listing",
           label: `Match ${bidAutoMatchCandidate.marketLabel}`,
           contractName: "Marketplace",
-          variables: ({ prev }: { prev: any[] }) => {
-            const previousReceipt = prev[prev.length - 1]?.receipt;
+          variables: ({ prev }: { prev: Array<{ receipt?: unknown }> }) => {
+            const previousReceipt = prev[prev.length - 1]?.receipt as Parameters<
+              typeof extractCreatedBidId
+            >[0];
             const createdBidId = extractCreatedBidId(previousReceipt);
             if (!createdBidId) {
               throw new Error("Unable to resolve created bid ID for auto-match.");
@@ -482,13 +516,7 @@ export function TradePlaceBidDialog({
     } catch {
       return [];
     }
-  }, [
-    bidAutoMatchCandidate,
-    createBidSteps,
-    marketplace?.abi,
-    marketplace?.address,
-    preparedBidInput,
-  ]);
+  }, [bidAutoMatchCandidate, createBidSteps, marketplace, preparedBidInput]);
 
   const canSubmit =
     Boolean(preparedBidInput) &&
@@ -555,6 +583,18 @@ export function TradePlaceBidDialog({
         ready: Boolean(computedFractionSymbol),
       },
       {
+        key: "duration-cap",
+        label: "Bid duration cap",
+        detail:
+          formik.values.assetVariant === "veBTC"
+            ? `veBTC bids are capped at ${MAX_VEBTC_BID_WEEKS} weeks.`
+            : `veMEZO bids can use up to ${TRANCHE_MAX} weeks.`,
+        ready:
+          formik.values.assetVariant !== "veBTC" ||
+          !Number.isFinite(trancheNumberValue) ||
+          trancheNumberValue <= MAX_VEBTC_BID_WEEKS,
+      },
+      {
         key: "pause",
         label: "Marketplace not paused",
         detail: "Admin pause blocks all order creation including bids.",
@@ -586,6 +626,8 @@ export function TradePlaceBidDialog({
       isPaused,
       bidAutoMatchCandidate,
       preparedBidInput?.requiresPaymentApproval,
+      formik.values.assetVariant,
+      trancheNumberValue,
     ],
   );
 
@@ -633,6 +675,11 @@ export function TradePlaceBidDialog({
       existingTranche > TRANCHE_MAX
     ) {
       void formik.setFieldValue("trancheNumber", "52");
+      return;
+    }
+
+    if (formik.values.assetVariant === "veBTC" && existingTranche > MAX_VEBTC_BID_WEEKS) {
+      void formik.setFieldValue("trancheNumber", String(MAX_VEBTC_BID_WEEKS));
     }
   }, [formik, formik.values.assetVariant, formik.values.trancheNumber]);
 
@@ -851,20 +898,20 @@ export function TradePlaceBidDialog({
 
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-                  Lock duration (weeks) ({TRANCHE_MIN}-{TRANCHE_MAX})
+                  Lock duration (weeks) ({TRANCHE_MIN}-{maxBidWeeks})
                 </p>
                 <Input
                   name="trancheNumber"
                   type="number"
                   min={TRANCHE_MIN}
-                  max={TRANCHE_MAX}
+                  max={maxBidWeeks}
                   step={1}
                   value={formik.values.trancheNumber}
                   onChange={formik.handleChange}
                   disabled={isBroadcasting}
                 />
                 <div className="flex flex-wrap gap-2">
-                  {TRANCHE_PRESETS.map((preset) => (
+                  {TRANCHE_PRESETS.filter((preset) => preset <= maxBidWeeks).map((preset) => (
                     <Button
                       key={preset}
                       type="button"
@@ -881,6 +928,11 @@ export function TradePlaceBidDialog({
                     </Button>
                   ))}
                 </div>
+                {formik.values.assetVariant === "veBTC" ? (
+                  <p className="text-xs text-amber-100">
+                    veBTC bids can only target lock durations up to {MAX_VEBTC_BID_WEEKS} weeks.
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
