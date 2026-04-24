@@ -13,6 +13,7 @@ import type {
   TradeMarketSortOption,
   TradeMarketState,
 } from "../types";
+import { getBestAsk, getBestBid, sortAsksByBestPrice, sortBidsByBestPrice } from "../utils/pricing";
 import { decodeTrancheId, deriveFractionSymbol } from "../utils/tranche";
 
 type TradeListingTuple = {
@@ -650,17 +651,10 @@ export function useMarkets() {
         const activeBids = marketBids.filter((bid) => bid.isActive);
         const expiredBids = marketBids.filter((bid) => bid.isExpired);
 
-        const asksSortedByPrice = [...activeListings].sort((a, b) =>
-          a.pricePerUnit === b.pricePerUnit
-            ? Number(a.listingId - b.listingId)
-            : Number(a.pricePerUnit - b.pricePerUnit),
-        );
-
-        const bidsSortedByPrice = [...activeBids].sort((a, b) =>
-          a.pricePerUnit === b.pricePerUnit
-            ? Number(a.bidId - b.bidId)
-            : Number(b.pricePerUnit - a.pricePerUnit),
-        );
+        const asksSortedByPrice = sortAsksByBestPrice(activeListings);
+        const bidsSortedByPrice = sortBidsByBestPrice(activeBids);
+        const bestAsk = getBestAsk(asksSortedByPrice);
+        const bestBid = getBestBid(bidsSortedByPrice);
 
         const quoteLiquidity = activeListings.reduce(
           (sum, listing) => sum + toSafeNumber(listing.totalPriceRemaining, token.decimals),
@@ -675,10 +669,7 @@ export function useMarkets() {
           0,
         );
 
-        const floorPrice =
-          asksSortedByPrice.length > 0
-            ? toSafeNumber(asksSortedByPrice[0]!.pricePerUnit, token.decimals)
-            : null;
+        const floorPrice = bestAsk ? toSafeNumber(bestAsk.pricePerUnit, token.decimals) : null;
         const highestAskPrice =
           asksSortedByPrice.length > 0
             ? toSafeNumber(
@@ -686,10 +677,7 @@ export function useMarkets() {
                 token.decimals,
               )
             : null;
-        const bestBidPrice =
-          bidsSortedByPrice.length > 0
-            ? toSafeNumber(bidsSortedByPrice[0]!.pricePerUnit, token.decimals)
-            : null;
+        const bestBidPrice = bestBid ? toSafeNumber(bestBid.pricePerUnit, token.decimals) : null;
 
         const recentActivity = [...marketListings, ...marketBids].filter(
           (order) =>
@@ -768,7 +756,15 @@ export function useMarkets() {
     }
 
     return output;
-  }, [allBids, allListings, balanceByTranche, marketFractions, nowTimestamp, paymentTokens]);
+  }, [
+    allBids,
+    allListings,
+    balanceByTranche,
+    chainTimestamp,
+    marketFractions,
+    nowTimestamp,
+    paymentTokens,
+  ]);
 
   const filteredMarkets = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
