@@ -8,6 +8,7 @@ import { cn } from "@fractals/ui/lib/cn";
 import { formatRawTokenAmount, formatTokenAmount } from "../helpers/formatters";
 import type { TradeMarket, TradeMarketBidPreview, TradeMarketListingPreview } from "../types";
 import { BidTradeAction, BuyTradeAction, SellTradeAction } from "./trade-market-action-forms";
+import { useState } from "react";
 
 export type TradeTab = "buy" | "sell" | "bid";
 
@@ -203,6 +204,8 @@ export function OrderbookCard({
   onAskSelect,
   onBidSelect,
 }: OrderbookCardProps) {
+  const [selectedOrderId, setSelectedOrderId] = useState("");
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -220,19 +223,22 @@ export function OrderbookCard({
             <div className="space-y-2">
               {renderedAsks.map((listing) => {
                 const isBestAsk = bestAsk?.listingId === listing.listingId;
+                const selectId = `ask-${listing.listingId.toString()}`;
+                const isSelected = selectedOrderId === selectId;
 
                 return (
                   <button
                     key={listing.listingId.toString()}
                     type="button"
-                    onClick={() => onAskSelect(listing.listingId.toString())}
+                    onClick={() => {
+                      onAskSelect(listing.listingId.toString());
+                      setSelectedOrderId(selectId);
+                    }}
                     className={cn(
                       "grid w-full grid-cols-[1fr_auto_auto] items-center gap-4 rounded-lg border px-3 py-2 text-left text-xs transition",
-                      buyListingId === listing.listingId.toString()
-                        ? "border-[#ccb98f]/60 bg-[#ccb98f]/10"
-                        : isBestAsk
-                          ? "border-rose-300/30 bg-rose-400/[0.08] hover:border-rose-300/40"
-                          : "border-white/10 bg-white/[0.02] hover:border-white/20",
+                      isSelected
+                        ? "border-rose-300/30 bg-rose-400/[0.08] hover:border-rose-300/40"
+                        : "border-rose-300/10 bg-rose-400/[0.025] hover:border-rose-300/20",
                     )}
                   >
                     <OrderbookOrderRow
@@ -309,19 +315,22 @@ export function OrderbookCard({
             <div className="space-y-2">
               {bidsByBestPrice.map((bid) => {
                 const isBestBid = bestBid?.bidId === bid.bidId;
+                const selectId = `bid-${bid.bidId.toString()}`;
+                const isSelected = selectedOrderId === selectId;
 
                 return (
                   <button
                     key={bid.bidId.toString()}
                     type="button"
-                    onClick={() => onBidSelect(bid.bidId.toString())}
+                    onClick={() => {
+                      onBidSelect(bid.bidId.toString());
+                      setSelectedOrderId(selectId);
+                    }}
                     className={cn(
                       "grid w-full grid-cols-[1fr_auto_auto] items-center gap-4 rounded-lg border px-3 py-2 text-left text-xs transition",
-                      sellBidId === bid.bidId.toString()
-                        ? "border-sky-400/60 bg-sky-400/10"
-                        : isBestBid
-                          ? "border-emerald-300/30 bg-emerald-400/[0.08] hover:border-emerald-300/40"
-                          : "border-white/10 bg-white/[0.02] hover:border-white/20",
+                      isSelected
+                        ? "border-emerald-300/30 bg-emerald-400/[0.08] hover:border-emerald-300/40"
+                        : "border-emerald-300/10 bg-emerald-400/[0.025] hover:border-emerald-300/20",
                     )}
                   >
                     <OrderbookOrderRow
