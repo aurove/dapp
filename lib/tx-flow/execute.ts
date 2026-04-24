@@ -1,5 +1,6 @@
 import { normalizeFunctionArgs } from "@/contracts/types";
 import { getParsedError } from "./getParsedError";
+import { createTxNotificationLifecycle } from "@/lib/notifications/txLifecycle";
 import type { ContractAbi } from "@/contracts/types";
 import type {
   TxFlowRuntimeContext,
@@ -47,9 +48,8 @@ export async function executePreparedWriteStep(
     if (skip) return "skip" as const;
   }
 
-  const notifyId = ctx.notify?.pendingTx(step.label, "Waiting for wallet confirmation…", {
-    chainId: ctx.chainId,
-  });
+  const lifecycle = createTxNotificationLifecycle(step.label);
+  const meta = await lifecycle.onPending?.({ key: step.key, label: step.label, ctx });
 
   try {
     const call = await step.prepare(ctx, getPrevStepResults(ctx));
@@ -59,15 +59,15 @@ export async function executePreparedWriteStep(
       simulation as Awaited<ReturnType<TxFlowRuntimeContext["publicClient"]["simulateContract"]>>,
     );
 
-    if (notifyId) {
-      ctx.notify?.update(notifyId, { message: "Confirm in wallet…" });
+    if (lifecycle.onAwaitingWalletConfirmation) {
+      await lifecycle.onAwaitingWalletConfirmation({ key: step.key, label: step.label, ctx, meta });
     }
 
     const hash = (await ctx.writeAsync(
       simulation.request as Parameters<TxFlowRuntimeContext["writeAsync"]>[0],
     )) as `0x${string}`;
-    if (notifyId) {
-      ctx.notify?.txSent(notifyId, hash);
+    if (lifecycle.onTransactionSubmitted) {
+      await lifecycle.onTransactionSubmitted({ key: step.key, label: step.label, ctx, hash, meta });
     }
 
     const receipt = await ctx.publicClient.waitForTransactionReceipt({
@@ -75,13 +75,27 @@ export async function executePreparedWriteStep(
       confirmations: call.confirmations ?? 1,
     });
 
-    if (notifyId) {
-      ctx.notify?.txConfirmed(notifyId);
+    if (lifecycle.onTransactionConfirmed) {
+      await lifecycle.onTransactionConfirmed({
+        key: step.key,
+        label: step.label,
+        ctx,
+        hash,
+        receipt,
+        meta,
+      });
     }
     return { hash, receipt };
   } catch (error) {
-    if (notifyId) {
-      ctx.notify?.txFailed(notifyId, getParsedError(error));
+    if (lifecycle.onTransactionFailed) {
+      await lifecycle.onTransactionFailed({
+        key: step.key,
+        label: step.label,
+        ctx,
+        error,
+        message: getParsedError(error),
+        meta,
+      });
     }
     throw error;
   }

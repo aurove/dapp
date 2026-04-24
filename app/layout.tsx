@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./globals.css";
 import { Web3Providers } from "@/lib/providers/web3-providers";
+import { NotificationsToaster } from "@/lib/notifications";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://fractals.finance"),
@@ -46,6 +47,7 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <Web3Providers>{children}</Web3Providers>
+        <NotificationsToaster />
       </body>
     </html>
   );

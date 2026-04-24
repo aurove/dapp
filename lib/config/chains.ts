@@ -37,7 +37,7 @@ export const mezoTestnetChain: Chain = defineChain({
 });
 
 export const mezoMainnetChain: Chain = defineChain({
-  id: Number(process.env.NEXT_PUBLIC_MEZO_MAINNET_CHAIN_ID || 316),
+  id: Number(process.env.NEXT_PUBLIC_MEZO_MAINNET_CHAIN_ID || 31612),
   name: "Mezo Mainnet",
   nativeCurrency: {
     decimals: 18,

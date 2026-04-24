@@ -20,7 +20,7 @@ const KNOWN_PAYMENT_TOKENS_BY_CHAIN: Record<number, KnownPaymentTokenConfig[]> =
     { address: MEZO_ADDRESS, symbol: "MEZO", decimals: 18 },
     { address: MUSD_TESTNET, symbol: "MUSD", decimals: 18 },
   ],
-  316: [
+  31612: [
     { address: BTC_ADDRESS, symbol: "BTC", decimals: 18 },
     { address: MEZO_ADDRESS, symbol: "MEZO", decimals: 18 },
     { address: MUSD_MAINNET, symbol: "MUSD", decimals: 18 },

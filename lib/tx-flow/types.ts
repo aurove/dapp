@@ -53,6 +53,43 @@ export type TxFlowRuntimeContext = {
   notify?: TxNotifyApi;
 };
 
+export type TxWriteLifecycleHooks = {
+  onPending?: (args: {
+    key: string;
+    label: string;
+    ctx: TxFlowRuntimeContext;
+  }) => unknown | Promise<unknown>;
+  onAwaitingWalletConfirmation?: (args: {
+    key: string;
+    label: string;
+    ctx: TxFlowRuntimeContext;
+    meta: unknown;
+  }) => void | Promise<void>;
+  onTransactionSubmitted?: (args: {
+    key: string;
+    label: string;
+    ctx: TxFlowRuntimeContext;
+    hash: `0x${string}`;
+    meta: unknown;
+  }) => void | Promise<void>;
+  onTransactionConfirmed?: (args: {
+    key: string;
+    label: string;
+    ctx: TxFlowRuntimeContext;
+    hash: `0x${string}`;
+    receipt: unknown;
+    meta: unknown;
+  }) => void | Promise<void>;
+  onTransactionFailed?: (args: {
+    key: string;
+    label: string;
+    ctx: TxFlowRuntimeContext;
+    error: unknown;
+    message: string;
+    meta: unknown;
+  }) => void | Promise<void>;
+};
+
 export type TxWriteFunctionName<TAbi extends ContractAbi> = ContractFunctionName<
   TAbi,
   WriteAbiStateMutability
