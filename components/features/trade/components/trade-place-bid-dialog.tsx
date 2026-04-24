@@ -511,7 +511,7 @@ export function TradePlaceBidDialog({
               ] as const,
             };
           },
-        }),
+        }) as unknown as TxStep,
       ];
     } catch {
       return [];

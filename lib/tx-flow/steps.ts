@@ -9,6 +9,7 @@ import type {
   TxContractWritePayload,
   TxContractsDeclaration,
   TxPreparedWriteStep,
+  TxWriteCall,
   TxStepResult,
   TxWriteFunctionName,
 } from "./types";
@@ -19,8 +20,9 @@ export function getContractMetaUnsafe<TContractName extends TxContractName>(
   contractName: TContractName,
   chainId: number,
   contracts: TxContractsDeclaration,
-): TxContractMeta<TContractName> {
-  const meta = contracts[chainId]?.[contractName];
+): TxDeployedContractMeta<TContractName> {
+  const chainContracts = contracts[chainId as keyof typeof contracts];
+  const meta = chainContracts?.[contractName] as TxDeployedContractMeta<TContractName> | undefined;
   if (!meta?.address) {
     throw new Error(`Missing deployment or address for ${contractName} on chainId=${chainId}`);
   }
@@ -68,7 +70,7 @@ export function makeContractWriteStep<
         contract,
         request,
         confirmations: cfg.confirmations,
-      };
+      } as unknown as TxWriteCall<TAbi, TFunctionName>;
     },
     type: "write",
   };
@@ -111,7 +113,7 @@ export function makeAddressWriteStep<
         },
         request,
         confirmations: cfg.confirmations,
-      };
+      } as unknown as TxWriteCall<TAbi, TFunctionName>;
     },
     type: "write",
   };

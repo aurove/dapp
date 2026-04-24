@@ -228,7 +228,7 @@ export function useTradeListing() {
             functionName: "setApprovalForAll",
             args: [listingWrapper.address, true],
           },
-        }),
+        }) as unknown as TxStep,
       );
     }
 
@@ -242,7 +242,7 @@ export function useTradeListing() {
             functionName: "setListingOperator",
             args: [listingWrapper.address, true],
           },
-        }),
+        }) as unknown as TxStep,
       );
     }
 
@@ -256,7 +256,7 @@ export function useTradeListing() {
             functionName: "setApprovalForAll",
             args: [marketplace.address, true],
           },
-        }),
+        }) as unknown as TxStep,
       );
     }
 
@@ -276,7 +276,7 @@ export function useTradeListing() {
             expiry,
           ],
         },
-      }),
+      }) as unknown as TxStep,
     );
 
     return steps;
@@ -318,7 +318,7 @@ export function useTradeListing() {
             functionName: "setApprovalForAll",
             args: [marketplace.address, true],
           },
-        }),
+        }) as unknown as TxStep,
       );
     }
 
@@ -338,7 +338,7 @@ export function useTradeListing() {
             expiry,
           ],
         },
-      }),
+      }) as unknown as TxStep,
     );
 
     return steps;

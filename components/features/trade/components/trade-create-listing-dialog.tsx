@@ -17,7 +17,12 @@ import { Input } from "@fractals/ui/components/ui/input";
 import { Skeleton } from "@fractals/ui/components/ui/skeleton";
 import { CircleAlert, Info, Loader2, RefreshCw } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
-import { makeContractWriteStep, TransactionFlowButton, type TxStep } from "@/lib/tx-flow";
+import {
+  makeContractWriteStep,
+  TransactionFlowButton,
+  type TxStep,
+  type TxStepResult,
+} from "@/lib/tx-flow";
 import { getContractConfig } from "@/contracts/client";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
 import { ListingReviewCard } from "./listing-review-card";
@@ -495,21 +500,21 @@ export function TradeCreateListingDialog({
     return null;
   }, [markets, preparedFractionListingInput, preparedVeListingInput, userAddress]);
 
-  const listingSteps = useMemo(() => {
+  const listingSteps = useMemo<TxStep[]>(() => {
     try {
       const buildMatchStep = (
         candidate: ReturnType<typeof buildListingAutoMatchCandidate>,
         createdOrderExtractor: (
           receipt?: Parameters<typeof extractCreatedListingId>[0],
         ) => bigint | null,
-      ) => {
+      ): TxStep | null => {
         if (!candidate || !marketplace?.address || !marketplace.abi) return null;
 
         return makeContractWriteStep({
           key: "match-best-bid",
           label: `Match ${candidate.marketLabel}`,
           contractName: "Marketplace",
-          variables: ({ prev }: { prev: any[] }) => {
+          variables: ({ prev }: { prev: TxStepResult[] }) => {
             const previousReceipt = prev[prev.length - 1]?.receipt;
             const createdOrderId = createdOrderExtractor(previousReceipt);
             if (!createdOrderId) {
@@ -521,7 +526,7 @@ export function TradeCreateListingDialog({
               args: [createdOrderId, candidate.opposingOrderId, candidate.fillAmountRaw] as const,
             };
           },
-        });
+        }) as unknown as TxStep;
       };
 
       if (preparedFractionListingInput) {

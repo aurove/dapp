@@ -220,7 +220,7 @@ export function BuyTradeAction({
 
     const approvalStep =
       paymentRouterAddress && approvalRequired
-        ? makeAddressWriteStep({
+        ? (makeAddressWriteStep({
             key: "approve-payment",
             label: `Approve ${market.paymentTokenSymbol}`,
             address: market.paymentToken,
@@ -229,7 +229,7 @@ export function BuyTradeAction({
               functionName: "approve",
               args: [paymentRouterAddress, requiredPayment] as const,
             },
-          })
+          }) as unknown as TxStep)
         : null;
 
     return [
@@ -243,7 +243,7 @@ export function BuyTradeAction({
           args: [selectedListing.listingId, amountRaw] as const,
           value: market.paymentTokenSymbol === "BTC" ? requiredPayment : undefined,
         },
-      }),
+      }) as unknown as TxStep,
     ];
   }, [
     amountRaw,
@@ -428,7 +428,7 @@ export function SellTradeAction({
           functionName: "sellToBid",
           args: [selectedBid.bidId, amountRaw] as const,
         },
-      }),
+      }) as unknown as TxStep,
     ];
   }, [amountRaw, marketplaceAbi, marketplaceAddress, selectedBid]);
   const handleRun = async (): Promise<string | null> => {
@@ -600,7 +600,7 @@ export function BidTradeAction({
 
     const approvalStep =
       paymentRouterAddress && approvalRequired
-        ? makeAddressWriteStep({
+        ? (makeAddressWriteStep({
             key: "approve-payment",
             label: `Approve ${market.paymentTokenSymbol}`,
             address: market.paymentToken,
@@ -609,7 +609,7 @@ export function BidTradeAction({
               functionName: "approve",
               args: [paymentRouterAddress, requiredPayment] as const,
             },
-          })
+          }) as unknown as TxStep)
         : null;
 
     return [
@@ -629,7 +629,7 @@ export function BidTradeAction({
             expiry,
           ] as const,
         },
-      }),
+      }) as unknown as TxStep,
     ];
   }, [
     amountRaw,

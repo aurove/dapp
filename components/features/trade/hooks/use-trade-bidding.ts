@@ -66,7 +66,7 @@ export function useTradeBidding() {
             functionName: "approve",
             args: [paymentRouter.address, input.requiredPaymentRaw],
           },
-        }),
+        }) as unknown as TxStep,
       );
     }
 
@@ -86,7 +86,7 @@ export function useTradeBidding() {
             expiry,
           ] as const,
         },
-      }),
+      }) as unknown as TxStep,
     );
 
     return steps;

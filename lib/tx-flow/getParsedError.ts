@@ -34,7 +34,7 @@ const KNOWN_ERROR_ABIS = (() => {
   for (const chainContracts of Object.values(contractsRegistry)) {
     for (const contract of Object.values(chainContracts)) {
       const errorFragments = contract.abi.filter(
-        (entry) => (entry as { type?: string }).type === "error",
+        (entry: { type?: string }) => entry.type === "error",
       ) as AbiErrorFragment[];
       if (!errorFragments.length) continue;
 
