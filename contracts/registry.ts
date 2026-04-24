@@ -816,6 +816,14 @@ const contracts = {
         },
         {
           inputs: [
+            { internalType: "uint256", name: "sent", type: "uint256" },
+            { internalType: "uint256", name: "required", type: "uint256" },
+          ],
+          name: "InsufficientPayment",
+          type: "error",
+        },
+        {
+          inputs: [
             { internalType: "address", name: "payer", type: "address" },
             { internalType: "address", name: "paymentToken", type: "address" },
             { internalType: "uint256", name: "allowance", type: "uint256" },
@@ -1136,7 +1144,7 @@ const contracts = {
           ],
           name: "buyFromListing",
           outputs: [],
-          stateMutability: "nonpayable",
+          stateMutability: "payable",
           type: "function",
         },
         {

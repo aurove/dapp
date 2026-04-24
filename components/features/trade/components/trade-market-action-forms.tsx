@@ -241,6 +241,7 @@ export function BuyTradeAction({
         variables: {
           functionName: "buyFromListing",
           args: [selectedListing.listingId, amountRaw] as const,
+          value: market.paymentTokenSymbol === "BTC" ? requiredPayment : undefined,
         },
       }),
     ];
