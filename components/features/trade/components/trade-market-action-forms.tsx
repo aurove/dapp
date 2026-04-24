@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { erc20Abi, formatUnits, parseUnits, type Abi, type Address } from "viem";
+import { erc20Abi, parseUnits, type Abi, type Address } from "viem";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { Input } from "@fractals/ui/ui/input";
@@ -14,6 +14,7 @@ import {
   TransactionFlowButton,
   type TxStep,
 } from "@/lib/tx-flow";
+import { formatRawTokenAmount } from "../helpers/formatters";
 import type { TradeMarket, TradeMarketBidPreview, TradeMarketListingPreview } from "../types";
 import { quoteRequiredPaymentRaw } from "../utils/pricing";
 
@@ -75,23 +76,8 @@ type BidFormState = {
 const BUY_INITIAL_VALUES: BuyFormState = { amount: "1" };
 const SELL_INITIAL_VALUES: SellFormState = { amount: "1" };
 
-function formatTokenAmount(value: number): string {
-  if (!Number.isFinite(value)) return "0";
-  if (Math.abs(value) >= 1_000) {
-    return new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value);
-}
-
 function formatAddress(value: string): string {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
-}
-
-function formatRawTokenAmount(raw: bigint, decimals: number): string {
-  return formatTokenAmount(Number(formatUnits(raw, decimals)));
 }
 
 function parseAmountRaw(value: string, decimals: number): bigint | null {

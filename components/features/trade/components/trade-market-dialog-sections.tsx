@@ -1,10 +1,11 @@
 "use client";
 
 import { AlertCircle, ArrowRightLeft, CheckCircle2, ShoppingCart, Wallet } from "lucide-react";
-import { formatUnits, type Abi, type Address } from "viem";
+import { type Abi, type Address } from "viem";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { cn } from "@fractals/ui/lib/cn";
+import { formatRawTokenAmount, formatTokenAmount } from "../helpers/formatters";
 import type { TradeMarket, TradeMarketBidPreview, TradeMarketListingPreview } from "../types";
 import { BidTradeAction, BuyTradeAction, SellTradeAction } from "./trade-market-action-forms";
 
@@ -59,22 +60,6 @@ type TradeActionsCardProps = {
   selectedListing: TradeMarketListingPreview | null;
   userAddress?: Address;
 };
-
-function formatTokenAmount(value: number): string {
-  if (!Number.isFinite(value)) return "0";
-  if (Math.abs(value) >= 1_000) {
-    return new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value);
-}
-
-function formatRawTokenAmount(value: bigint | null, decimals: number, symbol: string): string {
-  if (value === null) return "-";
-  return `${formatTokenAmount(Number(formatUnits(value, decimals)))} ${symbol}`;
-}
 
 function ReadinessItem({ ok, label }: { ok: boolean; label: string }) {
   return (

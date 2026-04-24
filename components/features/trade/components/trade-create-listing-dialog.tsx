@@ -26,6 +26,7 @@ import {
 import { getContractConfig } from "@/contracts/client";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
 import { ListingReviewCard } from "./listing-review-card";
+import { formatTokenAmount } from "../helpers/formatters";
 import { useListingPreview } from "../hooks/use-listing-preview";
 import { useListingRequirements } from "../hooks/use-listing-requirements";
 import { useTradeFlowContext } from "../hooks/use-trade-flow-context";
@@ -97,16 +98,6 @@ const INITIAL_FORM: FormState = {
 
 const EXPIRY_PRESETS = [7, 14, 30] as const;
 const MAX_PRICE_DECIMALS = 18;
-
-function formatTokenValue(value: number): string {
-  if (Math.abs(value) >= 1_000) {
-    return new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value);
-}
 
 function touchAll<T extends Record<string, unknown>>(values: T): Record<string, boolean> {
   return Object.keys(values).reduce<Record<string, boolean>>((acc, key) => {
@@ -1365,7 +1356,7 @@ export function TradeCreateListingDialog({
                 listedAmountLabel={listingPreview.listedFractionsLabel}
                 listedPercentage={listingPreview.listedPercentage}
                 remainingAmountLabel={listingPreview.remainingFractionsLabel}
-                unitPriceLabel={`${formatTokenValue(listingPreview.unitPriceValue)} ${selectedPaymentToken?.symbol ?? ""}`}
+                unitPriceLabel={`${formatTokenAmount(listingPreview.unitPriceValue)} ${selectedPaymentToken?.symbol ?? ""}`}
                 totalValueLabel={listingPreview.totalValueLabel}
                 feeLabel={listingPreview.feeAmountLabel}
                 proceedsLabel={listingPreview.sellerProceedsLabel}

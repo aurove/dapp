@@ -6,6 +6,7 @@ import { ArrowUpDown, CalendarDays, Clock3, Landmark, Layers, ShoppingCart } fro
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent } from "@fractals/ui/ui/card";
 import { cn } from "@fractals/ui/lib/cn";
+import { formatTokenAmount } from "../helpers/formatters";
 import type { TradeMarket } from "../types";
 import { decodeTrancheId } from "../utils/tranche";
 
@@ -13,16 +14,6 @@ type TradeAssetCardProps = {
   asset: TradeMarket;
   marketHref: string;
 };
-
-function formatAmount(value: number): string {
-  if (Math.abs(value) >= 1_000) {
-    return new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
-}
 
 function stateBadgeClass(state: TradeMarket["state"]): string {
   if (state === "active") return "border-emerald-400/40 bg-emerald-400/10 text-emerald-300";
@@ -32,7 +23,7 @@ function stateBadgeClass(state: TradeMarket["state"]): string {
 
 function formatPrice(value: number | null, symbol: string): string {
   if (value === null) return "-";
-  return `${formatAmount(value)} ${symbol}`;
+  return `${formatTokenAmount(value, 4)} ${symbol}`;
 }
 
 function formatLockEndsDate(timestamp: number | null): string {
@@ -123,13 +114,13 @@ export function TradeAssetCard({ asset, marketHref }: TradeAssetCardProps) {
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <p className="text-xs text-[var(--muted)]">Ask liquidity</p>
             <p className="font-semibold text-[var(--foreground)]">
-              {formatAmount(asset.quoteLiquidity)} {asset.paymentTokenSymbol}
+              {formatTokenAmount(asset.quoteLiquidity, 4)} {asset.paymentTokenSymbol}
             </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <p className="text-xs text-[var(--muted)]">Bid demand</p>
             <p className="font-semibold text-[var(--foreground)]">
-              {formatAmount(asset.quoteDemand)} {asset.paymentTokenSymbol}
+              {formatTokenAmount(asset.quoteDemand, 4)} {asset.paymentTokenSymbol}
             </p>
           </div>
         </div>
@@ -145,7 +136,8 @@ export function TradeAssetCard({ asset, marketHref }: TradeAssetCardProps) {
           </div>
           <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.02] px-2 py-1.5">
             <ArrowUpDown className="h-3.5 w-3.5" aria-hidden />
-            Spread: {spread === null ? "-" : `${formatAmount(spread)} ${asset.paymentTokenSymbol}`}
+            Spread:{" "}
+            {spread === null ? "-" : `${formatTokenAmount(spread, 4)} ${asset.paymentTokenSymbol}`}
           </div>
           <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.02] px-2 py-1.5">
             <ShoppingCart className="h-3.5 w-3.5" aria-hidden />

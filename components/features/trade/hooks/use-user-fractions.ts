@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { formatUnits, type Address } from "viem";
+import { type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
+import { formatRawTokenAmount } from "../helpers/formatters";
 
 export type UserFractionPosition = {
   fractionAddress: Address;
@@ -21,12 +22,6 @@ function inferFractionBase(symbol: string): "veBTC" | "veMEZO" | "veAsset" {
   if (normalized.startsWith("fvebtc")) return "veBTC";
   if (normalized.startsWith("fvemezo")) return "veMEZO";
   return "veAsset";
-}
-
-function formatAmount(raw: bigint, decimals = 18): string {
-  const parsed = Number.parseFloat(formatUnits(raw, decimals));
-  if (!Number.isFinite(parsed)) return formatUnits(raw, decimals);
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(parsed);
 }
 
 function asAddress(value: unknown): Address | null {
@@ -177,7 +172,7 @@ export function useUserFractions() {
         return {
           ...fraction,
           balanceRaw,
-          balanceFormatted: formatAmount(balanceRaw, 18),
+          balanceFormatted: formatRawTokenAmount(balanceRaw, 18),
         };
       })
       .filter((position) => position.balanceRaw > 0n);

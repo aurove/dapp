@@ -15,11 +15,12 @@ import {
 } from "@fractals/ui/ui/dialog";
 import { Input } from "@fractals/ui/ui/input";
 import { CircleAlert, Info, Loader2 } from "lucide-react";
-import { formatUnits, parseUnits } from "viem";
+import { parseUnits } from "viem";
 import { makeContractWriteStep, TransactionFlowButton, type TxStep } from "@/lib/tx-flow";
 import { useReadContract } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
+import { formatRawTokenAmount, formatTokenAmount } from "../helpers/formatters";
 import { useBidRequirements } from "../hooks/use-bid-requirements";
 import { useTradeFlowContext } from "../hooks/use-trade-flow-context";
 import { buildBidAutoMatchCandidate, extractCreatedBidId } from "../utils/order-routing";
@@ -93,16 +94,6 @@ const ADMIN_READ_ABI = [
     type: "function",
   },
 ] as const;
-
-function formatTokenValue(value: number): string {
-  if (Math.abs(value) >= 1_000) {
-    return new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value);
-}
 
 function touchAll<T extends Record<string, unknown>>(values: T): Record<string, boolean> {
   return Object.keys(values).reduce<Record<string, boolean>>((acc, key) => {
@@ -386,17 +377,29 @@ export function TradePlaceBidDialog({
     if (!selectedPaymentToken || requiredPaymentRaw <= 0n) {
       return `0 ${selectedPaymentToken?.symbol ?? ""}`;
     }
-    return `${formatTokenValue(Number(formatUnits(requiredPaymentRaw, selectedPaymentToken.decimals)))} ${selectedPaymentToken.symbol}`;
+    return formatRawTokenAmount(
+      requiredPaymentRaw,
+      selectedPaymentToken.decimals,
+      selectedPaymentToken.symbol,
+    );
   }, [requiredPaymentRaw, selectedPaymentToken]);
 
   const balanceLabel = useMemo(() => {
     if (!selectedPaymentToken) return "-";
-    return `${formatTokenValue(Number(formatUnits(bidRequirements.balanceRaw, selectedPaymentToken.decimals)))} ${selectedPaymentToken.symbol}`;
+    return formatRawTokenAmount(
+      bidRequirements.balanceRaw,
+      selectedPaymentToken.decimals,
+      selectedPaymentToken.symbol,
+    );
   }, [bidRequirements.balanceRaw, selectedPaymentToken]);
 
   const allowanceLabel = useMemo(() => {
     if (!selectedPaymentToken) return "-";
-    return `${formatTokenValue(Number(formatUnits(bidRequirements.allowanceRaw, selectedPaymentToken.decimals)))} ${selectedPaymentToken.symbol}`;
+    return formatRawTokenAmount(
+      bidRequirements.allowanceRaw,
+      selectedPaymentToken.decimals,
+      selectedPaymentToken.symbol,
+    );
   }, [bidRequirements.allowanceRaw, selectedPaymentToken]);
 
   const parsedBidDays = Number.parseInt(formik.values.expiryDays, 10);
@@ -966,14 +969,14 @@ export function TradePlaceBidDialog({
                     <p>
                       Best ask:{" "}
                       {selectedMarket.floorPrice
-                        ? formatTokenValue(selectedMarket.floorPrice)
+                        ? formatTokenAmount(selectedMarket.floorPrice)
                         : "-"}{" "}
                       {selectedMarket.paymentTokenSymbol}
                     </p>
                     <p>
                       Best bid:{" "}
                       {selectedMarket.bestBidPrice
-                        ? formatTokenValue(selectedMarket.bestBidPrice)
+                        ? formatTokenAmount(selectedMarket.bestBidPrice)
                         : "-"}{" "}
                       {selectedMarket.paymentTokenSymbol}
                     </p>
