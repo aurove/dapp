@@ -5498,7 +5498,7 @@ const contracts = {
       ],
     },
     Marketplace: {
-      address: "0xA64616831f8B430469E9101F35Ba778a485d3848",
+      address: "0x9730e8677a01666B809D12d2128946679FaF0034",
       abi: [
         {
           inputs: [
@@ -5688,7 +5688,6 @@ const contracts = {
             { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
             { indexed: false, internalType: "address", name: "paymentToken", type: "address" },
             { indexed: false, internalType: "uint256", name: "pricePerUnit", type: "uint256" },
-            { indexed: false, internalType: "uint256", name: "escrowedPayment", type: "uint256" },
             { indexed: false, internalType: "uint64", name: "expiry", type: "uint64" },
           ],
           name: "BidPlaced",
@@ -5864,7 +5863,6 @@ const contracts = {
             { internalType: "uint256", name: "amountRemaining", type: "uint256" },
             { internalType: "address", name: "paymentToken", type: "address" },
             { internalType: "uint256", name: "pricePerUnit", type: "uint256" },
-            { internalType: "uint256", name: "escrowedPayment", type: "uint256" },
             { internalType: "uint64", name: "createdAt", type: "uint64" },
             { internalType: "uint64", name: "updatedAt", type: "uint64" },
             { internalType: "uint64", name: "expiry", type: "uint64" },
@@ -5980,7 +5978,6 @@ const contracts = {
                 { internalType: "uint256", name: "amountRemaining", type: "uint256" },
                 { internalType: "address", name: "paymentToken", type: "address" },
                 { internalType: "uint256", name: "pricePerUnit", type: "uint256" },
-                { internalType: "uint256", name: "escrowedPayment", type: "uint256" },
                 { internalType: "uint256", name: "totalBidValueRemaining", type: "uint256" },
                 { internalType: "uint64", name: "createdAt", type: "uint64" },
                 { internalType: "uint64", name: "updatedAt", type: "uint64" },
@@ -6098,7 +6095,6 @@ const contracts = {
                 { internalType: "uint256", name: "amountRemaining", type: "uint256" },
                 { internalType: "address", name: "paymentToken", type: "address" },
                 { internalType: "uint256", name: "pricePerUnit", type: "uint256" },
-                { internalType: "uint256", name: "escrowedPayment", type: "uint256" },
                 { internalType: "uint256", name: "totalBidValueRemaining", type: "uint256" },
                 { internalType: "uint64", name: "createdAt", type: "uint64" },
                 { internalType: "uint64", name: "updatedAt", type: "uint64" },
@@ -6199,7 +6195,6 @@ const contracts = {
                 { internalType: "uint256", name: "amountRemaining", type: "uint256" },
                 { internalType: "address", name: "paymentToken", type: "address" },
                 { internalType: "uint256", name: "pricePerUnit", type: "uint256" },
-                { internalType: "uint256", name: "escrowedPayment", type: "uint256" },
                 { internalType: "uint256", name: "totalBidValueRemaining", type: "uint256" },
                 { internalType: "uint64", name: "createdAt", type: "uint64" },
                 { internalType: "uint64", name: "updatedAt", type: "uint64" },
@@ -6257,7 +6252,6 @@ const contracts = {
                 { internalType: "uint256", name: "amountRemaining", type: "uint256" },
                 { internalType: "address", name: "paymentToken", type: "address" },
                 { internalType: "uint256", name: "pricePerUnit", type: "uint256" },
-                { internalType: "uint256", name: "escrowedPayment", type: "uint256" },
                 { internalType: "uint256", name: "totalBidValueRemaining", type: "uint256" },
                 { internalType: "uint64", name: "createdAt", type: "uint64" },
                 { internalType: "uint64", name: "updatedAt", type: "uint64" },
@@ -6301,7 +6295,6 @@ const contracts = {
                 { internalType: "uint256", name: "amountRemaining", type: "uint256" },
                 { internalType: "address", name: "paymentToken", type: "address" },
                 { internalType: "uint256", name: "pricePerUnit", type: "uint256" },
-                { internalType: "uint256", name: "escrowedPayment", type: "uint256" },
                 { internalType: "uint256", name: "totalBidValueRemaining", type: "uint256" },
                 { internalType: "uint64", name: "createdAt", type: "uint64" },
                 { internalType: "uint64", name: "updatedAt", type: "uint64" },
@@ -6342,7 +6335,6 @@ const contracts = {
                 { internalType: "uint256", name: "amountRemaining", type: "uint256" },
                 { internalType: "address", name: "paymentToken", type: "address" },
                 { internalType: "uint256", name: "pricePerUnit", type: "uint256" },
-                { internalType: "uint256", name: "escrowedPayment", type: "uint256" },
                 { internalType: "uint256", name: "totalBidValueRemaining", type: "uint256" },
                 { internalType: "uint64", name: "createdAt", type: "uint64" },
                 { internalType: "uint64", name: "updatedAt", type: "uint64" },
@@ -6755,7 +6747,7 @@ const contracts = {
       ],
     },
     MarketplaceAdmin: {
-      address: "0xe97416e5Cac85493Eee13ecc165275Dcb8A5bDed",
+      address: "0xE075a3e3538687Eb08b798e6D43591483Af03725",
       abi: [
         {
           inputs: [{ internalType: "address", name: "defaultAdmin", type: "address" }],
@@ -7164,7 +7156,7 @@ const contracts = {
       ],
     },
     PaymentRouter: {
-      address: "0xfB8AbA28cD5F3762FB5f5E7706A039582Df58d9d",
+      address: "0xBE42c4dFe799e0277F8DAdC4D331435d40c447FF",
       abi: [
         {
           inputs: [
@@ -9464,7 +9456,7 @@ const contracts = {
       ],
     },
     VeNftFractionListing: {
-      address: "0xbA22f457DE1D85D02a2e350E18EFD9eBA52e4Ef8",
+      address: "0x3706f7C3716D312A01D3E84b210E75c1A84c7817",
       abi: [
         {
           inputs: [
