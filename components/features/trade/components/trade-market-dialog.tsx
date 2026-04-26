@@ -194,8 +194,6 @@ export function TradeMarketDialog({
               bidsByBestPrice={bidsByBestPrice}
               bestAsk={bestAsk}
               bestBid={bestBid}
-              buyListingId={buyListingId}
-              sellBidId={sellBidId}
               spreadRaw={spreadRaw}
               midPriceRaw={midPriceRaw}
               onAskSelect={(listingId) => {

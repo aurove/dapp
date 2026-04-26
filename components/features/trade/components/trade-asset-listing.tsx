@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { useMarkets } from "../hooks/use-markets";
 import { useTradeBidding } from "../hooks/use-trade-bidding";
 import { useTradeListing } from "../hooks/use-trade-listing";
-import type { TradeAsset } from "../types";
+import type { TradeAsset, TradeMarket } from "../types";
 import { TradeAssetGrid } from "./trade-asset-grid";
 import { TradeCreateListingDialog } from "./trade-create-listing-dialog";
 import { TradeEmptyState } from "./trade-empty-state";
@@ -61,11 +61,18 @@ export function TradeAssetListing() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedMarketId = searchParams.get("market");
+  const [selectedMarketSnapshot, setSelectedMarketSnapshot] = useState<TradeMarket | null>(null);
 
-  const selectedMarket = useMemo(
+  const liveSelectedMarket = useMemo(
     () => allMarkets.find((market) => market.id === selectedMarketId) ?? null,
     [allMarkets, selectedMarketId],
   );
+
+  const selectedMarket = useMemo(() => {
+    if (liveSelectedMarket) return liveSelectedMarket;
+    if (selectedMarketSnapshot?.id === selectedMarketId) return selectedMarketSnapshot;
+    return null;
+  }, [liveSelectedMarket, selectedMarketId, selectedMarketSnapshot]);
 
   const getMarketHref = useCallback(
     (marketId: string) => {
@@ -77,17 +84,32 @@ export function TradeAssetListing() {
     [pathname, searchParams],
   );
 
-  const closeMarketDialog = useCallback(() => {
+  const clearMarketRoute = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("market");
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }, [pathname, router, searchParams]);
 
+  const closeMarketDialog = useCallback(() => {
+    setSelectedMarketSnapshot(null);
+    clearMarketRoute();
+  }, [clearMarketRoute]);
+
   useEffect(() => {
-    if (!selectedMarketId || selectedMarket || isLoading || isRefreshing) return;
-    closeMarketDialog();
-  }, [closeMarketDialog, isLoading, isRefreshing, selectedMarket, selectedMarketId]);
+    const hasMatchingSnapshot = selectedMarketSnapshot?.id === selectedMarketId;
+    if (!selectedMarketId || selectedMarket || hasMatchingSnapshot || isLoading || isRefreshing) {
+      return;
+    }
+    clearMarketRoute();
+  }, [
+    clearMarketRoute,
+    isLoading,
+    isRefreshing,
+    selectedMarket,
+    selectedMarketId,
+    selectedMarketSnapshot,
+  ]);
 
   const hasMarkets = markets.length > 0;
 
@@ -182,7 +204,11 @@ export function TradeAssetListing() {
       {!isLoading && !hasMarkets ? <TradeEmptyState onClear={clearFilters} /> : null}
 
       {!isLoading && hasMarkets ? (
-        <TradeAssetGrid assets={markets} getMarketHref={getMarketHref} />
+        <TradeAssetGrid
+          assets={markets}
+          getMarketHref={getMarketHref}
+          onMarketOpen={setSelectedMarketSnapshot}
+        />
       ) : null}
 
       {selectedMarket ? (
@@ -194,7 +220,10 @@ export function TradeAssetListing() {
               closeMarketDialog();
             }
           }}
-          onTradeExecuted={refreshMarkets}
+          onTradeExecuted={() => {
+            setSelectedMarketSnapshot(selectedMarket);
+            refreshMarkets();
+          }}
         />
       ) : null}
     </section>

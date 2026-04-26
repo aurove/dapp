@@ -13,6 +13,7 @@ import { decodeTrancheId } from "../utils/tranche";
 type TradeAssetCardProps = {
   asset: TradeMarket;
   marketHref: string;
+  onOpen?: () => void;
 };
 
 function stateBadgeClass(state: TradeMarket["state"]): string {
@@ -51,7 +52,7 @@ function formatLockEndsDuration(timestamp: number | null, nowTimestamp: number |
   return `${Math.max(1, minutes)}m`;
 }
 
-export function TradeAssetCard({ asset, marketHref }: TradeAssetCardProps) {
+export function TradeAssetCard({ asset, marketHref, onOpen }: TradeAssetCardProps) {
   const spread =
     asset.floorPrice !== null && asset.bestBidPrice !== null
       ? asset.floorPrice - asset.bestBidPrice
@@ -192,7 +193,9 @@ export function TradeAssetCard({ asset, marketHref }: TradeAssetCardProps) {
 
         <div className="mt-auto">
           <Button size="sm" className="w-full" asChild>
-            <Link href={marketHref}>Open market details</Link>
+            <Link href={marketHref} onClick={onOpen}>
+              Open market details
+            </Link>
           </Button>
         </div>
       </CardContent>

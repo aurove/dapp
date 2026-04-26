@@ -22,8 +22,6 @@ type OrderbookCardProps = {
   bidsByBestPrice: TradeMarketBidPreview[];
   bestAsk: TradeMarketListingPreview | null;
   bestBid: TradeMarketBidPreview | null;
-  buyListingId: string;
-  sellBidId: string;
   spreadRaw: bigint | null;
   midPriceRaw: bigint | null;
   onAskSelect: (listingId: string) => void;
@@ -197,8 +195,6 @@ export function OrderbookCard({
   bidsByBestPrice,
   bestAsk,
   bestBid,
-  buyListingId,
-  sellBidId,
   spreadRaw,
   midPriceRaw,
   onAskSelect,
