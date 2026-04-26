@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { erc20Abi, parseUnits, type Abi, type Address } from "viem";
+import { erc1155Abi, erc20Abi, parseUnits, type Abi, type Address } from "viem";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { Input } from "@fractals/ui/ui/input";
@@ -41,6 +41,7 @@ type BuyTradeActionProps = CommonActionProps & {
 };
 
 type SellTradeActionProps = CommonActionProps & {
+  assetLedgerAddress?: Address;
   marketplaceAddress?: Address;
   marketplaceAbi?: Abi;
   fractionBalance: bigint;
@@ -341,6 +342,7 @@ export function BuyTradeAction({
 
 export function SellTradeAction({
   market,
+  assetLedgerAddress,
   marketplaceAddress,
   marketplaceAbi,
   userAddress,
@@ -383,14 +385,9 @@ export function SellTradeAction({
                 const amountRaw = parseAmountRaw(value ?? "", 18);
                 return !amountRaw || fractionBalance >= amountRaw;
               },
-            )
-            .test(
-              "approval",
-              "Approve fraction transfers before selling into a bid.",
-              () => fractionApproved,
             ),
         }),
-      [fractionApproved, fractionBalance, isPaused, selectedBid, userAddress],
+      [fractionBalance, isPaused, selectedBid, userAddress],
     ),
     onSubmit: () => undefined,
   });
@@ -404,8 +401,23 @@ export function SellTradeAction({
 
   const steps = useMemo<TxStep[]>(() => {
     if (!marketplaceAddress || !marketplaceAbi || !selectedBid || !amountRaw) return [];
+    if (!fractionApproved && !assetLedgerAddress) return [];
+
+    const approvalStep = !fractionApproved
+      ? (makeAddressWriteStep({
+          key: "approve-fractions",
+          label: `Approve ${market.fractionSymbol}`,
+          address: assetLedgerAddress!,
+          abi: erc1155Abi,
+          variables: {
+            functionName: "setApprovalForAll",
+            args: [marketplaceAddress, true] as const,
+          },
+        }) as unknown as TxStep)
+      : null;
 
     return [
+      ...(approvalStep ? [approvalStep] : []),
       makeContractWriteStep({
         key: "sell-to-bid",
         label: `Sell to bid #${selectedBid.bidId.toString()}`,
@@ -416,7 +428,15 @@ export function SellTradeAction({
         },
       }) as unknown as TxStep,
     ];
-  }, [amountRaw, marketplaceAbi, marketplaceAddress, selectedBid]);
+  }, [
+    amountRaw,
+    assetLedgerAddress,
+    fractionApproved,
+    market.fractionSymbol,
+    marketplaceAbi,
+    marketplaceAddress,
+    selectedBid,
+  ]);
   const handleRun = async (): Promise<string | null> => {
     const errors = await formik.validateForm();
     if (Object.keys(errors).length > 0) {
@@ -487,9 +507,17 @@ export function SellTradeAction({
 
       <ActionStatus message={formik.status ? String(formik.status) : undefined} />
 
+      {!fractionApproved ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+          Fraction transfer approval will run before the sell transaction.
+        </div>
+      ) : null}
+
       <TransactionFlowButton
         steps={sellSteps}
-        disabled={!marketplaceAddress || !marketplaceAbi}
+        disabled={
+          !marketplaceAddress || !marketplaceAbi || (!fractionApproved && !assetLedgerAddress)
+        }
         onComplete={() => {
           formik.resetForm();
           onTradeExecuted?.();

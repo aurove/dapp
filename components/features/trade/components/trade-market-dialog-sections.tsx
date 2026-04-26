@@ -478,6 +478,7 @@ export function TradeActionsCard({
           <SellTradeAction
             key={selectedBid?.bidId.toString() ?? "sell-empty"}
             market={market}
+            assetLedgerAddress={assetLedgerAddress}
             marketplaceAddress={marketplaceAddress}
             marketplaceAbi={marketplaceAbi}
             fractionBalance={fractionBalance}
