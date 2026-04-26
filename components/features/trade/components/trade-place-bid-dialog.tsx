@@ -73,7 +73,8 @@ const INITIAL_FORM: FormState = {
 
 const MAX_VEBTC_BID_WEEKS = 4;
 const EXPIRY_PRESETS = [7, 14, 30] as const;
-const TRANCHE_PRESETS = [4, 12, 26, 52, 104, 208] as const;
+const VEBTC_TRANCHE_PRESETS = [1, 2, 3, 4] as const;
+const VEMEZO_TRANCHE_PRESETS = [4, 12, 26, 52, 104, 208] as const;
 
 const MARKETPLACE_ADMIN_ABI = [
   {
@@ -292,6 +293,8 @@ export function TradePlaceBidDialog({
 
   const trancheNumberValue = Number.parseInt(formik.values.trancheNumber, 10);
   const maxBidWeeks = formik.values.assetVariant === "veBTC" ? MAX_VEBTC_BID_WEEKS : TRANCHE_MAX;
+  const tranchePresets =
+    formik.values.assetVariant === "veBTC" ? VEBTC_TRANCHE_PRESETS : VEMEZO_TRANCHE_PRESETS;
 
   const computedTokenId = useMemo(() => {
     if (formik.values.assetVariant !== "veBTC" && formik.values.assetVariant !== "veMEZO") {
@@ -674,16 +677,11 @@ export function TradePlaceBidDialog({
 
     const existingTranche = Number.parseInt(formik.values.trancheNumber, 10);
     if (
-      !Number.isInteger(existingTranche) ||
-      existingTranche < TRANCHE_MIN ||
-      existingTranche > TRANCHE_MAX
+      formik.values.assetVariant === "veBTC" &&
+      Number.isInteger(existingTranche) &&
+      existingTranche > MAX_VEBTC_BID_WEEKS
     ) {
-      void formik.setFieldValue("trancheNumber", "52");
-      return;
-    }
-
-    if (formik.values.assetVariant === "veBTC" && existingTranche > MAX_VEBTC_BID_WEEKS) {
-      void formik.setFieldValue("trancheNumber", String(MAX_VEBTC_BID_WEEKS));
+      void formik.setFieldValue("trancheNumber", "");
     }
   }, [formik, formik.values.assetVariant, formik.values.trancheNumber]);
 
@@ -915,7 +913,7 @@ export function TradePlaceBidDialog({
                   disabled={isBroadcasting}
                 />
                 <div className="flex flex-wrap gap-2">
-                  {TRANCHE_PRESETS.filter((preset) => preset <= maxBidWeeks).map((preset) => (
+                  {tranchePresets.map((preset) => (
                     <Button
                       key={preset}
                       type="button"
