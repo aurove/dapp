@@ -54,7 +54,9 @@ export function useTradeBidding() {
 
     const steps: TxStep[] = [];
 
-    if (input.requiresPaymentApproval) {
+    const isNativePayment = input.paymentTokenSymbol === "BTC";
+
+    if (input.requiresPaymentApproval && !isNativePayment) {
       steps.push(
         makeAddressWriteStep({
           key: "approve-bid-payment",
@@ -85,6 +87,7 @@ export function useTradeBidding() {
             input.bidPriceRaw,
             expiry,
           ] as const,
+          value: isNativePayment ? input.requiredPaymentRaw : undefined,
         },
       }) as unknown as TxStep,
     );

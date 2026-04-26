@@ -370,6 +370,7 @@ export function TradePlaceBidDialog({
     paymentToken: selectedPaymentToken?.address,
     paymentRouterAddress: bidWorkflowContracts?.paymentRouterAddress,
     requiredPaymentRaw,
+    isNativePayment: selectedPaymentToken?.symbol === "BTC",
     chainId: expectedChainId,
   });
 

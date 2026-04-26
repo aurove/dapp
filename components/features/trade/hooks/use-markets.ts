@@ -661,7 +661,13 @@ export function useMarkets() {
     return values;
   }, [activeSellerInventoryListings, sellerInventoryReads.data]);
 
-  const activeBidFundingBids = useMemo(() => allBids.filter((bid) => bid.isActive), [allBids]);
+  const activeBidFundingBids = useMemo(
+    () =>
+      allBids.filter(
+        (bid) => bid.isActive && bid.paymentToken.toLowerCase() !== btcAddress?.toLowerCase(),
+      ),
+    [allBids, btcAddress],
+  );
 
   const bidFundingContracts = useMemo(() => {
     if (!paymentRouterAddress || activeBidFundingBids.length === 0) return [];

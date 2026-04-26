@@ -1859,7 +1859,7 @@ const contracts = {
           ],
           name: "placeBid",
           outputs: [{ internalType: "uint256", name: "bidId", type: "uint256" }],
-          stateMutability: "nonpayable",
+          stateMutability: "payable",
           type: "function",
         },
         {
@@ -1873,7 +1873,7 @@ const contracts = {
           ],
           name: "placeBidWithExpiry",
           outputs: [{ internalType: "uint256", name: "bidId", type: "uint256" }],
-          stateMutability: "nonpayable",
+          stateMutability: "payable",
           type: "function",
         },
         {
@@ -6595,7 +6595,7 @@ const contracts = {
           ],
           name: "placeBid",
           outputs: [{ internalType: "uint256", name: "bidId", type: "uint256" }],
-          stateMutability: "nonpayable",
+          stateMutability: "payable",
           type: "function",
         },
         {
@@ -6609,7 +6609,7 @@ const contracts = {
           ],
           name: "placeBidWithExpiry",
           outputs: [{ internalType: "uint256", name: "bidId", type: "uint256" }],
-          stateMutability: "nonpayable",
+          stateMutability: "payable",
           type: "function",
         },
         {
