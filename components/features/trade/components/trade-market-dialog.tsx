@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { erc20Abi, type Address, erc1155Abi } from "viem";
+import { erc20Abi, erc1155Abi } from "viem";
 import { useAccount, useChainId, useReadContract } from "wagmi";
 import {
   Dialog,

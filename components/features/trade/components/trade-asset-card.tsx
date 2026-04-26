@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, CalendarDays, Clock3, Landmark, Layers, ShoppingCart } from "lucide-react";
+import { ArrowUpDown, Landmark, Layers, ShoppingCart } from "lucide-react";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent } from "@fractals/ui/ui/card";
 import { cn } from "@fractals/ui/lib/cn";
 import { formatTokenAmount } from "../helpers/formatters";
 import type { TradeMarket } from "../types";
-import { decodeTrancheId } from "../utils/tranche";
 
 type TradeAssetCardProps = {
   asset: TradeMarket;
@@ -27,54 +25,11 @@ function formatPrice(value: number | null, symbol: string): string {
   return `${formatTokenAmount(value, 4)} ${symbol}`;
 }
 
-function formatLockEndsDate(timestamp: number | null): string {
-  if (!timestamp || timestamp <= 0) return "No expiry";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  }).format(new Date(timestamp * 1000));
-}
-
-function formatLockEndsDuration(timestamp: number | null, nowTimestamp: number | null): string {
-  if (!timestamp || timestamp <= 0) return "No expiry";
-  if (!nowTimestamp || nowTimestamp <= 0) return "--";
-
-  const remainingSeconds = Math.max(0, timestamp - nowTimestamp);
-  if (remainingSeconds === 0) return "Expired";
-
-  const days = Math.floor(remainingSeconds / 86_400);
-  const hours = Math.floor((remainingSeconds % 86_400) / 3_600);
-  const minutes = Math.floor((remainingSeconds % 3_600) / 60);
-
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${Math.max(1, minutes)}m`;
-}
-
 export function TradeAssetCard({ asset, marketHref, onOpen }: TradeAssetCardProps) {
   const spread =
     asset.floorPrice !== null && asset.bestBidPrice !== null
       ? asset.floorPrice - asset.bestBidPrice
       : null;
-  const lockWeeks = decodeTrancheId(asset.trancheId)?.trancheNumber ?? null;
-  const [lockEndsAt, setLockEndsAt] = useState<number | null>(null);
-
-  useEffect(() => {
-    setLockEndsAt(null);
-  }, [asset.trancheId]);
-
-  useEffect(() => {
-    if (lockEndsAt !== null) return;
-    if (!lockWeeks || lockWeeks <= 0 || asset.chainTimestamp === null) return;
-
-    setLockEndsAt(asset.chainTimestamp + lockWeeks * 7 * 24 * 60 * 60);
-  }, [asset.chainTimestamp, lockEndsAt, lockWeeks]);
-
-  const lockLabel = useMemo(
-    () => formatLockEndsDuration(lockEndsAt, asset.chainTimestamp),
-    [asset.chainTimestamp, lockEndsAt],
-  );
 
   return (
     <Card className="h-full">

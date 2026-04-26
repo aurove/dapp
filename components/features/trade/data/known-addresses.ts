@@ -1,7 +1,6 @@
 "use client";
 
 import type { Address } from "viem";
-import type { TradeVeAssetType } from "../types";
 
 type KnownPaymentTokenConfig = {
   address: Address;

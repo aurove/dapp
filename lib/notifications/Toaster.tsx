@@ -51,18 +51,9 @@ export function NotificationsToaster() {
 function Toast({ id, onClose }: { id: string; onClose: () => void }) {
   const item = useNotifyStore((state) => state.items.find((entry) => entry.id === id));
   const [hovered, setHovered] = React.useState(false);
-  const remainingRef = React.useRef(0);
-  const [remainingMs, setRemainingMs] = React.useState(0);
-
   const dismissAfterMs = item?.dismissAfterMs ?? 0;
-
-  React.useEffect(() => {
-    if (!item) {
-      return;
-    }
-    remainingRef.current = dismissAfterMs;
-    setRemainingMs(dismissAfterMs);
-  }, [item?.id, dismissAfterMs, item]);
+  const remainingRef = React.useRef(dismissAfterMs);
+  const [remainingMs, setRemainingMs] = React.useState(dismissAfterMs);
 
   React.useEffect(() => {
     if (!item || item.persistent || dismissAfterMs <= 0 || hovered) {

@@ -91,10 +91,10 @@ export function useListingPreview({
         : 0;
 
     const expiryDaysValue = Number.parseInt(normalizedExpiryDays, 10);
-    const expiryTimestamp =
+    const expiryLabel =
       Number.isFinite(expiryDaysValue) && expiryDaysValue > 0
-        ? Date.now() + expiryDaysValue * 24 * 60 * 60 * 1000
-        : null;
+        ? `Expires in ${expiryDaysValue} ${expiryDaysValue === 1 ? "day" : "days"}`
+        : "No expiry";
 
     const feeBps =
       Number.isFinite(protocolFeeBps) && Number(protocolFeeBps) > 0 ? Number(protocolFeeBps) : 0;
@@ -113,13 +113,7 @@ export function useListingPreview({
       remainingFractionsRaw,
       remainingFractionsLabel: `${formatFractionAmount(remainingFractionsRaw)} fractions`,
       listedPercentage,
-      expiryLabel: expiryTimestamp
-        ? new Intl.DateTimeFormat("en-US", {
-            year: "numeric",
-            month: "short",
-            day: "2-digit",
-          }).format(new Date(expiryTimestamp))
-        : "No expiry",
+      expiryLabel,
       feeAmount,
       feeAmountLabel:
         feeBps > 0

@@ -545,13 +545,10 @@ export function TradeCreateListingDialog({
   }, [
     createFractionListingSteps,
     createVeListingSteps,
-    markets,
     preparedFractionListingInput,
     preparedVeListingInput,
     listingAutoMatchCandidate,
-    userAddress,
-    marketplace?.abi,
-    marketplace?.address,
+    marketplace,
   ]);
 
   const canSubmit =

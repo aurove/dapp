@@ -4,7 +4,6 @@ import { useMemo, type ReactNode } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import { erc1155Abi, erc20Abi, parseUnits, type Abi, type Address } from "viem";
-import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { Input } from "@fractals/ui/ui/input";
 import { Loader2 } from "lucide-react";
@@ -581,12 +580,15 @@ export function BidTradeAction({
             .test("expiry-valid", "Expiry must be at least 1 day.", function (value) {
               const parent = this.parent as BidFormState;
               if (parent.expiryMode === "none") return true;
+              if (market.chainTimestamp === null) {
+                return this.createError({ message: "Current chain time is unavailable." });
+              }
               const parsed = Number.parseInt(value ?? "", 10);
               return Number.isFinite(parsed) && parsed >= 1;
             }),
           notPaused: yup.boolean().test("not-paused", "Marketplace is paused.", () => !isPaused),
         }),
-      [isPaused, market.paymentTokenDecimals],
+      [isPaused, market.chainTimestamp, market.paymentTokenDecimals],
     ),
     onSubmit: () => undefined,
   });
@@ -610,11 +612,6 @@ export function BidTradeAction({
       return [];
     }
 
-    const expiry =
-      formik.values.expiryMode === "none"
-        ? 0n
-        : BigInt(Math.floor(Date.now() / 1000) + Math.max(1, parsedExpiryDays) * 24 * 60 * 60);
-
     const approvalStep =
       paymentRouterAddress && approvalRequired
         ? (makeAddressWriteStep({
@@ -635,16 +632,23 @@ export function BidTradeAction({
         key: "place-bid",
         label: "Place bid",
         contractName: "Marketplace",
-        variables: {
-          functionName: "placeBidWithExpiry",
-          args: [
-            assetLedgerAddress,
-            market.trancheId,
-            amountRaw,
-            market.paymentToken,
-            priceRaw,
-            expiry,
-          ] as const,
+        variables: () => {
+          const expiry =
+            formik.values.expiryMode === "none"
+              ? 0n
+              : BigInt((market.chainTimestamp ?? 0) + Math.max(1, parsedExpiryDays) * 24 * 60 * 60);
+
+          return {
+            functionName: "placeBidWithExpiry",
+            args: [
+              assetLedgerAddress,
+              market.trancheId,
+              amountRaw,
+              market.paymentToken,
+              priceRaw,
+              expiry,
+            ] as const,
+          };
         },
       }) as unknown as TxStep,
     ];
@@ -653,6 +657,7 @@ export function BidTradeAction({
     assetLedgerAddress,
     approvalRequired,
     formik.values.expiryMode,
+    market.chainTimestamp,
     market.paymentToken,
     market.paymentTokenSymbol,
     market.trancheId,
