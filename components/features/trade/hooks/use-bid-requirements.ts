@@ -18,12 +18,11 @@ export function useBidRequirements({
   paymentToken,
   paymentRouterAddress,
   requiredPaymentRaw,
-  isNativePayment = false,
   chainId,
 }: UseBidRequirementsParams) {
   const contracts = useMemo(
     () =>
-      !isNativePayment && bidderAddress && paymentToken && paymentRouterAddress
+      bidderAddress && paymentToken && paymentRouterAddress
         ? [
             {
               address: paymentToken,
@@ -41,7 +40,7 @@ export function useBidRequirements({
             },
           ]
         : [],
-    [bidderAddress, chainId, isNativePayment, paymentRouterAddress, paymentToken],
+    [bidderAddress, chainId, paymentRouterAddress, paymentToken],
   );
 
   const reads = useReadContracts({
@@ -54,12 +53,8 @@ export function useBidRequirements({
     },
   });
 
-  const balanceRaw = isNativePayment
-    ? requiredPaymentRaw
-    : ((reads.data?.[0]?.result as bigint | undefined) ?? 0n);
-  const allowanceRaw = isNativePayment
-    ? requiredPaymentRaw
-    : ((reads.data?.[1]?.result as bigint | undefined) ?? 0n);
+  const balanceRaw = (reads.data?.[0]?.result as bigint | undefined) ?? 0n;
+  const allowanceRaw = (reads.data?.[1]?.result as bigint | undefined) ?? 0n;
 
   const hasEnoughBalance = requiredPaymentRaw <= 0n || balanceRaw >= requiredPaymentRaw;
   const hasEnoughAllowance = requiredPaymentRaw <= 0n || allowanceRaw >= requiredPaymentRaw;
@@ -75,7 +70,7 @@ export function useBidRequirements({
     allowanceRaw,
     hasEnoughBalance,
     hasEnoughAllowance,
-    needsApproval: !isNativePayment && requiredPaymentRaw > 0n && !hasEnoughAllowance,
+    needsApproval: requiredPaymentRaw > 0n && !hasEnoughAllowance,
     isChecking: reads.isPending || reads.isFetching,
     error: anyError,
     refresh,

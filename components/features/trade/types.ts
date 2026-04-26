@@ -48,7 +48,6 @@ export type TradeMarketBidPreview = {
   price: number;
   priceRaw: bigint;
   expiry: number;
-  escrowedPaymentRaw: bigint;
 };
 
 export type TradeMarket = {

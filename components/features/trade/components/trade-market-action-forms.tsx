@@ -200,7 +200,10 @@ export function BuyTradeAction({
   );
 
   const approvalRequired = Boolean(
-    paymentRouterAddress && requiredPayment > 0n && paymentAllowance < requiredPayment,
+    market.paymentTokenSymbol !== "BTC" &&
+    paymentRouterAddress &&
+    requiredPayment > 0n &&
+    paymentAllowance < requiredPayment,
   );
   const steps = useMemo<TxStep[]>(() => {
     if (!marketplaceAddress || !marketplaceAbi || !selectedListing || !amountRaw) return [];
@@ -598,12 +601,8 @@ export function BidTradeAction({
     [amountRaw, priceRaw],
   );
   const parsedExpiryDays = Number.parseInt(formik.values.expiryDays, 10);
-  const isNativePayment = market.paymentTokenSymbol === "BTC";
   const approvalRequired = Boolean(
-    !isNativePayment &&
-    paymentRouterAddress &&
-    requiredPayment > 0n &&
-    paymentAllowance < requiredPayment,
+    paymentRouterAddress && requiredPayment > 0n && paymentAllowance < requiredPayment,
   );
 
   const steps = useMemo<TxStep[]>(() => {
@@ -646,7 +645,6 @@ export function BidTradeAction({
             priceRaw,
             expiry,
           ] as const,
-          value: isNativePayment ? requiredPayment : undefined,
         },
       }) as unknown as TxStep,
     ];
@@ -655,7 +653,6 @@ export function BidTradeAction({
     assetLedgerAddress,
     approvalRequired,
     formik.values.expiryMode,
-    isNativePayment,
     market.paymentToken,
     market.paymentTokenSymbol,
     market.trancheId,

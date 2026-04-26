@@ -32,7 +32,6 @@ const BID_PLACED_EVENT_ABI = [
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
       { indexed: false, internalType: "address", name: "paymentToken", type: "address" },
       { indexed: false, internalType: "uint256", name: "pricePerUnit", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "escrowedPayment", type: "uint256" },
       { indexed: false, internalType: "uint64", name: "expiry", type: "uint64" },
     ],
     name: "BidPlaced",

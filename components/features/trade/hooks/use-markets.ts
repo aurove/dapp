@@ -45,7 +45,6 @@ type TradeBidTuple = {
   amountRemaining: bigint;
   paymentToken: Address;
   pricePerUnit: bigint;
-  escrowedPayment: bigint;
   totalBidValueRemaining: bigint;
   createdAt: bigint;
   updatedAt: bigint;
@@ -807,10 +806,7 @@ export function useMarkets() {
                   : minBigint(
                       bid.amountRemaining,
                       quoteToFractionAmountRaw(
-                        minBigint(
-                          minBigint(funding.balance, funding.allowance),
-                          bid.escrowedPayment,
-                        ),
+                        minBigint(funding.balance, funding.allowance),
                         bid.pricePerUnit,
                       ),
                     );
@@ -949,7 +945,6 @@ export function useMarkets() {
             price: toSafeNumber(bid.pricePerUnit, token.decimals),
             priceRaw: bid.pricePerUnit,
             expiry: Number(bid.expiry),
-            escrowedPaymentRaw: bid.escrowedPayment,
           })),
         });
       }
