@@ -105,6 +105,7 @@ function OrderbookOrderRow({
   isBest,
   amount,
   price,
+  amountNote,
   paymentTokenSymbol,
   priceClassName,
   bestBadgeClassName,
@@ -113,6 +114,7 @@ function OrderbookOrderRow({
   isBest: boolean;
   amount: number;
   price: number;
+  amountNote?: string;
   paymentTokenSymbol: string;
   priceClassName: string;
   bestBadgeClassName: string;
@@ -135,7 +137,10 @@ function OrderbookOrderRow({
         </span>
       }
       amount={
-        <span className="font-medium text-[var(--foreground)]">{formatTokenAmount(amount)}</span>
+        <span className="flex flex-col items-end gap-0.5">
+          <span className="font-medium text-[var(--foreground)]">{formatTokenAmount(amount)}</span>
+          {amountNote ? <span className="text-[10px] text-amber-200">{amountNote}</span> : null}
+        </span>
       }
       price={
         <span className={cn("font-medium", priceClassName)}>
@@ -241,6 +246,13 @@ export function OrderbookCard({
                       id={listing.listingId}
                       isBest={isBestAsk}
                       amount={listing.amount}
+                      amountNote={
+                        listing.isInventoryStale
+                          ? `seller has ${formatTokenAmount(listing.amount)} of ${formatTokenAmount(
+                              listing.listedAmount,
+                            )}`
+                          : undefined
+                      }
                       price={listing.price}
                       paymentTokenSymbol={market.paymentTokenSymbol}
                       priceClassName="text-rose-100"
@@ -333,6 +345,13 @@ export function OrderbookCard({
                       id={bid.bidId}
                       isBest={isBestBid}
                       amount={bid.amount}
+                      amountNote={
+                        bid.isFundingStale
+                          ? `funded ${formatTokenAmount(bid.amount)} of ${formatTokenAmount(
+                              bid.requestedAmount,
+                            )}`
+                          : undefined
+                      }
                       price={bid.price}
                       paymentTokenSymbol={market.paymentTokenSymbol}
                       priceClassName="text-emerald-100"

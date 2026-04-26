@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { erc20Abi, formatUnits, zeroAddress, type Abi, type Address } from "viem";
+import { erc1155Abi, erc20Abi, formatUnits, zeroAddress, type Abi, type Address } from "viem";
 import { useAccount, useBlock, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
@@ -95,6 +95,15 @@ function toSafeNumber(value: bigint, decimals: number): number {
   return Number(formatUnits(value, decimals));
 }
 
+function minBigint(a: bigint, b: bigint): bigint {
+  return a < b ? a : b;
+}
+
+function quoteToFractionAmountRaw(paymentCapacityRaw: bigint, pricePerUnitRaw: bigint): bigint {
+  if (paymentCapacityRaw <= 0n || pricePerUnitRaw <= 0n) return 0n;
+  return (paymentCapacityRaw * 10n ** BigInt(FRACTION_DECIMALS)) / pricePerUnitRaw;
+}
+
 function buildFallbackFractionInfo(trancheId: bigint, address: Address): FractionInfo {
   const decoded = decodeTrancheId(trancheId);
   if (decoded) {
@@ -169,6 +178,7 @@ export function useMarkets() {
   const marketplace = getContractConfig(chainId, "Marketplace");
   const paymentRouter = getContractConfig(chainId, "PaymentRouter");
   const assetLedger = getContractConfig(chainId, "AssetLedger");
+  const paymentRouterAddress = paymentRouter?.address;
 
   const [query, setQuery] = useState("");
   const [fractionFilter, setFractionFilter] = useState<"all" | TradeMarketBase>("all");
@@ -610,6 +620,99 @@ export function useMarkets() {
     return values;
   }, [balanceReads.data, marketFractions]);
 
+  const activeSellerInventoryListings = useMemo(
+    () => allListings.filter((listing) => listing.isActive),
+    [allListings],
+  );
+
+  const sellerInventoryContracts = useMemo(() => {
+    if (activeSellerInventoryListings.length === 0) return [];
+
+    return activeSellerInventoryListings.map((listing) => ({
+      address: listing.collection,
+      abi: erc1155Abi,
+      functionName: "balanceOf",
+      args: [listing.seller, listing.tokenId],
+      chainId,
+    }));
+  }, [activeSellerInventoryListings, chainId]);
+
+  const sellerInventoryReads = useReadContracts({
+    allowFailure: true,
+    contracts: sellerInventoryContracts,
+    query: {
+      enabled: sellerInventoryContracts.length > 0,
+      staleTime: 10_000,
+      gcTime: 5 * 60_000,
+      refetchInterval: 15_000,
+    },
+  });
+
+  const sellerBalanceByListingId = useMemo(() => {
+    const values = new Map<string, bigint>();
+
+    for (let index = 0; index < activeSellerInventoryListings.length; index += 1) {
+      const result = sellerInventoryReads.data?.[index]?.result;
+      if (typeof result === "bigint") {
+        values.set(activeSellerInventoryListings[index]!.listingId.toString(), result);
+      }
+    }
+
+    return values;
+  }, [activeSellerInventoryListings, sellerInventoryReads.data]);
+
+  const activeBidFundingBids = useMemo(() => allBids.filter((bid) => bid.isActive), [allBids]);
+
+  const bidFundingContracts = useMemo(() => {
+    if (!paymentRouterAddress || activeBidFundingBids.length === 0) return [];
+
+    return activeBidFundingBids.flatMap((bid) => [
+      {
+        address: bid.paymentToken,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [bid.bidder],
+        chainId,
+      },
+      {
+        address: bid.paymentToken,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [bid.bidder, paymentRouterAddress],
+        chainId,
+      },
+    ]);
+  }, [activeBidFundingBids, chainId, paymentRouterAddress]);
+
+  const bidFundingReads = useReadContracts({
+    allowFailure: true,
+    contracts: bidFundingContracts,
+    query: {
+      enabled: bidFundingContracts.length > 0,
+      staleTime: 10_000,
+      gcTime: 5 * 60_000,
+      refetchInterval: 15_000,
+    },
+  });
+
+  const bidderFundingByBidId = useMemo(() => {
+    const values = new Map<string, { balance: bigint; allowance: bigint }>();
+
+    for (let index = 0; index < activeBidFundingBids.length; index += 1) {
+      const balanceResult = bidFundingReads.data?.[index * 2]?.result;
+      const allowanceResult = bidFundingReads.data?.[index * 2 + 1]?.result;
+
+      if (typeof balanceResult === "bigint" && typeof allowanceResult === "bigint") {
+        values.set(activeBidFundingBids[index]!.bidId.toString(), {
+          balance: balanceResult,
+          allowance: allowanceResult,
+        });
+      }
+    }
+
+    return values;
+  }, [activeBidFundingBids, bidFundingReads.data]);
+
   const markets = useMemo<TradeMarket[]>(() => {
     if (marketFractions.length === 0 || paymentTokens.length === 0) return [];
 
@@ -651,21 +754,73 @@ export function useMarkets() {
         const activeBids = marketBids.filter((bid) => bid.isActive);
         const expiredBids = marketBids.filter((bid) => bid.isExpired);
 
-        const asksSortedByPrice = sortAsksByBestPrice(activeListings);
-        const bidsSortedByPrice = sortBidsByBestPrice(activeBids);
+        const executableListings = activeListings
+          .map((listing) => {
+            const sellerBalance = sellerBalanceByListingId.get(listing.listingId.toString());
+            const executableAmount =
+              sellerBalance === undefined
+                ? listing.amountRemaining
+                : minBigint(listing.amountRemaining, sellerBalance);
+
+            return {
+              ...listing,
+              executableAmount,
+              sellerBalance: sellerBalance ?? null,
+              isInventoryStale:
+                sellerBalance !== undefined && sellerBalance < listing.amountRemaining,
+            };
+          })
+          .filter((listing) => listing.executableAmount > 0n);
+
+        const asksSortedByPrice = sortAsksByBestPrice(executableListings);
+        const executableBids = activeBids
+          .map((bid) => {
+            const funding = bidderFundingByBidId.get(bid.bidId.toString());
+            const executableAmount =
+              funding === undefined
+                ? bid.amountRemaining
+                : minBigint(
+                    bid.amountRemaining,
+                    quoteToFractionAmountRaw(
+                      minBigint(minBigint(funding.balance, funding.allowance), bid.escrowedPayment),
+                      bid.pricePerUnit,
+                    ),
+                  );
+
+            return {
+              ...bid,
+              executableAmount,
+              bidderPaymentBalance: funding?.balance ?? null,
+              bidderPaymentAllowance: funding?.allowance ?? null,
+              isFundingStale: funding !== undefined && executableAmount < bid.amountRemaining,
+            };
+          })
+          .filter((bid) => bid.executableAmount > 0n);
+
+        const bidsSortedByPrice = sortBidsByBestPrice(executableBids);
         const bestAsk = getBestAsk(asksSortedByPrice);
         const bestBid = getBestBid(bidsSortedByPrice);
 
-        const quoteLiquidity = activeListings.reduce(
-          (sum, listing) => sum + toSafeNumber(listing.totalPriceRemaining, token.decimals),
+        const quoteLiquidity = executableListings.reduce(
+          (sum, listing) =>
+            sum +
+            toSafeNumber(
+              (listing.executableAmount * listing.pricePerUnit) / 10n ** BigInt(FRACTION_DECIMALS),
+              token.decimals,
+            ),
           0,
         );
-        const quoteDemand = activeBids.reduce(
-          (sum, bid) => sum + toSafeNumber(bid.totalBidValueRemaining, token.decimals),
+        const quoteDemand = executableBids.reduce(
+          (sum, bid) =>
+            sum +
+            toSafeNumber(
+              (bid.executableAmount * bid.pricePerUnit) / 10n ** BigInt(FRACTION_DECIMALS),
+              token.decimals,
+            ),
           0,
         );
-        const totalListedSupply = activeListings.reduce(
-          (sum, listing) => sum + toSafeNumber(listing.amountRemaining, FRACTION_DECIMALS),
+        const totalListedSupply = executableListings.reduce(
+          (sum, listing) => sum + toSafeNumber(listing.executableAmount, FRACTION_DECIMALS),
           0,
         );
 
@@ -697,7 +852,7 @@ export function useMarkets() {
         const userPosition = toSafeNumber(rawUserPosition, FRACTION_DECIMALS);
 
         let state: TradeMarketState = "illiquid";
-        if (activeListings.length > 0 || activeBids.length > 0) {
+        if (executableListings.length > 0 || executableBids.length > 0) {
           state = "active";
         } else if (expiredListings.length > 0 || expiredBids.length > 0) {
           state = "expired";
@@ -723,9 +878,9 @@ export function useMarkets() {
           bestPrice: floorPrice,
           priceRangeLow: floorPrice,
           priceRangeHigh: highestAskPrice,
-          activeListings: activeListings.length,
+          activeListings: executableListings.length,
           expiredListings: expiredListings.length,
-          activeBids: activeBids.length,
+          activeBids: executableBids.length,
           expiredBids: expiredBids.length,
           recentActivity,
           lastActivityAt,
@@ -735,8 +890,12 @@ export function useMarkets() {
           topListings: asksSortedByPrice.slice(0, 5).map((listing) => ({
             listingId: listing.listingId,
             seller: listing.seller,
-            amount: toSafeNumber(listing.amountRemaining, FRACTION_DECIMALS),
-            amountRaw: listing.amountRemaining,
+            amount: toSafeNumber(listing.executableAmount, FRACTION_DECIMALS),
+            amountRaw: listing.executableAmount,
+            listedAmount: toSafeNumber(listing.amountRemaining, FRACTION_DECIMALS),
+            listedAmountRaw: listing.amountRemaining,
+            sellerBalanceRaw: listing.sellerBalance,
+            isInventoryStale: listing.isInventoryStale,
             price: toSafeNumber(listing.pricePerUnit, token.decimals),
             priceRaw: listing.pricePerUnit,
             expiry: Number(listing.expiry),
@@ -744,8 +903,13 @@ export function useMarkets() {
           topBids: bidsSortedByPrice.slice(0, 5).map((bid) => ({
             bidId: bid.bidId,
             bidder: bid.bidder,
-            amount: toSafeNumber(bid.amountRemaining, FRACTION_DECIMALS),
-            amountRaw: bid.amountRemaining,
+            amount: toSafeNumber(bid.executableAmount, FRACTION_DECIMALS),
+            amountRaw: bid.executableAmount,
+            requestedAmount: toSafeNumber(bid.amountRemaining, FRACTION_DECIMALS),
+            requestedAmountRaw: bid.amountRemaining,
+            bidderPaymentBalanceRaw: bid.bidderPaymentBalance,
+            bidderPaymentAllowanceRaw: bid.bidderPaymentAllowance,
+            isFundingStale: bid.isFundingStale,
             price: toSafeNumber(bid.pricePerUnit, token.decimals),
             priceRaw: bid.pricePerUnit,
             expiry: Number(bid.expiry),
@@ -760,10 +924,12 @@ export function useMarkets() {
     allBids,
     allListings,
     balanceByTranche,
+    bidderFundingByBidId,
     chainTimestamp,
     marketFractions,
     nowTimestamp,
     paymentTokens,
+    sellerBalanceByListingId,
   ]);
 
   const filteredMarkets = useMemo(() => {
@@ -793,7 +959,9 @@ export function useMarkets() {
     (fractionAddressContracts.length > 0 && fractionAddressReads.isPending) ||
     (fractionMetaContracts.length > 0 && fractionMetaReads.isPending) ||
     (paymentTokenMetadataContracts.length > 0 && paymentTokenReads.isPending) ||
-    (balanceContracts.length > 0 && balanceReads.isPending);
+    (balanceContracts.length > 0 && balanceReads.isPending) ||
+    (sellerInventoryContracts.length > 0 && sellerInventoryReads.isPending) ||
+    (bidFundingContracts.length > 0 && bidFundingReads.isPending);
 
   const isRefreshing =
     (canReadCore && bootstrapContracts.length > 0 && bootstrapReads.isFetching) ||
@@ -802,7 +970,9 @@ export function useMarkets() {
     (fractionAddressContracts.length > 0 && fractionAddressReads.isFetching) ||
     (fractionMetaContracts.length > 0 && fractionMetaReads.isFetching) ||
     (paymentTokenMetadataContracts.length > 0 && paymentTokenReads.isFetching) ||
-    (balanceContracts.length > 0 && balanceReads.isFetching);
+    (balanceContracts.length > 0 && balanceReads.isFetching) ||
+    (sellerInventoryContracts.length > 0 && sellerInventoryReads.isFetching) ||
+    (bidFundingContracts.length > 0 && bidFundingReads.isFetching);
 
   const error =
     (bootstrapReads.error as Error | null) ||
@@ -811,7 +981,9 @@ export function useMarkets() {
     (fractionAddressReads.error as Error | null) ||
     (fractionMetaReads.error as Error | null) ||
     (paymentTokenReads.error as Error | null) ||
-    (balanceReads.error as Error | null);
+    (balanceReads.error as Error | null) ||
+    (sellerInventoryReads.error as Error | null) ||
+    (bidFundingReads.error as Error | null);
 
   function refreshMarkets() {
     void bootstrapReads.refetch();
@@ -821,6 +993,8 @@ export function useMarkets() {
     void fractionMetaReads.refetch();
     void paymentTokenReads.refetch();
     void balanceReads.refetch();
+    void sellerInventoryReads.refetch();
+    void bidFundingReads.refetch();
   }
 
   return {

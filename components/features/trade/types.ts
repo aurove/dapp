@@ -26,6 +26,10 @@ export type TradeMarketListingPreview = {
   seller: `0x${string}`;
   amount: number;
   amountRaw: bigint;
+  listedAmount: number;
+  listedAmountRaw: bigint;
+  sellerBalanceRaw: bigint | null;
+  isInventoryStale: boolean;
   price: number;
   priceRaw: bigint;
   expiry: number;
@@ -36,6 +40,11 @@ export type TradeMarketBidPreview = {
   bidder: `0x${string}`;
   amount: number;
   amountRaw: bigint;
+  requestedAmount: number;
+  requestedAmountRaw: bigint;
+  bidderPaymentBalanceRaw: bigint | null;
+  bidderPaymentAllowanceRaw: bigint | null;
+  isFundingStale: boolean;
   price: number;
   priceRaw: bigint;
   expiry: number;
