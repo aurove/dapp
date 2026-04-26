@@ -31,6 +31,10 @@ type TradeListingTuple = {
   status: number;
   isExpired: boolean;
   isActive: boolean;
+  sellerBalance?: bigint;
+  executableAmount?: bigint;
+  totalExecutablePrice?: bigint;
+  isExecutable?: boolean;
 };
 
 type TradeBidTuple = {
@@ -49,6 +53,11 @@ type TradeBidTuple = {
   status: number;
   isExpired: boolean;
   isActive: boolean;
+  bidderPaymentBalance?: bigint;
+  bidderPaymentAllowance?: bigint;
+  executableAmount?: bigint;
+  totalExecutableBidValue?: bigint;
+  isExecutable?: boolean;
 };
 
 type TradePaymentTokenInfo = {
@@ -764,16 +773,24 @@ export function useMarkets() {
           .map((listing) => {
             const sellerBalance = sellerBalanceByListingId.get(listing.listingId.toString());
             const executableAmount =
-              sellerBalance === undefined
-                ? listing.amountRemaining
-                : minBigint(listing.amountRemaining, sellerBalance);
+              typeof listing.executableAmount === "bigint"
+                ? listing.executableAmount
+                : sellerBalance === undefined
+                  ? listing.amountRemaining
+                  : minBigint(listing.amountRemaining, sellerBalance);
+            const effectiveSellerBalance =
+              typeof listing.sellerBalance === "bigint"
+                ? listing.sellerBalance
+                : sellerBalance === undefined
+                  ? null
+                  : sellerBalance;
 
             return {
               ...listing,
               executableAmount,
-              sellerBalance: sellerBalance ?? null,
+              sellerBalance: effectiveSellerBalance,
               isInventoryStale:
-                sellerBalance !== undefined && sellerBalance < listing.amountRemaining,
+                effectiveSellerBalance !== null && effectiveSellerBalance < listing.amountRemaining,
             };
           })
           .filter((listing) => listing.executableAmount > 0n);
@@ -783,22 +800,35 @@ export function useMarkets() {
           .map((bid) => {
             const funding = bidderFundingByBidId.get(bid.bidId.toString());
             const executableAmount =
-              funding === undefined
-                ? bid.amountRemaining
-                : minBigint(
-                    bid.amountRemaining,
-                    quoteToFractionAmountRaw(
-                      minBigint(minBigint(funding.balance, funding.allowance), bid.escrowedPayment),
-                      bid.pricePerUnit,
-                    ),
-                  );
+              typeof bid.executableAmount === "bigint"
+                ? bid.executableAmount
+                : funding === undefined
+                  ? bid.amountRemaining
+                  : minBigint(
+                      bid.amountRemaining,
+                      quoteToFractionAmountRaw(
+                        minBigint(
+                          minBigint(funding.balance, funding.allowance),
+                          bid.escrowedPayment,
+                        ),
+                        bid.pricePerUnit,
+                      ),
+                    );
+            const bidderPaymentBalance =
+              typeof bid.bidderPaymentBalance === "bigint"
+                ? bid.bidderPaymentBalance
+                : (funding?.balance ?? null);
+            const bidderPaymentAllowance =
+              typeof bid.bidderPaymentAllowance === "bigint"
+                ? bid.bidderPaymentAllowance
+                : (funding?.allowance ?? null);
 
             return {
               ...bid,
               executableAmount,
-              bidderPaymentBalance: funding?.balance ?? null,
-              bidderPaymentAllowance: funding?.allowance ?? null,
-              isFundingStale: funding !== undefined && executableAmount < bid.amountRemaining,
+              bidderPaymentBalance,
+              bidderPaymentAllowance,
+              isFundingStale: executableAmount < bid.amountRemaining,
             };
           })
           .filter((bid) => bid.executableAmount > 0n);

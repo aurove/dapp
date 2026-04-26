@@ -21,6 +21,10 @@ type TradeListingTuple = {
   status: number;
   isExpired: boolean;
   isActive: boolean;
+  sellerBalance?: bigint;
+  executableAmount?: bigint;
+  totalExecutablePrice?: bigint;
+  isExecutable?: boolean;
 };
 
 export type ActiveListingsReadResult = readonly [readonly TradeListingTuple[], bigint, boolean];
