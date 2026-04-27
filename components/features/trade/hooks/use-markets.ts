@@ -919,7 +919,7 @@ export function useMarkets() {
           chainTimestamp,
           userPosition,
           hasUserPosition: userPosition > 0,
-          topListings: asksSortedByPrice.slice(0, 5).map((listing) => ({
+          topListings: asksSortedByPrice.map((listing) => ({
             listingId: listing.listingId,
             seller: listing.seller,
             amount: toSafeNumber(listing.executableAmount, FRACTION_DECIMALS),
@@ -932,7 +932,7 @@ export function useMarkets() {
             priceRaw: listing.pricePerUnit,
             expiry: Number(listing.expiry),
           })),
-          topBids: bidsSortedByPrice.slice(0, 5).map((bid) => ({
+          topBids: bidsSortedByPrice.map((bid) => ({
             bidId: bid.bidId,
             bidder: bid.bidder,
             amount: toSafeNumber(bid.executableAmount, FRACTION_DECIMALS),

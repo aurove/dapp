@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  useCallback,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+  type UIEvent,
+} from "react";
 import { AlertCircle, ArrowRightLeft, CheckCircle2, ShoppingCart, Wallet } from "lucide-react";
 import { type Abi, type Address } from "viem";
 import { Button } from "@fractals/ui/ui/button";
@@ -8,9 +16,10 @@ import { cn } from "@fractals/ui/lib/cn";
 import { formatRawTokenAmount, formatTokenAmount } from "../helpers/formatters";
 import type { TradeMarket, TradeMarketBidPreview, TradeMarketListingPreview } from "../types";
 import { BidTradeAction, BuyTradeAction, SellTradeAction } from "./trade-market-action-forms";
-import { useState } from "react";
 
 export type TradeTab = "buy" | "sell" | "bid";
+
+const ORDERBOOK_PAGE_SIZE = 10;
 
 type MarketDepthCardProps = {
   market: TradeMarket;
@@ -18,7 +27,7 @@ type MarketDepthCardProps = {
 
 type OrderbookCardProps = {
   market: TradeMarket;
-  renderedAsks: TradeMarketListingPreview[];
+  asksByBestPrice: TradeMarketListingPreview[];
   bidsByBestPrice: TradeMarketBidPreview[];
   bestAsk: TradeMarketListingPreview | null;
   bestBid: TradeMarketBidPreview | null;
@@ -196,7 +205,7 @@ export function MarketDepthCard({ market }: MarketDepthCardProps) {
 
 export function OrderbookCard({
   market,
-  renderedAsks,
+  asksByBestPrice,
   bidsByBestPrice,
   bestAsk,
   bestBid,
@@ -206,6 +215,35 @@ export function OrderbookCard({
   onBidSelect,
 }: OrderbookCardProps) {
   const [selectedOrderId, setSelectedOrderId] = useState("");
+  const [visibleAskCount, setVisibleAskCount] = useState(ORDERBOOK_PAGE_SIZE);
+  const [visibleBidCount, setVisibleBidCount] = useState(ORDERBOOK_PAGE_SIZE);
+
+  const renderedAsks = useMemo(
+    () => asksByBestPrice.slice(0, visibleAskCount).reverse(),
+    [asksByBestPrice, visibleAskCount],
+  );
+  const visibleBids = useMemo(
+    () => bidsByBestPrice.slice(0, visibleBidCount),
+    [bidsByBestPrice, visibleBidCount],
+  );
+  const hasMoreAsks = visibleAskCount < asksByBestPrice.length;
+  const hasMoreBids = visibleBidCount < bidsByBestPrice.length;
+
+  const loadMoreOnScroll = useCallback(
+    (
+      event: UIEvent<HTMLDivElement>,
+      hasMore: boolean,
+      setVisibleCount: Dispatch<SetStateAction<number>>,
+    ) => {
+      if (!hasMore) return;
+
+      const { clientHeight, scrollHeight, scrollTop } = event.currentTarget;
+      if (scrollHeight - scrollTop - clientHeight <= 48) {
+        setVisibleCount((current) => current + ORDERBOOK_PAGE_SIZE);
+      }
+    },
+    [],
+  );
 
   return (
     <Card>
@@ -221,7 +259,10 @@ export function OrderbookCard({
               {market.paymentTokenSymbol}.
             </p>
           ) : (
-            <div className="space-y-2">
+            <div
+              className="max-h-80 space-y-2 overflow-y-auto pr-1"
+              onScroll={(event) => loadMoreOnScroll(event, hasMoreAsks, setVisibleAskCount)}
+            >
               {renderedAsks.map((listing) => {
                 const isBestAsk = bestAsk?.listingId === listing.listingId;
                 const selectId = `ask-${listing.listingId.toString()}`;
@@ -261,6 +302,11 @@ export function OrderbookCard({
                   </button>
                 );
               })}
+              {hasMoreAsks ? (
+                <p className="px-3 py-1 text-center text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
+                  Scroll for more asks
+                </p>
+              ) : null}
             </div>
           )}
 
@@ -320,8 +366,11 @@ export function OrderbookCard({
               No active bids. Buyers have not placed demand for {market.fractionSymbol}.
             </p>
           ) : (
-            <div className="space-y-2">
-              {bidsByBestPrice.map((bid) => {
+            <div
+              className="max-h-80 space-y-2 overflow-y-auto pr-1"
+              onScroll={(event) => loadMoreOnScroll(event, hasMoreBids, setVisibleBidCount)}
+            >
+              {visibleBids.map((bid) => {
                 const isBestBid = bestBid?.bidId === bid.bidId;
                 const selectId = `bid-${bid.bidId.toString()}`;
                 const isSelected = selectedOrderId === selectId;
@@ -360,6 +409,11 @@ export function OrderbookCard({
                   </button>
                 );
               })}
+              {hasMoreBids ? (
+                <p className="px-3 py-1 text-center text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
+                  Scroll for more bids
+                </p>
+              ) : null}
             </div>
           )}
         </div>

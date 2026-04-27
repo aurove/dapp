@@ -63,7 +63,6 @@ export function TradeMarketDialog({
     [market.topListings],
   );
   const bidsByBestPrice = useMemo(() => sortBidsByBestPrice(market.topBids), [market.topBids]);
-  const renderedAsks = useMemo(() => [...asksByBestPrice].reverse(), [asksByBestPrice]);
   const bestAsk = useMemo(() => getBestAsk(asksByBestPrice), [asksByBestPrice]);
   const bestBid = useMemo(() => getBestBid(bidsByBestPrice), [bidsByBestPrice]);
   const spreadRaw = useMemo(() => getSpread(bestAsk, bestBid), [bestAsk, bestBid]);
@@ -189,8 +188,9 @@ export function TradeMarketDialog({
           <div className="space-y-4">
             <MarketDepthCard market={market} />
             <OrderbookCard
+              key={market.id}
               market={market}
-              renderedAsks={renderedAsks}
+              asksByBestPrice={asksByBestPrice}
               bidsByBestPrice={bidsByBestPrice}
               bestAsk={bestAsk}
               bestBid={bestBid}

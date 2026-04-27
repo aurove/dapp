@@ -4,7 +4,7 @@ import type { Abi, Address } from "viem";
 import { erc20Abi } from "viem";
 import type { RegistryContractConfig } from "@/contracts/client";
 
-export const LISTINGS_PAGE_SIZE = 100n;
+export const LISTINGS_PAGE_SIZE = 10n;
 
 type TradeListingTuple = {
   listingId: bigint;
