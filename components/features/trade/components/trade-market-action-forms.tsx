@@ -1,9 +1,16 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  type ChangeEventHandler,
+  type FocusEventHandler,
+  type ReactNode,
+} from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { erc1155Abi, erc20Abi, parseUnits, type Abi, type Address } from "viem";
+import { erc1155Abi, erc20Abi, formatUnits, parseUnits, type Abi, type Address } from "viem";
 import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { Input } from "@fractals/ui/ui/input";
 import { Loader2 } from "lucide-react";
@@ -75,6 +82,7 @@ type BidFormState = {
 
 const BUY_INITIAL_VALUES: BuyFormState = { amount: "1" };
 const SELL_INITIAL_VALUES: SellFormState = { amount: "1" };
+const FRACTION_DECIMALS = 18;
 
 function formatAddress(value: string): string {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
@@ -87,6 +95,24 @@ function parseAmountRaw(value: string, decimals: number): bigint | null {
   } catch {
     return null;
   }
+}
+
+function formatAmountInput(value: bigint, decimals: number): string {
+  return formatUnits(value, decimals);
+}
+
+function getRatioPercent(value: string, totalRaw: bigint): number {
+  const amountRaw = parseAmountRaw(value, FRACTION_DECIMALS);
+  if (!amountRaw || totalRaw <= 0n) return 0;
+  if (amountRaw >= totalRaw) return 100;
+  return Number((amountRaw * 100n) / totalRaw);
+}
+
+function getRatioAmountInput(ratio: number, totalRaw: bigint): string {
+  if (totalRaw <= 0n) return "";
+  if (ratio >= 100) return formatAmountInput(totalRaw, FRACTION_DECIMALS);
+  const amountRaw = (totalRaw * BigInt(Math.max(0, Math.floor(ratio)))) / 100n;
+  return formatAmountInput(amountRaw, FRACTION_DECIMALS);
 }
 
 function touchAll<T extends Record<string, unknown>>(values: T): Record<string, boolean> {
@@ -131,6 +157,76 @@ function ActionStatus({ message }: { message?: string }) {
   );
 }
 
+function AmountRatioField({
+  error,
+  label,
+  name,
+  onBlur,
+  onChange,
+  onRatioChange,
+  symbol,
+  totalLabel,
+  totalRaw,
+  value,
+}: {
+  error?: string;
+  label: string;
+  name: string;
+  onBlur: FocusEventHandler<HTMLInputElement>;
+  onChange: ChangeEventHandler<HTMLInputElement>;
+  onRatioChange: (value: string) => void;
+  symbol: string;
+  totalLabel: string;
+  totalRaw: bigint;
+  value: string;
+}) {
+  const ratio = getRatioPercent(value, totalRaw);
+  const disabled = totalRaw <= 0n;
+
+  return (
+    <div className="space-y-3">
+      <label className="block text-xs text-[var(--muted)]">
+        {label} ({symbol})
+        <Input
+          name={name}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          inputMode="decimal"
+          placeholder="0"
+        />
+      </label>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <span className="text-[var(--muted)]">{totalLabel}</span>
+          <span className="font-medium text-[var(--foreground)]">
+            {formatRawTokenAmount(totalRaw, FRACTION_DECIMALS)} {symbol}
+          </span>
+        </div>
+        <input
+          aria-label={`${label} ratio`}
+          className="h-2 w-full cursor-pointer accent-[#d6a85d] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={disabled}
+          min="0"
+          max="100"
+          step="1"
+          type="range"
+          value={ratio}
+          onChange={(event) => {
+            onRatioChange(getRatioAmountInput(Number(event.target.value), totalRaw));
+          }}
+        />
+        <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
+          <span>0%</span>
+          <span>{ratio}%</span>
+          <span>100%</span>
+        </div>
+      </div>
+      <FieldError error={error} />
+    </div>
+  );
+}
+
 export function BuyTradeAction({
   market,
   marketplaceAddress,
@@ -143,6 +239,7 @@ export function BuyTradeAction({
   isPaused,
   onTradeExecuted,
 }: BuyTradeActionProps) {
+  const selectedListingAmountRaw = selectedListing?.amountRaw ?? 0n;
   const formik = useFormik<BuyFormState>({
     initialValues: BUY_INITIAL_VALUES,
     enableReinitialize: true,
@@ -155,7 +252,7 @@ export function BuyTradeAction({
             .string()
             .required("Enter the amount to buy.")
             .test("valid-decimal", "Enter a valid amount.", (value) => {
-              return parseAmountRaw(value ?? "", 18) !== null;
+              return parseAmountRaw(value ?? "", FRACTION_DECIMALS) !== null;
             })
             .test("listing-selected", "Select an ask from the orderbook.", () => {
               return Boolean(selectedListing);
@@ -168,7 +265,7 @@ export function BuyTradeAction({
               ),
             )
             .test("within-listing", "Amount exceeds the selected listing.", function (value) {
-              const amountRaw = parseAmountRaw(value ?? "", 18);
+              const amountRaw = parseAmountRaw(value ?? "", FRACTION_DECIMALS);
               if (!selectedListing || !amountRaw) return false;
               return amountRaw <= selectedListing.amountRaw;
             })
@@ -176,7 +273,7 @@ export function BuyTradeAction({
               "balance",
               "Wallet balance is below the required quote amount.",
               function (value) {
-                const amountRaw = parseAmountRaw(value ?? "", 18);
+                const amountRaw = parseAmountRaw(value ?? "", FRACTION_DECIMALS);
                 const required = selectedListing
                   ? quoteRequiredPaymentRaw(amountRaw, selectedListing.priceRaw)
                   : 0n;
@@ -189,7 +286,37 @@ export function BuyTradeAction({
     onSubmit: () => undefined,
   });
 
-  const amountRaw = useMemo(() => parseAmountRaw(formik.values.amount, 18), [formik.values.amount]);
+  const buySelectionRef = useRef<string | null>(null);
+  const buySelectionKey = selectedListing
+    ? `${selectedListing.listingId.toString()}:${selectedListingAmountRaw.toString()}`
+    : "";
+  const buySetFieldTouched = formik.setFieldTouched;
+  const buySetFieldValue = formik.setFieldValue;
+  const buySetStatus = formik.setStatus;
+
+  useEffect(() => {
+    if (buySelectionRef.current === buySelectionKey) return;
+    buySelectionRef.current = buySelectionKey;
+
+    const amount =
+      selectedListingAmountRaw > 0n
+        ? formatAmountInput(selectedListingAmountRaw, FRACTION_DECIMALS)
+        : "";
+    void buySetFieldValue("amount", amount, false);
+    void buySetFieldTouched("amount", false, false);
+    buySetStatus(undefined);
+  }, [
+    buySelectionKey,
+    buySetFieldTouched,
+    buySetFieldValue,
+    buySetStatus,
+    selectedListingAmountRaw,
+  ]);
+
+  const amountRaw = useMemo(
+    () => parseAmountRaw(formik.values.amount, FRACTION_DECIMALS),
+    [formik.values.amount],
+  );
   const requiredPayment = useMemo(
     () =>
       selectedListing && amountRaw
@@ -280,20 +407,20 @@ export function BuyTradeAction({
       title="Buy from listing"
       description="Pick an ask, review the cost, and submit the purchase in one flow."
     >
-      <div className="space-y-3">
-        <label className="block text-xs text-[var(--muted)]">
-          Amount to buy ({market.fractionSymbol})
-          <Input
-            name="amount"
-            value={formik.values.amount}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            inputMode="decimal"
-            placeholder="1"
-          />
-        </label>
-        <FieldError error={formik.touched.amount ? formik.errors.amount : undefined} />
-      </div>
+      <AmountRatioField
+        error={formik.touched.amount ? formik.errors.amount : undefined}
+        label="Amount to buy"
+        name="amount"
+        onBlur={formik.handleBlur}
+        onChange={formik.handleChange}
+        onRatioChange={(value) => {
+          void formik.setFieldValue("amount", value);
+        }}
+        symbol={market.fractionSymbol}
+        totalLabel="Selected ask total"
+        totalRaw={selectedListingAmountRaw}
+        value={formik.values.amount}
+      />
 
       <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <SummaryRow
@@ -354,6 +481,7 @@ export function SellTradeAction({
   isPaused,
   onTradeExecuted,
 }: SellTradeActionProps) {
+  const selectedBidAmountRaw = selectedBid?.amountRaw ?? 0n;
   const formik = useFormik<SellFormState>({
     initialValues: SELL_INITIAL_VALUES,
     enableReinitialize: true,
@@ -366,7 +494,7 @@ export function SellTradeAction({
             .string()
             .required("Enter the amount to sell.")
             .test("valid-decimal", "Enter a valid amount.", (value) => {
-              return parseAmountRaw(value ?? "", 18) !== null;
+              return parseAmountRaw(value ?? "", FRACTION_DECIMALS) !== null;
             })
             .test("bid-selected", "Select a bid from the orderbook.", () => Boolean(selectedBid))
             .test("not-paused", "Marketplace is paused.", () => !isPaused)
@@ -376,7 +504,7 @@ export function SellTradeAction({
               ),
             )
             .test("within-bid", "Amount exceeds the selected bid.", function (value) {
-              const amountRaw = parseAmountRaw(value ?? "", 18);
+              const amountRaw = parseAmountRaw(value ?? "", FRACTION_DECIMALS);
               if (!selectedBid || !amountRaw) return false;
               return amountRaw <= selectedBid.amountRaw;
             })
@@ -384,7 +512,7 @@ export function SellTradeAction({
               "balance",
               "Wallet balance is below the requested sell amount.",
               function (value) {
-                const amountRaw = parseAmountRaw(value ?? "", 18);
+                const amountRaw = parseAmountRaw(value ?? "", FRACTION_DECIMALS);
                 return !amountRaw || fractionBalance >= amountRaw;
               },
             ),
@@ -394,7 +522,35 @@ export function SellTradeAction({
     onSubmit: () => undefined,
   });
 
-  const amountRaw = useMemo(() => parseAmountRaw(formik.values.amount, 18), [formik.values.amount]);
+  const sellSelectionRef = useRef<string | null>(null);
+  const sellSelectionKey = selectedBid
+    ? `${selectedBid.bidId.toString()}:${selectedBidAmountRaw.toString()}`
+    : "";
+  const sellSetFieldTouched = formik.setFieldTouched;
+  const sellSetFieldValue = formik.setFieldValue;
+  const sellSetStatus = formik.setStatus;
+
+  useEffect(() => {
+    if (sellSelectionRef.current === sellSelectionKey) return;
+    sellSelectionRef.current = sellSelectionKey;
+
+    const amount =
+      selectedBidAmountRaw > 0n ? formatAmountInput(selectedBidAmountRaw, FRACTION_DECIMALS) : "";
+    void sellSetFieldValue("amount", amount, false);
+    void sellSetFieldTouched("amount", false, false);
+    sellSetStatus(undefined);
+  }, [
+    sellSelectionKey,
+    selectedBidAmountRaw,
+    sellSetFieldTouched,
+    sellSetFieldValue,
+    sellSetStatus,
+  ]);
+
+  const amountRaw = useMemo(
+    () => parseAmountRaw(formik.values.amount, FRACTION_DECIMALS),
+    [formik.values.amount],
+  );
   const expectedProceeds = useMemo(
     () =>
       selectedBid && amountRaw ? quoteRequiredPaymentRaw(amountRaw, selectedBid.priceRaw) : 0n,
@@ -473,20 +629,20 @@ export function SellTradeAction({
       title="Sell into bid"
       description="Fill an active bid and receive the quoted payment token in your wallet."
     >
-      <div className="space-y-3">
-        <label className="block text-xs text-[var(--muted)]">
-          Amount to sell ({market.fractionSymbol})
-          <Input
-            name="amount"
-            value={formik.values.amount}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            inputMode="decimal"
-            placeholder="1"
-          />
-        </label>
-        <FieldError error={formik.touched.amount ? formik.errors.amount : undefined} />
-      </div>
+      <AmountRatioField
+        error={formik.touched.amount ? formik.errors.amount : undefined}
+        label="Amount to sell"
+        name="amount"
+        onBlur={formik.handleBlur}
+        onChange={formik.handleChange}
+        onRatioChange={(value) => {
+          void formik.setFieldValue("amount", value);
+        }}
+        symbol={market.fractionSymbol}
+        totalLabel="Selected bid total"
+        totalRaw={selectedBidAmountRaw}
+        value={formik.values.amount}
+      />
 
       <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <SummaryRow
@@ -566,7 +722,7 @@ export function BidTradeAction({
             .string()
             .required("Enter the bid amount.")
             .test("valid-decimal", "Enter a valid amount.", (value) => {
-              return parseAmountRaw(value ?? "", 18) !== null;
+              return parseAmountRaw(value ?? "", FRACTION_DECIMALS) !== null;
             }),
           price: yup
             .string()
@@ -593,7 +749,10 @@ export function BidTradeAction({
     onSubmit: () => undefined,
   });
 
-  const amountRaw = useMemo(() => parseAmountRaw(formik.values.amount, 18), [formik.values.amount]);
+  const amountRaw = useMemo(
+    () => parseAmountRaw(formik.values.amount, FRACTION_DECIMALS),
+    [formik.values.amount],
+  );
   const priceRaw = useMemo(
     () => parseAmountRaw(formik.values.price, market.paymentTokenDecimals),
     [formik.values.price, market.paymentTokenDecimals],
