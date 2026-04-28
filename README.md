@@ -16,6 +16,17 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Trade MUSD Markets
+
+`/app/trade` defaults to MUSD quote markets. After the canonical marketplace seed task runs, it shows:
+
+- `fveBTC-W1 / MUSD`
+- `fveBTC-W4 / MUSD`
+- `fveMEZO-W52 / MUSD`
+- `fveMEZO-W208 / MUSD`
+
+To seed live ask and bid depth, run `NETWORK=<network> pnpm deploy:seed:musd` from the repo root or use the marketplace `marketplace:seed-orders --canonical-musd-markets` task documented in `packages/marketplace/README.md`. The UI reads live listings and bids from `Marketplace`, uses `PaymentRouter.MUSD` as the default quote token, and enables buy/sell actions through the existing marketplace and payment approval flows.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

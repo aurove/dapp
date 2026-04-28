@@ -68,13 +68,13 @@ export function TradeAssetCard({ asset, marketHref, onOpen }: TradeAssetCardProp
             </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-            <p className="text-xs text-[var(--muted)]">Ask liquidity</p>
+            <p className="text-xs text-[var(--muted)]">Ask depth</p>
             <p className="font-semibold text-[var(--foreground)]">
               {formatTokenAmount(asset.quoteLiquidity, 4)} {asset.paymentTokenSymbol}
             </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-            <p className="text-xs text-[var(--muted)]">Bid demand</p>
+            <p className="text-xs text-[var(--muted)]">Bid depth</p>
             <p className="font-semibold text-[var(--foreground)]">
               {formatTokenAmount(asset.quoteDemand, 4)} {asset.paymentTokenSymbol}
             </p>

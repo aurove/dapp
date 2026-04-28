@@ -190,7 +190,7 @@ export function useMarkets() {
 
   const [query, setQuery] = useState("");
   const [fractionFilter, setFractionFilter] = useState<"all" | TradeMarketBase>("all");
-  const [paymentFilter, setPaymentFilter] = useState<"all" | string>("all");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | string>("musd");
   const [stateFilter, setStateFilter] = useState<"all" | TradeMarketState>("all");
   const [activeOnly, setActiveOnly] = useState(false);
   const [sortBy, setSortBy] = useState<TradeMarketSortOption>(TRADE_MARKET_SORT_OPTIONS[0]!.value);
@@ -589,6 +589,13 @@ export function useMarkets() {
       });
     }
 
+    if (
+      musdAddress &&
+      !items.some((token) => token.address.toLowerCase() === musdAddress.toLowerCase())
+    ) {
+      items.unshift({ address: musdAddress, symbol: "MUSD", decimals: DEFAULT_DECIMALS });
+    }
+
     return items;
   }, [btcAddress, mezoAddress, musdAddress, paymentTokenReads.data, supportedTokens]);
 
@@ -973,6 +980,7 @@ export function useMarkets() {
       const matchesFraction = fractionFilter === "all" || market.fractionBase === fractionFilter;
       const matchesPayment =
         paymentFilter === "all" ||
+        (paymentFilter === "musd" && market.paymentTokenSymbol.toLowerCase() === "musd") ||
         market.paymentToken.toLowerCase() === paymentFilter.toLowerCase();
       const matchesState = stateFilter === "all" || market.state === stateFilter;
       const matchesActiveOnly = !activeOnly || market.state === "active";

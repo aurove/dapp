@@ -116,7 +116,7 @@ export function TradeAssetListing() {
   function clearFilters() {
     setQuery("");
     setFractionFilter("all");
-    setPaymentFilter("all");
+    setPaymentFilter("musd");
     setStateFilter("all");
     setSortBy("liquidity_desc");
     setActiveOnly(false);

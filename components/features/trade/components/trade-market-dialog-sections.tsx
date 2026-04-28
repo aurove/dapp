@@ -186,14 +186,14 @@ export function MarketDepthCard({ market }: MarketDepthCardProps) {
         </div>
 
         <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
-          <p className="text-xs text-[var(--muted)]">Ask liquidity</p>
+          <p className="text-xs text-[var(--muted)]">Ask depth</p>
           <p className="text-sm font-semibold text-[var(--foreground)]">
             {formatTokenAmount(market.quoteLiquidity)} {market.paymentTokenSymbol}
           </p>
         </div>
 
         <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
-          <p className="text-xs text-[var(--muted)]">Bid demand</p>
+          <p className="text-xs text-[var(--muted)]">Bid depth</p>
           <p className="text-sm font-semibold text-[var(--foreground)]">
             {formatTokenAmount(market.quoteDemand)} {market.paymentTokenSymbol}
           </p>
