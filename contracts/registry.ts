@@ -22,12 +22,22 @@ const contracts = {
         },
         {
           inputs: [
+            { internalType: "uint256", name: "claimAmount", type: "uint256" },
+            { internalType: "uint256", name: "rewardReserve", type: "uint256" },
+          ],
+          name: "InsufficientRewardReserve",
+          type: "error",
+        },
+        {
+          inputs: [
             { internalType: "uint256", name: "available", type: "uint256" },
             { internalType: "uint256", name: "required", type: "uint256" },
           ],
           name: "InsufficientSettledUnderlying",
           type: "error",
         },
+        { inputs: [], name: "InvalidRecipient", type: "error" },
+        { inputs: [], name: "InvalidRewardAsset", type: "error" },
         {
           inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
           name: "InvalidTrancheId",
@@ -55,6 +65,7 @@ const contracts = {
           name: "LockTrancheMismatch",
           type: "error",
         },
+        { inputs: [], name: "NoRewardsToClaim", type: "error" },
         {
           inputs: [{ internalType: "address", name: "caller", type: "address" }],
           name: "NotLedger",
@@ -75,6 +86,29 @@ const contracts = {
         {
           anonymous: false,
           inputs: [
+            { indexed: true, internalType: "address", name: "account", type: "address" },
+            { indexed: false, internalType: "uint256", name: "units", type: "uint256" },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "virtualRewardsAccrued",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "totalAccountVirtualRewards",
+              type: "uint256",
+            },
+            { indexed: false, internalType: "uint256", name: "rewardDebt", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "claimable", type: "uint256" },
+          ],
+          name: "AccountRewardsCheckpointed",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
             { indexed: true, internalType: "address", name: "to", type: "address" },
             { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
           ],
@@ -90,6 +124,68 @@ const contracts = {
             { indexed: false, internalType: "uint256", name: "assetsOut", type: "uint256" },
           ],
           name: "FractionsWithdrawn",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "rewardPerVirtualCreditIncrease",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "rewardPerVirtualCredit",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "undistributedRewards",
+              type: "uint256",
+            },
+          ],
+          name: "FundedRewardsDistributed",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: false, internalType: "uint256", name: "oldRewardRate", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "newRewardRate", type: "uint256" },
+          ],
+          name: "RewardRateUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "account", type: "address" },
+            { indexed: true, internalType: "address", name: "recipient", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "RewardsClaimed",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "funder", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "distributedAmount", type: "uint256" },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "undistributedRewards",
+              type: "uint256",
+            },
+            { indexed: false, internalType: "uint256", name: "rewardReserve", type: "uint256" },
+          ],
+          name: "RewardsFunded",
           type: "event",
         },
         {
@@ -142,9 +238,60 @@ const contracts = {
           type: "event",
         },
         {
+          anonymous: false,
+          inputs: [
+            { indexed: false, internalType: "uint256", name: "virtualRewards", type: "uint256" },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "virtualRewardPerUnitIncrease",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "virtualRewardPerUnit",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "rewardPerUnitIntegral",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "totalVirtualRewards",
+              type: "uint256",
+            },
+          ],
+          name: "VirtualRewardsSynced",
+          type: "event",
+        },
+        {
           inputs: [],
           name: "RELOCK_INVALID_WINDOW",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "account", type: "address" }],
+          name: "accountRewardData",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "virtualRewardPerUnitPaid", type: "uint256" },
+                { internalType: "uint256", name: "rewardPerUnitIntegralPaid", type: "uint256" },
+                { internalType: "uint256", name: "virtualRewards", type: "uint256" },
+                { internalType: "uint256", name: "rewardDebt", type: "uint256" },
+              ],
+              internalType: "struct Rewards.AccountRewardData",
+              name: "",
+              type: "tuple",
+            },
+          ],
           stateMutability: "view",
           type: "function",
         },
@@ -174,10 +321,34 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [{ internalType: "address", name: "recipient", type: "address" }],
+          name: "claimRewards",
+          outputs: [{ internalType: "uint256", name: "claimed", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "account", type: "address" }],
+          name: "claimableRewards",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [],
           name: "decimals",
           outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "funder", type: "address" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "fundRewardsFrom",
+          outputs: [{ internalType: "uint256", name: "received", type: "uint256" }],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -198,6 +369,13 @@ const contracts = {
           inputs: [{ internalType: "uint256", name: "veNftTokenId_", type: "uint256" }],
           name: "isVeNftHeld",
           outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "lastVirtualRewardUpdateTime",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
@@ -260,6 +438,41 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "rewardAsset",
+          outputs: [{ internalType: "contract IERC20", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardPerUnitIntegralStored",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardPerVirtualCreditStored",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardRate",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardReserve",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [{ internalType: "uint256[]", name: "veNftTokenIds_", type: "uint256[]" }],
           name: "settleExpired",
           outputs: [
@@ -299,7 +512,21 @@ const contracts = {
         },
         {
           inputs: [],
+          name: "totalVirtualRewards",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "trancheId",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "undistributedRewards",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
@@ -315,6 +542,13 @@ const contracts = {
           inputs: [],
           name: "veNFT",
           outputs: [{ internalType: "contract IVotingEscrow", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "virtualRewardPerUnitStored",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
@@ -435,6 +669,15 @@ const contracts = {
           anonymous: false,
           inputs: [
             { indexed: true, internalType: "address", name: "fraction", type: "address" },
+            { indexed: true, internalType: "address", name: "rewardNotifier", type: "address" },
+          ],
+          name: "AssetFractionRewardNotifierUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "fraction", type: "address" },
             { indexed: true, internalType: "address", name: "to", type: "address" },
             { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
           ],
@@ -448,6 +691,15 @@ const contracts = {
             { indexed: true, internalType: "address", name: "newOwner", type: "address" },
           ],
           name: "OwnershipTransferred",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "previousNotifier", type: "address" },
+            { indexed: true, internalType: "address", name: "newNotifier", type: "address" },
+          ],
+          name: "RewardNotifierUpdated",
           type: "event",
         },
         {
@@ -736,6 +988,13 @@ const contracts = {
           name: "sweepAssetFractionSurplus",
           outputs: [{ internalType: "uint256", name: "sweptAmount", type: "uint256" }],
           stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+          name: "totalSupply",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
           type: "function",
         },
         {
@@ -4804,12 +5063,22 @@ const contracts = {
         },
         {
           inputs: [
+            { internalType: "uint256", name: "claimAmount", type: "uint256" },
+            { internalType: "uint256", name: "rewardReserve", type: "uint256" },
+          ],
+          name: "InsufficientRewardReserve",
+          type: "error",
+        },
+        {
+          inputs: [
             { internalType: "uint256", name: "available", type: "uint256" },
             { internalType: "uint256", name: "required", type: "uint256" },
           ],
           name: "InsufficientSettledUnderlying",
           type: "error",
         },
+        { inputs: [], name: "InvalidRecipient", type: "error" },
+        { inputs: [], name: "InvalidRewardAsset", type: "error" },
         {
           inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
           name: "InvalidTrancheId",
@@ -4837,6 +5106,7 @@ const contracts = {
           name: "LockTrancheMismatch",
           type: "error",
         },
+        { inputs: [], name: "NoRewardsToClaim", type: "error" },
         {
           inputs: [{ internalType: "address", name: "caller", type: "address" }],
           name: "NotLedger",
@@ -4857,6 +5127,29 @@ const contracts = {
         {
           anonymous: false,
           inputs: [
+            { indexed: true, internalType: "address", name: "account", type: "address" },
+            { indexed: false, internalType: "uint256", name: "units", type: "uint256" },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "virtualRewardsAccrued",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "totalAccountVirtualRewards",
+              type: "uint256",
+            },
+            { indexed: false, internalType: "uint256", name: "rewardDebt", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "claimable", type: "uint256" },
+          ],
+          name: "AccountRewardsCheckpointed",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
             { indexed: true, internalType: "address", name: "to", type: "address" },
             { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
           ],
@@ -4872,6 +5165,68 @@ const contracts = {
             { indexed: false, internalType: "uint256", name: "assetsOut", type: "uint256" },
           ],
           name: "FractionsWithdrawn",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "rewardPerVirtualCreditIncrease",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "rewardPerVirtualCredit",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "undistributedRewards",
+              type: "uint256",
+            },
+          ],
+          name: "FundedRewardsDistributed",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: false, internalType: "uint256", name: "oldRewardRate", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "newRewardRate", type: "uint256" },
+          ],
+          name: "RewardRateUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "account", type: "address" },
+            { indexed: true, internalType: "address", name: "recipient", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "RewardsClaimed",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "funder", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "distributedAmount", type: "uint256" },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "undistributedRewards",
+              type: "uint256",
+            },
+            { indexed: false, internalType: "uint256", name: "rewardReserve", type: "uint256" },
+          ],
+          name: "RewardsFunded",
           type: "event",
         },
         {
@@ -4924,9 +5279,60 @@ const contracts = {
           type: "event",
         },
         {
+          anonymous: false,
+          inputs: [
+            { indexed: false, internalType: "uint256", name: "virtualRewards", type: "uint256" },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "virtualRewardPerUnitIncrease",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "virtualRewardPerUnit",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "rewardPerUnitIntegral",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "totalVirtualRewards",
+              type: "uint256",
+            },
+          ],
+          name: "VirtualRewardsSynced",
+          type: "event",
+        },
+        {
           inputs: [],
           name: "RELOCK_INVALID_WINDOW",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "account", type: "address" }],
+          name: "accountRewardData",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "virtualRewardPerUnitPaid", type: "uint256" },
+                { internalType: "uint256", name: "rewardPerUnitIntegralPaid", type: "uint256" },
+                { internalType: "uint256", name: "virtualRewards", type: "uint256" },
+                { internalType: "uint256", name: "rewardDebt", type: "uint256" },
+              ],
+              internalType: "struct Rewards.AccountRewardData",
+              name: "",
+              type: "tuple",
+            },
+          ],
           stateMutability: "view",
           type: "function",
         },
@@ -4956,10 +5362,34 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [{ internalType: "address", name: "recipient", type: "address" }],
+          name: "claimRewards",
+          outputs: [{ internalType: "uint256", name: "claimed", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "account", type: "address" }],
+          name: "claimableRewards",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [],
           name: "decimals",
           outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "funder", type: "address" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "fundRewardsFrom",
+          outputs: [{ internalType: "uint256", name: "received", type: "uint256" }],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -4980,6 +5410,13 @@ const contracts = {
           inputs: [{ internalType: "uint256", name: "veNftTokenId_", type: "uint256" }],
           name: "isVeNftHeld",
           outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "lastVirtualRewardUpdateTime",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
@@ -5042,6 +5479,41 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "rewardAsset",
+          outputs: [{ internalType: "contract IERC20", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardPerUnitIntegralStored",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardPerVirtualCreditStored",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardRate",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardReserve",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [{ internalType: "uint256[]", name: "veNftTokenIds_", type: "uint256[]" }],
           name: "settleExpired",
           outputs: [
@@ -5081,7 +5553,21 @@ const contracts = {
         },
         {
           inputs: [],
+          name: "totalVirtualRewards",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "trancheId",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "undistributedRewards",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
@@ -5097,6 +5583,13 @@ const contracts = {
           inputs: [],
           name: "veNFT",
           outputs: [{ internalType: "contract IVotingEscrow", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "virtualRewardPerUnitStored",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
