@@ -483,6 +483,13 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [{ internalType: "address", name: "account", type: "address" }],
+          name: "settledBalanceOf",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [],
           name: "settledUnderlying",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -532,6 +539,13 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [{ internalType: "address", name: "account", type: "address" }],
+          name: "unsettledBalanceOf",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [],
           name: "updateTargetEnd",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -560,6 +574,13 @@ const contracts = {
           name: "withdrawFractions",
           outputs: [{ internalType: "uint256", name: "assetsOut", type: "uint256" }],
           stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "account", type: "address" }],
+          name: "withdrawableBalanceOf",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
           type: "function",
         },
       ],
@@ -5524,6 +5545,13 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [{ internalType: "address", name: "account", type: "address" }],
+          name: "settledBalanceOf",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [],
           name: "settledUnderlying",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -5573,6 +5601,13 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [{ internalType: "address", name: "account", type: "address" }],
+          name: "unsettledBalanceOf",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [],
           name: "updateTargetEnd",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -5601,6 +5636,13 @@ const contracts = {
           name: "withdrawFractions",
           outputs: [{ internalType: "uint256", name: "assetsOut", type: "uint256" }],
           stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "account", type: "address" }],
+          name: "withdrawableBalanceOf",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
           type: "function",
         },
       ],
