@@ -1,25 +1,35 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { erc20Abi, type Abi, type Address } from "viem";
+import Link from "next/link";
+import { useMemo, useState, type ReactNode } from "react";
+import { erc20Abi, formatUnits, type Abi, type Address } from "viem";
 import {
   AlertTriangle,
   ArrowDownToLine,
+  ArrowRight,
+  BarChart3,
   CheckCircle2,
   Coins,
   Gauge,
   Gift,
   Layers3,
   Loader2,
+  LockKeyhole,
   RefreshCcw,
   RotateCcw,
+  Route,
+  ShieldCheck,
+  Sparkles,
   Timer,
+  TrendingUp,
   Wallet,
+  type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@fractals/ui/ui/badge";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { Input } from "@fractals/ui/ui/input";
+import { Progress } from "@fractals/ui/ui/progress";
 import { Skeleton } from "@fractals/ui/ui/skeleton";
 import {
   makeAddressWriteStep,
@@ -45,6 +55,21 @@ type UiStatus = {
   message: string;
 };
 
+const PRODUCT_COPY: Record<EarnAssetId, { title: string; description: string; accent: string }> = {
+  veBTC: {
+    title: "BTC-backed Earn exposure",
+    description:
+      "Convert supported BTC-side deposits into fungible fveBTC tranches without manually managing veNFT locks.",
+    accent: "BTC",
+  },
+  veMEZO: {
+    title: "MEZO boost and incentive exposure",
+    description:
+      "Access MEZO-aligned lock duration and reward routes as simple fungible Earn positions.",
+    accent: "MEZO",
+  },
+};
+
 function formatApr(value: number | null): string {
   if (value === null) return "Variable";
   if (value > 999) return ">999%";
@@ -55,6 +80,15 @@ function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+function formatCompactAmount(value: bigint, decimals: number, symbol: string): string {
+  const formatted = Number(formatUnits(value, decimals));
+  if (!Number.isFinite(formatted)) return `${formatRawTokenAmount(value, decimals)} ${symbol}`;
+  if (formatted === 0) return `0 ${symbol}`;
+  if (formatted >= 1_000_000) return `${(formatted / 1_000_000).toFixed(2)}M ${symbol}`;
+  if (formatted >= 1_000) return `${(formatted / 1_000).toFixed(2)}K ${symbol}`;
+  return `${formatRawTokenAmount(value, decimals)} ${symbol}`;
+}
+
 function txErrorMessage(value: unknown, fallback = "Transaction failed."): string {
   return typeof value === "string" && value.length > 0 ? value : fallback;
 }
@@ -63,13 +97,23 @@ function getVaultKey(vault: EarnVault): string {
   return vault.address.toLowerCase();
 }
 
+function vaultProgress(vault: EarnVault, nowTimestamp: number): number {
+  if (!vault.targetEnd || !vault.trancheNumber || vault.trancheNumber <= 0) return 0;
+  const duration = vault.trancheNumber * 7 * 24 * 60 * 60;
+  const target = Number(vault.targetEnd);
+  const start = target - duration;
+  if (nowTimestamp <= start) return 0;
+  if (nowTimestamp >= target) return 100;
+  return Math.max(0, Math.min(100, ((nowTimestamp - start) / duration) * 100));
+}
+
 function MetricCard({
   icon: Icon,
   label,
   value,
   detail,
 }: {
-  icon: typeof Gauge;
+  icon: LucideIcon;
   label: string;
   value: string;
   detail?: string;
@@ -110,11 +154,31 @@ function StatusBanner({ status }: { status: UiStatus | null }) {
   );
 }
 
-function SummaryRow({ label, value }: { label: string; value: React.ReactNode }) {
+function SummaryRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 text-sm">
       <span className="text-[var(--muted)]">{label}</span>
       <span className="min-w-0 text-right font-medium text-[var(--foreground)]">{value}</span>
+    </div>
+  );
+}
+
+function HowItWorksCard({
+  icon: Icon,
+  title,
+  body,
+}: {
+  icon: LucideIcon;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+      <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]">
+        <Icon className="h-4 w-4 text-[var(--accent-soft)]" />
+      </div>
+      <p className="mt-4 font-semibold text-[var(--foreground)]">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{body}</p>
     </div>
   );
 }
@@ -144,6 +208,7 @@ function DepositPanel({
 
   const selectedAsset =
     assetOptions.find((asset) => asset.id === selectedAssetId) ?? assetOptions[0] ?? null;
+  const selectedCopy = selectedAsset ? PRODUCT_COPY[selectedAsset.id] : null;
   const amountRaw = selectedAsset
     ? parsePositiveTokenAmount(amount, selectedAsset.underlyingDecimals)
     : null;
@@ -152,10 +217,10 @@ function DepositPanel({
   );
 
   const validationError = useMemo(() => {
-    if (!isConnected) return "Connect a wallet to deposit.";
+    if (!isConnected) return "Connect a wallet to create an Earn position.";
     if (!isCorrectNetwork) return `Switch to ${expectedChainName}.`;
     if (!assetLedgerAddress) return "AssetLedger is not configured for this network.";
-    if (!selectedAsset) return "No earn asset is configured.";
+    if (!selectedAsset) return "No Earn asset is configured.";
     if (!selectedAsset.enabled) return `${selectedAsset.label} deposits are not enabled.`;
     if (!selectedAsset.underlyingToken) return `${selectedAsset.label} token is unavailable.`;
     if (!amountRaw) return "Enter an amount greater than zero.";
@@ -179,7 +244,7 @@ function DepositPanel({
       {
         type: "custom",
         key: "deposit-preflight",
-        label: "Check deposit",
+        label: "Check Earn deposit",
         run: async () => {
           onStatus(null);
           if (validationError) throw new Error(validationError);
@@ -207,10 +272,10 @@ function DepositPanel({
       }) as unknown as TxStep,
       makeContractWriteStep({
         key: "deposit-underlying",
-        label: `Deposit ${selectedAsset.underlyingSymbol}`,
+        label: `Mint ${selectedAsset.label} Earn product`,
         contractName: "AssetLedger",
         variables: {
-          functionName: "mintFractionsFromErc20",
+          functionName: "depositErc20",
           args: [selectedAsset.veAddress, BigInt(trancheNumber), amountRaw, userAddress] as const,
         },
       }) as unknown as TxStep,
@@ -226,58 +291,97 @@ function DepositPanel({
   ]);
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
-        <div className="flex items-center gap-2">
-          <Coins className="h-4 w-4 text-[var(--accent-soft)]" />
-          <CardTitle className="text-lg">Deposit</CardTitle>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Coins className="h-4 w-4 text-[var(--accent-soft)]" />
+              <CardTitle className="text-lg">Create Earn Position</CardTitle>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              Choose the base asset and duration. Fractals mints a fungible product backed by the
+              underlying Mezo Earn lock.
+            </p>
+          </div>
+          <Badge className="shrink-0">1-click route</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-5 pt-0">
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-1">
+        <div className="grid gap-2 sm:grid-cols-2">
           {assetOptions.length > 0 ? (
-            assetOptions.map((asset) => (
-              <button
-                key={asset.id}
-                type="button"
-                disabled={!asset.enabled}
-                onClick={() => setSelectedAssetId(asset.id)}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-45 ${
-                  selectedAsset?.id === asset.id
-                    ? "bg-white/10 text-white"
-                    : "text-white/65 hover:bg-white/[0.06] hover:text-white"
-                }`}
-              >
-                {asset.label}
-              </button>
-            ))
+            assetOptions.map((asset) => {
+              const copy = PRODUCT_COPY[asset.id];
+              const active = selectedAsset?.id === asset.id;
+              return (
+                <button
+                  key={asset.id}
+                  type="button"
+                  disabled={!asset.enabled}
+                  onClick={() => setSelectedAssetId(asset.id)}
+                  className={`rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                    active
+                      ? "border-[var(--accent)]/55 bg-[var(--accent)]/10 text-white"
+                      : "border-white/10 bg-white/[0.02] text-white/70 hover:bg-white/[0.06] hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold">{asset.label}</span>
+                    <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-[var(--accent-soft)]">
+                      {copy.accent}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{copy.title}</p>
+                </button>
+              );
+            })
           ) : (
-            <div className="col-span-2 rounded-lg px-3 py-2 text-sm text-[var(--muted)]">
-              No assets configured
+            <div className="col-span-2 rounded-2xl border border-white/10 px-4 py-3 text-sm text-[var(--muted)]">
+              No assets configured on this network.
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-4 gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-1">
-          {DEFAULT_TRANCHE_OPTIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setTrancheNumber(option)}
-              className={`rounded-lg px-2 py-2 text-sm font-medium transition ${
-                trancheNumber === option
-                  ? "bg-white/10 text-white"
-                  : "text-white/65 hover:bg-white/[0.06] hover:text-white"
-              }`}
-            >
-              {option}w
-            </button>
-          ))}
+        {selectedCopy ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 text-sm leading-6 text-[var(--muted)]">
+            <span className="font-medium text-[var(--foreground)]">{selectedCopy.title}.</span>{" "}
+            {selectedCopy.description}
+          </div>
+        ) : null}
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-[var(--foreground)]">Lock duration</p>
+              <p className="text-xs text-[var(--muted)]">
+                Longer tranches can represent deeper Mezo Earn conviction.
+              </p>
+            </div>
+            <span className="text-xs font-medium text-[var(--accent-soft)]">
+              {trancheNumber} weeks
+            </span>
+          </div>
+          <div className="grid grid-cols-4 gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-1">
+            {DEFAULT_TRANCHE_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setTrancheNumber(option)}
+                className={`rounded-xl px-2 py-3 text-sm font-medium transition ${
+                  trancheNumber === option
+                    ? "bg-white/10 text-white"
+                    : "text-white/65 hover:bg-white/[0.06] hover:text-white"
+                }`}
+              >
+                {option}w
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3 text-xs text-[var(--muted)]">
-            <span>Amount</span>
+            <span>Deposit amount</span>
             <button
               type="button"
               className="font-medium text-[var(--accent-soft)] disabled:text-white/30"
@@ -303,7 +407,7 @@ function DepositPanel({
           />
         </div>
 
-        <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+        <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
           <SummaryRow
             label="Wallet balance"
             value={
@@ -316,27 +420,15 @@ function DepositPanel({
             }
           />
           <SummaryRow
-            label="Allowance"
-            value={
-              selectedAsset
-                ? `${formatRawTokenAmount(
-                    selectedAsset.allowanceRaw,
-                    selectedAsset.underlyingDecimals,
-                  )} ${selectedAsset.underlyingSymbol}`
-                : "-"
-            }
+            label="Approval"
+            value={approvalRequired ? "Required before deposit" : "Ready"}
           />
           <SummaryRow
-            label="Output"
-            value={selectedAsset ? `${selectedAsset.label} fractions` : "-"}
+            label="You receive"
+            value={selectedAsset ? `f${selectedAsset.label}-${trancheNumber}w shares` : "-"}
           />
+          <SummaryRow label="Position type" value="Fungible ERC1155 Earn product" />
         </div>
-
-        {approvalRequired ? (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-            Approval will run before the deposit.
-          </div>
-        ) : null}
 
         {validationError && isConnected ? (
           <p className="text-xs text-amber-100">{validationError}</p>
@@ -345,9 +437,10 @@ function DepositPanel({
         <TransactionFlowButton
           steps={depositSteps}
           disabled={depositSteps.length === 0 || Boolean(validationError)}
+          className="w-full"
           onComplete={() => {
             setAmount("");
-            onStatus({ type: "success", message: "Deposit confirmed." });
+            onStatus({ type: "success", message: "Earn position created." });
             onComplete();
           }}
           onError={(message) => {
@@ -357,7 +450,7 @@ function DepositPanel({
             state === "pending" ? <Loader2 className="h-4 w-4 animate-spin" /> : null
           }
         >
-          Deposit
+          Create Earn Position
         </TransactionFlowButton>
       </CardContent>
     </Card>
@@ -372,7 +465,7 @@ function VaultActionButton({
   onError,
   variant = "secondary",
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   disabled?: boolean;
   steps: TxStep[];
   onComplete: () => void;
@@ -404,6 +497,7 @@ function VaultCard({
   vault,
   withdrawValue,
   onWithdrawValueChange,
+  nowTimestamp,
 }: {
   assetFractionAbi?: Abi;
   onComplete: () => void;
@@ -412,16 +506,19 @@ function VaultCard({
   vault: EarnVault;
   withdrawValue: string;
   onWithdrawValueChange: (value: string) => void;
+  nowTimestamp: number;
 }) {
   const withdrawableRaw = vault.withdrawableBalanceRaw ?? 0n;
   const withdrawAmountRaw = parsePositiveTokenAmount(withdrawValue, vault.decimals);
   const maxWithdrawRaw = minBigint(withdrawableRaw, vault.userBalanceRaw);
+  const progress = vaultProgress(vault, nowTimestamp);
+  const withdrawalReady = vault.lifecycle === "settlement" && maxWithdrawRaw > 0n;
   const withdrawError = !userAddress
     ? "Connect wallet"
     : vault.lifecycle !== "settlement"
-      ? "Outside settlement"
+      ? "Redeem during settlement"
       : maxWithdrawRaw <= 0n
-        ? "No withdrawable balance"
+        ? "No redeemable balance"
         : !withdrawAmountRaw
           ? "Enter amount"
           : withdrawAmountRaw > maxWithdrawRaw
@@ -445,7 +542,7 @@ function VaultCard({
   }, [assetFractionAbi, userAddress, vault.address, vault.claimableRewardsRaw, vault.symbol]);
 
   const withdrawSteps = useMemo<TxStep[]>(() => {
-    if (!assetFractionAbi || !userAddress || !withdrawAmountRaw || withdrawError) return [];
+    if (!userAddress || !withdrawAmountRaw || withdrawError) return [];
     return [
       {
         type: "custom",
@@ -456,74 +553,33 @@ function VaultCard({
           return "skip";
         },
       },
-      makeAddressWriteStep({
+      makeContractWriteStep({
         key: `withdraw-${vault.address}`,
         label: `Redeem ${vault.symbol}`,
-        address: vault.address,
-        abi: assetFractionAbi,
+        contractName: "AssetLedger",
         variables: {
-          functionName: "withdrawFractions",
-          args: [withdrawAmountRaw, userAddress] as const,
+          functionName: "withdraw",
+          args: [vault.trancheId, withdrawAmountRaw, userAddress] as const,
         },
       }) as unknown as TxStep,
     ];
-  }, [
-    assetFractionAbi,
-    userAddress,
-    vault.address,
-    vault.symbol,
-    withdrawAmountRaw,
-    withdrawError,
-  ]);
+  }, [userAddress, vault.address, vault.symbol, vault.trancheId, withdrawAmountRaw, withdrawError]);
 
-  const settleTokenIds =
-    vault.expiredHeldTokenIds.length > 0 ? vault.expiredHeldTokenIds : vault.heldTokenIds;
-  const settleSteps = useMemo<TxStep[]>(() => {
-    if (!assetFractionAbi || settleTokenIds.length === 0 || vault.lifecycle !== "settlement") {
-      return [];
-    }
+  const rolloverSteps = useMemo<TxStep[]>(() => {
+    if (!assetFractionAbi || !vault.isRolloverAvailable) return [];
     return [
       makeAddressWriteStep({
-        key: `settle-${vault.address}`,
-        label: `Settle ${vault.symbol}`,
-        address: vault.address,
-        abi: assetFractionAbi,
-        variables: {
-          functionName: "settleExpired",
-          args: [settleTokenIds] as const,
-        },
-      }) as unknown as TxStep,
-    ];
-  }, [assetFractionAbi, settleTokenIds, vault.address, vault.lifecycle, vault.symbol]);
-
-  const relockTokenIds = vault.expiredHeldTokenIds.length > 0 ? vault.expiredHeldTokenIds : [];
-  const relockSteps = useMemo<TxStep[]>(() => {
-    const canRelock =
-      assetFractionAbi &&
-      vault.lifecycle === "rolled" &&
-      (vault.heldTokenIds.length > 0 || vault.settledUnderlyingRaw > 0n);
-    if (!canRelock) return [];
-    return [
-      makeAddressWriteStep({
-        key: `relock-${vault.address}`,
+        key: `rollover-${vault.address}`,
         label: `Rollover ${vault.symbol}`,
         address: vault.address,
         abi: assetFractionAbi,
         variables: {
-          functionName: "relock",
-          args: [relockTokenIds] as const,
+          functionName: "rollover",
+          args: [] as const,
         },
       }) as unknown as TxStep,
     ];
-  }, [
-    assetFractionAbi,
-    relockTokenIds,
-    vault.address,
-    vault.heldTokenIds.length,
-    vault.lifecycle,
-    vault.settledUnderlyingRaw,
-    vault.symbol,
-  ]);
+  }, [assetFractionAbi, vault.address, vault.isRolloverAvailable, vault.symbol]);
 
   const lifecycleClass =
     vault.lifecycle === "settlement"
@@ -532,18 +588,27 @@ function VaultCard({
         ? "border-sky-400/35 bg-sky-500/10 text-sky-100"
         : "border-emerald-400/35 bg-emerald-500/10 text-emerald-100";
 
+  const productName = vault.assetId
+    ? `${PRODUCT_COPY[vault.assetId].accent} ${vault.trancheNumber ?? "?"}w Earn`
+    : "Earn Product";
+
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader className="pb-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle className="text-lg">{vault.symbol}</CardTitle>
               <span className={`rounded-full border px-2 py-1 text-[10px] ${lifecycleClass}`}>
                 {lifecycleLabel(vault.lifecycle)}
               </span>
+              {vault.isRolloverAvailable ? (
+                <span className="rounded-full border border-sky-400/35 bg-sky-500/10 px-2 py-1 text-[10px] text-sky-100">
+                  Rollover ready
+                </span>
+              ) : null}
             </div>
-            <p className="mt-1 text-sm text-[var(--muted)]">{vault.name}</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">{productName}</p>
           </div>
           <div className="text-right">
             <p className="text-xl font-semibold text-[var(--foreground)]">
@@ -554,30 +619,53 @@ function VaultCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-5 pt-0">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+          <div className="flex items-center justify-between gap-3 text-xs text-[var(--muted)]">
+            <span>Lock maturity progress</span>
+            <span>{progress.toFixed(0)}%</span>
+          </div>
+          <Progress className="mt-3" value={progress} />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
+            <span>Target: {formatDateTime(vault.targetEnd)}</span>
+            <span>
+              {vault.targetEnd
+                ? formatDurationFromNow(vault.targetEnd, nowTimestamp)
+                : "No active target"}
+            </span>
+          </div>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-            <p className="text-xs text-[var(--muted)]">Total supply</p>
+            <p className="text-xs text-[var(--muted)]">Total product supply</p>
             <p className="mt-2 font-semibold text-[var(--foreground)]">
-              {formatRawTokenAmount(vault.totalSupplyRaw, vault.decimals)} {vault.symbol}
+              {formatCompactAmount(vault.totalSupplyRaw, vault.decimals, vault.symbol)}
             </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-            <p className="text-xs text-[var(--muted)]">My balance</p>
+            <p className="text-xs text-[var(--muted)]">My position</p>
             <p className="mt-2 font-semibold text-[var(--foreground)]">
-              {formatRawTokenAmount(vault.userBalanceRaw, vault.decimals)} {vault.symbol}
+              {formatCompactAmount(vault.userBalanceRaw, vault.decimals, vault.symbol)}
             </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-            <p className="text-xs text-[var(--muted)]">Claimable</p>
+            <p className="text-xs text-[var(--muted)]">Claimable rewards</p>
             <p className="mt-2 font-semibold text-[var(--foreground)]">
-              {formatRawTokenAmount(vault.claimableRewardsRaw, vault.rewardDecimals)}{" "}
-              {vault.rewardSymbol}
+              {formatCompactAmount(
+                vault.claimableRewardsRaw,
+                vault.rewardDecimals,
+                vault.rewardSymbol,
+              )}
             </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-            <p className="text-xs text-[var(--muted)]">Settlement</p>
+            <p className="text-xs text-[var(--muted)]">Reward reserve</p>
             <p className="mt-2 font-semibold text-[var(--foreground)]">
-              {formatDateTime(vault.targetEnd)}
+              {formatCompactAmount(
+                vault.rewardReserveRaw,
+                vault.rewardDecimals,
+                vault.rewardSymbol,
+              )}
             </p>
           </div>
         </div>
@@ -585,51 +673,25 @@ function VaultCard({
         <div className="grid gap-3 lg:grid-cols-3">
           <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4">
             <SummaryRow
-              label="Settled"
-              value={
-                vault.settledBalanceRaw === null
-                  ? "-"
-                  : `${formatRawTokenAmount(vault.settledBalanceRaw, vault.decimals)} ${
-                      vault.symbol
-                    }`
-              }
+              label="Tranche"
+              value={vault.trancheNumber ? `${vault.trancheNumber} weeks` : "-"}
             />
-            <SummaryRow
-              label="Unsettled"
-              value={
-                vault.unsettledBalanceRaw === null
-                  ? "-"
-                  : `${formatRawTokenAmount(vault.unsettledBalanceRaw, vault.decimals)} ${
-                      vault.symbol
-                    }`
-              }
-            />
-            <SummaryRow
-              label="Reserve"
-              value={`${formatRawTokenAmount(vault.settledUnderlyingRaw, vault.decimals)} ${
-                vault.rewardSymbol
-              }`}
-            />
+            <SummaryRow label="Backing veNFTs" value={`${vault.heldCount.toString()} held`} />
+            <SummaryRow label="Expired locks" value={vault.expiredHeldTokenIds.length.toString()} />
           </div>
 
           <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4">
             <SummaryRow
-              label="Held veNFTs"
-              value={`${vault.heldCount.toString()} (${vault.expiredHeldTokenIds.length} expired)`}
+              label="Settled balance"
+              value={`${formatRawTokenAmount(vault.settledBalanceRaw ?? 0n, vault.decimals)} ${vault.symbol}`}
             />
             <SummaryRow
-              label="Reward reserve"
-              value={`${formatRawTokenAmount(vault.rewardReserveRaw, vault.rewardDecimals)} ${
-                vault.rewardSymbol
-              }`}
+              label="Unsettled balance"
+              value={`${formatRawTokenAmount(vault.unsettledBalanceRaw ?? 0n, vault.decimals)} ${vault.symbol}`}
             />
             <SummaryRow
-              label="Target"
-              value={
-                vault.targetEnd
-                  ? formatDurationFromNow(vault.targetEnd, Math.floor(Date.now() / 1000))
-                  : "-"
-              }
+              label="Underlying reserve"
+              value={`${formatRawTokenAmount(vault.settledUnderlyingRaw, vault.decimals)} units`}
             />
           </div>
 
@@ -653,65 +715,64 @@ function VaultCard({
               inputMode="decimal"
               placeholder="0.00"
             />
-            {withdrawError && withdrawValue ? (
+            {withdrawError && (withdrawValue || withdrawalReady) ? (
               <p className="text-xs text-amber-100">{withdrawError}</p>
             ) : null}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <VaultActionButton
-            steps={claimSteps}
-            disabled={vault.claimableRewardsRaw <= 0n}
-            onComplete={() => {
-              onStatus({ type: "success", message: `${vault.symbol} rewards claimed.` });
-              onComplete();
-            }}
-            onError={(message) => onStatus({ type: "error", message })}
-          >
-            <Gift className="h-3.5 w-3.5" />
-            Claim
-          </VaultActionButton>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            <VaultActionButton
+              steps={claimSteps}
+              disabled={vault.claimableRewardsRaw <= 0n}
+              onComplete={() => {
+                onStatus({ type: "success", message: `${vault.symbol} rewards claimed.` });
+                onComplete();
+              }}
+              onError={(message) => onStatus({ type: "error", message })}
+            >
+              <Gift className="h-3.5 w-3.5" />
+              Claim
+            </VaultActionButton>
 
-          <VaultActionButton
-            steps={withdrawSteps}
-            disabled={Boolean(withdrawError)}
-            onComplete={() => {
-              onWithdrawValueChange("");
-              onStatus({ type: "success", message: `${vault.symbol} redeemed.` });
-              onComplete();
-            }}
-            onError={(message) => onStatus({ type: "error", message })}
-          >
-            <ArrowDownToLine className="h-3.5 w-3.5" />
-            Redeem
-          </VaultActionButton>
+            <VaultActionButton
+              steps={withdrawSteps}
+              disabled={Boolean(withdrawError)}
+              onComplete={() => {
+                onWithdrawValueChange("");
+                onStatus({ type: "success", message: `${vault.symbol} redeemed.` });
+                onComplete();
+              }}
+              onError={(message) => onStatus({ type: "error", message })}
+            >
+              <ArrowDownToLine className="h-3.5 w-3.5" />
+              Redeem
+            </VaultActionButton>
 
-          <VaultActionButton
-            steps={settleSteps}
-            disabled={settleSteps.length === 0}
-            onComplete={() => {
-              onStatus({ type: "success", message: `${vault.symbol} settlement updated.` });
-              onComplete();
-            }}
-            onError={(message) => onStatus({ type: "error", message })}
-          >
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Settle
-          </VaultActionButton>
+            <VaultActionButton
+              steps={rolloverSteps}
+              disabled={rolloverSteps.length === 0}
+              onComplete={() => {
+                onStatus({
+                  type: "success",
+                  message: `${vault.symbol} rolled into the next Earn cycle.`,
+                });
+                onComplete();
+              }}
+              onError={(message) => onStatus({ type: "error", message })}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Rollover
+            </VaultActionButton>
+          </div>
 
-          <VaultActionButton
-            steps={relockSteps}
-            disabled={relockSteps.length === 0}
-            onComplete={() => {
-              onStatus({ type: "success", message: `${vault.symbol} rolled forward.` });
-              onComplete();
-            }}
-            onError={(message) => onStatus({ type: "error", message })}
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Rollover
-          </VaultActionButton>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/app/trade">
+              Trade product
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -725,6 +786,7 @@ function LoadingVaults() {
         <Card key={item}>
           <CardContent className="space-y-4 p-5">
             <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-3 w-full" />
             <div className="grid gap-3 sm:grid-cols-4">
               <Skeleton className="h-20" />
               <Skeleton className="h-20" />
@@ -750,9 +812,15 @@ export function EarnPageContent() {
 
   const userVaults = earn.vaults.filter((vault) => vault.hasUserPosition);
   const visibleVaults = userVaults.length > 0 ? userVaults : earn.vaults;
+  const rewardSymbol =
+    earn.vaults.find((vault) => vault.rewardReserveRaw > 0n)?.rewardSymbol ?? "rewards";
 
   const connectedStatus = !earn.isConnected
-    ? { type: "info" as const, message: "Connect a wallet to view balances and transact." }
+    ? {
+        type: "info" as const,
+        message:
+          "Connect a wallet to view balances, create Earn positions, claim rewards, and redeem mature tranches.",
+      }
     : !earn.isCorrectNetwork
       ? {
           type: "error" as const,
@@ -762,45 +830,88 @@ export function EarnPageContent() {
 
   return (
     <section className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0 space-y-3">
-              <Badge className="w-fit">Earn</Badge>
-              <CardTitle className="max-w-3xl text-2xl sm:text-3xl">
-                Optimised yield routing for fractional ve exposure.
-              </CardTitle>
-              <p className="max-w-3xl text-sm leading-7 text-[var(--muted)] sm:text-base">
-                Deposit supported assets into tranche vaults, track rewards, settle expired backing,
-                and redeem during settlement windows.
-              </p>
+      <Card className="overflow-hidden border-[var(--accent)]/25 bg-[radial-gradient(circle_at_top_left,rgba(204,185,143,0.16),transparent_34%),rgba(255,255,255,0.02)]">
+        <CardContent className="p-6 sm:p-8">
+          <div className="grid gap-8 lg:grid-cols-[1.45fr_0.9fr] lg:items-center">
+            <div className="space-y-5">
+              <Badge className="w-fit">Fractals Earn</Badge>
+              <div className="space-y-3">
+                <h1 className="max-w-4xl text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-5xl">
+                  Mezo Earn, simplified into fungible yield products.
+                </h1>
+                <p className="max-w-3xl text-sm leading-7 text-[var(--muted)] sm:text-base">
+                  Fractals turns complex veBTC / veMEZO positions, gauges, lock durations, boosts,
+                  rewards, and incentive routing into simple Earn products users can understand,
+                  trade, claim from, and redeem.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild>
+                  <a href="#create-earn-position">
+                    Create Earn position
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
+                </Button>
+                <Button asChild variant="secondary">
+                  <Link href="/app/trade">
+                    Trade fractions
+                    <BarChart3 className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button variant="ghost" onClick={earn.refresh} disabled={earn.isFetching}>
+                  <RefreshCcw className={`h-4 w-4 ${earn.isFetching ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+              </div>
             </div>
-            <Button variant="secondary" size="sm" onClick={earn.refresh} disabled={earn.isFetching}>
-              <RefreshCcw className={`h-3.5 w-3.5 ${earn.isFetching ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
+
+            <div className="rounded-3xl border border-white/10 bg-black/20 p-5 shadow-2xl shadow-black/20">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                    Current network
+                  </p>
+                  <p className="mt-1 font-semibold text-[var(--foreground)]">
+                    {earn.activeChain.name}
+                  </p>
+                </div>
+                <ShieldCheck className="h-5 w-5 text-[var(--accent-soft)]" />
+              </div>
+              <div className="mt-5 grid gap-3">
+                <SummaryRow
+                  label="Connected account"
+                  value={earn.userAddress ? formatAddress(earn.userAddress) : "-"}
+                />
+                <SummaryRow label="Live Earn products" value={earn.portfolioSummary.vaultCount} />
+                <SummaryRow label="My positions" value={earn.portfolioSummary.positionCount} />
+                <SummaryRow
+                  label="Next maturity"
+                  value={formatDateTime(earn.portfolioSummary.nextSettlementAt)}
+                />
+              </div>
+            </div>
           </div>
-        </CardHeader>
+        </CardContent>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={Layers3}
-          label="Vaults"
+          label="Earn products"
           value={earn.portfolioSummary.vaultCount.toString()}
-          detail={`${earn.portfolioSummary.positionCount} with wallet balance`}
+          detail={`${earn.portfolioSummary.activeCount} active, ${earn.portfolioSummary.rolloverCount} rollover-ready`}
         />
         <MetricCard
           icon={Gauge}
           label="Top Virtual APR"
           value={formatApr(topApr)}
-          detail="Based on reward rate and vault supply"
+          detail="Based on reward rate and live product supply"
         />
         <MetricCard
           icon={Gift}
-          label="Claimable"
+          label="Claimable routes"
           value={earn.portfolioSummary.claimableCount.toString()}
-          detail="Vaults with funded rewards"
+          detail={`Vaults with claimable ${rewardSymbol}`}
         />
         <MetricCard
           icon={Timer}
@@ -814,10 +925,33 @@ export function EarnPageContent() {
         />
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-4">
+        <HowItWorksCard
+          icon={LockKeyhole}
+          title="Lock complexity abstracted"
+          body="Users choose an Earn product while Fractals routes deposits into supported veBTC or veMEZO lock tranches."
+        />
+        <HowItWorksCard
+          icon={Route}
+          title="Gauge and boost context simplified"
+          body="The page presents tranche duration, maturity, reward reserve, and claimable rewards without exposing every routing primitive."
+        />
+        <HowItWorksCard
+          icon={Sparkles}
+          title="Fungible output"
+          body="Instead of managing a single veNFT, users receive ERC1155 fraction shares that represent a simple Earn product."
+        />
+        <HowItWorksCard
+          icon={TrendingUp}
+          title="Trade or redeem"
+          body="Positions can be used in the Trade flow, claimed from, rolled forward, or redeemed when the settlement lifecycle allows it."
+        />
+      </div>
+
       <StatusBanner status={connectedStatus ?? status} />
       {earn.error ? <StatusBanner status={{ type: "error", message: earn.error.message }} /> : null}
 
-      <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
+      <div id="create-earn-position" className="grid gap-4 lg:grid-cols-[430px_1fr]">
         <DepositPanel
           assetLedgerAddress={earn.assetLedger?.address}
           assetOptions={earn.assetOptions}
@@ -833,17 +967,40 @@ export function EarnPageContent() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Wallet className="h-4 w-4 text-[var(--accent-soft)]" />
-              <CardTitle className="text-lg">Portfolio</CardTitle>
+              <CardTitle className="text-lg">Portfolio Command Centre</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="space-y-2 pt-0">
-            <SummaryRow
-              label="Connected account"
-              value={earn.userAddress ? formatAddress(earn.userAddress) : "-"}
-            />
-            <SummaryRow label="Network" value={earn.activeChain.name} />
-            <SummaryRow label="Claimable vaults" value={earn.portfolioSummary.claimableCount} />
-            <SummaryRow label="Redeemable vaults" value={earn.portfolioSummary.withdrawableCount} />
+          <CardContent className="grid gap-4 pt-0 sm:grid-cols-2">
+            <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+              <SummaryRow
+                label="Account"
+                value={earn.userAddress ? formatAddress(earn.userAddress) : "-"}
+              />
+              <SummaryRow label="Network" value={earn.activeChain.name} />
+              <SummaryRow label="Earn positions" value={earn.portfolioSummary.positionCount} />
+              <SummaryRow label="Redeemable" value={earn.portfolioSummary.withdrawableCount} />
+            </div>
+            <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+              <SummaryRow label="Claimable products" value={earn.portfolioSummary.claimableCount} />
+              <SummaryRow label="Rollover-ready" value={earn.portfolioSummary.rolloverCount} />
+              <SummaryRow label="Known products" value={earn.portfolioSummary.vaultCount} />
+              <SummaryRow
+                label="Reward reserve"
+                value={formatCompactAmount(
+                  earn.portfolioSummary.totalRewardReserveRaw,
+                  18,
+                  rewardSymbol,
+                )}
+              />
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:col-span-2">
+              <p className="text-sm font-medium text-[var(--foreground)]">Product IA</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                Fractals presents Mezo Earn as a set of simple, fungible products. Users do not need
+                to reason through every veNFT, gauge, lock duration, boost, reward path, or
+                incentive route before participating.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -852,14 +1009,20 @@ export function EarnPageContent() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
-              {userVaults.length > 0 ? "My Earn Positions" : "Earn Vaults"}
+              {userVaults.length > 0 ? "My Earn Products" : "Available Earn Products"}
             </h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
               {userVaults.length > 0
-                ? "Wallet balances and available actions from live contracts."
-                : "Live vaults discovered through AssetLedger."}
+                ? "Live wallet balances, claimable rewards, maturity status, rollover readiness, and redemption controls."
+                : "Products discovered from AssetLedger and displayed through the current contract ABIs."}
             </p>
           </div>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/app/trade">
+              Open Trade
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
         </div>
 
         {earn.isLoading ? (
@@ -869,9 +1032,9 @@ export function EarnPageContent() {
             <CardContent className="flex flex-col items-start gap-3 p-6">
               <Layers3 className="h-5 w-5 text-[var(--accent-soft)]" />
               <div>
-                <p className="font-medium text-[var(--foreground)]">No vaults deployed</p>
+                <p className="font-medium text-[var(--foreground)]">No Earn products deployed</p>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  AssetLedger has no registered fraction vaults on this network.
+                  AssetLedger has no registered fraction products on this network yet.
                 </p>
               </div>
             </CardContent>
@@ -893,6 +1056,7 @@ export function EarnPageContent() {
                 }
                 onComplete={earn.refresh}
                 onStatus={setStatus}
+                nowTimestamp={earn.blockTimestamp}
               />
             ))}
           </div>

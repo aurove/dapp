@@ -18,7 +18,7 @@ import type {
 } from "viem";
 import type { Config, UseReadContractParameters, UseWatchContractEventParameters } from "wagmi";
 import type { WriteContractParameters, WriteContractReturnType } from "wagmi/actions";
-import type { WriteContractVariables } from "wagmi/query";
+import type { WriteContractVariables as WagmiWriteContractVariables } from "wagmi/query";
 
 export type InheritedFunctions = { readonly [key: string]: string };
 
@@ -174,7 +174,7 @@ export type AnyWriteContractVariables<TAbi extends Abi = Abi> = [
       >]: WriteContractVariables<TAbi, TFunctionName>;
     }[ContractFunctionName<TAbi, WriteAbiStateMutability>];
 
-type WriteVariables = WriteContractVariables<Abi, string, readonly unknown[], Config, number>;
+type WriteVariables = WagmiWriteContractVariables<Abi, string, readonly unknown[], Config, number>;
 
 export type TransactorFuncOptions = {
   onBlockConfirmation?: (txnReceipt: TransactionReceipt) => void;
