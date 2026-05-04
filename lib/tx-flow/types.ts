@@ -1,6 +1,6 @@
 import type { ContractFunctionName, TransactionReceipt } from "viem";
 import type { WriteAbiStateMutability } from "@/contracts/types";
-import type { ContractAbi, ScaffoldWriteContractVariables } from "@/contracts/types";
+import type { ContractAbi, WriteContractVariables } from "@/contracts/types";
 import type { RegistryContractConfig, RegistryContractName } from "@/contracts/client";
 import contracts from "@/contracts/registry";
 import type { usePublicClient, useWriteContract } from "wagmi";
@@ -98,12 +98,12 @@ export type TxWriteFunctionName<TAbi extends ContractAbi> = ContractFunctionName
 export type TxContractWritePayload<
   TAbi extends ContractAbi,
   TFunctionName extends TxWriteFunctionName<TAbi>,
-> = ScaffoldWriteContractVariables<TAbi, TFunctionName>;
+> = WriteContractVariables<TAbi, TFunctionName>;
 
 export type TxAddressWritePayload<
   TAbi extends ContractAbi,
   TFunctionName extends TxWriteFunctionName<TAbi>,
-> = ScaffoldWriteContractVariables<TAbi, TFunctionName>;
+> = WriteContractVariables<TAbi, TFunctionName>;
 
 export type TxWriteCall<
   TAbi extends ContractAbi = ContractAbi,

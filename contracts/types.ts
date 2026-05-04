@@ -117,7 +117,7 @@ type OptionalTuple<T> = T extends readonly [infer H, ...infer R]
     ? T
     : readonly unknown[];
 
-type UseScaffoldArgsParam<
+type UseArgsParam<
   TAbi extends Abi,
   TFunctionName extends ContractFunctionName<TAbi>,
 > = Abi extends TAbi
@@ -138,24 +138,24 @@ type UseScaffoldArgsParam<
         args?: never;
       };
 
-export type UseScaffoldReadConfig<
+export type UseReadConfig<
   TAbi extends Abi,
   TFunctionName extends ContractFunctionName<TAbi, ReadAbiStateMutability>,
 > = {
   watch?: boolean;
   functionName: TFunctionName;
-} & UseScaffoldArgsParam<TAbi, TFunctionName> &
+} & UseArgsParam<TAbi, TFunctionName> &
   Omit<
     UseReadContractParameters<TAbi, TFunctionName>,
     "chainId" | "abi" | "address" | "functionName" | "args"
   >;
 
-export type ScaffoldWriteContractVariables<
+export type WriteContractVariables<
   TAbi extends Abi,
   TFunctionName extends ContractFunctionName<TAbi, WriteAbiStateMutability>,
 > = {
   functionName: TFunctionName;
-} & UseScaffoldArgsParam<TAbi, TFunctionName> &
+} & UseArgsParam<TAbi, TFunctionName> &
   Omit<WriteContractParameters, "chainId" | "abi" | "address" | "functionName" | "args">;
 
 type FallbackWriteVariables = {
@@ -163,7 +163,7 @@ type FallbackWriteVariables = {
   args?: readonly unknown[] | Record<string, unknown>;
 } & Omit<WriteContractParameters, "chainId" | "abi" | "address" | "functionName" | "args">;
 
-export type AnyScaffoldWriteContractVariables<TAbi extends Abi = Abi> = [
+export type AnyWriteContractVariables<TAbi extends Abi = Abi> = [
   ContractFunctionName<TAbi, WriteAbiStateMutability>,
 ] extends [never]
   ? FallbackWriteVariables
@@ -171,7 +171,7 @@ export type AnyScaffoldWriteContractVariables<TAbi extends Abi = Abi> = [
       [TFunctionName in ContractFunctionName<
         TAbi,
         WriteAbiStateMutability
-      >]: ScaffoldWriteContractVariables<TAbi, TFunctionName>;
+      >]: WriteContractVariables<TAbi, TFunctionName>;
     }[ContractFunctionName<TAbi, WriteAbiStateMutability>];
 
 type WriteVariables = WriteContractVariables<Abi, string, readonly unknown[], Config, number>;
@@ -181,7 +181,7 @@ export type TransactorFuncOptions = {
   blockConfirmations?: number;
 };
 
-export type ScaffoldWriteContractOptions = MutateOptions<
+export type WriteContractOptions = MutateOptions<
   WriteContractReturnType,
   WriteContractErrorType,
   WriteVariables,
@@ -189,7 +189,7 @@ export type ScaffoldWriteContractOptions = MutateOptions<
 > &
   TransactorFuncOptions;
 
-export type UseScaffoldEventConfig<TAbi extends Abi, TEventName extends ContractEventName<TAbi>> = {
+export type UseEventConfig<TAbi extends Abi, TEventName extends ContractEventName<TAbi>> = {
   eventName: TEventName;
 } & Omit<
   UseWatchContractEventParameters<TAbi, TEventName>,
@@ -213,7 +213,7 @@ export type EventFilters<TAbi extends Abi, TEventName extends ContractEventName<
         >;
       };
 
-export type UseScaffoldEventHistoryConfig<
+export type UseEventHistoryConfig<
   TAbi extends Abi,
   TEventName extends ContractEventName<TAbi>,
   TBlockData extends boolean = false,
@@ -230,7 +230,7 @@ export type UseScaffoldEventHistoryConfig<
   enabled?: boolean;
 };
 
-export type UseScaffoldEventHistoryData<
+export type UseEventHistoryData<
   TAbi extends Abi,
   TEventName extends ContractEventName<TAbi>,
   TBlockData extends boolean = false,
