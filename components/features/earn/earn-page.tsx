@@ -181,12 +181,12 @@ export function EarnPage() {
             </div>
             <div className="max-w-3xl space-y-3">
               <h1 className="text-balance text-3xl font-semibold tracking-tight text-white md:text-5xl">
-                Earn products that turn veBTC and veMEZO locks into usable claims.
+                Mezo Earn, simplified into fungible yield products.
               </h1>
               <p className="text-base leading-7 text-white/68 md:text-lg">
-                Create a locked Mezo/Tigris veNFT position through Fractals and receive fungible
-                ERC1155 claims for the tranche. The claim can be held, traded, rewarded, rolled, or
-                redeemed when the contract lifecycle allows it.
+                Fractals turns complex veBTC / veMEZO positions, gauges, lock durations, boosts,
+                rewards, and incentive routing into simple Earn products users can understand,
+                trade, claim from, and redeem.
               </p>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CandlestickChart, WalletCards } from "lucide-react";
+import { BarChart3, CandlestickChart } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "@fractals/ui/lib/cn";
 
@@ -13,9 +13,8 @@ type AppRoute = {
 };
 
 export const appRoutes: AppRoute[] = [
-  { href: "/app", label: "Overview", icon: WalletCards },
+  { href: "/app", label: "Earn", icon: BarChart3 },
   { href: "/app/trade", label: "Trade", icon: CandlestickChart },
-  { href: "/app/earn", label: "Earn", icon: BarChart3 },
 ];
 
 type AppNavProps = {

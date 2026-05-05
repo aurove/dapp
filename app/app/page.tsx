@@ -1,5 +1,5 @@
-import { AppEntry } from "@/components/app/app-entry";
+import { EarnPage } from "@/components/features/earn";
 
 export default function AppOverviewPage() {
-  return <AppEntry />;
+  return <EarnPage />;
 }
