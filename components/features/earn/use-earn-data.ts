@@ -446,11 +446,11 @@ export function useEarnData() {
     supportedVeNfts,
     tokens,
     isLoading:
-      countRead.isPending ||
-      fractionAddressReads.isPending ||
-      fractionReads.isPending ||
-      tokenAddressReads.isPending ||
-      tokenMetaReads.isPending,
+      countRead.isLoading ||
+      fractionAddressReads.isLoading ||
+      fractionReads.isLoading ||
+      tokenAddressReads.isLoading ||
+      tokenMetaReads.isLoading,
     isFetching:
       countRead.isFetching ||
       fractionAddressReads.isFetching ||

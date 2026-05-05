@@ -363,6 +363,16 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [
+            { internalType: "address", name: "account", type: "address" },
+            { internalType: "address", name: "recipient", type: "address" },
+          ],
+          name: "claimRewardsFor",
+          outputs: [{ internalType: "uint256", name: "claimed", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
           name: "claimableRewards",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -606,6 +616,14 @@ const contracts = {
           stateMutability: "nonpayable",
           type: "constructor",
         },
+        {
+          inputs: [
+            { internalType: "address", name: "account", type: "address" },
+            { internalType: "address", name: "recipient", type: "address" },
+          ],
+          name: "InvalidRewardRecipient",
+          type: "error",
+        },
         { inputs: [], name: "InvalidTranche", type: "error" },
         {
           inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
@@ -623,6 +641,14 @@ const contracts = {
         {
           inputs: [{ internalType: "address", name: "caller", type: "address" }],
           name: "UnauthorizedAssetFraction",
+          type: "error",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "account", type: "address" },
+            { internalType: "address", name: "operator", type: "address" },
+          ],
+          name: "UnauthorizedRewardClaim",
           type: "error",
         },
         {
@@ -672,6 +698,17 @@ const contracts = {
             { indexed: false, internalType: "string", name: "fractionName", type: "string" },
           ],
           name: "AssetFractionDeployed",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "account", type: "address" },
+            { indexed: true, internalType: "address", name: "recipient", type: "address" },
+            { indexed: true, internalType: "address", name: "fraction", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "AssetFractionRewardsClaimed",
           type: "event",
         },
         {
@@ -830,6 +867,27 @@ const contracts = {
           name: "balanceOfBatch",
           outputs: [{ internalType: "uint256[]", name: "", type: "uint256[]" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256[]", name: "trancheIds", type: "uint256[]" },
+            { internalType: "address", name: "recipient", type: "address" },
+          ],
+          name: "claimRewards",
+          outputs: [{ internalType: "uint256[]", name: "claimed", type: "uint256[]" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "account", type: "address" },
+            { internalType: "uint256[]", name: "trancheIds", type: "uint256[]" },
+            { internalType: "address", name: "recipient", type: "address" },
+          ],
+          name: "claimRewardsFor",
+          outputs: [{ internalType: "uint256[]", name: "claimed", type: "uint256[]" }],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -6723,6 +6781,16 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [
+            { internalType: "address", name: "account", type: "address" },
+            { internalType: "address", name: "recipient", type: "address" },
+          ],
+          name: "claimRewardsFor",
+          outputs: [{ internalType: "uint256", name: "claimed", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
           name: "claimableRewards",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -6966,6 +7034,14 @@ const contracts = {
           stateMutability: "nonpayable",
           type: "constructor",
         },
+        {
+          inputs: [
+            { internalType: "address", name: "account", type: "address" },
+            { internalType: "address", name: "recipient", type: "address" },
+          ],
+          name: "InvalidRewardRecipient",
+          type: "error",
+        },
         { inputs: [], name: "InvalidTranche", type: "error" },
         {
           inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
@@ -6983,6 +7059,14 @@ const contracts = {
         {
           inputs: [{ internalType: "address", name: "caller", type: "address" }],
           name: "UnauthorizedAssetFraction",
+          type: "error",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "account", type: "address" },
+            { internalType: "address", name: "operator", type: "address" },
+          ],
+          name: "UnauthorizedRewardClaim",
           type: "error",
         },
         {
@@ -7032,6 +7116,17 @@ const contracts = {
             { indexed: false, internalType: "string", name: "fractionName", type: "string" },
           ],
           name: "AssetFractionDeployed",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "account", type: "address" },
+            { indexed: true, internalType: "address", name: "recipient", type: "address" },
+            { indexed: true, internalType: "address", name: "fraction", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "AssetFractionRewardsClaimed",
           type: "event",
         },
         {
@@ -7190,6 +7285,27 @@ const contracts = {
           name: "balanceOfBatch",
           outputs: [{ internalType: "uint256[]", name: "", type: "uint256[]" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256[]", name: "trancheIds", type: "uint256[]" },
+            { internalType: "address", name: "recipient", type: "address" },
+          ],
+          name: "claimRewards",
+          outputs: [{ internalType: "uint256[]", name: "claimed", type: "uint256[]" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "account", type: "address" },
+            { internalType: "uint256[]", name: "trancheIds", type: "uint256[]" },
+            { internalType: "address", name: "recipient", type: "address" },
+          ],
+          name: "claimRewardsFor",
+          outputs: [{ internalType: "uint256[]", name: "claimed", type: "uint256[]" }],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {

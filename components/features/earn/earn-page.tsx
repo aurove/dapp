@@ -3,9 +3,8 @@
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { CheckCircle2, Coins, LockKeyhole, RefreshCw, Sparkles, Wallet } from "lucide-react";
-import { erc20Abi, formatUnits, parseUnits, type Abi, type Address } from "viem";
-import { useAccount, useChainId, useWaitForCallsStatus } from "wagmi";
-import { useWriteContracts } from "wagmi/experimental";
+import { erc20Abi, formatUnits, parseUnits, type Address } from "viem";
+import { useAccount, useChainId, usePublicClient, useWriteContract } from "wagmi";
 import { Badge } from "@fractals/ui/ui/badge";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fractals/ui/ui/card";
@@ -108,7 +107,6 @@ function variantCopy(variant: EarnVariant) {
 export function EarnPage() {
   const {
     assetLedger,
-    assetFractionAbi,
     products,
     liveProductCount,
     userPositions,
@@ -276,7 +274,7 @@ export function EarnPage() {
           <ClaimablesPanel
             summaries={claimableSummaries}
             claimableProducts={claimableProducts}
-            assetFractionAbi={assetFractionAbi}
+            assetLedger={assetLedger}
             onSuccess={(message) => handleSuccess(message)}
             onError={handleError}
           />
@@ -386,13 +384,13 @@ function StatusPanel({
 function ClaimablesPanel({
   summaries,
   claimableProducts,
-  assetFractionAbi,
+  assetLedger,
   onSuccess,
   onError,
 }: {
   summaries: ClaimableSummary[];
   claimableProducts: EarnProduct[];
-  assetFractionAbi: Abi | undefined;
+  assetLedger: ReturnType<typeof useEarnData>["assetLedger"];
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
@@ -437,7 +435,7 @@ function ClaimablesPanel({
                 </p>
                 <ClaimableTokenButton
                   summary={summary}
-                  assetFractionAbi={assetFractionAbi}
+                  assetLedger={assetLedger}
                   onSuccess={onSuccess}
                   onError={onError}
                 />
@@ -452,79 +450,57 @@ function ClaimablesPanel({
 
 function ClaimableTokenButton({
   summary,
-  assetFractionAbi,
+  assetLedger,
   onSuccess,
   onError,
 }: {
   summary: ClaimableSummary;
-  assetFractionAbi: Abi | undefined;
+  assetLedger: ReturnType<typeof useEarnData>["assetLedger"];
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
   const { address, chain } = useAccount();
   const activeChainId = useChainId();
-  const { writeContractsAsync, isPending } = useWriteContracts();
-  const [callsId, setCallsId] = useState<string | null>(null);
-  const [reportedCallsId, setReportedCallsId] = useState<string | null>(null);
+  const publicClient = usePublicClient();
+  const { writeContractAsync, isPending } = useWriteContract();
+  const [isWaiting, setIsWaiting] = useState(false);
 
-  const callsStatus = useWaitForCallsStatus({
-    id: callsId ?? "",
-    query: {
-      enabled: Boolean(callsId),
-    },
-  });
+  const handleClaim = async () => {
+    if (!address || !chain || !assetLedger?.address || !assetLedger.abi || !publicClient) return;
 
-  useEffect(() => {
-    if (!callsId || reportedCallsId === callsId || callsStatus.isPending) return;
+    try {
+      setIsWaiting(true);
+      const trancheIds = [...new Set(summary.products.map((product) => product.trancheId))];
+      const hash = await writeContractAsync({
+        account: address,
+        chainId: chain.id,
+        address: assetLedger.address,
+        abi: assetLedger.abi,
+        functionName: "claimRewards",
+        args: [trancheIds, address],
+      });
 
-    if (callsStatus.data?.status === "success") {
-      setReportedCallsId(callsId);
+      await publicClient.waitForTransactionReceipt({
+        hash,
+        confirmations: 1,
+      });
+
       onSuccess(
         `${summary.symbol} rewards claimed from ${summary.trancheCount} tranche${summary.trancheCount === 1 ? "" : "s"}.`,
       );
-      return;
-    }
-
-    if (callsStatus.data?.status === "failure" || callsStatus.error) {
-      setReportedCallsId(callsId);
-      onError(callsStatus.error ? getParsedError(callsStatus.error) : "Claim multicall failed.");
-    }
-  }, [
-    callsId,
-    callsStatus.data?.status,
-    callsStatus.error,
-    callsStatus.isPending,
-    onError,
-    onSuccess,
-    reportedCallsId,
-    summary.symbol,
-    summary.trancheCount,
-  ]);
-
-  const handleClaim = async () => {
-    if (!address || !chain || !assetFractionAbi) return;
-
-    try {
-      const result = await writeContractsAsync({
-        account: address,
-        chainId: chain.id,
-        contracts: summary.products.map((product) => ({
-          address: product.fractionAddress,
-          abi: assetFractionAbi,
-          functionName: "claimRewards",
-          args: [address],
-        })),
-      });
-
-      setCallsId(result.id);
-      setReportedCallsId(null);
     } catch (error) {
       onError(getParsedError(error));
+    } finally {
+      setIsWaiting(false);
     }
   };
 
-  const isWaiting = Boolean(callsId && !reportedCallsId && callsStatus.data?.status !== "success");
-  const isDisabled = !assetFractionAbi || summary.products.length === 0 || isPending || isWaiting;
+  const isDisabled =
+    !assetLedger?.address ||
+    !assetLedger.abi ||
+    summary.products.length === 0 ||
+    isPending ||
+    isWaiting;
 
   return (
     <ConnectButton.Custom>
