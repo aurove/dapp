@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type SyntheticEvent } from "react";
+import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { CheckCircle2, LockKeyhole, RefreshCw, Sparkles, Wallet } from "lucide-react";
 import { erc20Abi, formatUnits, parseUnits, type Abi, type Address } from "viem";
 import { Badge } from "@fractals/ui/ui/badge";
@@ -16,7 +16,9 @@ import { deriveTrancheId } from "@/components/features/trade/utils/tranche";
 import { lifecycleLabel, type EarnProduct, type EarnVariant, useEarnData } from "./use-earn-data";
 
 const QUICK_DURATIONS = [4, 13, 26, 52];
+const VEBTC_DURATIONS = [1, 2, 3, 4];
 const MAX_TRANCHE_WEEKS = 208;
+const MAX_VEBTC_TRANCHE_WEEKS = 4;
 
 function formatDate(timestamp: bigint | null) {
   if (!timestamp || timestamp === 0n) return "Unavailable";
@@ -46,6 +48,12 @@ function parseAmountInput(amount: string, decimals: number): bigint | null {
   } catch {
     return null;
   }
+}
+
+function amountFromBalancePercent(balance: bigint, percent: number, decimals: number): string {
+  if (balance <= 0n || percent <= 0) return "";
+  const boundedPercent = Math.min(100, Math.max(0, Math.round(percent)));
+  return formatUnits((balance * BigInt(boundedPercent)) / 100n, decimals);
 }
 
 function txError(handler: (message: string) => void) {
@@ -447,6 +455,36 @@ function CreatePositionCard({
   onError: (message: string) => void;
 }) {
   const copy = variantCopy(variant);
+  const durationOptions = variant === "veBTC" ? VEBTC_DURATIONS : QUICK_DURATIONS;
+  const maxTrancheWeeks = variant === "veBTC" ? MAX_VEBTC_TRANCHE_WEEKS : MAX_TRANCHE_WEEKS;
+  const parsedAmount = selectedToken ? parseAmountInput(amount, selectedToken.decimals) : null;
+  const balancePercent =
+    selectedToken?.balanceRaw && selectedToken.balanceRaw > 0n && parsedAmount
+      ? Math.min(100, Number((parsedAmount * 100n) / selectedToken.balanceRaw))
+      : 0;
+
+  useEffect(() => {
+    if (variant === "veBTC" && trancheWeeks > MAX_VEBTC_TRANCHE_WEEKS) {
+      setTrancheWeeks(MAX_VEBTC_TRANCHE_WEEKS);
+    }
+  }, [setTrancheWeeks, trancheWeeks, variant]);
+
+  const handleVariantChange = (nextVariant: EarnVariant) => {
+    setVariant(nextVariant);
+    if (nextVariant === "veBTC" && trancheWeeks > MAX_VEBTC_TRANCHE_WEEKS) {
+      setTrancheWeeks(MAX_VEBTC_TRANCHE_WEEKS);
+    }
+  };
+
+  const handleBalancePercentChange = (percent: number) => {
+    setAmount(
+      amountFromBalancePercent(
+        selectedToken?.balanceRaw ?? 0n,
+        percent,
+        selectedToken?.decimals ?? 18,
+      ),
+    );
+  };
 
   return (
     <Card className="rounded-xl">
@@ -465,7 +503,7 @@ function CreatePositionCard({
             <button
               key={option}
               type="button"
-              onClick={() => setVariant(option)}
+              onClick={() => handleVariantChange(option)}
               className={cn(
                 "rounded-lg px-3 py-2 text-sm font-medium text-white/60 transition",
                 variant === option && "bg-white/10 text-white shadow-inner",
@@ -497,6 +535,22 @@ function CreatePositionCard({
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
           />
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between text-xs text-white/45">
+              <span>Use balance</span>
+              <span>{balancePercent}%</span>
+            </div>
+            <input
+              aria-label="Percentage of wallet balance"
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={balancePercent}
+              onChange={(event) => handleBalancePercentChange(Number(event.target.value))}
+              className="w-full accent-[#c4a06a]"
+            />
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -505,7 +559,7 @@ function CreatePositionCard({
             <span className="text-white/45">{trancheWeeks} weeks</span>
           </div>
           <div className="grid grid-cols-4 gap-2">
-            {QUICK_DURATIONS.map((weeks) => (
+            {durationOptions.map((weeks) => (
               <button
                 key={weeks}
                 type="button"
@@ -525,7 +579,8 @@ function CreatePositionCard({
             aria-label="Lock duration in weeks"
             type="range"
             min={1}
-            max={MAX_TRANCHE_WEEKS}
+            max={maxTrancheWeeks}
+            step={1}
             value={trancheWeeks}
             onChange={(event) => setTrancheWeeks(Number(event.target.value))}
             className="w-full accent-[#c4a06a]"
