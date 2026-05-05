@@ -226,7 +226,7 @@ export function EarnPage() {
           {isLoading ? (
             <ProductSkeleton />
           ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 lg:grid">
               {products.map((product) => (
                 <ProductCard
                   key={product.id}
