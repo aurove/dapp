@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { CheckCircle2, Coins, LockKeyhole, RefreshCw, Sparkles, Wallet } from "lucide-react";
 import { erc20Abi, formatUnits, parseUnits, type Abi, type Address } from "viem";
+import { useAccount, useChainId, useWaitForCallsStatus } from "wagmi";
+import { useWriteContracts } from "wagmi/experimental";
 import { Badge } from "@fractals/ui/ui/badge";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fractals/ui/ui/card";
@@ -11,6 +14,7 @@ import { Skeleton } from "@fractals/ui/ui/skeleton";
 import { cn } from "@fractals/ui/lib/cn";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
+import { getParsedError } from "@/lib/tx-flow/getParsedError";
 import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
 import { deriveTrancheId } from "@/components/features/trade/utils/tranche";
 import { type EarnProduct, type EarnVariant, useEarnData } from "./use-earn-data";
@@ -26,6 +30,7 @@ type ClaimableSummary = {
   symbol: string;
   decimals: number;
   trancheCount: number;
+  products: EarnProduct[];
 };
 
 function formatDate(timestamp: bigint | null) {
@@ -150,6 +155,7 @@ export function EarnPage() {
       if (existing) {
         existing.amountRaw += product.claimableRewardsRaw;
         existing.trancheCount += 1;
+        existing.products.push(product);
         return;
       }
 
@@ -159,6 +165,7 @@ export function EarnPage() {
         symbol,
         decimals: product.rewardDecimals,
         trancheCount: 1,
+        products: [product],
       });
     });
 
@@ -293,7 +300,7 @@ export function EarnPage() {
           ) : userPositions.length === 0 ? (
             <EmptyPositions />
           ) : (
-            <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-3">
+            <div className="-ml-6 -mr-1 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-pl-6 py-1 pl-6 pr-1">
               {userPositions.map((position) => (
                 <div
                   key={position.id}
@@ -404,31 +411,9 @@ function ClaimablesPanel({
               Aggregated rewards across all tranche AssetFraction controllers.
             </CardDescription>
           </div>
-          <TransactionFlowButton
-            size="sm"
-            variant="secondary"
-            disabled={!assetFractionAbi || claimableProducts.length === 0}
-            steps={({ account }) =>
-              claimableProducts.map(
-                (product) =>
-                  makeAddressWriteStep({
-                    key: `claim-rewards-${product.id}`,
-                    label: `Claim ${product.symbol}`,
-                    displayLabelBtn: true,
-                    address: product.fractionAddress,
-                    abi: assetFractionAbi ?? ([] as unknown as Abi),
-                    variables: {
-                      functionName: "claimRewards",
-                      args: [account],
-                    },
-                  }) as unknown as TxStep,
-              )
-            }
-            onComplete={() => onSuccess("Claimable tranche rewards claimed.")}
-            onError={txError(onError)}
-          >
-            Claim all
-          </TransactionFlowButton>
+          <Badge className="border-white/15 bg-white/[0.04] text-white/70">
+            {totalTranches} claimable tranche{totalTranches === 1 ? "" : "s"}
+          </Badge>
         </div>
       </CardHeader>
       <CardContent>
@@ -441,7 +426,7 @@ function ClaimablesPanel({
             {summaries.map((summary) => (
               <div
                 key={summary.key}
-                className="rounded-xl border border-white/10 bg-white/[0.025] p-4"
+                className="space-y-4 rounded-xl border border-white/10 bg-white/[0.025] p-4"
               >
                 <p className="text-xs text-white/42">
                   {summary.trancheCount} of {totalTranches} claimable tranche
@@ -450,12 +435,127 @@ function ClaimablesPanel({
                 <p className="mt-2 break-words text-xl font-semibold text-white">
                   {formatAmount(summary.amountRaw, summary.decimals, summary.symbol)}
                 </p>
+                <ClaimableTokenButton
+                  summary={summary}
+                  assetFractionAbi={assetFractionAbi}
+                  onSuccess={onSuccess}
+                  onError={onError}
+                />
               </div>
             ))}
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function ClaimableTokenButton({
+  summary,
+  assetFractionAbi,
+  onSuccess,
+  onError,
+}: {
+  summary: ClaimableSummary;
+  assetFractionAbi: Abi | undefined;
+  onSuccess: (message: string) => void;
+  onError: (message: string) => void;
+}) {
+  const { address, chain } = useAccount();
+  const activeChainId = useChainId();
+  const { writeContractsAsync, isPending } = useWriteContracts();
+  const [callsId, setCallsId] = useState<string | null>(null);
+  const [reportedCallsId, setReportedCallsId] = useState<string | null>(null);
+
+  const callsStatus = useWaitForCallsStatus({
+    id: callsId ?? "",
+    query: {
+      enabled: Boolean(callsId),
+    },
+  });
+
+  useEffect(() => {
+    if (!callsId || reportedCallsId === callsId || callsStatus.isPending) return;
+
+    if (callsStatus.data?.status === "success") {
+      setReportedCallsId(callsId);
+      onSuccess(
+        `${summary.symbol} rewards claimed from ${summary.trancheCount} tranche${summary.trancheCount === 1 ? "" : "s"}.`,
+      );
+      return;
+    }
+
+    if (callsStatus.data?.status === "failure" || callsStatus.error) {
+      setReportedCallsId(callsId);
+      onError(callsStatus.error ? getParsedError(callsStatus.error) : "Claim multicall failed.");
+    }
+  }, [
+    callsId,
+    callsStatus.data?.status,
+    callsStatus.error,
+    callsStatus.isPending,
+    onError,
+    onSuccess,
+    reportedCallsId,
+    summary.symbol,
+    summary.trancheCount,
+  ]);
+
+  const handleClaim = async () => {
+    if (!address || !chain || !assetFractionAbi) return;
+
+    try {
+      const result = await writeContractsAsync({
+        account: address,
+        chainId: chain.id,
+        contracts: summary.products.map((product) => ({
+          address: product.fractionAddress,
+          abi: assetFractionAbi,
+          functionName: "claimRewards",
+          args: [address],
+        })),
+      });
+
+      setCallsId(result.id);
+      setReportedCallsId(null);
+    } catch (error) {
+      onError(getParsedError(error));
+    }
+  };
+
+  const isWaiting = Boolean(callsId && !reportedCallsId && callsStatus.data?.status !== "success");
+  const isDisabled = !assetFractionAbi || summary.products.length === 0 || isPending || isWaiting;
+
+  return (
+    <ConnectButton.Custom>
+      {({ account, chain: walletChain, openChainModal, openConnectModal, mounted }) => {
+        const connected = Boolean(mounted && account && walletChain);
+        const wrongNetwork = Boolean(
+          connected && (walletChain?.unsupported || walletChain?.id !== activeChainId),
+        );
+        const onClick = !connected ? openConnectModal : wrongNetwork ? openChainModal : handleClaim;
+
+        return (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="w-full"
+            onClick={onClick}
+            disabled={connected && !wrongNetwork ? isDisabled : false}
+            aria-busy={connected && !wrongNetwork ? isPending || isWaiting : false}
+          >
+            {!connected
+              ? "Connect Wallet"
+              : wrongNetwork
+                ? "Wrong network"
+                : isPending || isWaiting
+                  ? "Claiming..."
+                  : `Claim ${summary.symbol}`}
+          </Button>
+        );
+      }}
+    </ConnectButton.Custom>
   );
 }
 
