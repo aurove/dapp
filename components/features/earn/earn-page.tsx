@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
-import { CheckCircle2, LockKeyhole, RefreshCw, Sparkles, Wallet } from "lucide-react";
+import { CheckCircle2, Coins, LockKeyhole, RefreshCw, Sparkles, Wallet } from "lucide-react";
 import { erc20Abi, formatUnits, parseUnits, type Abi, type Address } from "viem";
 import { Badge } from "@fractals/ui/ui/badge";
 import { Button } from "@fractals/ui/ui/button";
@@ -13,12 +13,20 @@ import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
 import { deriveTrancheId } from "@/components/features/trade/utils/tranche";
-import { lifecycleLabel, type EarnProduct, type EarnVariant, useEarnData } from "./use-earn-data";
+import { type EarnProduct, type EarnVariant, useEarnData } from "./use-earn-data";
 
 const QUICK_DURATIONS = [4, 13, 26, 52];
 const VEBTC_DURATIONS = [1, 2, 3, 4];
 const MAX_TRANCHE_WEEKS = 208;
 const MAX_VEBTC_TRANCHE_WEEKS = 4;
+
+type ClaimableSummary = {
+  key: string;
+  amountRaw: bigint;
+  symbol: string;
+  decimals: number;
+  trancheCount: number;
+};
 
 function formatDate(timestamp: bigint | null) {
   if (!timestamp || timestamp === 0n) return "Unavailable";
@@ -56,6 +64,20 @@ function amountFromBalancePercent(balance: bigint, percent: number, decimals: nu
   return formatUnits((balance * BigInt(boundedPercent)) / 100n, decimals);
 }
 
+function epochProgressPercent(product: EarnProduct): number {
+  if (!product.targetEpochEnd || !product.trancheDuration || product.trancheDuration <= 0n) {
+    return 0;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const target = Number(product.targetEpochEnd);
+  const duration = Number(product.trancheDuration);
+  const start = target - duration;
+  if (!Number.isFinite(target) || !Number.isFinite(duration) || now <= start) return 0;
+  if (now >= target) return 100;
+  return Math.round(((now - start) / duration) * 100);
+}
+
 function txError(handler: (message: string) => void) {
   return (err: string | SyntheticEvent<HTMLButtonElement>) => {
     if (typeof err === "string") {
@@ -76,13 +98,6 @@ function variantCopy(variant: EarnVariant) {
         asset: "MEZO",
         tone: "border-sky-300/25 bg-sky-300/10 text-sky-100",
       };
-}
-
-function productLifecycleTone(product: EarnProduct) {
-  if (product.isRolloverAvailable) return "border-violet-300/25 bg-violet-400/10 text-violet-100";
-  if (product.isTargetSettlementWindow)
-    return "border-emerald-300/25 bg-emerald-400/10 text-emerald-100";
-  return "border-white/15 bg-white/[0.04] text-white/75";
 }
 
 export function EarnPage() {
@@ -115,6 +130,40 @@ export function EarnPage() {
     [variant, trancheWeeks],
   );
   const matchingProduct = products.find((product) => product.trancheId === selectedTrancheId);
+  const claimableProducts = useMemo(
+    () =>
+      products.filter(
+        (product) =>
+          product.claimableRewardsRaw > 0n &&
+          product.fractionAddress !== "0x0000000000000000000000000000000000000000",
+      ),
+    [products],
+  );
+  const claimableSummaries = useMemo<ClaimableSummary[]>(() => {
+    const summaries = new Map<string, ClaimableSummary>();
+
+    claimableProducts.forEach((product) => {
+      const symbol = product.rewardSymbol ?? "Reward";
+      const key = product.rewardAsset?.toLowerCase() ?? `${symbol}-${product.rewardDecimals}`;
+      const existing = summaries.get(key);
+
+      if (existing) {
+        existing.amountRaw += product.claimableRewardsRaw;
+        existing.trancheCount += 1;
+        return;
+      }
+
+      summaries.set(key, {
+        key,
+        amountRaw: product.claimableRewardsRaw,
+        symbol,
+        decimals: product.rewardDecimals,
+        trancheCount: 1,
+      });
+    });
+
+    return [...summaries.values()].sort((a, b) => a.symbol.localeCompare(b.symbol));
+  }, [claimableProducts]);
 
   const createDisabledReason = !selectedToken?.underlyingAddress
     ? "Underlying token unavailable for this network."
@@ -217,12 +266,20 @@ export function EarnPage() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
         <section className="space-y-4">
+          <ClaimablesPanel
+            summaries={claimableSummaries}
+            claimableProducts={claimableProducts}
+            assetFractionAbi={assetFractionAbi}
+            onSuccess={(message) => handleSuccess(message)}
+            onError={handleError}
+          />
+
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold text-white">Earn Products</h2>
+              <h2 className="text-xl font-semibold text-white">Your Fraction Positions</h2>
               <p className="mt-1 text-sm text-white/55">
-                Backed by configured AssetFraction controllers. APRs are intentionally omitted until
-                the contracts expose dependable live yield data.
+                Swipe through wallet-held fraction positions, track target epoch progress, and
+                redeem underlying when a settlement window opens.
               </p>
             </div>
             <Button variant="secondary" size="sm" onClick={refresh} disabled={isFetching}>
@@ -233,19 +290,25 @@ export function EarnPage() {
 
           {isLoading ? (
             <ProductSkeleton />
+          ) : userPositions.length === 0 ? (
+            <EmptyPositions />
           ) : (
-            <div className="grid gap-4 lg:grid">
-              {products.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  live={liveProductCount > 0}
-                  assetFractionAbi={assetFractionAbi}
-                  onRolloverSuccess={() =>
-                    handleSuccess(`${product.symbol} rolled into its next cycle.`)
-                  }
-                  onError={handleError}
-                />
+            <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-3">
+              {userPositions.map((position) => (
+                <div
+                  key={position.id}
+                  className="min-w-[min(100%,22rem)] snap-start sm:min-w-[24rem] lg:min-w-[28rem]"
+                >
+                  <PositionCard
+                    product={position}
+                    withdrawAmount={withdrawAmounts[position.id] ?? ""}
+                    setWithdrawAmount={(value) =>
+                      setWithdrawAmounts((prev) => ({ ...prev, [position.id]: value }))
+                    }
+                    onSuccess={(message) => handleSuccess(message)}
+                    onError={handleError}
+                  />
+                </div>
               ))}
             </div>
           )}
@@ -271,38 +334,6 @@ export function EarnPage() {
           />
         </aside>
       </div>
-
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-xl font-semibold text-white">Your Positions</h2>
-          <p className="mt-1 text-sm text-white/55">
-            Wallet balances, reward claims, and maturity actions are read directly from the ledger
-            and AssetFraction contracts.
-          </p>
-        </div>
-
-        {isLoading ? (
-          <ProductSkeleton />
-        ) : userPositions.length === 0 ? (
-          <EmptyPositions />
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {userPositions.map((position) => (
-              <PositionCard
-                key={position.id}
-                product={position}
-                withdrawAmount={withdrawAmounts[position.id] ?? ""}
-                setWithdrawAmount={(value) =>
-                  setWithdrawAmounts((prev) => ({ ...prev, [position.id]: value }))
-                }
-                assetFractionAbi={assetFractionAbi}
-                onSuccess={(message) => handleSuccess(message)}
-                onError={handleError}
-              />
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }
@@ -345,83 +376,84 @@ function StatusPanel({
   );
 }
 
-function ProductCard({
-  product,
-  live,
+function ClaimablesPanel({
+  summaries,
+  claimableProducts,
   assetFractionAbi,
-  onRolloverSuccess,
+  onSuccess,
   onError,
 }: {
-  product: EarnProduct;
-  live: boolean;
+  summaries: ClaimableSummary[];
+  claimableProducts: EarnProduct[];
   assetFractionAbi: Abi | undefined;
-  onRolloverSuccess: () => void;
+  onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
-  const copy = variantCopy(product.variant);
+  const totalTranches = claimableProducts.length;
 
   return (
     <Card className="rounded-xl">
       <CardHeader>
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <Badge className={copy.tone}>{copy.headline}</Badge>
-            <CardTitle className="mt-3 text-lg">{product.symbol}</CardTitle>
-            <CardDescription>{product.name}</CardDescription>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Coins className="h-5 w-5 text-[var(--accent)]" />
+              Claimables
+            </CardTitle>
+            <CardDescription>
+              Aggregated rewards across all tranche AssetFraction controllers.
+            </CardDescription>
           </div>
-          <Badge className={productLifecycleTone(product)}>
-            {lifecycleLabel(product.lifecycle)}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <InfoTile
-            label="Lock duration"
-            value={formatDuration(product.trancheDuration, product.trancheNumber)}
-          />
-          <InfoTile label="Maturity" value={formatDate(product.targetEpochEnd)} />
-          <InfoTile
-            label="Total claims"
-            value={formatAmount(product.totalSupplyRaw, 18, product.symbol)}
-          />
-          <InfoTile
-            label="Reward reserve"
-            value={formatAmount(
-              product.rewardReserveRaw,
-              product.rewardDecimals,
-              product.rewardSymbol,
-            )}
-          />
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3 text-sm leading-6 text-white/62">
-          {live
-            ? "This product is registered in AssetLedger and backed by managed veNFT custody."
-            : "No live fraction exists yet for this starter card. Creating a position uses AssetLedger.depositErc20 and can deploy the tranche if supported by the contracts."}
-        </div>
-
-        {product.isRolloverAvailable &&
-        product.fractionAddress !== "0x0000000000000000000000000000000000000000" ? (
           <TransactionFlowButton
             size="sm"
             variant="secondary"
-            steps={[
-              makeAddressWriteStep({
-                key: "rollover",
-                label: "Rollover",
-                displayLabelBtn: true,
-                address: product.fractionAddress,
-                abi: assetFractionAbi ?? ([] as unknown as Abi),
-                variables: { functionName: "rollover" },
-              }) as unknown as TxStep,
-            ]}
-            onComplete={onRolloverSuccess}
+            disabled={!assetFractionAbi || claimableProducts.length === 0}
+            steps={({ account }) =>
+              claimableProducts.map(
+                (product) =>
+                  makeAddressWriteStep({
+                    key: `claim-rewards-${product.id}`,
+                    label: `Claim ${product.symbol}`,
+                    displayLabelBtn: true,
+                    address: product.fractionAddress,
+                    abi: assetFractionAbi ?? ([] as unknown as Abi),
+                    variables: {
+                      functionName: "claimRewards",
+                      args: [account],
+                    },
+                  }) as unknown as TxStep,
+              )
+            }
+            onComplete={() => onSuccess("Claimable tranche rewards claimed.")}
             onError={txError(onError)}
           >
-            Rollover tranche
+            Claim all
           </TransactionFlowButton>
-        ) : null}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {summaries.length === 0 ? (
+          <div className="rounded-xl border border-white/10 bg-white/[0.025] p-4 text-sm text-white/55">
+            No claimable rewards found across your fraction tranches.
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {summaries.map((summary) => (
+              <div
+                key={summary.key}
+                className="rounded-xl border border-white/10 bg-white/[0.025] p-4"
+              >
+                <p className="text-xs text-white/42">
+                  {summary.trancheCount} of {totalTranches} claimable tranche
+                  {summary.trancheCount === 1 ? "" : "s"}
+                </p>
+                <p className="mt-2 break-words text-xl font-semibold text-white">
+                  {formatAmount(summary.amountRaw, summary.decimals, summary.symbol)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -621,17 +653,17 @@ function PositionCard({
   product,
   withdrawAmount,
   setWithdrawAmount,
-  assetFractionAbi,
   onSuccess,
   onError,
 }: {
   product: EarnProduct;
   withdrawAmount: string;
   setWithdrawAmount: (value: string) => void;
-  assetFractionAbi: Abi | undefined;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
+  const copy = variantCopy(product.variant);
+  const progress = epochProgressPercent(product);
   const parsedWithdraw = parseAmountInput(withdrawAmount, 18);
   const canWithdraw =
     product.isTargetSettlementWindow &&
@@ -642,33 +674,39 @@ function PositionCard({
   return (
     <Card className="rounded-xl">
       <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-lg">{product.symbol}</CardTitle>
-            <CardDescription>{variantCopy(product.variant).headline}</CardDescription>
-          </div>
-          <Badge className={productLifecycleTone(product)}>
-            {lifecycleLabel(product.lifecycle)}
-          </Badge>
-        </div>
+        <Badge className={copy.tone}>{copy.headline}</Badge>
+        <CardTitle className="mt-3 text-lg">{product.symbol}</CardTitle>
+        <CardDescription>{product.name}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.025] p-3">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="font-medium text-white">Target epoch progress</span>
+            <span className="text-white/45">{progress}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-[var(--accent)] transition-[width]"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3 text-xs text-white/45">
+            <span>{formatDuration(product.trancheDuration, product.trancheNumber)}</span>
+            <span>{formatDate(product.targetEpochEnd)}</span>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <InfoTile
-            label="Your balance"
+            label="User balanceOf"
             value={formatAmount(product.userBalanceRaw, 18, product.symbol)}
           />
           <InfoTile
-            label="Claimable rewards"
-            value={formatAmount(
-              product.claimableRewardsRaw,
-              product.rewardDecimals,
-              product.rewardSymbol,
-            )}
+            label="Unsettled balance"
+            value={formatAmount(product.userBalanceRaw, 18, product.symbol)}
           />
-          <InfoTile label="Maturity" value={formatDate(product.targetEpochEnd)} />
           <InfoTile
-            label="Settled reserve"
+            label="Settled underlying"
             value={formatAmount(
               product.settledUnderlyingRaw,
               18,
@@ -677,56 +715,10 @@ function PositionCard({
           />
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <TransactionFlowButton
-            variant="secondary"
-            size="sm"
-            disabled={!assetFractionAbi || product.claimableRewardsRaw === 0n}
-            steps={({ account }) => [
-              makeAddressWriteStep({
-                key: "claim-rewards",
-                label: "Claim rewards",
-                displayLabelBtn: true,
-                address: product.fractionAddress,
-                abi: assetFractionAbi ?? ([] as unknown as Abi),
-                variables: {
-                  functionName: "claimRewards",
-                  args: [account],
-                },
-              }) as unknown as TxStep,
-            ]}
-            onComplete={() => onSuccess(`Rewards claimed for ${product.symbol}.`)}
-            onError={txError(onError)}
-          >
-            Claim rewards
-          </TransactionFlowButton>
-          {product.isRolloverAvailable ? (
-            <TransactionFlowButton
-              variant="secondary"
-              size="sm"
-              disabled={!assetFractionAbi}
-              steps={[
-                makeAddressWriteStep({
-                  key: "rollover",
-                  label: "Rollover",
-                  displayLabelBtn: true,
-                  address: product.fractionAddress,
-                  abi: assetFractionAbi ?? ([] as unknown as Abi),
-                  variables: { functionName: "rollover" },
-                }) as unknown as TxStep,
-              ]}
-              onComplete={() => onSuccess(`${product.symbol} rolled into its next cycle.`)}
-              onError={txError(onError)}
-            >
-              Rollover
-            </TransactionFlowButton>
-          ) : null}
-        </div>
-
         <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.025] p-3">
           <div className="flex items-center justify-between gap-3">
             <label htmlFor={`withdraw-${product.id}`} className="text-sm font-medium text-white">
-              Redeem at maturity
+              Redeem underlying
             </label>
             <span className="text-xs text-white/45">
               {product.isTargetSettlementWindow ? "Window open" : "Unavailable now"}
@@ -772,7 +764,7 @@ function PositionCard({
             }}
             onError={txError(onError)}
           >
-            Redeem underlying
+            {product.isTargetSettlementWindow ? "Withdraw underlying" : "Await settlement window"}
           </TransactionFlowButton>
         </div>
       </CardContent>
