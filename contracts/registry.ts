@@ -4328,7 +4328,7 @@ const contracts = {
       ],
     },
     VeBTC: {
-      address: "0xB63fcCd03521Cf21907627bd7fA465C129479231",
+      address: "0x38E35d92E6Bfc6787272A62345856B13eA12130a",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         { inputs: [], name: "AlreadyVoted", type: "error" },
@@ -10744,7 +10744,7 @@ const contracts = {
       ],
     },
     VeBTC: {
-      address: "0xB63fcCd03521Cf21907627bd7fA465C129479231",
+      address: "0x38E35d92E6Bfc6787272A62345856B13eA12130a",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         { inputs: [], name: "AlreadyVoted", type: "error" },
