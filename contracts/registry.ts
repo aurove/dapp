@@ -13495,6 +13495,7 @@ const contracts = {
       ],
     },
     VeNftFractionListing: {
+      address: "0xc04eeB0878aF2E09844dFA6b4325d9a9b8A42FE4",
       abi: [
         {
           inputs: [
