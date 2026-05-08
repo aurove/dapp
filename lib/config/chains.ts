@@ -12,6 +12,14 @@ export function resolveAppEnvironment(): AppEnvironment {
   return "local";
 }
 
+export function getMezoTestnetRpcHttp(): string {
+  return (
+    process.env.NEXT_PUBLIC_SPECTRUM_MEZO_TESTNET_RPC_HTTP ||
+    process.env.NEXT_PUBLIC_MEZO_TESTNET_RPC_HTTP ||
+    "https://rpc.test.mezo.org"
+  );
+}
+
 // Local chain definitions avoid importing mezo chain exports from @mezo-org/passport,
 // which currently fail under our Turbopack build due to upstream export mismatch.
 export const mezoTestnetChain: Chain = defineChain({
@@ -24,7 +32,7 @@ export const mezoTestnetChain: Chain = defineChain({
   },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_MEZO_TESTNET_RPC_HTTP || "https://rpc.test.mezo.org"],
+      http: [getMezoTestnetRpcHttp()],
     },
   },
   blockExplorers: {
