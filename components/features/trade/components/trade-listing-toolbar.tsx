@@ -92,9 +92,6 @@ export function TradeListingToolbar({
           <option value="all" className="bg-[#0e141b] text-white">
             All payment tokens
           </option>
-          <option value="musd" className="bg-[#0e141b] text-white">
-            MUSD (default)
-          </option>
           {paymentTokenOptions.map((option) => (
             <option
               key={option.address.toLowerCase()}
