@@ -2,7 +2,7 @@
 
 import "@rainbow-me/rainbowkit/styles.css";
 import { darkTheme, RainbowKitProvider } from "@rainbow-me/rainbowkit";
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Config, WagmiProvider } from "wagmi";
 
@@ -47,6 +47,42 @@ export function Web3Providers({
   notify,
 }: Web3ProvidersProps) {
   const environment = resolveAppEnvironment();
+  const [rpcSessionReady, setRpcSessionReady] = useState(environment !== "testnet");
+
+  useEffect(() => {
+    if (environment !== "testnet") {
+      setRpcSessionReady(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function ensureRpcSession() {
+      try {
+        await fetch("/api/rpc/session", {
+          method: "POST",
+          cache: "no-store",
+          keepalive: true,
+        });
+      } finally {
+        if (!cancelled) {
+          setRpcSessionReady(true);
+        }
+      }
+    }
+
+    void ensureRpcSession();
+
+    const interval = window.setInterval(() => {
+      void ensureRpcSession();
+    }, 9 * 60_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [environment]);
+
   const activeChain = getActiveChain(environment);
   const resolvedWagmiConfig = useMemo(
     () => wagmiConfig ?? getWagmiConfig(activeChain),
@@ -93,6 +129,10 @@ export function Web3Providers({
       </QueryClientProvider>
     </WagmiProvider>
   );
+
+  if (!rpcSessionReady) {
+    return null;
+  }
 
   return <TxFlowRuntimeContext.Provider value={runtimeValue}>{tree}</TxFlowRuntimeContext.Provider>;
 }

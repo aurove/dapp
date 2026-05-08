@@ -50,11 +50,13 @@ Supported variables:
 - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` - required for wallet connections.
 - `NEXT_PUBLIC_TXFLOW_NETWORK` - optional network selector for transaction flow config. Common values are `testnet` and `mainnet`.
 - `NEXT_PUBLIC_APP_ENV` - local app environment selector used by the existing configuration.
-- `NEXT_PUBLIC_SPECTRUM_MEZO_TESTNET_RPC_HTTP` - Spectrum Nodes Mezo testnet RPC endpoint used as the primary wagmi transport for testnet reads and writes.
+- `SPECTRUM_MEZO_TESTNET_RPC_HTTP` - server-only Spectrum Nodes Mezo testnet RPC endpoint used by the internal RPC proxy.
+- `SPECTRUM_RPC_SESSION_SECRET` - server secret for short-lived RPC session tokens (rotated every 10 minutes on the client).
+- `SPECTRUM_RPC_RPS_LIMIT` - server-side RPC proxy throttle in requests per second per client IP bucket (defaults to `10`).
 
 ## Spectrum Nodes RPC
 
-For the Mezo testnet demo, set `NEXT_PUBLIC_APP_ENV=testnet` and configure `NEXT_PUBLIC_SPECTRUM_MEZO_TESTNET_RPC_HTTP` with the HTTPS endpoint created in the Spectrum Nodes dashboard. The dApp routes Earn position reads, yield tracking, marketplace reads, block watches, and transaction broadcasts through the wagmi transport backed by that Spectrum RPC URL.
+For the Mezo testnet demo, set `NEXT_PUBLIC_APP_ENV=testnet` and configure `SPECTRUM_MEZO_TESTNET_RPC_HTTP` with the HTTPS endpoint created in the Spectrum Nodes dashboard. The browser uses `/api/rpc/mezo-testnet` as the wagmi RPC URL, and the server proxies requests to Spectrum after validating a short-lived session cookie issued by `/api/rpc/session`.
 
 See [docs/spectrum-rpc.md](docs/spectrum-rpc.md) for the architecture notes and hackathon submission details.
 

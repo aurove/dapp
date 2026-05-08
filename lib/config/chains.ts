@@ -13,11 +13,7 @@ export function resolveAppEnvironment(): AppEnvironment {
 }
 
 export function getMezoTestnetRpcHttp(): string {
-  return (
-    process.env.NEXT_PUBLIC_SPECTRUM_MEZO_TESTNET_RPC_HTTP ||
-    process.env.NEXT_PUBLIC_MEZO_TESTNET_RPC_HTTP ||
-    "https://rpc.test.mezo.org"
-  );
+  return process.env.NEXT_PUBLIC_MEZO_TESTNET_RPC_HTTP || "/api/rpc/mezo-testnet";
 }
 
 // Local chain definitions avoid importing mezo chain exports from @mezo-org/passport,
