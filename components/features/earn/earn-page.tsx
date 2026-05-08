@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { CheckCircle2, Coins, LockKeyhole, RefreshCw, Sparkles, Wallet } from "lucide-react";
-import { erc20Abi, formatUnits, parseUnits, type Address } from "viem";
+import { erc20Abi, erc721Abi, formatUnits, parseUnits, type Address } from "viem";
 import {
   useAccount,
   useBlock,
@@ -23,6 +23,7 @@ import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/
 import { getParsedError } from "@/lib/tx-flow/getParsedError";
 import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
 import { deriveTrancheId } from "@/components/features/trade/utils/tranche";
+import { useUserVeNFTs, type UserVeNft } from "@/components/features/trade/hooks/use-user-ve-nfts";
 import { type EarnProduct, type EarnVariant, useEarnData } from "./use-earn-data";
 
 const QUICK_DURATIONS = [4, 13, 26, 52];
@@ -38,6 +39,8 @@ type ClaimableSummary = {
   trancheCount: number;
   products: EarnProduct[];
 };
+
+type CreatePositionMode = "erc20" | "venft";
 
 function formatDate(timestamp: bigint | null) {
   if (!timestamp || timestamp === 0n) return "Unavailable";
@@ -123,10 +126,19 @@ export function EarnPage() {
     error,
     refresh,
   } = useEarnData();
+  const {
+    veCollections,
+    isLoading: veNftsLoading,
+    isFetching: veNftsFetching,
+    error: veNftsError,
+    refresh: refreshVeNfts,
+  } = useUserVeNFTs();
 
   const [variant, setVariant] = useState<EarnVariant>("veBTC");
+  const [createMode, setCreateMode] = useState<CreatePositionMode>("erc20");
   const [trancheWeeks, setTrancheWeeks] = useState(13);
   const [amount, setAmount] = useState("");
+  const [selectedVeNftKey, setSelectedVeNftKey] = useState("");
   const [withdrawAmounts, setWithdrawAmounts] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -140,6 +152,21 @@ export function EarnPage() {
     [variant, trancheWeeks],
   );
   const matchingProduct = products.find((product) => product.trancheId === selectedTrancheId);
+  const availableVeNfts = useMemo(
+    () => veCollections.flatMap((collection) => collection.veNfts),
+    [veCollections],
+  );
+  const availableVeNftsForVariant = useMemo(
+    () => availableVeNfts.filter((veNft) => veNft.assetType === variant),
+    [availableVeNfts, variant],
+  );
+  const selectedVeNft = useMemo(
+    () =>
+      availableVeNftsForVariant.find(
+        (veNft) => `${veNft.contractAddress}-${veNft.tokenId.toString()}` === selectedVeNftKey,
+      ) ?? null,
+    [availableVeNftsForVariant, selectedVeNftKey],
+  );
   const claimableProducts = useMemo(
     () =>
       products.filter(
@@ -185,6 +212,14 @@ export function EarnPage() {
         ? "Insufficient wallet balance."
         : null;
 
+  const depositVeNftDisabledReason = !assetLedger?.address
+    ? "AssetLedger unavailable for this network."
+    : availableVeNftsForVariant.length === 0
+      ? `No ${variant} veNFTs found in your wallet.`
+      : !selectedVeNft
+        ? "Choose a veNFT to deposit."
+        : null;
+
   const createSteps = (account: Address): TxStep[] => {
     if (!assetLedger?.address || !selectedToken?.underlyingAddress || !parsedCreateAmount) {
       throw new Error("Create position inputs are incomplete.");
@@ -223,10 +258,41 @@ export function EarnPage() {
     return steps;
   };
 
+  const depositVeNftSteps = (account: Address): TxStep[] => {
+    if (!assetLedger?.address || !selectedVeNft) {
+      throw new Error("veNFT deposit inputs are incomplete.");
+    }
+
+    return [
+      makeAddressWriteStep({
+        key: "approve-venft",
+        label: "Approve veNFT",
+        displayLabelBtn: true,
+        address: selectedVeNft.contractAddress,
+        abi: erc721Abi,
+        variables: {
+          functionName: "setApprovalForAll",
+          args: [assetLedger.address, true],
+        },
+      }) as unknown as TxStep,
+      makeContractWriteStep({
+        key: "deposit-venft",
+        label: "Deposit veNFT",
+        displayLabelBtn: true,
+        contractName: "AssetLedger",
+        variables: {
+          functionName: "depositVeNft",
+          args: [selectedVeNft.contractAddress, selectedVeNft.tokenId, account],
+        },
+      }) as unknown as TxStep,
+    ];
+  };
+
   const handleSuccess = (message: string) => {
     setSuccessMessage(message);
     setErrorMessage(null);
     refresh();
+    refreshVeNfts();
   };
 
   const handleError = (message: string) => {
@@ -328,19 +394,37 @@ export function EarnPage() {
 
         <aside className="space-y-4">
           <CreatePositionCard
+            createMode={createMode}
+            setCreateMode={setCreateMode}
             variant={variant}
             setVariant={setVariant}
             trancheWeeks={trancheWeeks}
             setTrancheWeeks={setTrancheWeeks}
             amount={amount}
             setAmount={setAmount}
+            selectedVeNftKey={selectedVeNftKey}
+            setSelectedVeNftKey={setSelectedVeNftKey}
+            availableVeNfts={availableVeNftsForVariant}
+            selectedVeNft={selectedVeNft}
+            veNftsLoading={veNftsLoading}
+            veNftsFetching={veNftsFetching}
+            veNftsError={veNftsError}
             selectedToken={selectedToken}
             matchingProduct={matchingProduct}
-            disabledReason={createDisabledReason}
-            createSteps={createSteps}
+            disabledReason={
+              createMode === "erc20" ? createDisabledReason : depositVeNftDisabledReason
+            }
+            createSteps={createMode === "erc20" ? createSteps : depositVeNftSteps}
             onSuccess={() => {
               setAmount("");
-              handleSuccess("Your liquid lock claim position was created.");
+              if (createMode === "venft") {
+                setSelectedVeNftKey("");
+              }
+              handleSuccess(
+                createMode === "erc20"
+                  ? "Your liquid lock claim position was created."
+                  : "Your veNFT was deposited and fractionalized.",
+              );
             }}
             onError={handleError}
           />
@@ -541,12 +625,21 @@ function ClaimableTokenButton({
 }
 
 function CreatePositionCard({
+  createMode,
+  setCreateMode,
   variant,
   setVariant,
   trancheWeeks,
   setTrancheWeeks,
   amount,
   setAmount,
+  selectedVeNftKey,
+  setSelectedVeNftKey,
+  availableVeNfts,
+  selectedVeNft,
+  veNftsLoading,
+  veNftsFetching,
+  veNftsError,
   selectedToken,
   matchingProduct,
   disabledReason,
@@ -554,12 +647,21 @@ function CreatePositionCard({
   onSuccess,
   onError,
 }: {
+  createMode: CreatePositionMode;
+  setCreateMode: (mode: CreatePositionMode) => void;
   variant: EarnVariant;
   setVariant: (variant: EarnVariant) => void;
   trancheWeeks: number;
   setTrancheWeeks: (weeks: number) => void;
   amount: string;
   setAmount: (amount: string) => void;
+  selectedVeNftKey: string;
+  setSelectedVeNftKey: (value: string) => void;
+  availableVeNfts: UserVeNft[];
+  selectedVeNft: UserVeNft | null;
+  veNftsLoading: boolean;
+  veNftsFetching: boolean;
+  veNftsError: Error | null;
   selectedToken: ReturnType<typeof useEarnData>["tokens"][EarnVariant];
   matchingProduct?: EarnProduct;
   disabledReason: string | null;
@@ -607,10 +709,29 @@ function CreatePositionCard({
           Create Position
         </CardTitle>
         <CardDescription>
-          Lock ERC20 through AssetLedger and mint fungible ERC1155 claims to your wallet.
+          Lock ERC20 or deposit an existing veNFT through AssetLedger.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.025] p-1">
+          {[
+            { value: "erc20", label: "Lock ERC20" },
+            { value: "venft", label: "Deposit veNFT" },
+          ].map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setCreateMode(option.value as CreatePositionMode)}
+              className={cn(
+                "rounded-lg px-3 py-2 text-sm font-medium text-white/60 transition",
+                createMode === option.value && "bg-white/10 text-white shadow-inner",
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.025] p-1">
           {(["veBTC", "veMEZO"] as EarnVariant[]).map((option) => (
             <button
@@ -627,78 +748,129 @@ function CreatePositionCard({
           ))}
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <label htmlFor="earn-amount" className="font-medium text-white">
-              Amount
-            </label>
-            <span className="text-white/45">
-              Balance{" "}
-              {formatAmount(
-                selectedToken?.balanceRaw ?? 0n,
-                selectedToken?.decimals ?? 18,
-                selectedToken?.symbol,
-              )}
-            </span>
-          </div>
-          <Input
-            id="earn-amount"
-            inputMode="decimal"
-            placeholder={`0.00 ${selectedToken?.symbol ?? copy.asset}`}
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-          />
-          <div className="space-y-2 pt-1">
-            <div className="flex items-center justify-between text-xs text-white/45">
-              <span>Use balance</span>
-              <span>{balancePercent}%</span>
+        {createMode === "erc20" ? (
+          <>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <label htmlFor="earn-amount" className="font-medium text-white">
+                  Amount
+                </label>
+                <span className="text-white/45">
+                  Balance{" "}
+                  {formatAmount(
+                    selectedToken?.balanceRaw ?? 0n,
+                    selectedToken?.decimals ?? 18,
+                    selectedToken?.symbol,
+                  )}
+                </span>
+              </div>
+              <Input
+                id="earn-amount"
+                inputMode="decimal"
+                placeholder={`0.00 ${selectedToken?.symbol ?? copy.asset}`}
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+              />
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between text-xs text-white/45">
+                  <span>Use balance</span>
+                  <span>{balancePercent}%</span>
+                </div>
+                <input
+                  aria-label="Percentage of wallet balance"
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={balancePercent}
+                  onChange={(event) => handleBalancePercentChange(Number(event.target.value))}
+                  className="w-full accent-[#c4a06a]"
+                />
+              </div>
             </div>
-            <input
-              aria-label="Percentage of wallet balance"
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={balancePercent}
-              onChange={(event) => handleBalancePercentChange(Number(event.target.value))}
-              className="w-full accent-[#c4a06a]"
-            />
-          </div>
-        </div>
 
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium text-white">Lock duration</span>
-            <span className="text-white/45">{trancheWeeks} weeks</span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-white">Lock duration</span>
+                <span className="text-white/45">{trancheWeeks} weeks</span>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {durationOptions.map((weeks) => (
+                  <button
+                    key={weeks}
+                    type="button"
+                    onClick={() => setTrancheWeeks(weeks)}
+                    className={cn(
+                      "rounded-lg border px-2 py-2 text-sm transition",
+                      trancheWeeks === weeks
+                        ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]"
+                        : "border-white/12 bg-white/[0.03] text-white/65 hover:bg-white/[0.07]",
+                    )}
+                  >
+                    {weeks}w
+                  </button>
+                ))}
+              </div>
+              <input
+                aria-label="Lock duration in weeks"
+                type="range"
+                min={1}
+                max={maxTrancheWeeks}
+                step={1}
+                value={trancheWeeks}
+                onChange={(event) => setTrancheWeeks(Number(event.target.value))}
+                className="w-full accent-[#c4a06a]"
+              />
+            </div>
+          </>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <label htmlFor="earn-venft" className="font-medium text-white">
+                veNFT
+              </label>
+              <span className="text-white/45">
+                {veNftsLoading || veNftsFetching ? "Loading..." : `${availableVeNfts.length} found`}
+              </span>
+            </div>
+            <select
+              id="earn-venft"
+              value={selectedVeNftKey}
+              onChange={(event) => setSelectedVeNftKey(event.target.value)}
+              className="h-11 w-full rounded-lg border border-white/10 bg-[#101820] px-3 text-sm text-white outline-none transition focus:border-[var(--accent)]"
+            >
+              <option value="">Select veNFT</option>
+              {availableVeNfts
+                .filter((veNft) => veNft.assetType === variant)
+                .map((veNft) => {
+                  const key = `${veNft.contractAddress}-${veNft.tokenId.toString()}`;
+                  return (
+                    <option key={key} value={key}>
+                      {veNft.assetType} #{veNft.tokenId.toString()} -{" "}
+                      {veNft.availableFractionCapacityFormatted}
+                    </option>
+                  );
+                })}
+            </select>
+            {selectedVeNft ? (
+              <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-white/50">Lock amount</span>
+                  <span className="font-medium text-white">
+                    {selectedVeNft.lockAmountFormatted} {copy.asset}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <span className="text-white/50">Lock end</span>
+                  <span className="font-medium text-white">{selectedVeNft.lockEndLabel}</span>
+                </div>
+              </div>
+            ) : null}
+            {veNftsError ? (
+              <p className="text-sm text-amber-100/80">Could not load veNFT positions.</p>
+            ) : null}
           </div>
-          <div className="grid grid-cols-4 gap-2">
-            {durationOptions.map((weeks) => (
-              <button
-                key={weeks}
-                type="button"
-                onClick={() => setTrancheWeeks(weeks)}
-                className={cn(
-                  "rounded-lg border px-2 py-2 text-sm transition",
-                  trancheWeeks === weeks
-                    ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]"
-                    : "border-white/12 bg-white/[0.03] text-white/65 hover:bg-white/[0.07]",
-                )}
-              >
-                {weeks}w
-              </button>
-            ))}
-          </div>
-          <input
-            aria-label="Lock duration in weeks"
-            type="range"
-            min={1}
-            max={maxTrancheWeeks}
-            step={1}
-            value={trancheWeeks}
-            onChange={(event) => setTrancheWeeks(Number(event.target.value))}
-            className="w-full accent-[#c4a06a]"
-          />
-        </div>
+        )}
 
         <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
           <div className="flex items-center justify-between gap-3 text-sm">
@@ -723,7 +895,7 @@ function CreatePositionCard({
           onComplete={onSuccess}
           onError={txError(onError)}
         >
-          Create liquid lock
+          {createMode === "erc20" ? "Create liquid lock" : "Deposit veNFT"}
         </TransactionFlowButton>
       </CardContent>
     </Card>

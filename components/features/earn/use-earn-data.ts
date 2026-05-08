@@ -186,13 +186,6 @@ export function useEarnData() {
             {
               address,
               abi: assetFractionAbi,
-              functionName: "balanceOf",
-              args: [userAddress],
-              chainId,
-            },
-            {
-              address,
-              abi: assetFractionAbi,
               functionName: "claimableRewards",
               args: [userAddress],
               chainId,
@@ -237,6 +230,38 @@ export function useEarnData() {
       };
     });
   }, [fractionAddresses, fractionReads.data, rowSize]);
+
+  const ledgerBalanceReads = useReadContracts({
+    allowFailure: true,
+    contracts:
+      assetLedger?.address && assetLedger.abi && userAddress
+        ? fractionCore.map((fraction) => ({
+            address: assetLedger.address,
+            abi: assetLedger.abi,
+            functionName: "balanceOf",
+            args: [userAddress, fraction.trancheId],
+            chainId,
+          }))
+        : [],
+    query: {
+      enabled:
+        Boolean(assetLedger?.address && assetLedger.abi && userAddress) && fractionCore.length > 0,
+      staleTime: 15_000,
+      gcTime: 5 * 60_000,
+      refetchInterval: 30_000,
+    },
+  });
+
+  const ledgerBalancesByTranche = useMemo(() => {
+    const balances = new Map<string, bigint>();
+    fractionCore.forEach((fraction, index) => {
+      balances.set(
+        fraction.trancheId.toString(),
+        asBigint(ledgerBalanceReads.data?.[index]?.result) ?? 0n,
+      );
+    });
+    return balances;
+  }, [fractionCore, ledgerBalanceReads.data]);
 
   const rewardAssets = useMemo(() => {
     const assets = new Set<Address>();
@@ -391,14 +416,22 @@ export function useEarnData() {
           rewardDecimals: rewardMeta?.decimals ?? 18,
           rewardReserveRaw: asBigint(fractionReads.data?.[offset + 12]?.result),
           settledUnderlyingRaw: asBigint(fractionReads.data?.[offset + 13]?.result),
-          userBalanceRaw: asBigint(fractionReads.data?.[offset + 14]?.result) ?? 0n,
-          claimableRewardsRaw: asBigint(fractionReads.data?.[offset + 15]?.result) ?? 0n,
-          userAvailableBalanceRaw: asBigint(fractionReads.data?.[offset + 16]?.result) ?? 0n,
+          userBalanceRaw: ledgerBalancesByTranche.get(fraction.trancheId.toString()) ?? 0n,
+          claimableRewardsRaw: asBigint(fractionReads.data?.[offset + 14]?.result) ?? 0n,
+          userAvailableBalanceRaw: asBigint(fractionReads.data?.[offset + 15]?.result) ?? 0n,
         };
       })
       .filter((product): product is EarnProduct => Boolean(product))
       .sort((a, b) => a.variant.localeCompare(b.variant) || a.trancheNumber - b.trancheNumber);
-  }, [fractionCore, fractionReads.data, rewardTokenMeta, rowSize, veBtc?.address, veMezo?.address]);
+  }, [
+    fractionCore,
+    fractionReads.data,
+    ledgerBalancesByTranche,
+    rewardTokenMeta,
+    rowSize,
+    veBtc?.address,
+    veMezo?.address,
+  ]);
 
   const visibleProducts: EarnProduct[] = useMemo(() => {
     if (products.length > 0) return products;
@@ -432,6 +465,7 @@ export function useEarnData() {
     void countRead.refetch();
     void fractionAddressReads.refetch();
     void fractionReads.refetch();
+    void ledgerBalanceReads.refetch();
     void rewardTokenReads.refetch();
     void tokenAddressReads.refetch();
     void tokenMetaReads.refetch();
@@ -441,6 +475,7 @@ export function useEarnData() {
     (countRead.error as Error | null) ||
     (fractionAddressReads.error as Error | null) ||
     (fractionReads.error as Error | null) ||
+    (ledgerBalanceReads.error as Error | null) ||
     (rewardTokenReads.error as Error | null) ||
     (tokenAddressReads.error as Error | null) ||
     (tokenMetaReads.error as Error | null) ||
@@ -459,12 +494,14 @@ export function useEarnData() {
       countRead.isLoading ||
       fractionAddressReads.isLoading ||
       fractionReads.isLoading ||
+      ledgerBalanceReads.isLoading ||
       tokenAddressReads.isLoading ||
       tokenMetaReads.isLoading,
     isFetching:
       countRead.isFetching ||
       fractionAddressReads.isFetching ||
       fractionReads.isFetching ||
+      ledgerBalanceReads.isFetching ||
       rewardTokenReads.isFetching ||
       tokenAddressReads.isFetching ||
       tokenMetaReads.isFetching,
