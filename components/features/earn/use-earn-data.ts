@@ -74,6 +74,13 @@ function sameAddress(a: Address | null | undefined, b: Address | null | undefine
   return Boolean(a && b && a.toLowerCase() === b.toLowerCase());
 }
 
+function inferVariantFromSymbol(symbol: string): EarnVariant | null {
+  const normalized = symbol.toLowerCase();
+  if (normalized.startsWith("fvebtc")) return "veBTC";
+  if (normalized.startsWith("fvemezo")) return "veMEZO";
+  return null;
+}
+
 export function lifecycleLabel(value: number | null): string {
   switch (value) {
     case 0:
@@ -389,7 +396,7 @@ export function useEarnData() {
             ? "veBTC"
             : sameAddress(fraction.veNFT, veMezo?.address)
               ? "veMEZO"
-              : null);
+              : inferVariantFromSymbol(fraction.symbol));
         if (!variant || (variant !== "veBTC" && variant !== "veMEZO")) return null;
 
         const offset = index * rowSize;
