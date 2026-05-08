@@ -22,6 +22,7 @@ const QUICK_DURATIONS = [4, 13, 26, 52];
 const VEBTC_DURATIONS = [1, 2, 3, 4];
 const MAX_TRANCHE_WEEKS = 208;
 const MAX_VEBTC_TRANCHE_WEEKS = 4;
+const EPOCH_ROLLOVER_COOLDOWN_SECONDS = 2n * 60n * 60n;
 
 type ClaimableSummary = {
   key: string;
@@ -915,8 +916,13 @@ function PositionCard({
   const copy = variantCopy(product.variant);
   const progress = epochProgressPercent(product, chainTimestamp);
   const parsedWithdraw = parseAmountInput(withdrawAmount, 18);
+  const isWithinEpochCooldown =
+    Boolean(product.targetEpochEnd) &&
+    chainTimestamp >= (product.targetEpochEnd ?? 0n) &&
+    chainTimestamp < (product.targetEpochEnd ?? 0n) + EPOCH_ROLLOVER_COOLDOWN_SECONDS;
   const canWithdraw =
     product.isTargetSettlementWindow &&
+    !isWithinEpochCooldown &&
     parsedWithdraw !== null &&
     parsedWithdraw <= product.userBalanceRaw &&
     parsedWithdraw > 0n;
@@ -963,7 +969,11 @@ function PositionCard({
               Redeem underlying
             </label>
             <span className="text-xs text-white/45">
-              {product.isTargetSettlementWindow ? "Window open" : "Unavailable now"}
+              {isWithinEpochCooldown
+                ? "Paused for first 2 hours of epoch rollover"
+                : product.isTargetSettlementWindow
+                  ? "Window open"
+                  : "Unavailable now"}
             </span>
           </div>
           <div className="flex gap-2">
@@ -973,13 +983,13 @@ function PositionCard({
               placeholder="0.00"
               value={withdrawAmount}
               onChange={(event) => setWithdrawAmount(event.target.value)}
-              disabled={!product.isTargetSettlementWindow}
+              disabled={!product.isTargetSettlementWindow || isWithinEpochCooldown}
             />
             <Button
               type="button"
               variant="outline"
               onClick={() => setWithdrawAmount(formatUnits(product.userBalanceRaw, 18))}
-              disabled={!product.isTargetSettlementWindow}
+              disabled={!product.isTargetSettlementWindow || isWithinEpochCooldown}
             >
               Max
             </Button>
@@ -1006,8 +1016,18 @@ function PositionCard({
             }}
             onError={txError(onError)}
           >
-            {product.isTargetSettlementWindow ? "Withdraw underlying" : "Await settlement window"}
+            {isWithinEpochCooldown
+              ? "Temporarily paused"
+              : product.isTargetSettlementWindow
+                ? "Withdraw underlying"
+                : "Await settlement window"}
           </TransactionFlowButton>
+          {isWithinEpochCooldown ? (
+            <p className="text-xs text-amber-100/80">
+              Withdraw/refund actions are paused for 2 hours after epoch rollover so backend claims
+              can settle first.
+            </p>
+          ) : null}
         </div>
       </CardContent>
     </Card>
