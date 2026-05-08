@@ -39,6 +39,9 @@ export function getWagmiConfig(activeChain: Chain): Config {
       appName: "Fractals Marketplace",
       chains: [activeChain],
       projectId: runtime.walletConnectProjectId,
+      transports: {
+        [activeChain.id]: http(getChainRpcUrl(activeChain)),
+      },
       ssr: true,
     });
     wagmiConfigChainId = activeChain.id;

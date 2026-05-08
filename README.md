@@ -50,6 +50,13 @@ Supported variables:
 - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` - required for wallet connections.
 - `NEXT_PUBLIC_TXFLOW_NETWORK` - optional network selector for transaction flow config. Common values are `testnet` and `mainnet`.
 - `NEXT_PUBLIC_APP_ENV` - local app environment selector used by the existing configuration.
+- `NEXT_PUBLIC_SPECTRUM_MEZO_TESTNET_RPC_HTTP` - Spectrum Nodes Mezo testnet RPC endpoint used as the primary wagmi transport for testnet reads and writes.
+
+## Spectrum Nodes RPC
+
+For the Mezo testnet demo, set `NEXT_PUBLIC_APP_ENV=testnet` and configure `NEXT_PUBLIC_SPECTRUM_MEZO_TESTNET_RPC_HTTP` with the HTTPS endpoint created in the Spectrum Nodes dashboard. The dApp routes Earn position reads, yield tracking, marketplace reads, block watches, and transaction broadcasts through the wagmi transport backed by that Spectrum RPC URL.
+
+See [docs/spectrum-rpc.md](docs/spectrum-rpc.md) for the architecture notes and hackathon submission details.
 
 ## Development
 
