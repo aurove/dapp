@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const year = useMemo(() => new Date().getFullYear(), []);
 
   return (
-    <div className="min-h-screen pb-24 lg:pb-0">
+    <div className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0f15]/85 backdrop-blur">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6">
           <div className="flex items-center gap-3">
@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </p>
       </footer>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0a0f15]/96 px-3 py-2 backdrop-blur lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0a0f15]/96 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_36px_rgba(0,0,0,0.35)] backdrop-blur lg:hidden">
         <AppNav variant="bottom" />
       </div>
     </div>

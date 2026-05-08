@@ -342,8 +342,8 @@ export function EarnPage() {
       ) : null}
       {error ? <StatusPanel tone="error" title="Read error" message={error.message} /> : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-        <section className="space-y-4">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="order-2 min-w-0 space-y-4 xl:order-1">
           <ClaimablesPanel
             summaries={claimableSummaries}
             claimableProducts={claimableProducts}
@@ -371,11 +371,11 @@ export function EarnPage() {
           ) : userPositions.length === 0 ? (
             <EmptyPositions />
           ) : (
-            <div className="-ml-6 -mr-1 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-pl-6 py-1 pl-6 pr-1">
+            <div className="flex w-full min-w-0 max-w-full snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain py-1 pr-1">
               {userPositions.map((position) => (
                 <div
                   key={position.id}
-                  className="min-w-[min(100%,22rem)] snap-start sm:min-w-[24rem] lg:min-w-[28rem]"
+                  className="w-[min(100%,22rem)] flex-none snap-start sm:w-96 lg:w-[28rem]"
                 >
                   <PositionCard
                     product={position}
@@ -392,7 +392,7 @@ export function EarnPage() {
           )}
         </section>
 
-        <aside className="space-y-4">
+        <aside className="order-1 min-w-0 space-y-4 xl:order-2">
           <CreatePositionCard
             createMode={createMode}
             setCreateMode={setCreateMode}

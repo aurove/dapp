@@ -176,16 +176,16 @@ export function TradeMarketDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-0">
-        <DialogHeader className="border-b border-white/10 px-6 py-5">
-          <DialogTitle className="text-2xl">{market.pair} Market</DialogTitle>
+      <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] max-w-5xl overflow-x-hidden overflow-y-auto p-0 sm:w-[calc(100vw-2rem)]">
+        <DialogHeader className="min-w-0 border-b border-white/10 px-4 py-5 sm:px-6">
+          <DialogTitle className="break-words text-2xl">{market.pair} Market</DialogTitle>
           <DialogDescription>
             Trade {market.fractionName} with {market.paymentTokenSymbol}.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 p-6 lg:grid-cols-[1.4fr_1fr]">
-          <div className="space-y-4">
+        <div className="grid min-w-0 gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <div className="min-w-0 space-y-4">
             <MarketDepthCard market={market} />
             <OrderbookCard
               key={market.id}
@@ -207,19 +207,21 @@ export function TradeMarketDialog({
             />
           </div>
 
-          <div className="space-y-4">
-            <ReadinessCard
-              activeChainName={activeChain.name}
-              fractionApproved={fractionApproved}
-              fractionBalance={fractionBalance}
-              isConnected={isConnected}
-              isCorrectNetwork={isCorrectNetwork}
-              isPaused={isPaused}
-              paymentAllowance={paymentAllowance}
-              paymentBalance={paymentBalance}
-              paymentTokenSymbol={market.paymentTokenSymbol}
-              readinessError={readinessError}
-            />
+          <div className="min-w-0 space-y-4">
+            <div className="hidden lg:block">
+              <ReadinessCard
+                activeChainName={activeChain.name}
+                fractionApproved={fractionApproved}
+                fractionBalance={fractionBalance}
+                isConnected={isConnected}
+                isCorrectNetwork={isCorrectNetwork}
+                isPaused={isPaused}
+                paymentAllowance={paymentAllowance}
+                paymentBalance={paymentBalance}
+                paymentTokenSymbol={market.paymentTokenSymbol}
+                readinessError={readinessError}
+              />
+            </div>
             <TradeActionsCard
               activeTab={tab}
               assetLedgerAddress={assetLedger?.address}

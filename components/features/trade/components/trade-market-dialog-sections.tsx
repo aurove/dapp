@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useMemo,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-  type UIEvent,
-} from "react";
+import { useMemo, useState } from "react";
 import { AlertCircle, ArrowRightLeft, CheckCircle2, ShoppingCart, Wallet } from "lucide-react";
 import { type Abi, type Address } from "viem";
 import { Button } from "@fractals/ui/ui/button";
@@ -19,7 +12,7 @@ import { BidTradeAction, BuyTradeAction, SellTradeAction } from "./trade-market-
 
 export type TradeTab = "buy" | "sell" | "bid";
 
-const ORDERBOOK_PAGE_SIZE = 10;
+type OrderbookViewMode = "all" | "asks" | "bids";
 
 type MarketDepthCardProps = {
   market: TradeMarket;
@@ -96,15 +89,15 @@ function OrderbookRowLayout({
   return (
     <div
       className={cn(
-        "grid grid-cols-[1fr_minmax(8rem,8rem)_minmax(8rem,8rem)] items-center gap-4",
+        "grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(4.75rem,5.5rem)_minmax(5.5rem,6.5rem)] items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(8rem,8rem)_minmax(8rem,8rem)] sm:gap-4",
         className,
       )}
     >
-      <span>{label}</span>
+      <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{label}</span>
 
-      <span className="justify-self-end text-right">{amount}</span>
+      <span className="min-w-0 justify-self-end text-right">{amount}</span>
 
-      <span className="justify-self-start text-left">{price}</span>
+      <span className="min-w-0 justify-self-start text-left">{price}</span>
     </div>
   );
 }
@@ -131,12 +124,12 @@ function OrderbookOrderRow({
   return (
     <OrderbookRowLayout
       label={
-        <span className="flex items-center gap-2 text-[var(--muted)]">
+        <span className="flex min-w-0 items-center gap-1.5 text-[var(--muted)] sm:gap-2">
           #{id.toString()}
           {isBest ? (
             <span
               className={cn(
-                "rounded px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em]",
+                "rounded px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em] max-[420px]:hidden",
                 bestBadgeClassName,
               )}
             >
@@ -146,13 +139,15 @@ function OrderbookOrderRow({
         </span>
       }
       amount={
-        <span className="flex flex-col items-end gap-0.5">
-          <span className="font-medium text-[var(--foreground)]">{formatTokenAmount(amount)}</span>
+        <span className="flex min-w-0 flex-col items-end gap-0.5">
+          <span className="max-w-full truncate font-medium text-[var(--foreground)]">
+            {formatTokenAmount(amount)}
+          </span>
           {amountNote ? <span className="text-[10px] text-amber-200">{amountNote}</span> : null}
         </span>
       }
       price={
-        <span className={cn("font-medium", priceClassName)}>
+        <span className={cn("block max-w-full truncate font-medium", priceClassName)}>
           {formatTokenAmount(price)} {paymentTokenSymbol}
         </span>
       }
@@ -162,7 +157,7 @@ function OrderbookOrderRow({
 
 export function MarketDepthCard({ market }: MarketDepthCardProps) {
   return (
-    <Card>
+    <Card className="min-w-0 overflow-hidden">
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Market depth</CardTitle>
       </CardHeader>
@@ -215,207 +210,195 @@ export function OrderbookCard({
   onBidSelect,
 }: OrderbookCardProps) {
   const [selectedOrderId, setSelectedOrderId] = useState("");
-  const [visibleAskCount, setVisibleAskCount] = useState(ORDERBOOK_PAGE_SIZE);
-  const [visibleBidCount, setVisibleBidCount] = useState(ORDERBOOK_PAGE_SIZE);
+  const [viewMode, setViewMode] = useState<OrderbookViewMode>("all");
 
-  const renderedAsks = useMemo(
-    () => asksByBestPrice.slice(0, visibleAskCount).reverse(),
-    [asksByBestPrice, visibleAskCount],
-  );
-  const visibleBids = useMemo(
-    () => bidsByBestPrice.slice(0, visibleBidCount),
-    [bidsByBestPrice, visibleBidCount],
-  );
-  const hasMoreAsks = visibleAskCount < asksByBestPrice.length;
-  const hasMoreBids = visibleBidCount < bidsByBestPrice.length;
-
-  const loadMoreOnScroll = useCallback(
-    (
-      event: UIEvent<HTMLDivElement>,
-      hasMore: boolean,
-      setVisibleCount: Dispatch<SetStateAction<number>>,
-    ) => {
-      if (!hasMore) return;
-
-      const { clientHeight, scrollHeight, scrollTop } = event.currentTarget;
-      if (scrollHeight - scrollTop - clientHeight <= 48) {
-        setVisibleCount((current) => current + ORDERBOOK_PAGE_SIZE);
-      }
-    },
-    [],
-  );
+  const renderedAsks = useMemo(() => asksByBestPrice.slice().reverse(), [asksByBestPrice]);
+  const visibleBids = useMemo(() => bidsByBestPrice, [bidsByBestPrice]);
+  const showAsks = viewMode === "all" || viewMode === "asks";
+  const showBids = viewMode === "all" || viewMode === "bids";
+  const showSpread = viewMode === "all";
 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Orderbook</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-base">Orderbook</CardTitle>
+          <div className="inline-flex rounded-lg border border-white/12 bg-white/[0.03] p-1">
+            {(["all", "asks", "bids"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setViewMode(mode)}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] transition",
+                  viewMode === mode
+                    ? "bg-white/12 text-white"
+                    : "text-white/60 hover:bg-white/8 hover:text-white/85",
+                )}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
       </CardHeader>
 
-      <CardContent className="space-y-3 pb-5 pt-2">
-        <div className="space-y-2">
-          {market.topListings.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-white/15 px-3 py-2 text-xs text-[var(--muted)]">
-              No active asks. Sellers have not listed {market.fractionSymbol} for{" "}
-              {market.paymentTokenSymbol}.
-            </p>
-          ) : (
-            <div
-              className="max-h-80 space-y-2 overflow-y-auto pr-1"
-              onScroll={(event) => loadMoreOnScroll(event, hasMoreAsks, setVisibleAskCount)}
-            >
-              {renderedAsks.map((listing) => {
-                const isBestAsk = bestAsk?.listingId === listing.listingId;
-                const selectId = `ask-${listing.listingId.toString()}`;
-                const isSelected = selectedOrderId === selectId;
-
-                return (
-                  <button
-                    key={listing.listingId.toString()}
-                    type="button"
-                    onClick={() => {
-                      onAskSelect(listing.listingId.toString());
-                      setSelectedOrderId(selectId);
-                    }}
-                    className={cn(
-                      "grid w-full grid-cols-[1fr_auto_auto] items-center gap-4 rounded-lg border px-3 py-2 text-left text-xs transition",
-                      isSelected
-                        ? "border-rose-300/30 bg-rose-400/[0.08] hover:border-rose-300/40"
-                        : "border-rose-300/10 bg-rose-400/[0.025] hover:border-rose-300/20",
-                    )}
-                  >
-                    <OrderbookOrderRow
-                      id={listing.listingId}
-                      isBest={isBestAsk}
-                      amount={listing.amount}
-                      amountNote={
-                        listing.isInventoryStale
-                          ? `seller has ${formatTokenAmount(listing.amount)} of ${formatTokenAmount(
-                              listing.listedAmount,
-                            )}`
-                          : undefined
-                      }
-                      price={listing.price}
-                      paymentTokenSymbol={market.paymentTokenSymbol}
-                      priceClassName="text-rose-100"
-                      bestBadgeClassName="border border-rose-300/30 text-rose-100"
-                    />
-                  </button>
-                );
-              })}
-              {hasMoreAsks ? (
-                <p className="px-3 py-1 text-center text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
-                  Scroll for more asks
+      <CardContent className="min-w-0 space-y-3 pb-5 pt-2">
+        <div className="max-h-[32rem] space-y-3 overflow-y-auto overflow-x-hidden pr-1">
+          {showAsks ? (
+            <div className="space-y-2">
+              {market.topListings.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-white/15 px-3 py-2 text-xs text-[var(--muted)]">
+                  No active asks. Sellers have not listed {market.fractionSymbol} for{" "}
+                  {market.paymentTokenSymbol}.
                 </p>
-              ) : null}
+              ) : (
+                <div className="min-w-0 space-y-2">
+                  {renderedAsks.map((listing) => {
+                    const isBestAsk = bestAsk?.listingId === listing.listingId;
+                    const selectId = `ask-${listing.listingId.toString()}`;
+                    const isSelected = selectedOrderId === selectId;
+
+                    return (
+                      <button
+                        key={listing.listingId.toString()}
+                        type="button"
+                        onClick={() => {
+                          onAskSelect(listing.listingId.toString());
+                          setSelectedOrderId(selectId);
+                        }}
+                        className={cn(
+                          "w-full min-w-0 rounded-lg border px-2 py-2 text-left text-xs transition sm:px-3",
+                          isSelected
+                            ? "border-rose-300/30 bg-rose-400/[0.08] hover:border-rose-300/40"
+                            : "border-rose-300/10 bg-rose-400/[0.025] hover:border-rose-300/20",
+                        )}
+                      >
+                        <OrderbookOrderRow
+                          id={listing.listingId}
+                          isBest={isBestAsk}
+                          amount={listing.amount}
+                          amountNote={
+                            listing.isInventoryStale
+                              ? `seller has ${formatTokenAmount(listing.amount)} of ${formatTokenAmount(
+                                  listing.listedAmount,
+                                )}`
+                              : undefined
+                          }
+                          price={listing.price}
+                          paymentTokenSymbol={market.paymentTokenSymbol}
+                          priceClassName="text-rose-100"
+                          bestBadgeClassName="border border-rose-300/30 text-rose-100"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <OrderbookRowLayout
+                className="pl-2 pr-8 text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--muted)] sm:pl-3 sm:pr-11"
+                label="Asks"
+                amount="Amount"
+                price="Price"
+              />
             </div>
-          )}
+          ) : null}
 
-          <OrderbookRowLayout
-            className="pl-3 pr-11 text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]"
-            label="Asks"
-            amount="Amount"
-            price="Price"
-          />
-        </div>
-
-        <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[var(--muted)]">
-              Spread / Mid price
-            </p>
-            <p className="text-xs font-medium text-[var(--foreground)]">
-              {formatRawTokenAmount(
-                midPriceRaw,
-                market.paymentTokenDecimals,
-                market.paymentTokenSymbol,
-              )}
-            </p>
-          </div>
-
-          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
-            <span>
-              Spread{" "}
-              {formatRawTokenAmount(
-                spreadRaw,
-                market.paymentTokenDecimals,
-                market.paymentTokenSymbol,
-              )}
-            </span>
-            <span>
-              {bestAsk && bestBid
-                ? "Best ask - best bid"
-                : bestAsk
-                  ? "Waiting for bids"
-                  : bestBid
-                    ? "Waiting for asks"
-                    : "No active orders"}
-            </span>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <OrderbookRowLayout
-            className="pl-3 pr-11 text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]"
-            label="Bids"
-            amount="Amount"
-            price="Price"
-          />
-
-          {market.topBids.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-white/15 px-3 py-2 text-xs text-[var(--muted)]">
-              No active bids. Buyers have not placed demand for {market.fractionSymbol}.
-            </p>
-          ) : (
-            <div
-              className="max-h-80 space-y-2 overflow-y-auto pr-1"
-              onScroll={(event) => loadMoreOnScroll(event, hasMoreBids, setVisibleBidCount)}
-            >
-              {visibleBids.map((bid) => {
-                const isBestBid = bestBid?.bidId === bid.bidId;
-                const selectId = `bid-${bid.bidId.toString()}`;
-                const isSelected = selectedOrderId === selectId;
-
-                return (
-                  <button
-                    key={bid.bidId.toString()}
-                    type="button"
-                    onClick={() => {
-                      onBidSelect(bid.bidId.toString());
-                      setSelectedOrderId(selectId);
-                    }}
-                    className={cn(
-                      "grid w-full grid-cols-[1fr_auto_auto] items-center gap-4 rounded-lg border px-3 py-2 text-left text-xs transition",
-                      isSelected
-                        ? "border-emerald-300/30 bg-emerald-400/[0.08] hover:border-emerald-300/40"
-                        : "border-emerald-300/10 bg-emerald-400/[0.025] hover:border-emerald-300/20",
-                    )}
-                  >
-                    <OrderbookOrderRow
-                      id={bid.bidId}
-                      isBest={isBestBid}
-                      amount={bid.amount}
-                      amountNote={
-                        bid.isFundingStale
-                          ? `funded ${formatTokenAmount(bid.amount)} of ${formatTokenAmount(
-                              bid.requestedAmount,
-                            )}`
-                          : undefined
-                      }
-                      price={bid.price}
-                      paymentTokenSymbol={market.paymentTokenSymbol}
-                      priceClassName="text-emerald-100"
-                      bestBadgeClassName="border border-emerald-300/30 text-emerald-100"
-                    />
-                  </button>
-                );
-              })}
-              {hasMoreBids ? (
-                <p className="px-3 py-1 text-center text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
-                  Scroll for more bids
+          {showSpread ? (
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[var(--muted)]">
+                  Spread / Mid price
                 </p>
-              ) : null}
+                <p className="text-xs font-medium text-[var(--foreground)]">
+                  {formatRawTokenAmount(
+                    midPriceRaw,
+                    market.paymentTokenDecimals,
+                    market.paymentTokenSymbol,
+                  )}
+                </p>
+              </div>
+
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
+                <span>
+                  Spread{" "}
+                  {formatRawTokenAmount(
+                    spreadRaw,
+                    market.paymentTokenDecimals,
+                    market.paymentTokenSymbol,
+                  )}
+                </span>
+                <span>
+                  {bestAsk && bestBid
+                    ? "Best ask - best bid"
+                    : bestAsk
+                      ? "Waiting for bids"
+                      : bestBid
+                        ? "Waiting for asks"
+                        : "No active orders"}
+                </span>
+              </div>
             </div>
-          )}
+          ) : null}
+
+          {showBids ? (
+            <div className="space-y-2">
+              <OrderbookRowLayout
+                className="pl-2 pr-8 text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--muted)] sm:pl-3 sm:pr-11"
+                label="Bids"
+                amount="Amount"
+                price="Price"
+              />
+
+              {market.topBids.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-white/15 px-3 py-2 text-xs text-[var(--muted)]">
+                  No active bids. Buyers have not placed demand for {market.fractionSymbol}.
+                </p>
+              ) : (
+                <div className="min-w-0 space-y-2">
+                  {visibleBids.map((bid) => {
+                    const isBestBid = bestBid?.bidId === bid.bidId;
+                    const selectId = `bid-${bid.bidId.toString()}`;
+                    const isSelected = selectedOrderId === selectId;
+
+                    return (
+                      <button
+                        key={bid.bidId.toString()}
+                        type="button"
+                        onClick={() => {
+                          onBidSelect(bid.bidId.toString());
+                          setSelectedOrderId(selectId);
+                        }}
+                        className={cn(
+                          "w-full min-w-0 rounded-lg border px-2 py-2 text-left text-xs transition sm:px-3",
+                          isSelected
+                            ? "border-emerald-300/30 bg-emerald-400/[0.08] hover:border-emerald-300/40"
+                            : "border-emerald-300/10 bg-emerald-400/[0.025] hover:border-emerald-300/20",
+                        )}
+                      >
+                        <OrderbookOrderRow
+                          id={bid.bidId}
+                          isBest={isBestBid}
+                          amount={bid.amount}
+                          amountNote={
+                            bid.isFundingStale
+                              ? `funded ${formatTokenAmount(bid.amount)} of ${formatTokenAmount(
+                                  bid.requestedAmount,
+                                )}`
+                              : undefined
+                          }
+                          price={bid.price}
+                          paymentTokenSymbol={market.paymentTokenSymbol}
+                          priceClassName="text-emerald-100"
+                          bestBadgeClassName="border border-emerald-300/30 text-emerald-100"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       </CardContent>
     </Card>
