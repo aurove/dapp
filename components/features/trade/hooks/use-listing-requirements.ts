@@ -2,6 +2,7 @@
 
 import { erc721Abi, type Address } from "viem";
 import { useReadContract } from "wagmi";
+import { detailReadQueryOptions } from "@/lib/web3/read-query-options";
 
 const MARKETPLACE_OPERATOR_ABI = [
   {
@@ -66,8 +67,7 @@ export function useListingRequirements({
     chainId,
     query: {
       enabled: canReadVeNftApproval,
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
+      ...detailReadQueryOptions,
     },
   });
 
@@ -82,8 +82,7 @@ export function useListingRequirements({
     chainId,
     query: {
       enabled: canReadSellerApprovals && includeVeFlow,
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
+      ...detailReadQueryOptions,
     },
   });
 
@@ -98,8 +97,7 @@ export function useListingRequirements({
     chainId,
     query: {
       enabled: canReadSellerApprovals,
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
+      ...detailReadQueryOptions,
     },
   });
 

@@ -19,6 +19,7 @@ import { parseUnits } from "viem";
 import { makeContractWriteStep, TransactionFlowButton, type TxStep } from "@/lib/tx-flow";
 import { useReadContract } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
+import { coreReadQueryOptions, detailReadQueryOptions } from "@/lib/web3/read-query-options";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
 import { formatRawTokenAmount, formatTokenAmount } from "../helpers/formatters";
 import { useBidRequirements } from "../hooks/use-bid-requirements";
@@ -187,8 +188,7 @@ export function TradePlaceBidDialog({
     chainId: expectedChainId,
     query: {
       enabled: Boolean(open && marketplace?.address && marketplace.abi),
-      staleTime: 30_000,
-      gcTime: 5 * 60_000,
+      ...coreReadQueryOptions,
     },
   });
 
@@ -205,8 +205,7 @@ export function TradePlaceBidDialog({
         adminContractAddress &&
         adminContractAddress !== "0x0000000000000000000000000000000000000000",
       ),
-      staleTime: 15_000,
-      gcTime: 5 * 60_000,
+      ...detailReadQueryOptions,
     },
   });
 

@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import { parseUnits, erc20Abi, erc721Abi, type Address } from "viem";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { getContractConfig } from "@/contracts/client";
+import { staticReadQueryOptions } from "@/lib/web3/read-query-options";
 import { useReadContracts } from "wagmi";
 import { useTradeFlowContext } from "./use-trade-flow-context";
 import type {
@@ -72,8 +73,7 @@ export function useTradeListing() {
     contracts: paymentTokenConfigContracts,
     query: {
       enabled: Boolean(paymentRouter?.address && paymentRouter.abi),
-      staleTime: 30_000,
-      gcTime: 5 * 60_000,
+      ...staticReadQueryOptions,
     },
   });
 
@@ -126,8 +126,7 @@ export function useTradeListing() {
     contracts: paymentTokenMetadataContracts,
     query: {
       enabled: supportedPaymentTokens.length > 0,
-      staleTime: 30_000,
-      gcTime: 5 * 60_000,
+      ...staticReadQueryOptions,
     },
   });
 

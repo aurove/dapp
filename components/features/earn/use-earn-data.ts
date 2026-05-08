@@ -5,6 +5,11 @@ import { erc20Abi, type Abi, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
+import {
+  coreReadQueryOptions,
+  detailReadQueryOptions,
+  staticReadQueryOptions,
+} from "@/lib/web3/read-query-options";
 import { decodeTrancheId, deriveTrancheId } from "@/components/features/trade/utils/tranche";
 
 export type EarnVariant = "veBTC" | "veMEZO";
@@ -137,8 +142,7 @@ export function useEarnData() {
         : [],
     query: {
       enabled: Boolean(assetLedger?.address && assetLedger.abi),
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
+      ...staticReadQueryOptions,
     },
   });
 
@@ -158,8 +162,7 @@ export function useEarnData() {
         : [],
     query: {
       enabled: Boolean(assetLedger?.address && assetLedger.abi) && fractionCount > 0,
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
+      ...staticReadQueryOptions,
     },
   });
 
@@ -209,9 +212,7 @@ export function useEarnData() {
     ]),
     query: {
       enabled: Boolean(assetFractionAbi) && fractionAddresses.length > 0,
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
-      refetchInterval: 30_000,
+      ...detailReadQueryOptions,
     },
   });
 
@@ -253,9 +254,7 @@ export function useEarnData() {
     query: {
       enabled:
         Boolean(assetLedger?.address && assetLedger.abi && userAddress) && fractionCore.length > 0,
-      staleTime: 15_000,
-      gcTime: 5 * 60_000,
-      refetchInterval: 30_000,
+      ...detailReadQueryOptions,
     },
   });
 
@@ -287,8 +286,7 @@ export function useEarnData() {
     ]),
     query: {
       enabled: rewardAssets.length > 0,
-      staleTime: 60_000,
-      gcTime: 5 * 60_000,
+      ...staticReadQueryOptions,
     },
   });
 
@@ -315,8 +313,7 @@ export function useEarnData() {
     })),
     query: {
       enabled: supportedVeNfts.length > 0,
-      staleTime: 60_000,
-      gcTime: 5 * 60_000,
+      ...staticReadQueryOptions,
     },
   });
 
@@ -356,9 +353,7 @@ export function useEarnData() {
     ),
     query: {
       enabled: underlyingAddresses.some(Boolean),
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
-      refetchInterval: 30_000,
+      ...coreReadQueryOptions,
     },
   });
 

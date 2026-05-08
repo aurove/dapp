@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useReadContracts } from "wagmi";
 import type { Address } from "viem";
 import { getContractConfig } from "@/contracts/client";
+import { coreReadQueryOptions, detailReadQueryOptions } from "@/lib/web3/read-query-options";
 import { buildTradeAssetViewModels } from "./view-model";
 import {
   buildTradeBootstrapContracts,
@@ -66,9 +67,7 @@ export function useTradeMarketData({
     contracts: bootstrapContracts,
     query: {
       enabled: canRunBootstrapReads,
-      staleTime: 15_000,
-      gcTime: 5 * 60_000,
-      refetchInterval: 30_000,
+      ...coreReadQueryOptions,
     },
   });
 
@@ -120,9 +119,7 @@ export function useTradeMarketData({
     contracts: metadataPlan.contracts,
     query: {
       enabled: canRunMetadataReads,
-      staleTime: 15_000,
-      gcTime: 5 * 60_000,
-      refetchInterval: 30_000,
+      ...detailReadQueryOptions,
     },
   });
 

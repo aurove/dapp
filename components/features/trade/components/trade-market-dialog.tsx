@@ -12,6 +12,7 @@ import {
 } from "@fractals/ui/ui/dialog";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
+import { coreReadQueryOptions, detailReadQueryOptions } from "@/lib/web3/read-query-options";
 import type { TradeMarket } from "../types";
 import {
   getBestAsk,
@@ -97,8 +98,7 @@ export function TradeMarketDialog({
     chainId: expectedChainId,
     query: {
       enabled: Boolean(open && marketplaceAdmin?.address),
-      staleTime: 15_000,
-      gcTime: 5 * 60_000,
+      ...coreReadQueryOptions,
     },
   });
 
@@ -112,8 +112,7 @@ export function TradeMarketDialog({
     chainId: expectedChainId,
     query: {
       enabled: Boolean(open && userAddress),
-      staleTime: 10_000,
-      gcTime: 5 * 60_000,
+      ...detailReadQueryOptions,
     },
   });
 
@@ -125,8 +124,7 @@ export function TradeMarketDialog({
     chainId: expectedChainId,
     query: {
       enabled: Boolean(open && userAddress && paymentRouter?.address),
-      staleTime: 10_000,
-      gcTime: 5 * 60_000,
+      ...detailReadQueryOptions,
     },
   });
 
@@ -138,8 +136,7 @@ export function TradeMarketDialog({
     chainId: expectedChainId,
     query: {
       enabled: Boolean(open && userAddress && assetLedger?.address && assetLedger.abi),
-      staleTime: 10_000,
-      gcTime: 5 * 60_000,
+      ...detailReadQueryOptions,
     },
   });
 
@@ -151,8 +148,7 @@ export function TradeMarketDialog({
     chainId: expectedChainId,
     query: {
       enabled: Boolean(open && userAddress && assetLedger?.address && marketplace?.address),
-      staleTime: 10_000,
-      gcTime: 5 * 60_000,
+      ...detailReadQueryOptions,
     },
   });
 

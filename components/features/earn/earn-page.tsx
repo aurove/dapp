@@ -4,14 +4,7 @@ import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { CheckCircle2, Coins, LockKeyhole, RefreshCw, Sparkles, Wallet } from "lucide-react";
 import { erc20Abi, erc721Abi, formatUnits, parseUnits, type Address } from "viem";
-import {
-  useAccount,
-  useBlock,
-  useChainId,
-  usePublicClient,
-  useWatchBlockNumber,
-  useWriteContract,
-} from "wagmi";
+import { useBlock, useChainId } from "wagmi";
 import { Badge } from "@fractals/ui/ui/badge";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fractals/ui/ui/card";
@@ -20,7 +13,6 @@ import { Skeleton } from "@fractals/ui/ui/skeleton";
 import { cn } from "@fractals/ui/lib/cn";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
-import { getParsedError } from "@/lib/tx-flow/getParsedError";
 import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
 import { deriveTrancheId } from "@/components/features/trade/utils/tranche";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/trade/hooks/use-user-ve-nfts";
@@ -115,6 +107,7 @@ function variantCopy(variant: EarnVariant) {
 }
 
 export function EarnPage() {
+  const { data: blockData } = useBlock({ watch: false });
   const {
     assetLedger,
     products,
@@ -142,6 +135,7 @@ export function EarnPage() {
   const [withdrawAmounts, setWithdrawAmounts] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const chainTimestamp = blockData?.timestamp ?? BigInt(Math.floor(Date.now() / 1000));
 
   const selectedToken = tokens[variant];
   const parsedCreateAmount = selectedToken
@@ -379,6 +373,7 @@ export function EarnPage() {
                 >
                   <PositionCard
                     product={position}
+                    chainTimestamp={chainTimestamp}
                     withdrawAmount={withdrawAmounts[position.id] ?? ""}
                     setWithdrawAmount={(value) =>
                       setWithdrawAmounts((prev) => ({ ...prev, [position.id]: value }))
@@ -548,48 +543,13 @@ function ClaimableTokenButton({
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
-  const { address, chain } = useAccount();
   const activeChainId = useChainId();
-  const publicClient = usePublicClient();
-  const { writeContractAsync, isPending } = useWriteContract();
-  const [isWaiting, setIsWaiting] = useState(false);
+  const trancheIds = useMemo(
+    () => [...new Set(summary.products.map((product) => product.trancheId))],
+    [summary.products],
+  );
 
-  const handleClaim = async () => {
-    if (!address || !chain || !assetLedger?.address || !assetLedger.abi || !publicClient) return;
-
-    try {
-      setIsWaiting(true);
-      const trancheIds = [...new Set(summary.products.map((product) => product.trancheId))];
-      const hash = await writeContractAsync({
-        account: address,
-        chainId: chain.id,
-        address: assetLedger.address,
-        abi: assetLedger.abi,
-        functionName: "claimRewards",
-        args: [trancheIds, address],
-      });
-
-      await publicClient.waitForTransactionReceipt({
-        hash,
-        confirmations: 1,
-      });
-
-      onSuccess(
-        `${summary.symbol} rewards claimed from ${summary.trancheCount} tranche${summary.trancheCount === 1 ? "" : "s"}.`,
-      );
-    } catch (error) {
-      onError(getParsedError(error));
-    } finally {
-      setIsWaiting(false);
-    }
-  };
-
-  const isDisabled =
-    !assetLedger?.address ||
-    !assetLedger.abi ||
-    summary.products.length === 0 ||
-    isPending ||
-    isWaiting;
+  const isDisabled = !assetLedger?.address || !assetLedger.abi || summary.products.length === 0;
 
   return (
     <ConnectButton.Custom>
@@ -598,26 +558,61 @@ function ClaimableTokenButton({
         const wrongNetwork = Boolean(
           connected && (walletChain?.unsupported || walletChain?.id !== activeChainId),
         );
-        const onClick = !connected ? openConnectModal : wrongNetwork ? openChainModal : handleClaim;
+        if (!connected) {
+          return (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="w-full"
+              onClick={openConnectModal}
+            >
+              Connect Wallet
+            </Button>
+          );
+        }
+
+        if (wrongNetwork) {
+          return (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="w-full"
+              onClick={openChainModal}
+            >
+              Wrong network
+            </Button>
+          );
+        }
 
         return (
-          <Button
-            type="button"
+          <TransactionFlowButton
+            className="w-full"
             size="sm"
             variant="secondary"
-            className="w-full"
-            onClick={onClick}
-            disabled={connected && !wrongNetwork ? isDisabled : false}
-            aria-busy={connected && !wrongNetwork ? isPending || isWaiting : false}
+            disabled={isDisabled}
+            steps={({ account: connectedAccount }) => [
+              makeContractWriteStep({
+                key: `claim-${summary.key}`,
+                label: `Claim ${summary.symbol}`,
+                displayLabelBtn: true,
+                contractName: "AssetLedger",
+                variables: {
+                  functionName: "claimRewards",
+                  args: [trancheIds, connectedAccount],
+                },
+              }) as unknown as TxStep,
+            ]}
+            onComplete={() => {
+              onSuccess(
+                `${summary.symbol} rewards claimed from ${summary.trancheCount} tranche${summary.trancheCount === 1 ? "" : "s"}.`,
+              );
+            }}
+            onError={txError(onError)}
           >
-            {!connected
-              ? "Connect Wallet"
-              : wrongNetwork
-                ? "Wrong network"
-                : isPending || isWaiting
-                  ? "Claiming..."
-                  : `Claim ${summary.symbol}`}
-          </Button>
+            {`Claim ${summary.symbol}`}
+          </TransactionFlowButton>
         );
       }}
     </ConnectButton.Custom>
@@ -904,23 +899,21 @@ function CreatePositionCard({
 
 function PositionCard({
   product,
+  chainTimestamp,
   withdrawAmount,
   setWithdrawAmount,
   onSuccess,
   onError,
 }: {
   product: EarnProduct;
+  chainTimestamp: bigint;
   withdrawAmount: string;
   setWithdrawAmount: (value: string) => void;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
-  const { data } = useBlock({ watch: true });
   const copy = variantCopy(product.variant);
-  const progress = epochProgressPercent(
-    product,
-    data?.timestamp ?? BigInt(Math.floor(Date.now() / 1000)),
-  );
+  const progress = epochProgressPercent(product, chainTimestamp);
   const parsedWithdraw = parseAmountInput(withdrawAmount, 18);
   const canWithdraw =
     product.isTargetSettlementWindow &&

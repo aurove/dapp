@@ -5,6 +5,7 @@ import { formatUnits, type Abi, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
+import { detailReadQueryOptions, staticReadQueryOptions } from "@/lib/web3/read-query-options";
 import type { TradeVeAssetType } from "../types";
 
 const MAX_TOKENS_PER_COLLECTION = 50;
@@ -194,9 +195,7 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
     contracts: summaryContracts,
     query: {
       enabled: canReadSummaries,
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
-      refetchOnWindowFocus: true,
+      ...detailReadQueryOptions,
     },
   });
 
@@ -253,9 +252,7 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
     contracts: tokenIdContracts,
     query: {
       enabled: canReadTokenIds,
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
-      refetchOnWindowFocus: true,
+      ...detailReadQueryOptions,
     },
   });
 
@@ -309,9 +306,7 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
     contracts: lockContracts,
     query: {
       enabled: lockContracts.length > 0,
-      staleTime: 20_000,
-      gcTime: 5 * 60_000,
-      refetchOnWindowFocus: true,
+      ...staticReadQueryOptions,
     },
   });
 

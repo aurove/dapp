@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { erc20Abi, type Address } from "viem";
 import { useReadContracts } from "wagmi";
+import { detailReadQueryOptions } from "@/lib/web3/read-query-options";
 
 type UseBidRequirementsParams = {
   bidderAddress?: Address;
@@ -48,8 +49,7 @@ export function useBidRequirements({
     contracts,
     query: {
       enabled: contracts.length > 0,
-      staleTime: 10_000,
-      gcTime: 5 * 60_000,
+      ...detailReadQueryOptions,
     },
   });
 

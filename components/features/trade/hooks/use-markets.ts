@@ -2,9 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { erc1155Abi, erc20Abi, formatUnits, zeroAddress, type Abi, type Address } from "viem";
-import { useAccount, useBlock, useChainId, useReadContracts } from "wagmi";
+import { useAccount, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
+import {
+  coreReadQueryOptions,
+  detailReadQueryOptions,
+  heavyReadQueryOptions,
+  staticReadQueryOptions,
+} from "@/lib/web3/read-query-options";
 import { TRADE_MARKET_SORT_OPTIONS } from "../constants";
 import { LISTINGS_PAGE_SIZE, parseActiveListingsReadResult } from "../data/contracts";
 import type {
@@ -75,6 +81,8 @@ type FractionInfo = {
 
 const DEFAULT_DECIMALS = 18;
 const FRACTION_DECIMALS = 18;
+const MAX_MARKET_PAGES_PER_POLL = 12;
+const MAX_ACTIVE_ORDER_VERIFICATION_READS = 120;
 
 function inferFractionBase(symbol: string): TradeMarketBase {
   const normalized = symbol.toLowerCase();
@@ -175,13 +183,7 @@ export function useMarkets() {
   const { address: userAddress } = useAccount();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = txFlowChainId ?? activeChain.id;
-  const blockRead = useBlock({
-    chainId,
-    watch: true,
-    query: {
-      staleTime: 5_000,
-    },
-  });
+  const chainTimestamp = null;
 
   const marketplace = getContractConfig(chainId, "Marketplace");
   const paymentRouter = getContractConfig(chainId, "PaymentRouter");
@@ -195,12 +197,6 @@ export function useMarkets() {
   const [activeOnly, setActiveOnly] = useState(false);
   const [sortBy, setSortBy] = useState<TradeMarketSortOption>(TRADE_MARKET_SORT_OPTIONS[0]!.value);
   const [nowTimestamp] = useState(() => Math.floor(Date.now() / 1000));
-  const chainTimestamp =
-    typeof blockRead.data?.timestamp === "bigint"
-      ? Number(blockRead.data.timestamp)
-      : typeof blockRead.data?.timestamp === "number"
-        ? blockRead.data.timestamp
-        : null;
 
   const canReadCore = Boolean(
     marketplace?.address && marketplace.abi && paymentRouter?.address && paymentRouter.abi,
@@ -271,9 +267,7 @@ export function useMarkets() {
     contracts: bootstrapContracts,
     query: {
       enabled: canReadCore,
-      staleTime: 15_000,
-      gcTime: 5 * 60_000,
-      refetchInterval: 30_000,
+      ...coreReadQueryOptions,
     },
   });
 
@@ -310,7 +304,9 @@ export function useMarkets() {
       chainId: number;
     }> = [];
 
+    let pageCount = 0;
     for (let cursor = 0n; cursor < listingCount; cursor += LISTINGS_PAGE_SIZE) {
+      if (pageCount >= MAX_MARKET_PAGES_PER_POLL) break;
       contracts.push({
         address: marketplace.address,
         abi: marketplace.abi,
@@ -318,6 +314,7 @@ export function useMarkets() {
         args: [cursor, LISTINGS_PAGE_SIZE],
         chainId,
       });
+      pageCount += 1;
     }
 
     return contracts;
@@ -328,9 +325,7 @@ export function useMarkets() {
     contracts: listingPageContracts,
     query: {
       enabled: listingPageContracts.length > 0,
-      staleTime: 15_000,
-      gcTime: 5 * 60_000,
-      refetchInterval: 30_000,
+      ...detailReadQueryOptions,
     },
   });
 
@@ -345,7 +340,9 @@ export function useMarkets() {
       chainId: number;
     }> = [];
 
+    let pageCount = 0;
     for (let cursor = 0n; cursor < bidCount; cursor += LISTINGS_PAGE_SIZE) {
+      if (pageCount >= MAX_MARKET_PAGES_PER_POLL) break;
       contracts.push({
         address: marketplace.address,
         abi: marketplace.abi,
@@ -353,6 +350,7 @@ export function useMarkets() {
         args: [cursor, LISTINGS_PAGE_SIZE],
         chainId,
       });
+      pageCount += 1;
     }
 
     return contracts;
@@ -363,9 +361,7 @@ export function useMarkets() {
     contracts: bidPageContracts,
     query: {
       enabled: bidPageContracts.length > 0,
-      staleTime: 15_000,
-      gcTime: 5 * 60_000,
-      refetchInterval: 30_000,
+      ...detailReadQueryOptions,
     },
   });
 
@@ -402,8 +398,7 @@ export function useMarkets() {
     contracts: fractionAddressContracts,
     query: {
       enabled: fractionAddressContracts.length > 0,
-      staleTime: 60_000,
-      gcTime: 5 * 60_000,
+      ...staticReadQueryOptions,
     },
   });
 
@@ -459,8 +454,7 @@ export function useMarkets() {
     contracts: fractionMetaContracts,
     query: {
       enabled: fractionMetaContracts.length > 0,
-      staleTime: 60_000,
-      gcTime: 5 * 60_000,
+      ...staticReadQueryOptions,
     },
   });
 
@@ -550,8 +544,7 @@ export function useMarkets() {
     contracts: paymentTokenMetadataContracts,
     query: {
       enabled: paymentTokenMetadataContracts.length > 0,
-      staleTime: 30_000,
-      gcTime: 5 * 60_000,
+      ...staticReadQueryOptions,
     },
   });
 
@@ -617,9 +610,7 @@ export function useMarkets() {
     contracts: balanceContracts,
     query: {
       enabled: balanceContracts.length > 0,
-      staleTime: 15_000,
-      gcTime: 5 * 60_000,
-      refetchInterval: 30_000,
+      ...detailReadQueryOptions,
     },
   });
 
@@ -636,7 +627,10 @@ export function useMarkets() {
   }, [balanceReads.data, marketFractions]);
 
   const activeSellerInventoryListings = useMemo(
-    () => allListings.filter((listing) => listing.isActive),
+    () =>
+      allListings
+        .filter((listing) => listing.isActive)
+        .slice(0, MAX_ACTIVE_ORDER_VERIFICATION_READS),
     [allListings],
   );
 
@@ -657,9 +651,7 @@ export function useMarkets() {
     contracts: sellerInventoryContracts,
     query: {
       enabled: sellerInventoryContracts.length > 0,
-      staleTime: 10_000,
-      gcTime: 5 * 60_000,
-      refetchInterval: 15_000,
+      ...heavyReadQueryOptions,
     },
   });
 
@@ -678,9 +670,11 @@ export function useMarkets() {
 
   const activeBidFundingBids = useMemo(
     () =>
-      allBids.filter(
-        (bid) => bid.isActive && bid.paymentToken.toLowerCase() !== btcAddress?.toLowerCase(),
-      ),
+      allBids
+        .filter(
+          (bid) => bid.isActive && bid.paymentToken.toLowerCase() !== btcAddress?.toLowerCase(),
+        )
+        .slice(0, MAX_ACTIVE_ORDER_VERIFICATION_READS),
     [allBids, btcAddress],
   );
 
@@ -710,9 +704,7 @@ export function useMarkets() {
     contracts: bidFundingContracts,
     query: {
       enabled: bidFundingContracts.length > 0,
-      staleTime: 10_000,
-      gcTime: 5 * 60_000,
-      refetchInterval: 15_000,
+      ...heavyReadQueryOptions,
     },
   });
 
