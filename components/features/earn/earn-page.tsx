@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { CheckCircle2, Coins, LockKeyhole, RefreshCw, Sparkles, Wallet } from "lucide-react";
 import { erc20Abi, formatUnits, parseUnits, type Address } from "viem";
-import { useAccount, useChainId, usePublicClient, useWriteContract } from "wagmi";
+import {
+  useAccount,
+  useBlock,
+  useChainId,
+  usePublicClient,
+  useWatchBlockNumber,
+  useWriteContract,
+} from "wagmi";
 import { Badge } from "@fractals/ui/ui/badge";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fractals/ui/ui/card";
@@ -68,12 +75,12 @@ function amountFromBalancePercent(balance: bigint, percent: number, decimals: nu
   return formatUnits((balance * BigInt(boundedPercent)) / 100n, decimals);
 }
 
-function epochProgressPercent(product: EarnProduct): number {
+function epochProgressPercent(product: EarnProduct, blockchainNow: bigint): number {
   if (!product.targetEpochEnd || !product.trancheDuration || product.trancheDuration <= 0n) {
     return 0;
   }
 
-  const now = Math.floor(Date.now() / 1000);
+  const now = Number(blockchainNow);
   const target = Number(product.targetEpochEnd);
   const duration = Number(product.trancheDuration);
   const start = target - duration;
@@ -736,8 +743,12 @@ function PositionCard({
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
+  const { data } = useBlock({ watch: true });
   const copy = variantCopy(product.variant);
-  const progress = epochProgressPercent(product);
+  const progress = epochProgressPercent(
+    product,
+    data?.timestamp ?? BigInt(Math.floor(Date.now() / 1000)),
+  );
   const parsedWithdraw = parseAmountInput(withdrawAmount, 18);
   const canWithdraw =
     product.isTargetSettlementWindow &&
@@ -772,20 +783,12 @@ function PositionCard({
 
         <div className="grid grid-cols-2 gap-3">
           <InfoTile
-            label="User balanceOf"
-            value={formatAmount(product.userBalanceRaw, 18, product.symbol)}
+            label="Available Balance"
+            value={formatAmount(product.userAvailableBalanceRaw, 18, product.symbol)}
           />
           <InfoTile
-            label="Unsettled balance"
+            label="Total Balance"
             value={formatAmount(product.userBalanceRaw, 18, product.symbol)}
-          />
-          <InfoTile
-            label="Settled underlying"
-            value={formatAmount(
-              product.settledUnderlyingRaw,
-              18,
-              product.variant.replace("ve", ""),
-            )}
           />
         </div>
 

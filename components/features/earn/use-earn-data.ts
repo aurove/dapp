@@ -30,6 +30,7 @@ export type EarnProduct = {
   totalSupplyRaw: bigint | null;
   userBalanceRaw: bigint;
   claimableRewardsRaw: bigint;
+  userAvailableBalanceRaw: bigint;
   rewardAsset: Address | null;
   rewardSymbol: string | null;
   rewardDecimals: number;
@@ -193,6 +194,13 @@ export function useEarnData() {
               address,
               abi: assetFractionAbi,
               functionName: "claimableRewards",
+              args: [userAddress],
+              chainId,
+            },
+            {
+              address,
+              abi: assetFractionAbi,
+              functionName: "availableBalanceOf",
               args: [userAddress],
               chainId,
             },
@@ -385,13 +393,14 @@ export function useEarnData() {
           settledUnderlyingRaw: asBigint(fractionReads.data?.[offset + 13]?.result),
           userBalanceRaw: asBigint(fractionReads.data?.[offset + 14]?.result) ?? 0n,
           claimableRewardsRaw: asBigint(fractionReads.data?.[offset + 15]?.result) ?? 0n,
+          userAvailableBalanceRaw: asBigint(fractionReads.data?.[offset + 16]?.result) ?? 0n,
         };
       })
       .filter((product): product is EarnProduct => Boolean(product))
       .sort((a, b) => a.variant.localeCompare(b.variant) || a.trancheNumber - b.trancheNumber);
   }, [fractionCore, fractionReads.data, rewardTokenMeta, rowSize, veBtc?.address, veMezo?.address]);
 
-  const visibleProducts = useMemo(() => {
+  const visibleProducts: EarnProduct[] = useMemo(() => {
     if (products.length > 0) return products;
     return supportedVeNfts.map((item) => ({
       id: `${item.variant}-starter`,
@@ -405,6 +414,7 @@ export function useEarnData() {
       totalSupplyRaw: null,
       userBalanceRaw: 0n,
       claimableRewardsRaw: 0n,
+      userAvailableBalanceRaw: 0n,
       rewardAsset: null,
       rewardSymbol: null,
       rewardDecimals: 18,

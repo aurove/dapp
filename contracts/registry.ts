@@ -332,6 +332,13 @@ const contracts = {
         },
         {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
+          name: "availableBalanceOf",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "account", type: "address" }],
           name: "balanceOf",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
@@ -7346,6 +7353,13 @@ const contracts = {
               type: "tuple",
             },
           ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "account", type: "address" }],
+          name: "availableBalanceOf",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
