@@ -405,9 +405,7 @@ function ClaimablesPanel({
               <Coins className="h-5 w-5 text-[var(--accent)]" />
               Claimables
             </CardTitle>
-            <CardDescription>
-              Aggregated rewards across all tranche AssetFraction controllers.
-            </CardDescription>
+            <CardDescription>Aggregated rewards across all held veNFT positions.</CardDescription>
           </div>
           <Badge className="border-white/15 bg-white/[0.04] text-white/70">
             {totalTranches} claimable tranche{totalTranches === 1 ? "" : "s"}

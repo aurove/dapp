@@ -57,18 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-8">
-        <div className="grid gap-6 lg:grid-cols-[248px_1fr]">
-          <aside className="hidden lg:block">
-            <div className="rounded-2xl border border-[var(--line)] bg-[linear-gradient(160deg,rgba(18,23,30,0.96),rgba(12,16,22,0.94))] p-3 shadow-[0_18px_44px_rgba(0,0,0,0.28)]">
-              <p className="px-3 pb-2 pt-1 text-xs font-semibold uppercase tracking-[0.13em] text-[var(--muted)]">
-                Navigation
-              </p>
-              <AppNav variant="sidebar" />
-            </div>
-          </aside>
-
-          <main>{children}</main>
-        </div>
+        <main>{children}</main>
       </div>
 
       <footer className="mx-auto w-full max-w-7xl px-4 pb-8 pt-2 text-xs text-white/40 md:px-6">
