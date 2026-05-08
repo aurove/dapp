@@ -589,7 +589,13 @@ export function useMarkets() {
       items.unshift({ address: musdAddress, symbol: "MUSD", decimals: DEFAULT_DECIMALS });
     }
 
-    return items;
+    return [...items].sort((a, b) => {
+      const aMusd = a.symbol.toLowerCase() === "musd";
+      const bMusd = b.symbol.toLowerCase() === "musd";
+      if (aMusd && !bMusd) return -1;
+      if (!aMusd && bMusd) return 1;
+      return a.symbol.localeCompare(b.symbol);
+    });
   }, [btcAddress, mezoAddress, musdAddress, paymentTokenReads.data, supportedTokens]);
 
   const balanceContracts = useMemo(() => {

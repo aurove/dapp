@@ -169,7 +169,13 @@ export function useTradeListing() {
       });
     }
 
-    return options;
+    return [...options].sort((a, b) => {
+      const aMusd = a.symbol.toLowerCase() === "musd";
+      const bMusd = b.symbol.toLowerCase() === "musd";
+      if (aMusd && !bMusd) return -1;
+      if (!aMusd && bMusd) return 1;
+      return a.symbol.localeCompare(b.symbol);
+    });
   }, [
     supportedPaymentTokens,
     btcAddress,
