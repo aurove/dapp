@@ -624,6 +624,14 @@ const contracts = {
         },
         {
           inputs: [
+            { internalType: "uint256", name: "epochStart", type: "uint256" },
+            { internalType: "uint256", name: "cooldownEnd", type: "uint256" },
+          ],
+          name: "EpochRolloverCooldownActive",
+          type: "error",
+        },
+        {
+          inputs: [
             { internalType: "address", name: "account", type: "address" },
             { internalType: "address", name: "recipient", type: "address" },
           ],
@@ -7180,6 +7188,14 @@ const contracts = {
           inputs: [{ internalType: "address", name: "manager", type: "address" }],
           stateMutability: "nonpayable",
           type: "constructor",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "epochStart", type: "uint256" },
+            { internalType: "uint256", name: "cooldownEnd", type: "uint256" },
+          ],
+          name: "EpochRolloverCooldownActive",
+          type: "error",
         },
         {
           inputs: [
