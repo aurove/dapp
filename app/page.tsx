@@ -8,11 +8,12 @@ import { TopNav } from "@/components/marketing/top-nav";
 
 export default function HomePage() {
   return (
-    <div className="relative min-h-screen overflow-x-clip">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-40 top-0 h-[26rem] w-[26rem] rounded-full bg-[radial-gradient(circle,rgba(216,181,106,0.24)_0%,rgba(216,181,106,0)_72%)]" />
-        <div className="absolute -right-32 top-28 h-[24rem] w-[24rem] rounded-full bg-[radial-gradient(circle,rgba(94,126,167,0.25)_0%,rgba(94,126,167,0)_72%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.01),rgba(255,255,255,0)_18%,rgba(255,255,255,0)_82%,rgba(255,255,255,0.01))]" />
+    <div className="relative isolate min-h-screen overflow-x-clip bg-[#070b10]">
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(13,19,27,0.94)_0%,rgba(8,12,18,0.98)_52%,rgba(6,9,14,1)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(125deg,rgba(196,160,106,0.12)_0%,rgba(196,160,106,0.035)_24%,transparent_48%),linear-gradient(235deg,rgba(72,99,132,0.15)_0%,rgba(72,99,132,0.035)_28%,transparent_58%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.024)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:72px_72px] opacity-45 [mask-image:linear-gradient(180deg,rgba(0,0,0,0.78),rgba(0,0,0,0.34)_70%,transparent_100%)]" />
+        <div className="absolute inset-x-0 top-0 h-40 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),transparent)]" />
       </div>
 
       <div className="relative z-10 flex min-h-full flex-col">

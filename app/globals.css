@@ -18,7 +18,8 @@
   --color-foreground: var(--foreground);
   --font-sans: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
   --font-serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
-  --font-mono: "JetBrains Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-mono:
+    "JetBrains Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 * {
@@ -34,9 +35,20 @@ body {
   margin: 0;
   color: var(--foreground);
   background:
-    radial-gradient(circle at 10% -10%, rgba(196, 160, 106, 0.2), transparent 38%),
-    radial-gradient(circle at 90% 0%, rgba(76, 103, 138, 0.18), transparent 35%),
-    linear-gradient(180deg, var(--background) 0%, #070b10 100%);
+    linear-gradient(
+      125deg,
+      rgba(196, 160, 106, 0.13) 0%,
+      rgba(196, 160, 106, 0.035) 22%,
+      transparent 44%
+    ),
+    linear-gradient(
+      235deg,
+      rgba(72, 99, 132, 0.16) 0%,
+      rgba(72, 99, 132, 0.035) 26%,
+      transparent 55%
+    ),
+    linear-gradient(180deg, rgba(13, 19, 27, 0.98) 0%, rgba(8, 12, 18, 0.99) 46%, #06090e 100%);
+  background-attachment: fixed;
   font-family: var(--font-sans);
 }
 
@@ -46,11 +58,22 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: radial-gradient(circle at center, black, transparent 85%);
-  z-index: -1;
+    linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.72),
+    rgba(0, 0, 0, 0.42) 62%,
+    transparent 100%
+  );
+  opacity: 0.55;
+  z-index: 0;
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
 }
 
 a {

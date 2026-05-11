@@ -16,8 +16,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const year = useMemo(() => new Date().getFullYear(), []);
 
   return (
-    <div className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0f15]/85 backdrop-blur">
+    <div className="relative isolate min-h-screen overflow-hidden bg-[#070b10] pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
+      <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(180deg,rgba(13,19,27,0.96)_0%,rgba(8,12,18,0.98)_46%,rgba(6,9,14,1)_100%)]" />
+      <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(125deg,rgba(196,160,106,0.13)_0%,rgba(196,160,106,0.035)_22%,transparent_44%),linear-gradient(235deg,rgba(72,99,132,0.16)_0%,rgba(72,99,132,0.035)_26%,transparent_55%)]" />
+      <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(rgba(255,255,255,0.026)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.022)_1px,transparent_1px)] bg-[size:72px_72px] opacity-55 [mask-image:linear-gradient(180deg,rgba(0,0,0,0.8),rgba(0,0,0,0.42)_62%,transparent_100%)]" />
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0f15]/82 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6">
           <div className="flex items-center gap-3">
             <Link
@@ -56,11 +59,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-8">
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-8">
         <main>{children}</main>
       </div>
 
-      <footer className="mx-auto w-full max-w-7xl px-4 pb-8 pt-2 text-xs text-white/40 md:px-6">
+      <footer className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-8 pt-2 text-xs text-white/40 md:px-6">
         <p>
           © {year} Fractals. This interface reflects configured contract state. Verify transaction
           details and destination contracts before signing.

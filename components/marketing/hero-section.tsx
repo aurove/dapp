@@ -67,7 +67,8 @@ export function HeroSection() {
         </div>
 
         <Card className="fade-up relative overflow-hidden">
-          <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(216,181,106,0.28),rgba(216,181,106,0))]" />
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(125deg,rgba(230,210,173,0.08),transparent_34%),linear-gradient(235deg,rgba(72,99,132,0.1),transparent_48%)]" />
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(230,210,173,0.36),transparent)]" />
           <CardHeader className="relative z-10">
             <Badge className="w-fit">Protocol Flow</Badge>
             <CardTitle className="text-2xl">

@@ -1046,13 +1046,17 @@ function InfoTile({ label, value }: { label: string; value: string }) {
 
 function EmptyPositions() {
   return (
-    <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.025] p-8 text-center">
-      <Wallet className="mx-auto h-8 w-8 text-white/35" />
-      <h3 className="mt-3 text-lg font-semibold text-white">No fungible Earn products yet</h3>
-      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-white/55">
-        Create a position from supported BTC or MEZO assets, or buy Earn units on the Markets page
-        when markets are available.
-      </p>
+    <div className="relative overflow-hidden rounded-2xl border border-white/12 bg-[linear-gradient(145deg,rgba(18,24,32,0.92)_0%,rgba(9,13,19,0.96)_52%,rgba(11,10,8,0.94)_100%)] p-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_60px_rgba(0,0,0,0.32)]">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(196,160,106,0.1),transparent_34%),linear-gradient(245deg,rgba(76,103,138,0.12),transparent_42%)]" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(230,210,173,0.42),transparent)]" />
+      <div className="relative mx-auto max-w-3xl rounded-2xl border border-dashed border-white/14 bg-[#070b10]/58 px-6 py-9 shadow-[inset_0_1px_20px_rgba(255,255,255,0.025)] backdrop-blur-sm">
+        <Wallet className="mx-auto h-8 w-8 text-white/40" />
+        <h3 className="mt-3 text-lg font-semibold text-white">No fungible Earn products yet</h3>
+        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-white/58">
+          Create a position from supported BTC or MEZO assets, or buy Earn units on the Markets page
+          when markets are available.
+        </p>
+      </div>
     </div>
   );
 }
