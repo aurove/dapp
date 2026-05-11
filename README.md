@@ -78,32 +78,14 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Trade MUSD Markets
 
-`/app/trade` defaults to MUSD quote markets. After the canonical marketplace seed task runs, it shows:
+`/app/trade` defaults to MUSD quote markets:
 
 - `fveBTC-W1 / MUSD`
 - `fveBTC-W4 / MUSD`
 - `fveMEZO-W52 / MUSD`
 - `fveMEZO-W208 / MUSD`
 
-To seed live ask and bid depth, run `NETWORK=<network> pnpm deploy:seed:musd` from the repo root or use the marketplace `marketplace:seed-orders --canonical-musd-markets` task documented in `packages/marketplace/README.md`.
-
 The UI reads live listings and bids from `Marketplace`, uses `PaymentRouter.MUSD` as the default quote token, and enables buy/sell actions through the existing marketplace and payment approval flows.
-
-## Local Contract Flow
-
-For a seeded local app state, run the root deployment helper in one terminal:
-
-```bash
-pnpm deploy:localhost
-```
-
-Then run the app in another terminal:
-
-```bash
-pnpm dev
-```
-
-The deployment scripts sync generated contract data into `contracts/registry.ts`, which is consumed by the dApp transaction helpers.
 
 ## Build
 
