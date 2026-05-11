@@ -8,6 +8,7 @@ import { AppNav } from "@/components/app/app-nav";
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { useChainId } from "wagmi";
+import { XAccountLink } from "./x-account-link";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const chainId = useChainId();
@@ -35,6 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
+            <XAccountLink />
             <WalletConnectButton />
           </div>
         </div>

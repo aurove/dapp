@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { buttonVariants } from "@fractals/ui/ui/button";
+import { XAccountLink } from "../app/x-account-link";
 
 const navItems = [
   { label: "Overview", href: "#overview" },
@@ -34,10 +35,13 @@ export function TopNav() {
           ))}
         </nav>
 
-        <Link href="/app" className={buttonVariants({ size: "sm", className: "gap-2" })}>
-          <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-          Enter App
-        </Link>
+        <div className="flex items-center gap-2">
+          <XAccountLink />
+          <Link href="/app" className={buttonVariants({ size: "sm", className: "gap-2" })}>
+            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            Enter App
+          </Link>
+        </div>
       </div>
     </header>
   );

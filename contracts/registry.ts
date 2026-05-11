@@ -618,7 +618,6 @@ const contracts = {
       ],
     },
     AssetLedger: {
-      address: "0x8233369E29653b70E50E93d1276a50B8f2122a01",
       abi: [
         {
           inputs: [{ internalType: "address", name: "manager", type: "address" }],
@@ -1142,7 +1141,6 @@ const contracts = {
       ],
     },
     Marketplace: {
-      address: "0x437a945E1A67eCaC7109DcfB602D7cB318b0465E",
       abi: [
         {
           inputs: [
@@ -2343,7 +2341,6 @@ const contracts = {
       ],
     },
     MarketplaceAdmin: {
-      address: "0xDAb28073Fa01A171D2AF5707F3b7D2F065bE95dD",
       abi: [
         {
           inputs: [{ internalType: "address", name: "defaultAdmin", type: "address" }],
@@ -2752,7 +2749,6 @@ const contracts = {
       ],
     },
     MezoRewardConverter: {
-      address: "0xcfbD78F3D57B620ddEff73F193dD5Bf595a730db",
       abi: [
         {
           inputs: [
@@ -3159,7 +3155,6 @@ const contracts = {
       ],
     },
     MezoVeNFTManager: {
-      address: "0xF978b011bcf604b201996FEb3E53eD3D52F0A90F",
       abi: [
         {
           inputs: [
@@ -4166,7 +4161,6 @@ const contracts = {
       ],
     },
     PaymentRouter: {
-      address: "0x566be608Fe7e9f23c9337004cfB60877810E6d28",
       abi: [
         {
           inputs: [
@@ -4438,17 +4432,13 @@ const contracts = {
       ],
     },
     VeBTC: {
-      address: "0x38e35d92e6bfc6787272a62345856b13ea12130a",
+      address: "0xB63fcCd03521Cf21907627bd7fA465C129479231",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         { inputs: [], name: "AlreadyVoted", type: "error" },
         { inputs: [], name: "AmountTooBig", type: "error" },
         { inputs: [], name: "ERC721ReceiverRejectedTokens", type: "error" },
         { inputs: [], name: "ERC721TransferToNonERC721ReceiverImplementer", type: "error" },
-        { inputs: [], name: "GrantFullyVested", type: "error" },
-        { inputs: [], name: "GrantWithoutVestedAmount", type: "error" },
-        { inputs: [], name: "IncorrectGrantVestingCliff", type: "error" },
-        { inputs: [], name: "IncorrectGrantVestingRange", type: "error" },
         { inputs: [], name: "InvalidManagedNFTId", type: "error" },
         { inputs: [], name: "InvalidNonce", type: "error" },
         { inputs: [], name: "InvalidSignature", type: "error" },
@@ -4459,15 +4449,12 @@ const contracts = {
         { inputs: [], name: "LockNotExpired", type: "error" },
         { inputs: [], name: "NoLockFound", type: "error" },
         { inputs: [], name: "NonExistentToken", type: "error" },
-        { inputs: [], name: "NotAllowedGrantManager", type: "error" },
         { inputs: [], name: "NotApprovedOrOwner", type: "error" },
-        { inputs: [], name: "NotBooster", type: "error" },
         { inputs: [], name: "NotDistributor", type: "error" },
         { inputs: [], name: "NotEmergencyCouncilOrGovernor", type: "error" },
         { inputs: [], name: "NotGovernor", type: "error" },
         { inputs: [], name: "NotGovernorOrManager", type: "error" },
         { inputs: [], name: "NotGrantManager", type: "error" },
-        { inputs: [], name: "NotGrantNFT", type: "error" },
         { inputs: [], name: "NotLockedNFT", type: "error" },
         { inputs: [], name: "NotManagedNFT", type: "error" },
         { inputs: [], name: "NotManagedOrNormalNFT", type: "error" },
@@ -4486,18 +4473,11 @@ const contracts = {
         { inputs: [], name: "SignatureExpired", type: "error" },
         { inputs: [], name: "SplitNoOwner", type: "error" },
         { inputs: [], name: "SplitNotAllowed", type: "error" },
-        { inputs: [], name: "SplitsDisabled", type: "error" },
         { inputs: [], name: "TooManyTokenIDs", type: "error" },
         { inputs: [], name: "UnvestedGrantNFT", type: "error" },
         { inputs: [], name: "ZeroAddress", type: "error" },
         { inputs: [], name: "ZeroAmount", type: "error" },
         { inputs: [], name: "ZeroBalance", type: "error" },
-        {
-          anonymous: false,
-          inputs: [{ indexed: true, internalType: "address", name: "_voter", type: "address" }],
-          name: "AddSecondaryVoter",
-          type: "event",
-        },
         {
           anonymous: false,
           inputs: [
@@ -4533,9 +4513,7 @@ const contracts = {
             { indexed: true, internalType: "uint256", name: "_tokenId", type: "uint256" },
             { indexed: false, internalType: "address", name: "_grantee", type: "address" },
             { indexed: false, internalType: "address", name: "_grantManager", type: "address" },
-            { indexed: false, internalType: "uint256", name: "_vestingStart", type: "uint256" },
             { indexed: false, internalType: "uint256", name: "_vestingEnd", type: "uint256" },
-            { indexed: false, internalType: "uint256", name: "_cliffEnd", type: "uint256" },
           ],
           name: "CreateGrant",
           type: "event",
@@ -4653,34 +4631,9 @@ const contracts = {
         {
           anonymous: false,
           inputs: [
-            { indexed: true, internalType: "uint256", name: "_tokenId", type: "uint256" },
-            { indexed: true, internalType: "address", name: "_grantManager", type: "address" },
-            { indexed: false, internalType: "uint256", name: "_revokedAmount", type: "uint256" },
-            { indexed: false, internalType: "uint256", name: "_remainingAmount", type: "uint256" },
-          ],
-          name: "RevokeGrant",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
             { indexed: true, internalType: "address", name: "_allowedManager", type: "address" },
           ],
           name: "SetAllowedManager",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [{ indexed: true, internalType: "address", name: "_booster", type: "address" }],
-          name: "SetBooster",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "_factoryRegistry", type: "address" },
-          ],
-          name: "SetFactoryRegistry",
           type: "event",
         },
         {
@@ -4689,15 +4642,6 @@ const contracts = {
             { indexed: true, internalType: "address", name: "_grantManager", type: "address" },
           ],
           name: "SetGrantManager",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "_grantManager", type: "address" },
-            { indexed: false, internalType: "bool", name: "_allowed", type: "bool" },
-          ],
-          name: "SetGrantManagerAllowed",
           type: "event",
         },
         {
@@ -4748,15 +4692,6 @@ const contracts = {
         {
           anonymous: false,
           inputs: [
-            { indexed: true, internalType: "uint256", name: "_tokenId", type: "uint256" },
-            { indexed: false, internalType: "uint256", name: "_boost", type: "uint256" },
-          ],
-          name: "UpdateBoost",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
             { indexed: true, internalType: "address", name: "provider", type: "address" },
             { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
             { indexed: false, internalType: "uint256", name: "value", type: "uint256" },
@@ -4799,13 +4734,6 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [{ internalType: "address", name: "_voter", type: "address" }],
-          name: "addSecondaryVoter",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
           inputs: [],
           name: "allowedManager",
           outputs: [{ internalType: "address", name: "", type: "address" }],
@@ -4830,9 +4758,19 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [],
-          name: "booster",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
+          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
+          name: "balanceOfNFT",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "_tokenId", type: "uint256" },
+            { internalType: "uint256", name: "_t", type: "uint256" },
+          ],
+          name: "balanceOfNFTAt",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
@@ -4873,13 +4811,6 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "cliffEnd",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
           inputs: [],
           name: "clock",
           outputs: [{ internalType: "uint48", name: "", type: "uint48" }],
@@ -4891,9 +4822,7 @@ const contracts = {
             { internalType: "uint256", name: "_value", type: "uint256" },
             { internalType: "address", name: "_grantee", type: "address" },
             { internalType: "address", name: "_grantManager", type: "address" },
-            { internalType: "uint256", name: "_vestingStart", type: "uint256" },
             { internalType: "uint256", name: "_vestingEnd", type: "uint256" },
-            { internalType: "uint256", name: "_cliffEnd", type: "uint256" },
           ],
           name: "createGrantLockFor",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -5063,13 +4992,6 @@ const contracts = {
         },
         {
           inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "grantRebaseAmount",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
           name: "idToManaged",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
@@ -5128,20 +5050,6 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [{ internalType: "address", name: "_account", type: "address" }],
-          name: "isGrantManagerAllowed",
-          outputs: [{ internalType: "bool", name: "", type: "bool" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "_voter", type: "address" }],
-          name: "isSecondaryVoter",
-          outputs: [{ internalType: "bool", name: "", type: "bool" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
           inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
           name: "lockPermanent",
           outputs: [],
@@ -5157,7 +5065,6 @@ const contracts = {
                 { internalType: "int128", name: "amount", type: "int128" },
                 { internalType: "uint256", name: "end", type: "uint256" },
                 { internalType: "bool", name: "isPermanent", type: "bool" },
-                { internalType: "uint256", name: "boost", type: "uint256" },
               ],
               internalType: "struct IVotingEscrow.LockedBalance",
               name: "",
@@ -5247,9 +5154,6 @@ const contracts = {
                 { internalType: "uint256", name: "ts", type: "uint256" },
                 { internalType: "uint256", name: "blk", type: "uint256" },
                 { internalType: "uint256", name: "permanentLockBalance", type: "uint256" },
-                { internalType: "int128", name: "virtualBias", type: "int128" },
-                { internalType: "int128", name: "virtualSlope", type: "int128" },
-                { internalType: "uint256", name: "virtualPermanentLockBalance", type: "uint256" },
               ],
               internalType: "struct IVotingEscrow.GlobalPoint",
               name: "",
@@ -5257,13 +5161,6 @@ const contracts = {
             },
           ],
           stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "revokeGrant",
-          outputs: [],
-          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -5307,35 +5204,11 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [{ internalType: "address", name: "_booster", type: "address" }],
-          name: "setBooster",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "_factoryRegistry", type: "address" }],
-          name: "setFactoryRegistry",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
           inputs: [
             { internalType: "uint256", name: "_tokenId", type: "uint256" },
             { internalType: "address", name: "_newGrantManager", type: "address" },
           ],
           name: "setGrantManager",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "address", name: "_grantManager", type: "address" },
-            { internalType: "bool", name: "_allowed", type: "bool" },
-          ],
-          name: "setGrantManagerAllowed",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
@@ -5448,14 +5321,14 @@ const contracts = {
         },
         {
           inputs: [],
-          name: "totalVotingPower",
+          name: "totalSupply",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
         {
           inputs: [{ internalType: "uint256", name: "_timestamp", type: "uint256" }],
-          name: "totalVotingPowerAt",
+          name: "totalSupplyAt",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
@@ -5472,49 +5345,8 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [],
-          name: "unboostedTotalVotingPower",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_t", type: "uint256" }],
-          name: "unboostedTotalVotingPowerAt",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "unboostedVotingPowerOfNFT",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "uint256", name: "_tokenId", type: "uint256" },
-            { internalType: "uint256", name: "_t", type: "uint256" },
-          ],
-          name: "unboostedVotingPowerOfNFTAt",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
           inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
           name: "unlockPermanent",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "uint256", name: "_tokenId", type: "uint256" },
-            { internalType: "uint256", name: "_boost", type: "uint256" },
-          ],
-          name: "updateBoost",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
@@ -5540,9 +5372,6 @@ const contracts = {
                 { internalType: "uint256", name: "ts", type: "uint256" },
                 { internalType: "uint256", name: "blk", type: "uint256" },
                 { internalType: "uint256", name: "permanent", type: "uint256" },
-                { internalType: "int128", name: "virtualBias", type: "int128" },
-                { internalType: "int128", name: "virtualSlope", type: "int128" },
-                { internalType: "uint256", name: "virtualPermanent", type: "uint256" },
               ],
               internalType: "struct IVotingEscrow.UserPoint",
               name: "",
@@ -5568,43 +5397,8 @@ const contracts = {
         },
         {
           inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "vestingStart",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "virtualPermanentLockBalance",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_timestamp", type: "uint256" }],
-          name: "virtualSlopeChanges",
-          outputs: [{ internalType: "int128", name: "", type: "int128" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
           name: "voted",
           outputs: [{ internalType: "bool", name: "", type: "bool" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "votedVoters",
-          outputs: [{ internalType: "address[]", name: "", type: "address[]" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "votedVotersLength",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
@@ -5623,23 +5417,6 @@ const contracts = {
           name: "voting",
           outputs: [],
           stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "votingPowerOfNFT",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "uint256", name: "_tokenId", type: "uint256" },
-            { internalType: "uint256", name: "_t", type: "uint256" },
-          ],
-          name: "votingPowerOfNFTAt",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
           type: "function",
         },
         {
@@ -5676,10 +5453,6 @@ const contracts = {
         { inputs: [], name: "AmountTooBig", type: "error" },
         { inputs: [], name: "ERC721ReceiverRejectedTokens", type: "error" },
         { inputs: [], name: "ERC721TransferToNonERC721ReceiverImplementer", type: "error" },
-        { inputs: [], name: "GrantFullyVested", type: "error" },
-        { inputs: [], name: "GrantWithoutVestedAmount", type: "error" },
-        { inputs: [], name: "IncorrectGrantVestingCliff", type: "error" },
-        { inputs: [], name: "IncorrectGrantVestingRange", type: "error" },
         { inputs: [], name: "InvalidManagedNFTId", type: "error" },
         { inputs: [], name: "InvalidNonce", type: "error" },
         { inputs: [], name: "InvalidSignature", type: "error" },
@@ -5690,15 +5463,12 @@ const contracts = {
         { inputs: [], name: "LockNotExpired", type: "error" },
         { inputs: [], name: "NoLockFound", type: "error" },
         { inputs: [], name: "NonExistentToken", type: "error" },
-        { inputs: [], name: "NotAllowedGrantManager", type: "error" },
         { inputs: [], name: "NotApprovedOrOwner", type: "error" },
-        { inputs: [], name: "NotBooster", type: "error" },
         { inputs: [], name: "NotDistributor", type: "error" },
         { inputs: [], name: "NotEmergencyCouncilOrGovernor", type: "error" },
         { inputs: [], name: "NotGovernor", type: "error" },
         { inputs: [], name: "NotGovernorOrManager", type: "error" },
         { inputs: [], name: "NotGrantManager", type: "error" },
-        { inputs: [], name: "NotGrantNFT", type: "error" },
         { inputs: [], name: "NotLockedNFT", type: "error" },
         { inputs: [], name: "NotManagedNFT", type: "error" },
         { inputs: [], name: "NotManagedOrNormalNFT", type: "error" },
@@ -5717,18 +5487,11 @@ const contracts = {
         { inputs: [], name: "SignatureExpired", type: "error" },
         { inputs: [], name: "SplitNoOwner", type: "error" },
         { inputs: [], name: "SplitNotAllowed", type: "error" },
-        { inputs: [], name: "SplitsDisabled", type: "error" },
         { inputs: [], name: "TooManyTokenIDs", type: "error" },
         { inputs: [], name: "UnvestedGrantNFT", type: "error" },
         { inputs: [], name: "ZeroAddress", type: "error" },
         { inputs: [], name: "ZeroAmount", type: "error" },
         { inputs: [], name: "ZeroBalance", type: "error" },
-        {
-          anonymous: false,
-          inputs: [{ indexed: true, internalType: "address", name: "_voter", type: "address" }],
-          name: "AddSecondaryVoter",
-          type: "event",
-        },
         {
           anonymous: false,
           inputs: [
@@ -5764,9 +5527,7 @@ const contracts = {
             { indexed: true, internalType: "uint256", name: "_tokenId", type: "uint256" },
             { indexed: false, internalType: "address", name: "_grantee", type: "address" },
             { indexed: false, internalType: "address", name: "_grantManager", type: "address" },
-            { indexed: false, internalType: "uint256", name: "_vestingStart", type: "uint256" },
             { indexed: false, internalType: "uint256", name: "_vestingEnd", type: "uint256" },
-            { indexed: false, internalType: "uint256", name: "_cliffEnd", type: "uint256" },
           ],
           name: "CreateGrant",
           type: "event",
@@ -5884,34 +5645,9 @@ const contracts = {
         {
           anonymous: false,
           inputs: [
-            { indexed: true, internalType: "uint256", name: "_tokenId", type: "uint256" },
-            { indexed: true, internalType: "address", name: "_grantManager", type: "address" },
-            { indexed: false, internalType: "uint256", name: "_revokedAmount", type: "uint256" },
-            { indexed: false, internalType: "uint256", name: "_remainingAmount", type: "uint256" },
-          ],
-          name: "RevokeGrant",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
             { indexed: true, internalType: "address", name: "_allowedManager", type: "address" },
           ],
           name: "SetAllowedManager",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [{ indexed: true, internalType: "address", name: "_booster", type: "address" }],
-          name: "SetBooster",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "_factoryRegistry", type: "address" },
-          ],
-          name: "SetFactoryRegistry",
           type: "event",
         },
         {
@@ -5920,15 +5656,6 @@ const contracts = {
             { indexed: true, internalType: "address", name: "_grantManager", type: "address" },
           ],
           name: "SetGrantManager",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "_grantManager", type: "address" },
-            { indexed: false, internalType: "bool", name: "_allowed", type: "bool" },
-          ],
-          name: "SetGrantManagerAllowed",
           type: "event",
         },
         {
@@ -5979,15 +5706,6 @@ const contracts = {
         {
           anonymous: false,
           inputs: [
-            { indexed: true, internalType: "uint256", name: "_tokenId", type: "uint256" },
-            { indexed: false, internalType: "uint256", name: "_boost", type: "uint256" },
-          ],
-          name: "UpdateBoost",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
             { indexed: true, internalType: "address", name: "provider", type: "address" },
             { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
             { indexed: false, internalType: "uint256", name: "value", type: "uint256" },
@@ -6030,13 +5748,6 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [{ internalType: "address", name: "_voter", type: "address" }],
-          name: "addSecondaryVoter",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
           inputs: [],
           name: "allowedManager",
           outputs: [{ internalType: "address", name: "", type: "address" }],
@@ -6061,9 +5772,19 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [],
-          name: "booster",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
+          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
+          name: "balanceOfNFT",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "_tokenId", type: "uint256" },
+            { internalType: "uint256", name: "_t", type: "uint256" },
+          ],
+          name: "balanceOfNFTAt",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
@@ -6104,13 +5825,6 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "cliffEnd",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
           inputs: [],
           name: "clock",
           outputs: [{ internalType: "uint48", name: "", type: "uint48" }],
@@ -6122,9 +5836,7 @@ const contracts = {
             { internalType: "uint256", name: "_value", type: "uint256" },
             { internalType: "address", name: "_grantee", type: "address" },
             { internalType: "address", name: "_grantManager", type: "address" },
-            { internalType: "uint256", name: "_vestingStart", type: "uint256" },
             { internalType: "uint256", name: "_vestingEnd", type: "uint256" },
-            { internalType: "uint256", name: "_cliffEnd", type: "uint256" },
           ],
           name: "createGrantLockFor",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -6294,13 +6006,6 @@ const contracts = {
         },
         {
           inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "grantRebaseAmount",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
           name: "idToManaged",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
@@ -6359,20 +6064,6 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [{ internalType: "address", name: "_account", type: "address" }],
-          name: "isGrantManagerAllowed",
-          outputs: [{ internalType: "bool", name: "", type: "bool" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "_voter", type: "address" }],
-          name: "isSecondaryVoter",
-          outputs: [{ internalType: "bool", name: "", type: "bool" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
           inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
           name: "lockPermanent",
           outputs: [],
@@ -6388,7 +6079,6 @@ const contracts = {
                 { internalType: "int128", name: "amount", type: "int128" },
                 { internalType: "uint256", name: "end", type: "uint256" },
                 { internalType: "bool", name: "isPermanent", type: "bool" },
-                { internalType: "uint256", name: "boost", type: "uint256" },
               ],
               internalType: "struct IVotingEscrow.LockedBalance",
               name: "",
@@ -6478,9 +6168,6 @@ const contracts = {
                 { internalType: "uint256", name: "ts", type: "uint256" },
                 { internalType: "uint256", name: "blk", type: "uint256" },
                 { internalType: "uint256", name: "permanentLockBalance", type: "uint256" },
-                { internalType: "int128", name: "virtualBias", type: "int128" },
-                { internalType: "int128", name: "virtualSlope", type: "int128" },
-                { internalType: "uint256", name: "virtualPermanentLockBalance", type: "uint256" },
               ],
               internalType: "struct IVotingEscrow.GlobalPoint",
               name: "",
@@ -6488,13 +6175,6 @@ const contracts = {
             },
           ],
           stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "revokeGrant",
-          outputs: [],
-          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -6538,35 +6218,11 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [{ internalType: "address", name: "_booster", type: "address" }],
-          name: "setBooster",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "_factoryRegistry", type: "address" }],
-          name: "setFactoryRegistry",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
           inputs: [
             { internalType: "uint256", name: "_tokenId", type: "uint256" },
             { internalType: "address", name: "_newGrantManager", type: "address" },
           ],
           name: "setGrantManager",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "address", name: "_grantManager", type: "address" },
-            { internalType: "bool", name: "_allowed", type: "bool" },
-          ],
-          name: "setGrantManagerAllowed",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
@@ -6679,14 +6335,14 @@ const contracts = {
         },
         {
           inputs: [],
-          name: "totalVotingPower",
+          name: "totalSupply",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
         {
           inputs: [{ internalType: "uint256", name: "_timestamp", type: "uint256" }],
-          name: "totalVotingPowerAt",
+          name: "totalSupplyAt",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
@@ -6703,49 +6359,8 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [],
-          name: "unboostedTotalVotingPower",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_t", type: "uint256" }],
-          name: "unboostedTotalVotingPowerAt",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "unboostedVotingPowerOfNFT",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "uint256", name: "_tokenId", type: "uint256" },
-            { internalType: "uint256", name: "_t", type: "uint256" },
-          ],
-          name: "unboostedVotingPowerOfNFTAt",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
           inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
           name: "unlockPermanent",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "uint256", name: "_tokenId", type: "uint256" },
-            { internalType: "uint256", name: "_boost", type: "uint256" },
-          ],
-          name: "updateBoost",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
@@ -6771,9 +6386,6 @@ const contracts = {
                 { internalType: "uint256", name: "ts", type: "uint256" },
                 { internalType: "uint256", name: "blk", type: "uint256" },
                 { internalType: "uint256", name: "permanent", type: "uint256" },
-                { internalType: "int128", name: "virtualBias", type: "int128" },
-                { internalType: "int128", name: "virtualSlope", type: "int128" },
-                { internalType: "uint256", name: "virtualPermanent", type: "uint256" },
               ],
               internalType: "struct IVotingEscrow.UserPoint",
               name: "",
@@ -6799,43 +6411,8 @@ const contracts = {
         },
         {
           inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "vestingStart",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "virtualPermanentLockBalance",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_timestamp", type: "uint256" }],
-          name: "virtualSlopeChanges",
-          outputs: [{ internalType: "int128", name: "", type: "int128" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
           name: "voted",
           outputs: [{ internalType: "bool", name: "", type: "bool" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "votedVoters",
-          outputs: [{ internalType: "address[]", name: "", type: "address[]" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "votedVotersLength",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
@@ -6854,23 +6431,6 @@ const contracts = {
           name: "voting",
           outputs: [],
           stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_tokenId", type: "uint256" }],
-          name: "votingPowerOfNFT",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "uint256", name: "_tokenId", type: "uint256" },
-            { internalType: "uint256", name: "_t", type: "uint256" },
-          ],
-          name: "votingPowerOfNFTAt",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
           type: "function",
         },
         {
@@ -6900,7 +6460,6 @@ const contracts = {
       ],
     },
     VeNftFractionListing: {
-      address: "0x1c2fb12ECCA5EDB9ac8dA583cAa865E7C893a7ef",
       abi: [
         {
           inputs: [
