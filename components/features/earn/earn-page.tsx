@@ -101,6 +101,14 @@ function estimateTrancheApr(product: EarnProduct): TrancheAprEstimate | null {
   };
 }
 
+function isRewardClaimSolvent(product: EarnProduct) {
+  return (
+    product.claimableRewardsRaw > 0n &&
+    product.rewardReserveRaw !== null &&
+    product.claimableRewardsRaw <= product.rewardReserveRaw
+  );
+}
+
 function parseAmountInput(amount: string, decimals: number): bigint | null {
   try {
     if (!amount.trim()) return null;
@@ -213,9 +221,19 @@ export function EarnPage() {
     () =>
       products.filter(
         (product) =>
-          product.claimableRewardsRaw > 0n &&
+          isRewardClaimSolvent(product) &&
           product.fractionAddress !== "0x0000000000000000000000000000000000000000",
       ),
+    [products],
+  );
+  const pendingButUnderfundedCount = useMemo(
+    () =>
+      products.filter(
+        (product) =>
+          product.claimableRewardsRaw > 0n &&
+          product.fractionAddress !== "0x0000000000000000000000000000000000000000" &&
+          !isRewardClaimSolvent(product),
+      ).length,
     [products],
   );
   const claimableSummaries = useMemo<ClaimableSummary[]>(() => {
@@ -400,6 +418,7 @@ export function EarnPage() {
           <ClaimablesPanel
             summaries={claimableSummaries}
             claimableProducts={claimableProducts}
+            pendingButUnderfundedCount={pendingButUnderfundedCount}
             assetLedger={assetLedger}
             onSuccess={(message) => handleSuccess(message)}
             onError={handleError}
@@ -540,12 +559,14 @@ function StatusPanel({
 function ClaimablesPanel({
   summaries,
   claimableProducts,
+  pendingButUnderfundedCount,
   assetLedger,
   onSuccess,
   onError,
 }: {
   summaries: ClaimableSummary[];
   claimableProducts: EarnProduct[];
+  pendingButUnderfundedCount: number;
   assetLedger: ReturnType<typeof useEarnData>["assetLedger"];
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
@@ -597,6 +618,13 @@ function ClaimablesPanel({
             ))}
           </div>
         )}
+        {pendingButUnderfundedCount > 0 ? (
+          <div className="mt-3 rounded-xl border border-amber-300/20 bg-amber-500/10 p-3 text-xs text-amber-100/80">
+            {pendingButUnderfundedCount} tranche{pendingButUnderfundedCount === 1 ? "" : "s"}{" "}
+            currently show pending rewards above the funded reserve and were excluded from this
+            claim.
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
