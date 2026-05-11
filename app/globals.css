@@ -35,6 +35,8 @@ body {
   margin: 0;
   color: var(--foreground);
   background:
+    linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
     linear-gradient(
       125deg,
       rgba(196, 160, 106, 0.13) 0%,
@@ -48,32 +50,14 @@ body {
       transparent 55%
     ),
     linear-gradient(180deg, rgba(13, 19, 27, 0.98) 0%, rgba(8, 12, 18, 0.99) 46%, #06090e 100%);
+  background-size:
+    72px 72px,
+    72px 72px,
+    auto,
+    auto,
+    auto;
   background-attachment: fixed;
   font-family: var(--font-sans);
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
-  background-size: 72px 72px;
-  mask-image: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0.72),
-    rgba(0, 0, 0, 0.42) 62%,
-    transparent 100%
-  );
-  opacity: 0.55;
-  z-index: 0;
-}
-
-body > * {
-  position: relative;
-  z-index: 1;
 }
 
 a {

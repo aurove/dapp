@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { CheckCircle2, Coins, LockKeyhole, RefreshCw, Sparkles, Wallet } from "lucide-react";
@@ -11,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@frac
 import { Input } from "@fractals/ui/ui/input";
 import { Skeleton } from "@fractals/ui/ui/skeleton";
 import { cn } from "@fractals/ui/lib/cn";
+import { appRoutes } from "@/components/app/app-nav";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
@@ -1053,7 +1055,13 @@ function EmptyPositions() {
         <Wallet className="mx-auto h-8 w-8 text-white/40" />
         <h3 className="mt-3 text-lg font-semibold text-white">No fungible Earn products yet</h3>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-white/58">
-          Create a position from supported BTC or MEZO assets, or buy Earn units on the Markets page
+          Create a position from supported BTC or MEZO assets, or buy Earn units on the{" "}
+          <Link
+            href={appRoutes.find((route) => route.label === "Markets")?.href ?? "/app/trade"}
+            className="font-medium text-[var(--accent-soft)] underline-offset-4 hover:underline"
+          >
+            Markets page
+          </Link>{" "}
           when markets are available.
         </p>
       </div>
