@@ -3,16 +3,16 @@ import { SectionHeading } from "@/components/site/section-heading";
 
 const cards = [
   {
-    title: "Transferable Fractions",
-    body: "Convert locked ve positions into structured fractional claims that can move across participants without unwinding core long-duration exposure.",
+    title: "Understandable Earn Products",
+    body: "Convert veBTC / veMEZO positions, lock durations, boosts, and rewards into product units that are easier to compare and hold.",
   },
   {
-    title: "Structured Liquidity",
-    body: "Enable secondary market activity around veMEZO and veBTC fractions so ownership transitions are cleaner than bespoke lock transfers.",
+    title: "Tradable Exposure",
+    body: "Enable secondary market activity around fungible Earn products so ownership transitions are cleaner than bespoke lock transfers.",
   },
   {
-    title: "Optimised Yield Paths",
-    body: "Route through planned settlement windows and rollover mechanics built for predictable position handling and improved capital efficiency.",
+    title: "Usable Reward Routing",
+    body: "Bring gauges, rewards, boosts, and incentive routing into product flows built for predictable position handling.",
   },
 ] as const;
 
@@ -21,8 +21,8 @@ export function OverviewSection() {
     <section id="overview" className="mt-20">
       <SectionHeading
         badge="Why Fractals"
-        title="Locked positions stay valuable. Their liquidity becomes usable."
-        description="Fractals gives veBTC and veMEZO holders a cleaner structure for transferability, exit flexibility, and ongoing yield alignment without awkward manual veNFT handling."
+        title="Mezo Earn stays powerful. Its products become simple to use."
+        description="Fractals simplifies complex veBTC / veMEZO positions into fungible Earn products users can understand, trade, and use without awkward manual veNFT handling."
       />
 
       <div className="mt-8 grid gap-4 md:grid-cols-3">

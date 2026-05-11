@@ -4,19 +4,19 @@ import { SectionHeading } from "@/components/site/section-heading";
 const steps = [
   {
     title: "Onboard veBTC / veMEZO Exposure",
-    body: "Start from existing locked position exposure and route it into the Fractals structuring layer.",
+    body: "Start from a position with lock duration, gauge, boost, reward, and routing context.",
   },
   {
-    title: "Receive Transferable Fractional Claims",
-    body: "Fractals represents position ownership through fractions that are easier to hold, transfer, and price.",
+    title: "Receive Fungible Earn Products",
+    body: "Fractals represents position ownership through product units that are easier to understand, hold, transfer, and price.",
   },
   {
     title: "Trade or Manage Exposure",
-    body: "List, bid, buy, and sell fractions across a cleaner secondary market path designed for locked-position liquidity.",
+    body: "List, bid, buy, and sell fungible Earn units across a cleaner secondary market path.",
   },
   {
-    title: "Settle, Redeem, or Roll",
-    body: "As settlement windows open, move into redemption or rollover flows aligned with yield and duration preferences.",
+    title: "Use, Settle, or Redeem",
+    body: "Claim rewards, follow routing, and move into redemption flows aligned with product duration.",
   },
 ] as const;
 
@@ -25,8 +25,8 @@ export function HowItWorksSection() {
     <section id="how-it-works" className="mt-20">
       <SectionHeading
         badge="How It Works"
-        title="A clear flow for structured exposure and liquidity."
-        description="Fractals turns complex lock management into an understandable protocol flow, balancing transferability with settlement discipline."
+        title="A clear flow from Mezo Earn complexity to usable products."
+        description="Fractals turns complex veBTC / veMEZO positions, gauges, lock durations, boosts, rewards, and incentive routing into simple fungible Earn products."
       />
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">

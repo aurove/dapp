@@ -13,8 +13,8 @@ type AppRoute = {
 };
 
 export const appRoutes: AppRoute[] = [
-  { href: "/app", label: "Earn", icon: BarChart3 },
-  { href: "/app/trade", label: "Trade", icon: CandlestickChart },
+  { href: "/app", label: "Products", icon: BarChart3 },
+  { href: "/app/trade", label: "Markets", icon: CandlestickChart },
 ];
 
 type AppNavProps = {

@@ -5,7 +5,7 @@ import { buttonVariants } from "@fractals/ui/ui/button";
 const navItems = [
   { label: "Overview", href: "#overview" },
   { label: "How It Works", href: "#how-it-works" },
-  { label: "Architecture", href: "#architecture" },
+  { label: "Earn Products", href: "#earn-products" },
 ] as const;
 
 export function TopNav() {

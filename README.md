@@ -1,13 +1,13 @@
 # Fractals dApp
 
-The Fractals dApp is the user-facing web app for creating, managing, and trading fractionalized Mezo veNFT positions. It is built with Next.js, React, wagmi, RainbowKit, Tailwind CSS, and the local `@fractals/ui` component package.
+The Fractals dApp is the user-facing web app for creating, managing, and trading simple fungible Earn products from Mezo veNFT positions. It is built with Next.js, React, wagmi, RainbowKit, Tailwind CSS, and the local `@fractals/ui` component package.
 
 ## Overview
 
 The app has three primary surfaces:
 
-- **Marketing site:** explains the structured liquidity layer for locked veBTC and veMEZO positions.
-- **Earn app:** create liquid lock claims from ERC20 deposits or existing veNFTs, inspect positions, claim rewards, and redeem during settlement windows.
+- **Marketing site:** explains how Fractals simplifies Mezo Earn.
+- **Earn app:** create simple fungible Earn products from ERC20 deposits or existing veNFTs, inspect positions, claim rewards, and redeem during settlement windows.
 - **Trade app:** browse fraction markets, create listings, place bids, buy listings, match orders, and cancel user orders.
 
 ![Earn View](../demo/earn-page.png)

@@ -127,7 +127,7 @@ export function TradeAssetListing() {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Badge className="w-fit">Trade Markets</Badge>
+            <Badge className="w-fit">Earn Product Markets</Badge>
             <div className="flex flex-wrap items-center gap-2">
               <TradeCreateListingDialog
                 createVeListingSteps={createVeListingSteps}
@@ -156,10 +156,10 @@ export function TradeAssetListing() {
               />
             </div>
           </div>
-          <CardTitle className="text-2xl sm:text-3xl">Fraction Markets</CardTitle>
+          <CardTitle className="text-2xl sm:text-3xl">Fungible Earn Product Markets</CardTitle>
           <p className="max-w-3xl text-sm leading-7 text-[var(--muted)] sm:text-base">
-            Browse market pairs grouped by fraction / payment token. Open a market to inspect
-            orderbook depth and execute supported on-chain actions.
+            Browse market pairs for Fractals Earn products. Open a market to inspect orderbook depth
+            and trade simple fungible exposure backed by Mezo Earn positions.
           </p>
           {lastCreated ? (
             <p className="max-w-3xl text-sm text-emerald-300">

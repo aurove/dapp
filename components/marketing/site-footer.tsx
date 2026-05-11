@@ -3,7 +3,7 @@ import Link from "next/link";
 const navItems = [
   { label: "Overview", href: "#overview" },
   { label: "How It Works", href: "#how-it-works" },
-  { label: "Architecture", href: "#architecture" },
+  { label: "Earn Products", href: "#earn-products" },
 ] as const;
 
 export function SiteFooter() {
@@ -15,7 +15,7 @@ export function SiteFooter() {
             Fractals
           </p>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Fractional liquidity and settlement routing for locked Mezo Earn exposure.
+            Simple fungible Earn products for complex Mezo Earn exposure.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--muted)]">

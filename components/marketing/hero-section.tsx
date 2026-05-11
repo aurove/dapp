@@ -5,23 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { buttonVariants } from "@fractals/ui/ui/button";
 
 const highlights = [
-  { label: "Settlement", value: "Window-driven lifecycle" },
-  { label: "Fractions", value: "Transferable position units" },
-  { label: "Yield", value: "Managed routing overlays" },
+  { label: "Earn", value: "Simple fungible products" },
+  { label: "Markets", value: "Tradable position units" },
+  { label: "Routing", value: "Rewards made legible" },
 ] as const;
 
 const flow = [
   {
-    title: "Locked Base Position",
-    body: "Start from long-duration veBTC / veMEZO exposure and preserve lock intent.",
+    title: "Complex Mezo Earn Position",
+    body: "Start from veBTC / veMEZO locks, gauges, boosts, rewards, and incentive routing.",
   },
   {
-    title: "Fractional Claims",
-    body: "Create transferable claims without manually unwinding the underlying lock.",
+    title: "Simple Fungible Earn Product",
+    body: "Turn that position into transferable ERC1155 units users can understand and trade.",
   },
   {
-    title: "Settlement + Rollover",
-    body: "Resolve windows with clearer redemption and route-management behavior.",
+    title: "Use, Trade, or Redeem",
+    body: "Manage rewards, route incentives, trade exposure, and redeem through clear product flows.",
   },
 ] as const;
 
@@ -30,13 +30,13 @@ export function HeroSection() {
     <section className="pt-14">
       <div className="grid items-center gap-10 lg:grid-cols-[1.08fr_0.92fr]">
         <div className="fade-up">
-          <Badge className="mb-5">Structured Liquidity Layer</Badge>
+          <Badge className="mb-5">Mezo Earn, Simplified</Badge>
           <h1 className="text-balance text-4xl font-semibold leading-tight text-[var(--foreground)] sm:text-5xl">
-            Fractional liquidity for locked veBTC and veMEZO positions.
+            Simple fungible Earn products for complex veBTC and veMEZO positions.
           </h1>
           <p className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-[var(--muted)]">
-            Fractals transforms time-locked Mezo Earn positions into transferable claims, so you can
-            keep lock conviction while improving exits, ownership flexibility, and yield outcomes.
+            Fractals turns gauges, lock durations, boosts, rewards, and incentive routing into Earn
+            products users can understand, trade, and use.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/app" className={buttonVariants({ size: "lg", className: "gap-2" })}>
@@ -71,7 +71,7 @@ export function HeroSection() {
           <CardHeader className="relative z-10">
             <Badge className="w-fit">Protocol Flow</Badge>
             <CardTitle className="text-2xl">
-              From locked exposure to tradable fractional liquidity
+              From Mezo Earn complexity to usable fungible products
             </CardTitle>
           </CardHeader>
           <CardContent className="relative z-10 space-y-3">

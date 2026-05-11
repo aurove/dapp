@@ -2,26 +2,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { SectionHeading } from "@/components/site/section-heading";
 
 const benefits = [
-  "Maintain long-duration positioning while introducing practical liquidity.",
-  "Exit and ownership transfer flows become cleaner than bespoke veNFT handling.",
-  "Settlement and rollover mechanics are structured for reduced operational friction.",
-  "Yield exposure is managed through a coherent surface instead of fragmented manual steps.",
+  "Turn lock duration, boost, gauge, and reward details into legible Earn product balances.",
+  "Trade Mezo Earn exposure through fungible units instead of bespoke veNFT handling.",
+  "Use reward and incentive routing through a coherent product surface.",
+  "Keep settlement and redemption mechanics explicit for reduced operational friction.",
 ] as const;
 
 export function BenefitsSection() {
   return (
-    <section id="architecture" className="mt-20">
+    <section id="earn-products" className="mt-20">
       <SectionHeading
-        badge="Yield & Liquidity Outcomes"
-        title="Built for usable liquidity without abandoning Mezo Earn conviction."
-        description="Fractals is designed as a flexible operating layer for locked positions, where liquidity, settlement, and yield routing are intentionally connected."
+        badge="Earn Product Outcomes"
+        title="Built to make complex Mezo Earn positions usable."
+        description="Fractals connects liquidity, settlement, rewards, boosts, and incentive routing inside simple fungible Earn products."
       />
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         {benefits.map((benefit) => (
           <Card key={benefit} className="h-full">
             <CardHeader>
-              <CardTitle className="text-lg">Liquidity + Yield Alignment</CardTitle>
+              <CardTitle className="text-lg">Simple Earn Products</CardTitle>
             </CardHeader>
             <CardContent className="pt-0 text-sm leading-relaxed text-[var(--muted)]">
               <span

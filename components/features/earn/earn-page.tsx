@@ -96,12 +96,12 @@ function txError(handler: (message: string) => void) {
 function variantCopy(variant: EarnVariant) {
   return variant === "veBTC"
     ? {
-        headline: "BTC-backed liquid lock claims",
+        headline: "BTC-backed fungible Earn products",
         asset: "BTC",
         tone: "border-amber-300/25 bg-amber-300/10 text-amber-100",
       }
     : {
-        headline: "MEZO-backed liquid lock claims",
+        headline: "MEZO-backed fungible Earn products",
         asset: "MEZO",
         tone: "border-sky-300/25 bg-sky-300/10 text-sky-100",
       };
@@ -136,7 +136,8 @@ export function EarnPage() {
   const [withdrawAmounts, setWithdrawAmounts] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const chainTimestamp = blockData?.timestamp ?? BigInt(Math.floor(Date.now() / 1000));
+  const [fallbackTimestamp] = useState(() => BigInt(Math.floor(Date.now() / 1000)));
+  const chainTimestamp = blockData?.timestamp ?? fallbackTimestamp;
 
   const selectedToken = tokens[variant];
   const parsedCreateAmount = selectedToken
@@ -306,7 +307,7 @@ export function EarnPage() {
                 Mezo Earn, simplified
               </Badge>
               <Badge className="border-white/15 bg-white/[0.04] text-white/70">
-                ERC1155 liquid lock claims
+                Fungible Earn products
               </Badge>
             </div>
             <div className="max-w-3xl space-y-3">
@@ -315,8 +316,8 @@ export function EarnPage() {
               </h1>
               <p className="text-base leading-7 text-white/68 md:text-lg">
                 Fractals turns complex veBTC / veMEZO positions, gauges, lock durations, boosts,
-                rewards, and incentive routing into simple Earn products users can understand,
-                trade, claim from, and redeem.
+                rewards, and incentive routing into simple fungible Earn products users can
+                understand, trade, and use.
               </p>
             </div>
           </div>
@@ -1047,9 +1048,9 @@ function EmptyPositions() {
   return (
     <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.025] p-8 text-center">
       <Wallet className="mx-auto h-8 w-8 text-white/35" />
-      <h3 className="mt-3 text-lg font-semibold text-white">No liquid lock claims yet</h3>
+      <h3 className="mt-3 text-lg font-semibold text-white">No fungible Earn products yet</h3>
       <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-white/55">
-        Create a position from supported BTC or MEZO assets, or buy claim tokens on the Trade page
+        Create a position from supported BTC or MEZO assets, or buy Earn units on the Markets page
         when markets are available.
       </p>
     </div>

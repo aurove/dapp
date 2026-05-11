@@ -7,11 +7,11 @@ import { NotificationsToaster } from "@/lib/notifications";
 export const metadata: Metadata = {
   metadataBase: new URL("https://fractals.finance"),
   title: {
-    default: "Fractals | Fractional Liquidity for veBTC & veMEZO",
+    default: "Fractals | Simple Fungible Mezo Earn Products",
     template: "%s | Fractals",
   },
   description:
-    "Fractals is a structured liquidity and yield layer for veBTC and veMEZO positions, with transferable fractions, settlement windows, rollover mechanics, and optimised yield routing.",
+    "Fractals simplifies Mezo Earn by turning complex veBTC / veMEZO positions, gauges, lock durations, boosts, rewards, and incentive routing into simple fungible Earn products users can understand, trade, and use.",
   applicationName: "Fractals",
   keywords: [
     "Fractals",
@@ -23,18 +23,18 @@ export const metadata: Metadata = {
     "settlement windows",
   ],
   openGraph: {
-    title: "Fractals | Fractional Liquidity for veBTC & veMEZO",
+    title: "Fractals | Simple Fungible Mezo Earn Products",
     description:
-      "Structured liquidity for locked Mezo Earn positions with transferable fractions and optimised yield mechanics.",
+      "Simple fungible Earn products for complex veBTC / veMEZO positions, gauges, boosts, rewards, and incentive routing.",
     type: "website",
     siteName: "Fractals",
     url: "/",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Fractals | Fractional Liquidity for veBTC & veMEZO",
+    title: "Fractals | Simple Fungible Mezo Earn Products",
     description:
-      "Transferable liquidity and structured yield mechanics for locked veBTC and veMEZO exposure.",
+      "Understand, trade, and use Mezo Earn exposure through simple fungible Earn products.",
   },
 };
 

@@ -13,11 +13,11 @@ export function FinalCtaSection() {
         <div className="relative z-10 max-w-3xl">
           <Badge className="mb-4">Enter Fractals</Badge>
           <h2 className="text-balance text-3xl font-semibold leading-tight text-[var(--foreground)] sm:text-4xl">
-            Access structured liquidity operations for locked veBTC and veMEZO exposure.
+            Access simple fungible Earn products for veBTC and veMEZO exposure.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--muted)]">
-            Move from manual lock handling into a cleaner protocol surface for transferability,
-            settlement windows, and yield routing controls.
+            Move from manual lock, gauge, boost, reward, and routing decisions into a cleaner
+            product surface users can understand, trade, and use.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/app" className={buttonVariants({ size: "lg", className: "gap-2" })}>
