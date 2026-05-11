@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { erc20Abi, type Abi, type Address } from "viem";
-import { useAccount, useChainId, useReadContracts } from "wagmi";
+import { useEffect, useMemo, useState } from "react";
+import { erc20Abi, parseAbiItem, type Abi, type Address, type PublicClient } from "viem";
+import { useAccount, useChainId, usePublicClient, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import {
@@ -10,6 +10,7 @@ import {
   detailReadQueryOptions,
   staticReadQueryOptions,
 } from "@/lib/web3/read-query-options";
+import { findLatestEventLogByChunks, type CachedEventLog } from "@/lib/web3/event-cache";
 import { decodeTrancheId, deriveTrancheId } from "@/components/features/trade/utils/tranche";
 
 export type EarnVariant = "veBTC" | "veMEZO";
@@ -40,6 +41,9 @@ export type EarnProduct = {
   rewardSymbol: string | null;
   rewardDecimals: number;
   rewardReserveRaw: bigint | null;
+  aprRewardAmountRaw: bigint | null;
+  aprTotalSupplyAtFundingRaw: bigint | null;
+  aprFundingBlockNumber: bigint | null;
   settledUnderlyingRaw: bigint | null;
   targetEpochEnd: bigint | null;
   trancheDuration: bigint | null;
@@ -56,6 +60,251 @@ type FractionCore = {
   veNFT: Address | null;
   decoded: ReturnType<typeof decodeTrancheId>;
 };
+
+type AprBasis = {
+  rewardAmountRaw: bigint;
+  totalSupplyAtFundingRaw: bigint;
+  fundingBlockNumber: bigint;
+};
+
+type FundingEventSnapshot = {
+  amount: bigint;
+  blockNumber: bigint;
+  logIndex: number;
+};
+
+type FundingScanCache = {
+  latestByAddress: Map<string, FundingEventSnapshot>;
+  checkedTipByAddress: Map<string, bigint>;
+  inFlight?: Promise<void>;
+};
+
+const REWARDS_FUNDED_SCAN_CHUNK_SIZE = 10_000n;
+
+const assetFractionDeployedEvent = parseAbiItem(
+  "event AssetFractionDeployed(address indexed assetFraction,uint256 indexed trancheId,string fractionName)",
+);
+
+const rewardsFundedEvent = parseAbiItem(
+  "event RewardsFunded(address indexed funder,uint256 amount,uint256 distributedAmount,uint256 undistributedRewards,uint256 rewardReserve)",
+);
+
+const fundingScanCacheByChain = new Map<number, FundingScanCache>();
+const fractionDeploymentBlockCache = new Map<string, Promise<bigint | null>>();
+const totalSupplyAtBlockCache = new Map<string, Promise<bigint | null>>();
+
+function getFundingScanCache(chainId: number): FundingScanCache {
+  const existing = fundingScanCacheByChain.get(chainId);
+  if (existing) return existing;
+
+  const cache: FundingScanCache = {
+    latestByAddress: new Map(),
+    checkedTipByAddress: new Map(),
+  };
+  fundingScanCacheByChain.set(chainId, cache);
+  return cache;
+}
+
+function isNewerFundingEvent(
+  next: FundingEventSnapshot,
+  current: FundingEventSnapshot | undefined,
+) {
+  if (!current) return true;
+  if (next.blockNumber !== current.blockNumber) return next.blockNumber > current.blockNumber;
+  return next.logIndex > current.logIndex;
+}
+
+async function scanRewardsFundedEvents(params: {
+  publicClient: PublicClient;
+  chainId: number;
+  assetLedgerAddress: Address;
+  assetLedgerDeploymentBlock: bigint;
+  addresses: Address[];
+}) {
+  const normalizedAddresses = [
+    ...new Set(params.addresses.map((address) => address.toLowerCase())),
+  ];
+  if (normalizedAddresses.length === 0) return new Map<string, FundingEventSnapshot>();
+
+  const cache = getFundingScanCache(params.chainId);
+  if (cache.inFlight) await cache.inFlight;
+
+  const scanPromise = (async () => {
+    const latestBlock = await params.publicClient.getBlockNumber();
+    await Promise.all(
+      params.addresses.map(async (address) => {
+        const key = address.toLowerCase();
+        const checkedTip = cache.checkedTipByAddress.get(key);
+        if (checkedTip && checkedTip >= latestBlock) return;
+
+        const deploymentBlock = await readAssetFractionDeploymentBlock({
+          publicClient: params.publicClient,
+          chainId: params.chainId,
+          assetLedgerAddress: params.assetLedgerAddress,
+          assetLedgerDeploymentBlock: params.assetLedgerDeploymentBlock,
+          fractionAddress: address,
+          toBlock: latestBlock,
+        });
+        if (deploymentBlock === null) return;
+
+        const fromBlock =
+          checkedTip && checkedTip + 1n > deploymentBlock ? checkedTip + 1n : deploymentBlock;
+        const log = await findLatestEventLogByChunks({
+          chainId: params.chainId,
+          contractAddress: address,
+          eventName: "RewardsFunded",
+          fromBlock,
+          toBlock: latestBlock,
+          chunkSize: REWARDS_FUNDED_SCAN_CHUNK_SIZE,
+          fetchRange: async (rangeFromBlock, rangeToBlock) => {
+            const logs = await params.publicClient.getLogs({
+              address,
+              event: rewardsFundedEvent,
+              fromBlock: rangeFromBlock,
+              toBlock: rangeToBlock,
+            });
+
+            return logs
+              .filter((item) => item.transactionHash && item.blockNumber !== null)
+              .map(
+                (item): CachedEventLog => ({
+                  address: item.address,
+                  transactionHash: item.transactionHash!,
+                  blockNumber: item.blockNumber!,
+                  logIndex: item.logIndex ?? 0,
+                  args: {
+                    amount: item.args.amount ?? 0n,
+                    distributedAmount: item.args.distributedAmount ?? 0n,
+                    undistributedRewards: item.args.undistributedRewards ?? 0n,
+                    rewardReserve: item.args.rewardReserve ?? 0n,
+                  },
+                }),
+              );
+          },
+        });
+
+        if (log) {
+          const amount = asBigint(log.args.amount) ?? 0n;
+          if (amount > 0n) {
+            const snapshot: FundingEventSnapshot = {
+              amount,
+              blockNumber: log.blockNumber,
+              logIndex: log.logIndex,
+            };
+
+            if (isNewerFundingEvent(snapshot, cache.latestByAddress.get(key))) {
+              cache.latestByAddress.set(key, snapshot);
+            }
+          }
+        }
+
+        cache.checkedTipByAddress.set(key, latestBlock);
+      }),
+    );
+  })();
+
+  cache.inFlight = scanPromise;
+
+  try {
+    await scanPromise;
+  } finally {
+    if (cache.inFlight === scanPromise) {
+      cache.inFlight = undefined;
+    }
+  }
+
+  return new Map(
+    normalizedAddresses
+      .map((address) => [address, cache.latestByAddress.get(address)])
+      .filter((entry): entry is [string, FundingEventSnapshot] => Boolean(entry[1])),
+  );
+}
+
+function readAssetFractionDeploymentBlock(params: {
+  publicClient: PublicClient;
+  chainId: number;
+  assetLedgerAddress: Address;
+  assetLedgerDeploymentBlock: bigint;
+  fractionAddress: Address;
+  toBlock: bigint;
+}) {
+  const cacheKey = [
+    params.chainId,
+    params.assetLedgerAddress.toLowerCase(),
+    params.fractionAddress.toLowerCase(),
+  ].join(":");
+  const existing = fractionDeploymentBlockCache.get(cacheKey);
+  if (existing) return existing;
+
+  const promise = findLatestEventLogByChunks({
+    chainId: params.chainId,
+    contractAddress: params.assetLedgerAddress,
+    eventName: "AssetFractionDeployed",
+    args: { assetFraction: params.fractionAddress },
+    fromBlock: params.assetLedgerDeploymentBlock,
+    toBlock: params.toBlock,
+    chunkSize: REWARDS_FUNDED_SCAN_CHUNK_SIZE,
+    fetchRange: async (fromBlock, toBlock) => {
+      const logs = await params.publicClient.getLogs({
+        address: params.assetLedgerAddress,
+        event: assetFractionDeployedEvent,
+        args: { assetFraction: params.fractionAddress },
+        fromBlock,
+        toBlock,
+      });
+
+      return logs
+        .filter((item) => item.transactionHash && item.blockNumber !== null)
+        .map(
+          (item): CachedEventLog => ({
+            address: item.address,
+            transactionHash: item.transactionHash!,
+            blockNumber: item.blockNumber!,
+            logIndex: item.logIndex ?? 0,
+            args: {
+              assetFraction: item.args.assetFraction,
+              trancheId: item.args.trancheId ?? 0n,
+              fractionName: item.args.fractionName ?? "",
+            },
+          }),
+        );
+    },
+  })
+    .then((log) => log?.blockNumber ?? null)
+    .catch(() => null);
+
+  fractionDeploymentBlockCache.set(cacheKey, promise);
+  return promise;
+}
+
+function readTotalSupplyAtBlock(params: {
+  publicClient: PublicClient;
+  chainId: number;
+  assetFractionAbi: Abi;
+  address: Address;
+  blockNumber: bigint;
+}) {
+  const cacheKey = [
+    params.chainId,
+    params.address.toLowerCase(),
+    params.blockNumber.toString(),
+  ].join(":");
+  const existing = totalSupplyAtBlockCache.get(cacheKey);
+  if (existing) return existing;
+
+  const promise = params.publicClient
+    .readContract({
+      address: params.address,
+      abi: params.assetFractionAbi,
+      functionName: "totalSupply",
+      blockNumber: params.blockNumber,
+    })
+    .then(asBigint)
+    .catch(() => null);
+
+  totalSupplyAtBlockCache.set(cacheKey, promise);
+  return promise;
+}
 
 function asAddress(value: unknown): Address | null {
   return typeof value === "string" && value.startsWith("0x") ? (value as Address) : null;
@@ -108,9 +357,10 @@ export function useEarnData() {
   const connectedChainId = useChainId();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = connectedChainId ?? activeChain.id;
+  const publicClient = usePublicClient();
 
   const assetLedger = getContractConfig(chainId, "AssetLedger");
-  const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi as Abi | undefined;
+  const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
   const veBtc = getContractConfig(chainId, "VeBTC");
   const veMezo = getContractConfig(chainId, "VeMEZO");
 
@@ -269,6 +519,88 @@ export function useEarnData() {
     return balances;
   }, [fractionCore, ledgerBalanceReads.data]);
 
+  const [aprBasisByFraction, setAprBasisByFraction] = useState<Record<string, AprBasis>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAprBasis() {
+      if (
+        !publicClient ||
+        !assetLedger?.address ||
+        !assetFractionAbi ||
+        fractionCore.length === 0
+      ) {
+        await Promise.resolve();
+        if (!cancelled) setAprBasisByFraction({});
+        return;
+      }
+
+      const latestFundings = await scanRewardsFundedEvents({
+        publicClient,
+        chainId,
+        assetLedgerAddress: assetLedger.address,
+        assetLedgerDeploymentBlock: BigInt(assetLedger.deploymentBlock ?? 0),
+        addresses: fractionCore.map((item) => item.address),
+      });
+
+      const entries = await Promise.all(
+        fractionCore.map(async (fraction) => {
+          const key = fraction.address.toLowerCase();
+
+          try {
+            const latestFunding = latestFundings.get(key);
+            if (!latestFunding) return null;
+
+            const fundingBlockNumber = latestFunding.blockNumber;
+            const supplyBlockNumber =
+              fundingBlockNumber > 0n ? fundingBlockNumber - 1n : fundingBlockNumber;
+            const totalSupplyAtFundingRaw = await readTotalSupplyAtBlock({
+              publicClient,
+              chainId,
+              address: fraction.address,
+              assetFractionAbi,
+              blockNumber: supplyBlockNumber,
+            });
+            if (!totalSupplyAtFundingRaw) return null;
+
+            return [
+              key,
+              {
+                rewardAmountRaw: latestFunding.amount,
+                totalSupplyAtFundingRaw,
+                fundingBlockNumber,
+              },
+            ] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      if (cancelled) return;
+
+      setAprBasisByFraction(
+        Object.fromEntries(
+          entries.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
+        ),
+      );
+    }
+
+    void loadAprBasis();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    assetFractionAbi,
+    assetLedger?.address,
+    assetLedger?.deploymentBlock,
+    chainId,
+    fractionCore,
+    publicClient,
+  ]);
+
   const rewardAssets = useMemo(() => {
     const assets = new Set<Address>();
     fractionAddresses.forEach((_, index) => {
@@ -398,7 +730,7 @@ export function useEarnData() {
         const rewardAsset = asAddress(fractionReads.data?.[offset + 11]?.result);
         const rewardMeta = rewardAsset ? rewardTokenMeta.get(rewardAsset.toLowerCase()) : null;
 
-        return {
+        const product: EarnProduct = {
           id: `${fraction.address}-${fraction.trancheId.toString()}`,
           fractionAddress: fraction.address,
           trancheId: fraction.trancheId,
@@ -417,11 +749,19 @@ export function useEarnData() {
           rewardSymbol: rewardMeta?.symbol ?? null,
           rewardDecimals: rewardMeta?.decimals ?? 18,
           rewardReserveRaw: asBigint(fractionReads.data?.[offset + 12]?.result),
+          aprRewardAmountRaw:
+            aprBasisByFraction[fraction.address.toLowerCase()]?.rewardAmountRaw ?? null,
+          aprTotalSupplyAtFundingRaw:
+            aprBasisByFraction[fraction.address.toLowerCase()]?.totalSupplyAtFundingRaw ?? null,
+          aprFundingBlockNumber:
+            aprBasisByFraction[fraction.address.toLowerCase()]?.fundingBlockNumber ?? null,
           settledUnderlyingRaw: asBigint(fractionReads.data?.[offset + 13]?.result),
           userBalanceRaw: ledgerBalancesByTranche.get(fraction.trancheId.toString()) ?? 0n,
           claimableRewardsRaw: asBigint(fractionReads.data?.[offset + 14]?.result) ?? 0n,
           userAvailableBalanceRaw: asBigint(fractionReads.data?.[offset + 15]?.result) ?? 0n,
         };
+
+        return product;
       })
       .filter((product): product is EarnProduct => Boolean(product))
       .sort((a, b) => a.variant.localeCompare(b.variant) || a.trancheNumber - b.trancheNumber);
@@ -429,6 +769,7 @@ export function useEarnData() {
     fractionCore,
     fractionReads.data,
     ledgerBalancesByTranche,
+    aprBasisByFraction,
     rewardTokenMeta,
     rowSize,
     veBtc?.address,
@@ -454,6 +795,9 @@ export function useEarnData() {
       rewardSymbol: null,
       rewardDecimals: 18,
       rewardReserveRaw: null,
+      aprRewardAmountRaw: null,
+      aprTotalSupplyAtFundingRaw: null,
+      aprFundingBlockNumber: null,
       settledUnderlyingRaw: null,
       targetEpochEnd: null,
       trancheDuration: null,

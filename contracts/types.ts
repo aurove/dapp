@@ -25,6 +25,7 @@ export type InheritedFunctions = { readonly [key: string]: string };
 export type GenericContract = {
   address?: Address;
   abi: Abi;
+  deploymentBlock?: number;
   inheritedFunctions?: InheritedFunctions;
   external?: true;
 };

@@ -25,6 +25,7 @@ const VEBTC_DURATIONS = [1, 2, 3, 4];
 const MAX_TRANCHE_WEEKS = 208;
 const MAX_VEBTC_TRANCHE_WEEKS = 4;
 const EPOCH_ROLLOVER_COOLDOWN_SECONDS = 2n * 60n * 60n;
+const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
 type ClaimableSummary = {
   key: string;
@@ -36,6 +37,11 @@ type ClaimableSummary = {
 };
 
 type CreatePositionMode = "erc20" | "venft";
+
+type TrancheAprEstimate = {
+  product: EarnProduct;
+  aprPercent: number;
+};
 
 function formatDate(timestamp: bigint | null) {
   if (!timestamp || timestamp === 0n) return "Unavailable";
@@ -55,6 +61,44 @@ function formatDuration(seconds: bigint | null, fallbackWeeks: number) {
 function formatAmount(value: bigint | null | undefined, decimals = 18, symbol?: string | null) {
   if (value === null || value === undefined) return "Unavailable";
   return formatRawTokenAmount(value, decimals, symbol ?? undefined);
+}
+
+function formatAprPercent(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "Not estimated";
+  if (value > 0 && value < 0.01) return "<0.01%";
+  const fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+  return (
+    new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: fractionDigits,
+      minimumFractionDigits: fractionDigits,
+    }).format(value) + "%"
+  );
+}
+
+function estimateTrancheApr(product: EarnProduct): TrancheAprEstimate | null {
+  const totalSupplyRaw = product.aprTotalSupplyAtFundingRaw ?? 0n;
+  const rewardAmountRaw = product.aprRewardAmountRaw ?? 0n;
+  if (totalSupplyRaw <= 0n || rewardAmountRaw <= 0n) return null;
+
+  const rewardDeposited = Number(formatUnits(rewardAmountRaw, product.rewardDecimals));
+  const totalSupply = Number(formatUnits(totalSupplyRaw, 18));
+  if (!Number.isFinite(rewardDeposited) || !Number.isFinite(totalSupply) || totalSupply <= 0) {
+    return null;
+  }
+
+  const durationSeconds =
+    product.trancheDuration && product.trancheDuration > 0n
+      ? Number(product.trancheDuration)
+      : null;
+  const annualization =
+    durationSeconds && Number.isFinite(durationSeconds) && durationSeconds > 0
+      ? SECONDS_PER_YEAR / durationSeconds
+      : 1;
+
+  return {
+    product,
+    aprPercent: (rewardDeposited / totalSupply) * annualization * 100,
+  };
 }
 
 function parseAmountInput(amount: string, decimals: number): bigint | null {
@@ -201,6 +245,12 @@ export function EarnPage() {
 
     return [...summaries.values()].sort((a, b) => a.symbol.localeCompare(b.symbol));
   }, [claimableProducts]);
+  const bestAprEstimate = useMemo(() => {
+    return products
+      .map(estimateTrancheApr)
+      .filter((estimate): estimate is TrancheAprEstimate => Boolean(estimate))
+      .sort((a, b) => b.aprPercent - a.aprPercent)[0];
+  }, [products]);
 
   const createDisabledReason = !selectedToken?.underlyingAddress
     ? "Underlying token unavailable for this network."
@@ -327,7 +377,12 @@ export function EarnPage() {
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
             <HeroMetric label="Live products" value={liveProductCount.toString()} />
             <HeroMetric label="Your claim positions" value={userPositions.length.toString()} />
-            <HeroMetric label="APR source" value="Not estimated" subtle />
+            <HeroMetric
+              label="APR source"
+              value={formatAprPercent(bestAprEstimate?.aprPercent)}
+              detail={bestAprEstimate?.product.symbol ?? "No funded tranches"}
+              subtle={!bestAprEstimate}
+            />
           </div>
         </div>
       </section>
@@ -433,13 +488,24 @@ export function EarnPage() {
   );
 }
 
-function HeroMetric({ label, value, subtle }: { label: string; value: string; subtle?: boolean }) {
+function HeroMetric({
+  label,
+  value,
+  detail,
+  subtle,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  subtle?: boolean;
+}) {
   return (
     <div className="rounded-xl border border-white/12 bg-white/[0.035] p-4">
       <p className="text-xs font-medium uppercase text-white/45">{label}</p>
       <p className={cn("mt-2 text-2xl font-semibold", subtle ? "text-white/70" : "text-white")}>
         {value}
       </p>
+      {detail ? <p className="mt-1 text-xs text-white/45">{detail}</p> : null}
     </div>
   );
 }
@@ -918,6 +984,7 @@ function PositionCard({
 }) {
   const copy = variantCopy(product.variant);
   const progress = epochProgressPercent(product, chainTimestamp);
+  const aprEstimate = estimateTrancheApr(product);
   const parsedWithdraw = parseAmountInput(withdrawAmount, 18);
   const isWithinEpochCooldown =
     Boolean(product.targetEpochEnd) &&
@@ -963,6 +1030,15 @@ function PositionCard({
           <InfoTile
             label="Total Balance"
             value={formatAmount(product.userBalanceRaw, 18, product.symbol)}
+          />
+          <InfoTile label="Tranche APR" value={formatAprPercent(aprEstimate?.aprPercent)} />
+          <InfoTile
+            label="Rewards Deposited"
+            value={formatAmount(
+              product.aprRewardAmountRaw,
+              product.rewardDecimals,
+              product.rewardSymbol,
+            )}
           />
         </div>
 
