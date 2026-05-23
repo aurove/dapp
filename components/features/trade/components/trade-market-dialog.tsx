@@ -205,7 +205,7 @@ export function TradeMarketDialog({
 
           <div className="min-w-0 space-y-4">
             <div className="hidden lg:block">
-              <ReadinessCard
+              {/* <ReadinessCard
                 activeChainName={activeChain.name}
                 fractionApproved={fractionApproved}
                 fractionBalance={fractionBalance}
@@ -216,7 +216,7 @@ export function TradeMarketDialog({
                 paymentBalance={paymentBalance}
                 paymentTokenSymbol={market.paymentTokenSymbol}
                 readinessError={readinessError}
-              />
+              /> */}
             </div>
             <TradeActionsCard
               activeTab={tab}
