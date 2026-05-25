@@ -3579,6 +3579,16 @@ const contracts = {
         {
           anonymous: false,
           inputs: [
+            { indexed: true, internalType: "address", name: "fraction", type: "address" },
+            { indexed: true, internalType: "uint256", name: "trancheId", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "RewardReserveNotified",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
             { indexed: true, internalType: "address", name: "orchestrator", type: "address" },
             { indexed: true, internalType: "address", name: "voter", type: "address" },
             { indexed: true, internalType: "address", name: "fraction", type: "address" },
@@ -3947,8 +3957,6 @@ const contracts = {
           outputs: [
             {
               components: [
-                { internalType: "uint64", name: "depositedAt", type: "uint64" },
-                { internalType: "uint64", name: "unlockTime", type: "uint64" },
                 { internalType: "uint256", name: "lockedAmount", type: "uint256" },
                 { internalType: "uint256", name: "rebaseAmount", type: "uint256" },
                 { internalType: "uint256", name: "trancheId", type: "uint256" },
@@ -3958,8 +3966,6 @@ const contracts = {
                   name: "assetVariant",
                   type: "uint8",
                 },
-                { internalType: "bool", name: "isPermanent", type: "bool" },
-                { internalType: "bool", name: "active", type: "bool" },
               ],
               internalType: "struct IMezoVeNFTManager.Position",
               name: "",
@@ -4035,6 +4041,16 @@ const contracts = {
           name: "isSupportedVeNFT",
           outputs: [{ internalType: "bool", name: "", type: "bool" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "notifyRewardReserve",
+          outputs: [],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -10629,6 +10645,16 @@ const contracts = {
         {
           anonymous: false,
           inputs: [
+            { indexed: true, internalType: "address", name: "fraction", type: "address" },
+            { indexed: true, internalType: "uint256", name: "trancheId", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "RewardReserveNotified",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
             { indexed: true, internalType: "address", name: "orchestrator", type: "address" },
             { indexed: true, internalType: "address", name: "voter", type: "address" },
             { indexed: true, internalType: "address", name: "fraction", type: "address" },
@@ -10997,8 +11023,6 @@ const contracts = {
           outputs: [
             {
               components: [
-                { internalType: "uint64", name: "depositedAt", type: "uint64" },
-                { internalType: "uint64", name: "unlockTime", type: "uint64" },
                 { internalType: "uint256", name: "lockedAmount", type: "uint256" },
                 { internalType: "uint256", name: "rebaseAmount", type: "uint256" },
                 { internalType: "uint256", name: "trancheId", type: "uint256" },
@@ -11008,8 +11032,6 @@ const contracts = {
                   name: "assetVariant",
                   type: "uint8",
                 },
-                { internalType: "bool", name: "isPermanent", type: "bool" },
-                { internalType: "bool", name: "active", type: "bool" },
               ],
               internalType: "struct IMezoVeNFTManager.Position",
               name: "",
@@ -11085,6 +11107,16 @@ const contracts = {
           name: "isSupportedVeNFT",
           outputs: [{ internalType: "bool", name: "", type: "bool" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "notifyRewardReserve",
+          outputs: [],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
