@@ -5,6 +5,7 @@ import { parseUnits, erc20Abi, erc721Abi, type Address } from "viem";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { getContractConfig } from "@/contracts/client";
 import { staticReadQueryOptions } from "@/lib/web3/read-query-options";
+import { useChainTime } from "@/lib/web3/use-chain-time";
 import { useReadContracts } from "wagmi";
 import { useTradeFlowContext } from "./use-trade-flow-context";
 import type {
@@ -23,6 +24,7 @@ const NATIVE_TOKEN_DECIMALS = 18;
 
 export function useTradeListing() {
   const { chainId, blockExplorerUrl } = useTradeFlowContext();
+  const { chainTimestamp } = useChainTime();
 
   const listingWrapper = getContractConfig(chainId, "VeNftFractionListing");
   const assetLedger = getContractConfig(chainId, "AssetLedger");
@@ -210,14 +212,13 @@ export function useTradeListing() {
     if (input.expiryMode === "timed" && input.expiryDays < 1) {
       throw new Error("Expiry must be at least 1 day.");
     }
-
-    const expiry =
-      input.expiryMode === "none"
-        ? 0n
-        : BigInt(
-            Math.floor(Date.now() / 1000) +
-              Math.max(1, Math.floor(input.expiryDays)) * 24 * 60 * 60,
-          );
+    let expiry = 0n;
+    if (input.expiryMode === "timed") {
+      if (chainTimestamp === null) {
+        throw new Error("Current chain time is unavailable.");
+      }
+      expiry = chainTimestamp + BigInt(Math.max(1, Math.floor(input.expiryDays)) * 24 * 60 * 60);
+    }
 
     const steps: TxStep[] = [];
 
@@ -302,14 +303,13 @@ export function useTradeListing() {
     if (input.expiryMode === "timed" && input.expiryDays < 1) {
       throw new Error("Expiry must be at least 1 day.");
     }
-
-    const expiry =
-      input.expiryMode === "none"
-        ? 0n
-        : BigInt(
-            Math.floor(Date.now() / 1000) +
-              Math.max(1, Math.floor(input.expiryDays)) * 24 * 60 * 60,
-          );
+    let expiry = 0n;
+    if (input.expiryMode === "timed") {
+      if (chainTimestamp === null) {
+        throw new Error("Current chain time is unavailable.");
+      }
+      expiry = chainTimestamp + BigInt(Math.max(1, Math.floor(input.expiryDays)) * 24 * 60 * 60);
+    }
 
     const steps: TxStep[] = [];
 

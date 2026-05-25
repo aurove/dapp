@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { CheckCircle2, Coins, LockKeyhole, RefreshCw, Sparkles, Wallet } from "lucide-react";
 import { erc20Abi, erc721Abi, formatUnits, parseUnits, type Address } from "viem";
-import { useBlock, useChainId } from "wagmi";
+import { useChainId } from "wagmi";
 import { Badge } from "@fractals/ui/ui/badge";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fractals/ui/ui/card";
@@ -15,6 +15,7 @@ import { cn } from "@fractals/ui/lib/cn";
 import { appRoutes } from "@/components/app/app-nav";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
+import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
 import { deriveTrancheId } from "@/components/features/trade/utils/tranche";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/trade/hooks/use-user-ve-nfts";
@@ -25,6 +26,7 @@ const VEBTC_DURATIONS = [1, 2, 3, 4];
 const MAX_TRANCHE_WEEKS = 208;
 const MAX_VEBTC_TRANCHE_WEEKS = 4;
 const EPOCH_ROLLOVER_COOLDOWN_SECONDS = 2n * 60n * 60n;
+const SETTLEMENT_DURATION_SECONDS = 12n * 60n * 60n;
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
 type ClaimableSummary = {
@@ -125,8 +127,13 @@ function amountFromBalancePercent(balance: bigint, percent: number, decimals: nu
   return formatUnits((balance * BigInt(boundedPercent)) / 100n, decimals);
 }
 
-function epochProgressPercent(product: EarnProduct, blockchainNow: bigint): number {
-  if (!product.targetEpochEnd || !product.trancheDuration || product.trancheDuration <= 0n) {
+function epochProgressPercent(product: EarnProduct, blockchainNow: bigint | null): number {
+  if (
+    blockchainNow === null ||
+    !product.targetEpochEnd ||
+    !product.trancheDuration ||
+    product.trancheDuration <= 0n
+  ) {
     return 0;
   }
 
@@ -137,6 +144,14 @@ function epochProgressPercent(product: EarnProduct, blockchainNow: bigint): numb
   if (!Number.isFinite(target) || !Number.isFinite(duration) || now <= start) return 0;
   if (now >= target) return 100;
   return Math.round(((now - start) / duration) * 100);
+}
+
+function isTargetSettlementWindow(product: EarnProduct, blockchainNow: bigint | null): boolean {
+  if (blockchainNow === null || !product.targetEpochEnd) return false;
+  return (
+    blockchainNow >= product.targetEpochEnd &&
+    blockchainNow <= product.targetEpochEnd + SETTLEMENT_DURATION_SECONDS
+  );
 }
 
 function txError(handler: (message: string) => void) {
@@ -162,7 +177,7 @@ function variantCopy(variant: EarnVariant) {
 }
 
 export function EarnPage() {
-  const { data: blockData } = useBlock({ watch: true });
+  const { chainTimestamp } = useChainTime();
   const {
     assetLedger,
     products,
@@ -190,12 +205,6 @@ export function EarnPage() {
   const [withdrawAmounts, setWithdrawAmounts] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const chainTimestamp = blockData?.timestamp ?? 0n;
-
-  useEffect(() => {
-    console.log({ chainTimestamp });
-  }, [blockData?.timestamp]);
-
   const selectedToken = tokens[variant];
   const parsedCreateAmount = selectedToken
     ? parseAmountInput(amount, selectedToken.decimals)
@@ -1007,7 +1016,7 @@ function PositionCard({
   onError,
 }: {
   product: EarnProduct;
-  chainTimestamp: bigint;
+  chainTimestamp: bigint | null;
   withdrawAmount: string;
   setWithdrawAmount: (value: string) => void;
   onSuccess: (message: string) => void;
@@ -1017,15 +1026,17 @@ function PositionCard({
   const progress = epochProgressPercent(product, chainTimestamp);
   const aprEstimate = estimateTrancheApr(product);
   const parsedWithdraw = parseAmountInput(withdrawAmount, 18);
+  const isSettlementWindowOpen = isTargetSettlementWindow(product, chainTimestamp);
   const isWithinEpochCooldown =
     Boolean(product.targetEpochEnd) &&
+    chainTimestamp !== null &&
     chainTimestamp >= (product.targetEpochEnd ?? 0n) &&
     chainTimestamp < (product.targetEpochEnd ?? 0n) + EPOCH_ROLLOVER_COOLDOWN_SECONDS;
   const canWithdraw =
-    product.isTargetSettlementWindow &&
+    isSettlementWindowOpen &&
     !isWithinEpochCooldown &&
     parsedWithdraw !== null &&
-    parsedWithdraw <= product.userBalanceRaw &&
+    parsedWithdraw <= product.userAvailableBalanceRaw &&
     parsedWithdraw > 0n;
 
   return (
@@ -1081,7 +1092,7 @@ function PositionCard({
             <span className="text-xs text-white/45">
               {isWithinEpochCooldown
                 ? "Paused for first 2 hours of epoch rollover"
-                : product.isTargetSettlementWindow
+                : isSettlementWindowOpen
                   ? "Window open"
                   : "Unavailable now"}
             </span>
@@ -1093,13 +1104,13 @@ function PositionCard({
               placeholder="0.00"
               value={withdrawAmount}
               onChange={(event) => setWithdrawAmount(event.target.value)}
-              disabled={!product.isTargetSettlementWindow || isWithinEpochCooldown}
+              disabled={!isSettlementWindowOpen || isWithinEpochCooldown}
             />
             <Button
               type="button"
               variant="outline"
-              onClick={() => setWithdrawAmount(formatUnits(product.userBalanceRaw, 18))}
-              disabled={!product.isTargetSettlementWindow || isWithinEpochCooldown}
+              onClick={() => setWithdrawAmount(formatUnits(product.userAvailableBalanceRaw, 18))}
+              disabled={!isSettlementWindowOpen || isWithinEpochCooldown}
             >
               Max
             </Button>
@@ -1128,7 +1139,7 @@ function PositionCard({
           >
             {isWithinEpochCooldown
               ? "Temporarily paused"
-              : product.isTargetSettlementWindow
+              : isSettlementWindowOpen
                 ? "Withdraw underlying"
                 : "Await settlement window"}
           </TransactionFlowButton>

@@ -5,6 +5,7 @@ import { erc1155Abi, erc20Abi, formatUnits, zeroAddress, type Abi, type Address 
 import { useAccount, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
+import { useChainTime } from "@/lib/web3/use-chain-time";
 import {
   coreReadQueryOptions,
   detailReadQueryOptions,
@@ -183,7 +184,8 @@ export function useMarkets() {
   const { address: userAddress } = useAccount();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = txFlowChainId ?? activeChain.id;
-  const chainTimestamp = null;
+  const { blockNumber, chainTimestampNumber } = useChainTime();
+  const chainTimestamp = chainTimestampNumber;
 
   const marketplace = getContractConfig(chainId, "Marketplace");
   const paymentRouter = getContractConfig(chainId, "PaymentRouter");
@@ -196,8 +198,6 @@ export function useMarkets() {
   const [stateFilter, setStateFilter] = useState<"all" | TradeMarketState>("all");
   const [activeOnly, setActiveOnly] = useState(false);
   const [sortBy, setSortBy] = useState<TradeMarketSortOption>(TRADE_MARKET_SORT_OPTIONS[0]!.value);
-  const [nowTimestamp] = useState(() => Math.floor(Date.now() / 1000));
-
   const canReadCore = Boolean(
     marketplace?.address && marketplace.abi && paymentRouter?.address && paymentRouter.abi,
   );
@@ -322,6 +322,7 @@ export function useMarkets() {
 
   const listingReads = useReadContracts({
     allowFailure: true,
+    blockNumber: blockNumber ?? undefined,
     contracts: listingPageContracts,
     query: {
       enabled: listingPageContracts.length > 0,
@@ -358,6 +359,7 @@ export function useMarkets() {
 
   const bidReads = useReadContracts({
     allowFailure: true,
+    blockNumber: blockNumber ?? undefined,
     contracts: bidPageContracts,
     query: {
       enabled: bidPageContracts.length > 0,
@@ -735,7 +737,7 @@ export function useMarkets() {
   const markets = useMemo<TradeMarket[]>(() => {
     if (marketFractions.length === 0 || paymentTokens.length === 0) return [];
 
-    const activityCutoff = nowTimestamp - 24 * 60 * 60;
+    const activityCutoff = chainTimestamp === null ? null : chainTimestamp - 24 * 60 * 60;
     const listingsByMarket = new Map<string, TradeListingTuple[]>();
     const bidsByMarket = new Map<string, TradeBidTuple[]>();
 
@@ -873,7 +875,9 @@ export function useMarkets() {
 
         const recentActivity = [...marketListings, ...marketBids].filter(
           (order) =>
-            Number(order.createdAt) >= activityCutoff || Number(order.updatedAt) >= activityCutoff,
+            activityCutoff !== null &&
+            (Number(order.createdAt) >= activityCutoff ||
+              Number(order.updatedAt) >= activityCutoff),
         ).length;
 
         const lastActivityAt = [...marketListings, ...marketBids].reduce<number | null>(
@@ -963,7 +967,6 @@ export function useMarkets() {
     bidderFundingByBidId,
     chainTimestamp,
     marketFractions,
-    nowTimestamp,
     paymentTokens,
     sellerBalanceByListingId,
   ]);
