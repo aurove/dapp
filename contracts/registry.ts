@@ -417,16 +417,6 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [
-            { internalType: "address", name: "rewardToken", type: "address" },
-            { internalType: "uint256", name: "amount", type: "uint256" },
-          ],
-          name: "depositRewardToken",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
           inputs: [{ internalType: "uint256", name: "timestamp_", type: "uint256" }],
           name: "epochEndAt",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -483,6 +473,44 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [
+            { internalType: "address", name: "rewardToken", type: "address" },
+            { internalType: "uint256", name: "netAmount", type: "uint256" },
+            { internalType: "address", name: "feeRecipient", type: "address" },
+            { internalType: "uint256", name: "feeAmount", type: "uint256" },
+          ],
+          name: "notifyReward",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "", type: "address" },
+            { internalType: "address", name: "", type: "address" },
+            { internalType: "uint256[]", name: "", type: "uint256[]" },
+            { internalType: "uint256[]", name: "", type: "uint256[]" },
+            { internalType: "bytes", name: "", type: "bytes" },
+          ],
+          name: "onERC1155BatchReceived",
+          outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "", type: "address" },
+            { internalType: "address", name: "", type: "address" },
+            { internalType: "uint256", name: "", type: "uint256" },
+            { internalType: "uint256", name: "", type: "uint256" },
+            { internalType: "bytes", name: "", type: "bytes" },
+          ],
+          name: "onERC1155Received",
+          outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
           inputs: [{ internalType: "uint256", name: "timestamp_", type: "uint256" }],
           name: "previousEpochEndAt",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -535,6 +563,13 @@ const contracts = {
           inputs: [],
           name: "settledUnderlying",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "bytes4", name: "interfaceId", type: "bytes4" }],
+          name: "supportsInterface",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
           stateMutability: "view",
           type: "function",
         },
@@ -715,6 +750,17 @@ const contracts = {
             { indexed: false, internalType: "string", name: "fractionName", type: "string" },
           ],
           name: "AssetFractionDeployed",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "fraction", type: "address" },
+            { indexed: true, internalType: "address", name: "to", type: "address" },
+            { indexed: true, internalType: "uint256", name: "trancheId", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "AssetFractionRewardUnitsMinted",
           type: "event",
         },
         {
@@ -958,6 +1004,17 @@ const contracts = {
           name: "isAssetFraction",
           outputs: [{ internalType: "bool", name: "", type: "bool" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "address", name: "to", type: "address" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "mintRewardUnits",
+          outputs: [],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -3079,6 +3136,18 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [{ internalType: "uint256", name: "grossAmount", type: "uint256" }],
+          name: "rewardFee",
+          outputs: [
+            { internalType: "uint256", name: "netAmount", type: "uint256" },
+            { internalType: "address", name: "recipient", type: "address" },
+            { internalType: "uint256", name: "feeAmount", type: "uint256" },
+            { internalType: "bool", name: "feesEnabled", type: "bool" },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             { internalType: "address", name: "factory", type: "address" },
             { internalType: "bool", name: "allowed", type: "bool" },
@@ -4016,6 +4085,18 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [
+            { internalType: "address", name: "fraction", type: "address" },
+            { internalType: "address", name: "veNFT", type: "address" },
+            { internalType: "uint256", name: "tokenId", type: "uint256" },
+            { internalType: "uint256", name: "lockDuration", type: "uint256" },
+          ],
+          name: "relockPosition",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
           inputs: [],
           name: "renounceOwnership",
           outputs: [],
@@ -4033,6 +4114,13 @@ const contracts = {
           name: "restructurePosition",
           outputs: [],
           stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardConverter",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
           type: "function",
         },
         {
@@ -7379,16 +7467,6 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [
-            { internalType: "address", name: "rewardToken", type: "address" },
-            { internalType: "uint256", name: "amount", type: "uint256" },
-          ],
-          name: "depositRewardToken",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
           inputs: [{ internalType: "uint256", name: "timestamp_", type: "uint256" }],
           name: "epochEndAt",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -7445,6 +7523,44 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [
+            { internalType: "address", name: "rewardToken", type: "address" },
+            { internalType: "uint256", name: "netAmount", type: "uint256" },
+            { internalType: "address", name: "feeRecipient", type: "address" },
+            { internalType: "uint256", name: "feeAmount", type: "uint256" },
+          ],
+          name: "notifyReward",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "", type: "address" },
+            { internalType: "address", name: "", type: "address" },
+            { internalType: "uint256[]", name: "", type: "uint256[]" },
+            { internalType: "uint256[]", name: "", type: "uint256[]" },
+            { internalType: "bytes", name: "", type: "bytes" },
+          ],
+          name: "onERC1155BatchReceived",
+          outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "", type: "address" },
+            { internalType: "address", name: "", type: "address" },
+            { internalType: "uint256", name: "", type: "uint256" },
+            { internalType: "uint256", name: "", type: "uint256" },
+            { internalType: "bytes", name: "", type: "bytes" },
+          ],
+          name: "onERC1155Received",
+          outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
           inputs: [{ internalType: "uint256", name: "timestamp_", type: "uint256" }],
           name: "previousEpochEndAt",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -7497,6 +7613,13 @@ const contracts = {
           inputs: [],
           name: "settledUnderlying",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "bytes4", name: "interfaceId", type: "bytes4" }],
+          name: "supportsInterface",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
           stateMutability: "view",
           type: "function",
         },
@@ -7677,6 +7800,17 @@ const contracts = {
             { indexed: false, internalType: "string", name: "fractionName", type: "string" },
           ],
           name: "AssetFractionDeployed",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "fraction", type: "address" },
+            { indexed: true, internalType: "address", name: "to", type: "address" },
+            { indexed: true, internalType: "uint256", name: "trancheId", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "AssetFractionRewardUnitsMinted",
           type: "event",
         },
         {
@@ -7920,6 +8054,17 @@ const contracts = {
           name: "isAssetFraction",
           outputs: [{ internalType: "bool", name: "", type: "bool" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "address", name: "to", type: "address" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "mintRewardUnits",
+          outputs: [],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -10041,6 +10186,18 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [{ internalType: "uint256", name: "grossAmount", type: "uint256" }],
+          name: "rewardFee",
+          outputs: [
+            { internalType: "uint256", name: "netAmount", type: "uint256" },
+            { internalType: "address", name: "recipient", type: "address" },
+            { internalType: "uint256", name: "feeAmount", type: "uint256" },
+            { internalType: "bool", name: "feesEnabled", type: "bool" },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             { internalType: "address", name: "factory", type: "address" },
             { internalType: "bool", name: "allowed", type: "bool" },
@@ -10978,6 +11135,18 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [
+            { internalType: "address", name: "fraction", type: "address" },
+            { internalType: "address", name: "veNFT", type: "address" },
+            { internalType: "uint256", name: "tokenId", type: "uint256" },
+            { internalType: "uint256", name: "lockDuration", type: "uint256" },
+          ],
+          name: "relockPosition",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
           inputs: [],
           name: "renounceOwnership",
           outputs: [],
@@ -10995,6 +11164,13 @@ const contracts = {
           name: "restructurePosition",
           outputs: [],
           stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardConverter",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
           type: "function",
         },
         {
