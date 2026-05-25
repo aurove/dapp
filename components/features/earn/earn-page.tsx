@@ -162,7 +162,7 @@ function variantCopy(variant: EarnVariant) {
 }
 
 export function EarnPage() {
-  const { data: blockData } = useBlock({ watch: false });
+  const { data: blockData } = useBlock({ watch: true });
   const {
     assetLedger,
     products,
@@ -190,8 +190,11 @@ export function EarnPage() {
   const [withdrawAmounts, setWithdrawAmounts] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [fallbackTimestamp] = useState(() => BigInt(Math.floor(Date.now() / 1000)));
-  const chainTimestamp = blockData?.timestamp ?? fallbackTimestamp;
+  const chainTimestamp = blockData?.timestamp ?? 0n;
+
+  useEffect(() => {
+    console.log({ chainTimestamp });
+  }, [blockData?.timestamp]);
 
   const selectedToken = tokens[variant];
   const parsedCreateAmount = selectedToken
@@ -413,8 +416,8 @@ export function EarnPage() {
       ) : null}
       {error ? <StatusPanel tone="error" title="Read error" message={error.message} /> : null}
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-        <section className="order-2 min-w-0 space-y-4 xl:order-1">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="order-2 min-w-0 space-y-4 lg:order-1">
           <ClaimablesPanel
             summaries={claimableSummaries}
             claimableProducts={claimableProducts}
@@ -465,7 +468,7 @@ export function EarnPage() {
           )}
         </section>
 
-        <aside className="order-1 min-w-0 space-y-4 xl:order-2">
+        <aside className="order-1 min-w-0 space-y-4 lg:order-2">
           <CreatePositionCard
             createMode={createMode}
             setCreateMode={setCreateMode}
