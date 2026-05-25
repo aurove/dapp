@@ -2830,6 +2830,11 @@ const contracts = {
         { inputs: [], name: "InvalidAmountOutMin", type: "error" },
         { inputs: [], name: "InvalidDeadline", type: "error" },
         { inputs: [], name: "InvalidRoute", type: "error" },
+        {
+          inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
+          name: "InvalidTrancheId",
+          type: "error",
+        },
         { inputs: [], name: "NoRewardsToDeposit", type: "error" },
         { inputs: [], name: "NotManager", type: "error" },
         { inputs: [], name: "RouterNotAllowed", type: "error" },
@@ -3088,7 +3093,9 @@ const contracts = {
           name: "convertAndDeposit",
           outputs: [
             { internalType: "uint256", name: "netDeposited", type: "uint256" },
+            { internalType: "address", name: "recipient", type: "address" },
             { internalType: "uint256", name: "feeAmount", type: "uint256" },
+            { internalType: "uint256", name: "tokenId", type: "uint256" },
           ],
           stateMutability: "nonpayable",
           type: "function",
@@ -3958,14 +3965,8 @@ const contracts = {
             {
               components: [
                 { internalType: "uint256", name: "lockedAmount", type: "uint256" },
-                { internalType: "uint256", name: "rebaseAmount", type: "uint256" },
                 { internalType: "uint256", name: "trancheId", type: "uint256" },
                 { internalType: "address", name: "fraction", type: "address" },
-                {
-                  internalType: "enum AssetTokenNaming.AssetVariant",
-                  name: "assetVariant",
-                  type: "uint8",
-                },
               ],
               internalType: "struct IMezoVeNFTManager.Position",
               name: "",
@@ -9896,6 +9897,11 @@ const contracts = {
         { inputs: [], name: "InvalidAmountOutMin", type: "error" },
         { inputs: [], name: "InvalidDeadline", type: "error" },
         { inputs: [], name: "InvalidRoute", type: "error" },
+        {
+          inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
+          name: "InvalidTrancheId",
+          type: "error",
+        },
         { inputs: [], name: "NoRewardsToDeposit", type: "error" },
         { inputs: [], name: "NotManager", type: "error" },
         { inputs: [], name: "RouterNotAllowed", type: "error" },
@@ -10154,7 +10160,9 @@ const contracts = {
           name: "convertAndDeposit",
           outputs: [
             { internalType: "uint256", name: "netDeposited", type: "uint256" },
+            { internalType: "address", name: "recipient", type: "address" },
             { internalType: "uint256", name: "feeAmount", type: "uint256" },
+            { internalType: "uint256", name: "tokenId", type: "uint256" },
           ],
           stateMutability: "nonpayable",
           type: "function",
@@ -11024,14 +11032,8 @@ const contracts = {
             {
               components: [
                 { internalType: "uint256", name: "lockedAmount", type: "uint256" },
-                { internalType: "uint256", name: "rebaseAmount", type: "uint256" },
                 { internalType: "uint256", name: "trancheId", type: "uint256" },
                 { internalType: "address", name: "fraction", type: "address" },
-                {
-                  internalType: "enum AssetTokenNaming.AssetVariant",
-                  name: "assetVariant",
-                  type: "uint8",
-                },
               ],
               internalType: "struct IMezoVeNFTManager.Position",
               name: "",
