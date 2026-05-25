@@ -356,13 +356,6 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [{ internalType: "uint256", name: "timestamp_", type: "uint256" }],
-          name: "canonicalTargetEpochEndAt",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
           inputs: [{ internalType: "address", name: "recipient", type: "address" }],
           name: "claimRewards",
           outputs: [{ internalType: "uint256", name: "claimed", type: "uint256" }],
@@ -382,13 +375,6 @@ const contracts = {
         {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
           name: "claimableRewards",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "completedLockCycles",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
@@ -550,13 +536,6 @@ const contracts = {
           name: "rewardReserve",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "rollover",
-          outputs: [],
-          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -7423,13 +7402,6 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [{ internalType: "uint256", name: "timestamp_", type: "uint256" }],
-          name: "canonicalTargetEpochEndAt",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
           inputs: [{ internalType: "address", name: "recipient", type: "address" }],
           name: "claimRewards",
           outputs: [{ internalType: "uint256", name: "claimed", type: "uint256" }],
@@ -7449,13 +7421,6 @@ const contracts = {
         {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
           name: "claimableRewards",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "completedLockCycles",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
@@ -7617,13 +7582,6 @@ const contracts = {
           name: "rewardReserve",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "rollover",
-          outputs: [],
-          stateMutability: "nonpayable",
           type: "function",
         },
         {
