@@ -32,6 +32,7 @@ export type EarnProduct = {
   variant: EarnVariant;
   name: string;
   symbol: string;
+  veNFT: Address | null;
   decimals: number;
   lifecycle: number | null;
   totalSupplyRaw: bigint | null;
@@ -51,6 +52,15 @@ export type EarnProduct = {
   trancheLengthEpochs: bigint | null;
   isTargetSettlementWindow: boolean;
   isRolloverAvailable: boolean;
+  refundablePositions: EarnRefundablePosition[];
+};
+
+export type EarnRefundablePosition = {
+  key: string;
+  veNft: Address;
+  tokenId: bigint;
+  lockedAmountRaw: bigint;
+  unlockTime: bigint | null;
 };
 
 type FractionCore = {
@@ -81,6 +91,7 @@ type FundingScanCache = {
 };
 
 const REWARDS_FUNDED_SCAN_CHUNK_SIZE = 10_000n;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
 const assetFractionDeployedEvent = parseAbiItem(
   "event AssetFractionDeployed(address indexed assetFraction,uint256 indexed trancheId,string fractionName)",
@@ -307,25 +318,25 @@ function readTotalSupplyAtBlock(params: {
   return promise;
 }
 
-function asAddress(value: unknown): Address | null {
+export function asAddress(value: unknown): Address | null {
   return typeof value === "string" && value.startsWith("0x") ? (value as Address) : null;
 }
 
-function asBigint(value: unknown): bigint | null {
+export function asBigint(value: unknown): bigint | null {
   return typeof value === "bigint" ? value : null;
 }
 
-function asNumber(value: unknown): number | null {
+export function asNumber(value: unknown): number | null {
   if (typeof value === "number") return value;
   if (typeof value === "bigint") return Number(value);
   return null;
 }
 
-function asBoolean(value: unknown): boolean {
+export function asBoolean(value: unknown): boolean {
   return value === true;
 }
 
-function sameAddress(a: Address | null | undefined, b: Address | null | undefined) {
+export function sameAddress(a: Address | null | undefined, b: Address | null | undefined) {
   return Boolean(a && b && a.toLowerCase() === b.toLowerCase());
 }
 
@@ -353,12 +364,46 @@ export function lifecycleLabel(value: number | null): string {
   }
 }
 
+function makeProductFromCore(fraction: FractionCore, userBalanceRaw = 0n): EarnProduct {
+  return {
+    id: `${fraction.address}-${fraction.trancheId.toString()}`,
+    fractionAddress: fraction.address,
+    trancheId: fraction.trancheId,
+    trancheNumber: fraction.decoded?.trancheNumber ?? Number(fraction.trancheId & 0xffffn),
+    variant: fraction.decoded?.variant ?? inferVariantFromSymbol(fraction.symbol) ?? "veMEZO",
+    name: fraction.name,
+    symbol: fraction.symbol,
+    veNFT: fraction.veNFT,
+    decimals: 18,
+    lifecycle: null,
+    totalSupplyRaw: null,
+    userBalanceRaw,
+    claimableRewardsRaw: 0n,
+    userAvailableBalanceRaw: userBalanceRaw,
+    rewardAsset: null,
+    rewardSymbol: null,
+    rewardDecimals: 18,
+    rewardReserveRaw: null,
+    aprRewardAmountRaw: null,
+    aprTotalSupplyAtFundingRaw: null,
+    aprFundingBlockNumber: null,
+    settledUnderlyingRaw: null,
+    targetEpochEnd: null,
+    trancheDuration: null,
+    trancheLengthEpochs: fraction.decoded?.trancheNumber
+      ? BigInt(fraction.decoded.trancheNumber)
+      : null,
+    isTargetSettlementWindow: false,
+    isRolloverAvailable: false,
+    refundablePositions: [],
+  };
+}
+
 export function useEarnData() {
   const { address: userAddress } = useAccount();
   const connectedChainId = useChainId();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = connectedChainId ?? activeChain.id;
-  const publicClient = usePublicClient();
 
   const assetLedger = getContractConfig(chainId, "AssetLedger");
   const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
@@ -425,57 +470,26 @@ export function useEarnData() {
     [fractionAddressReads.data],
   );
 
-  const fractionReads = useReadContracts({
+  const fractionCoreReads = useReadContracts({
     allowFailure: true,
     contracts: fractionAddresses.flatMap((address) => [
-      { address, abi: assetFractionAbi, functionName: "symbol", chainId }, // 0
-      { address, abi: assetFractionAbi, functionName: "name", chainId }, // 1
-      { address, abi: assetFractionAbi, functionName: "trancheId", chainId }, // 2
-      { address, abi: assetFractionAbi, functionName: "veNFT", chainId }, // 3
-      { address, abi: assetFractionAbi, functionName: "lifecycle", chainId }, // 4
-      { address, abi: assetFractionAbi, functionName: "totalSupply", chainId }, // 5
-      { address, abi: assetFractionAbi, functionName: "isTargetSettlementWindow", chainId }, // 6
-      { address, abi: assetFractionAbi, functionName: "isRolloverAvailable", chainId }, // 7
-      { address, abi: assetFractionAbi, functionName: "targetEpochEnd", chainId }, // 8
-      { address, abi: assetFractionAbi, functionName: "trancheDuration", chainId }, // 9
-      { address, abi: assetFractionAbi, functionName: "trancheLengthEpochs", chainId }, // 10
-      { address, abi: assetFractionAbi, functionName: "rewardAsset", chainId }, // 11
-      { address, abi: assetFractionAbi, functionName: "rewardReserve", chainId }, // 12
-      { address, abi: assetFractionAbi, functionName: "settledUnderlying", chainId }, // 13
-      { address, abi: assetFractionAbi, functionName: "decimals", chainId }, // 14
-      ...(userAddress
-        ? [
-            {
-              address,
-              abi: assetFractionAbi,
-              functionName: "claimableRewards",
-              args: [userAddress],
-              chainId,
-            },
-            {
-              address,
-              abi: assetFractionAbi,
-              functionName: "availableBalanceOf",
-              args: [userAddress],
-              chainId,
-            },
-          ]
-        : []),
+      { address, abi: assetFractionAbi, functionName: "symbol", chainId },
+      { address, abi: assetFractionAbi, functionName: "name", chainId },
+      { address, abi: assetFractionAbi, functionName: "trancheId", chainId },
+      { address, abi: assetFractionAbi, functionName: "veNFT", chainId },
     ]),
     query: {
       enabled: Boolean(assetFractionAbi) && fractionAddresses.length > 0,
-      ...detailReadQueryOptions,
+      ...staticReadQueryOptions,
     },
   });
 
-  const rowSize = userAddress ? 17 : 15;
-
   const fractionCore = useMemo<FractionCore[]>(() => {
     return fractionAddresses.map((address, index) => {
-      const offset = index * rowSize;
-      const symbolResult = fractionReads.data?.[offset]?.result;
-      const nameResult = fractionReads.data?.[offset + 1]?.result;
-      const trancheResult = asBigint(fractionReads.data?.[offset + 2]?.result) ?? 0n;
+      const offset = index * 4;
+      const symbolResult = fractionCoreReads.data?.[offset]?.result;
+      const nameResult = fractionCoreReads.data?.[offset + 1]?.result;
+      const trancheResult = asBigint(fractionCoreReads.data?.[offset + 2]?.result) ?? 0n;
       return {
         address,
         symbol:
@@ -485,159 +499,60 @@ export function useEarnData() {
         name:
           typeof nameResult === "string" && nameResult.trim() ? nameResult.trim() : "Earn claim",
         trancheId: trancheResult,
-        veNFT: asAddress(fractionReads.data?.[offset + 3]?.result),
+        veNFT: asAddress(fractionCoreReads.data?.[offset + 3]?.result),
         decoded: decodeTrancheId(trancheResult),
       };
     });
-  }, [fractionAddresses, fractionReads.data, rowSize]);
+  }, [fractionAddresses, fractionCoreReads.data]);
+
+  const products = useMemo(() => {
+    return fractionCore
+      .map((fraction) => {
+        const variant =
+          fraction.decoded?.variant ??
+          (sameAddress(fraction.veNFT, veBtc?.address)
+            ? "veBTC"
+            : sameAddress(fraction.veNFT, veMezo?.address)
+              ? "veMEZO"
+              : inferVariantFromSymbol(fraction.symbol));
+        if (!variant) return null;
+        return makeProductFromCore({
+          ...fraction,
+          decoded: fraction.decoded
+            ? { ...fraction.decoded, variant }
+            : { variant, trancheNumber: Number(fraction.trancheId & 0xffffn) },
+        });
+      })
+      .filter((product): product is EarnProduct => Boolean(product))
+      .sort((a, b) => a.variant.localeCompare(b.variant) || a.trancheNumber - b.trancheNumber);
+  }, [fractionCore, veBtc?.address, veMezo?.address]);
 
   const ledgerBalanceReads = useReadContracts({
     allowFailure: true,
     contracts:
       assetLedger?.address && assetLedger.abi && userAddress
-        ? fractionCore.map((fraction) => ({
+        ? products.map((product) => ({
             address: assetLedger.address,
             abi: assetLedger.abi,
             functionName: "balanceOf",
-            args: [userAddress, fraction.trancheId],
+            args: [userAddress, product.trancheId],
             chainId,
           }))
         : [],
     query: {
       enabled:
-        Boolean(assetLedger?.address && assetLedger.abi && userAddress) && fractionCore.length > 0,
+        Boolean(assetLedger?.address && assetLedger.abi && userAddress) && products.length > 0,
       ...detailReadQueryOptions,
     },
   });
 
-  const ledgerBalancesByTranche = useMemo(() => {
-    const balances = new Map<string, bigint>();
-    fractionCore.forEach((fraction, index) => {
-      balances.set(
-        fraction.trancheId.toString(),
-        asBigint(ledgerBalanceReads.data?.[index]?.result) ?? 0n,
-      );
-    });
-    return balances;
-  }, [fractionCore, ledgerBalanceReads.data]);
-
-  const [aprBasisByFraction, setAprBasisByFraction] = useState<Record<string, AprBasis>>({});
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadAprBasis() {
-      if (
-        !publicClient ||
-        !assetLedger?.address ||
-        !assetFractionAbi ||
-        fractionCore.length === 0
-      ) {
-        await Promise.resolve();
-        if (!cancelled) setAprBasisByFraction({});
-        return;
-      }
-
-      const latestFundings = await scanRewardsFundedEvents({
-        publicClient,
-        chainId,
-        assetLedgerAddress: assetLedger.address,
-        assetLedgerDeploymentBlock: BigInt(assetLedger.deploymentBlock ?? 0),
-        addresses: fractionCore.map((item) => item.address),
-      });
-
-      const entries = await Promise.all(
-        fractionCore.map(async (fraction) => {
-          const key = fraction.address.toLowerCase();
-
-          try {
-            const latestFunding = latestFundings.get(key);
-            if (!latestFunding) return null;
-
-            const fundingBlockNumber = latestFunding.blockNumber;
-            const supplyBlockNumber =
-              fundingBlockNumber > 0n ? fundingBlockNumber - 1n : fundingBlockNumber;
-            const totalSupplyAtFundingRaw = await readTotalSupplyAtBlock({
-              publicClient,
-              chainId,
-              address: fraction.address,
-              assetFractionAbi,
-              blockNumber: supplyBlockNumber,
-            });
-            if (!totalSupplyAtFundingRaw) return null;
-
-            return [
-              key,
-              {
-                rewardAmountRaw: latestFunding.amount,
-                totalSupplyAtFundingRaw,
-                fundingBlockNumber,
-              },
-            ] as const;
-          } catch {
-            return null;
-          }
-        }),
-      );
-
-      if (cancelled) return;
-
-      setAprBasisByFraction(
-        Object.fromEntries(
-          entries.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
-        ),
-      );
-    }
-
-    void loadAprBasis();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    assetFractionAbi,
-    assetLedger?.address,
-    assetLedger?.deploymentBlock,
-    chainId,
-    fractionCore,
-    publicClient,
-  ]);
-
-  const rewardAssets = useMemo(() => {
-    const assets = new Set<Address>();
-
-    fractionAddresses.forEach((_, index) => {
-      const rewardAsset = asAddress(fractionReads.data?.[index * rowSize + 11]?.result);
-      if (rewardAsset) assets.add(rewardAsset);
-    });
-
-    return [...assets];
-  }, [fractionAddresses, fractionReads.data, rowSize]);
-
-  const rewardTokenReads = useReadContracts({
-    allowFailure: true,
-    contracts: rewardAssets.flatMap((address) => [
-      { address, abi: erc20Abi, functionName: "symbol", chainId },
-      { address, abi: erc20Abi, functionName: "decimals", chainId },
-    ]),
-    query: {
-      enabled: rewardAssets.length > 0,
-      ...staticReadQueryOptions,
-    },
-  });
-
-  const rewardTokenMeta = useMemo(() => {
-    const map = new Map<string, { symbol: string; decimals: number }>();
-    rewardAssets.forEach((address, index) => {
-      const symbol = rewardTokenReads.data?.[index * 2]?.result;
-      const decimals = rewardTokenReads.data?.[index * 2 + 1]?.result;
-      map.set(address.toLowerCase(), {
-        symbol: typeof symbol === "string" && symbol.trim() ? symbol : "Reward",
-        decimals: asNumber(decimals) ?? 18,
-      });
-    });
-    return map;
-  }, [rewardAssets, rewardTokenReads.data]);
+  const liveProducts = useMemo(() => {
+    return products.map((product, index) => ({
+      ...product,
+      userBalanceRaw: asBigint(ledgerBalanceReads.data?.[index]?.result) ?? 0n,
+      userAvailableBalanceRaw: asBigint(ledgerBalanceReads.data?.[index]?.result) ?? 0n,
+    }));
+  }, [ledgerBalanceReads.data, products]);
 
   const tokenAddressReads = useReadContracts({
     allowFailure: true,
@@ -718,85 +633,17 @@ export function useEarnData() {
     return result;
   }, [supportedVeNfts, underlyingAddresses, tokenMetaReads.data, tokenRowSize]);
 
-  const products = useMemo<EarnProduct[]>(() => {
-    return fractionCore
-      .map((fraction, index) => {
-        const variant =
-          fraction.decoded?.variant ??
-          (sameAddress(fraction.veNFT, veBtc?.address)
-            ? "veBTC"
-            : sameAddress(fraction.veNFT, veMezo?.address)
-              ? "veMEZO"
-              : inferVariantFromSymbol(fraction.symbol));
-
-        if (!variant || (variant !== "veBTC" && variant !== "veMEZO")) return null;
-
-        const offset = index * rowSize;
-        const rewardAsset = asAddress(fractionReads.data?.[offset + 11]?.result);
-        const rewardMeta = rewardAsset ? rewardTokenMeta.get(rewardAsset.toLowerCase()) : null;
-
-        const product: EarnProduct = {
-          id: `${fraction.address}-${fraction.trancheId.toString()}`,
-          fractionAddress: fraction.address,
-          trancheId: fraction.trancheId,
-          trancheNumber: fraction.decoded?.trancheNumber ?? Number(fraction.trancheId & 0xffffn),
-          variant,
-          name: fraction.name,
-          symbol: fraction.symbol,
-
-          lifecycle: asNumber(fractionReads.data?.[offset + 4]?.result),
-          totalSupplyRaw: asBigint(fractionReads.data?.[offset + 5]?.result),
-          isTargetSettlementWindow: asBoolean(fractionReads.data?.[offset + 6]?.result),
-          isRolloverAvailable: asBoolean(fractionReads.data?.[offset + 7]?.result),
-          targetEpochEnd: asBigint(fractionReads.data?.[offset + 8]?.result),
-          trancheDuration: asBigint(fractionReads.data?.[offset + 9]?.result),
-          trancheLengthEpochs: asBigint(fractionReads.data?.[offset + 10]?.result),
-
-          rewardAsset,
-          rewardSymbol: rewardMeta?.symbol ?? null,
-          rewardDecimals: rewardMeta?.decimals ?? 18,
-          rewardReserveRaw: asBigint(fractionReads.data?.[offset + 12]?.result),
-
-          settledUnderlyingRaw: asBigint(fractionReads.data?.[offset + 13]?.result),
-          decimals: asNumber(fractionReads.data?.[offset + 14]?.result) ?? 18,
-
-          aprRewardAmountRaw:
-            aprBasisByFraction[fraction.address.toLowerCase()]?.rewardAmountRaw ?? null,
-          aprTotalSupplyAtFundingRaw:
-            aprBasisByFraction[fraction.address.toLowerCase()]?.totalSupplyAtFundingRaw ?? null,
-          aprFundingBlockNumber:
-            aprBasisByFraction[fraction.address.toLowerCase()]?.fundingBlockNumber ?? null,
-
-          userBalanceRaw: ledgerBalancesByTranche.get(fraction.trancheId.toString()) ?? 0n,
-          claimableRewardsRaw: asBigint(fractionReads.data?.[offset + 15]?.result) ?? 0n,
-          userAvailableBalanceRaw: asBigint(fractionReads.data?.[offset + 16]?.result) ?? 0n,
-        };
-
-        return product;
-      })
-      .filter((product): product is EarnProduct => Boolean(product))
-      .sort((a, b) => a.variant.localeCompare(b.variant) || a.trancheNumber - b.trancheNumber);
-  }, [
-    fractionCore,
-    fractionReads.data,
-    ledgerBalancesByTranche,
-    aprBasisByFraction,
-    rewardTokenMeta,
-    rowSize,
-    veBtc?.address,
-    veMezo?.address,
-  ]);
-
-  const visibleProducts: EarnProduct[] = useMemo(() => {
-    if (products.length > 0) return products;
+  const visibleProducts = useMemo<EarnProduct[]>(() => {
+    if (liveProducts.length > 0) return liveProducts;
     return supportedVeNfts.map((item) => ({
       id: `${item.variant}-starter`,
-      fractionAddress: "0x0000000000000000000000000000000000000000" as Address,
+      fractionAddress: ZERO_ADDRESS,
       trancheId: deriveTrancheId(item.variant, 4),
       trancheNumber: 4,
       variant: item.variant,
       name: `${item.variant} liquid lock`,
       symbol: `f${item.variant}-W4`,
+      veNFT: item.veNftAddress,
       decimals: 18,
       lifecycle: null,
       totalSupplyRaw: null,
@@ -816,15 +663,15 @@ export function useEarnData() {
       trancheLengthEpochs: 4n,
       isTargetSettlementWindow: false,
       isRolloverAvailable: false,
+      refundablePositions: [],
     }));
-  }, [products, supportedVeNfts]);
+  }, [liveProducts, supportedVeNfts]);
 
   function refresh() {
     void countRead.refetch();
     void fractionAddressReads.refetch();
-    void fractionReads.refetch();
+    void fractionCoreReads.refetch();
     void ledgerBalanceReads.refetch();
-    void rewardTokenReads.refetch();
     void tokenAddressReads.refetch();
     void tokenMetaReads.refetch();
   }
@@ -832,9 +679,8 @@ export function useEarnData() {
   const error =
     (countRead.error as Error | null) ||
     (fractionAddressReads.error as Error | null) ||
-    (fractionReads.error as Error | null) ||
+    (fractionCoreReads.error as Error | null) ||
     (ledgerBalanceReads.error as Error | null) ||
-    (rewardTokenReads.error as Error | null) ||
     (tokenAddressReads.error as Error | null) ||
     (tokenMetaReads.error as Error | null) ||
     null;
@@ -844,26 +690,412 @@ export function useEarnData() {
     assetLedger,
     assetFractionAbi,
     products: visibleProducts,
-    liveProductCount: products.length,
-    userPositions: products.filter((product) => product.userBalanceRaw > 0n),
+    liveProductCount: liveProducts.length,
+    userPositions: liveProducts.filter((product) => product.userBalanceRaw > 0n),
     supportedVeNfts,
     tokens,
     isLoading:
       countRead.isLoading ||
       fractionAddressReads.isLoading ||
-      fractionReads.isLoading ||
+      fractionCoreReads.isLoading ||
       ledgerBalanceReads.isLoading ||
       tokenAddressReads.isLoading ||
       tokenMetaReads.isLoading,
     isFetching:
       countRead.isFetching ||
       fractionAddressReads.isFetching ||
-      fractionReads.isFetching ||
+      fractionCoreReads.isFetching ||
       ledgerBalanceReads.isFetching ||
-      rewardTokenReads.isFetching ||
       tokenAddressReads.isFetching ||
       tokenMetaReads.isFetching,
     error,
     refresh,
+  };
+}
+
+export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
+  const { address: userAddress } = useAccount();
+  const chainId = useChainId();
+  const publicClient = usePublicClient();
+  const assetLedger = getContractConfig(chainId, "AssetLedger");
+  const veNftManager = getContractConfig(chainId, "MezoVeNFTManager");
+  const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
+  const veBtc = getContractConfig(chainId, "VeBTC");
+  const veMezo = getContractConfig(chainId, "VeMEZO");
+
+  const supportedVeNftAbiByAddress = useMemo(() => {
+    const entries: Array<readonly [string, Abi]> = [];
+    if (veBtc?.address) entries.push([veBtc.address.toLowerCase(), veBtc.abi]);
+    if (veMezo?.address) entries.push([veMezo.address.toLowerCase(), veMezo.abi]);
+    return new Map<string, Abi>(entries);
+  }, [veBtc, veMezo]);
+
+  const detailReads = useReadContracts({
+    allowFailure: true,
+    contracts:
+      assetFractionAbi && product.fractionAddress !== ZERO_ADDRESS
+        ? [
+            {
+              address: product.fractionAddress,
+              abi: assetFractionAbi,
+              functionName: "lifecycle",
+              chainId,
+            },
+            {
+              address: product.fractionAddress,
+              abi: assetFractionAbi,
+              functionName: "totalSupply",
+              chainId,
+            },
+            {
+              address: product.fractionAddress,
+              abi: assetFractionAbi,
+              functionName: "isTargetSettlementWindow",
+              chainId,
+            },
+            {
+              address: product.fractionAddress,
+              abi: assetFractionAbi,
+              functionName: "isRolloverAvailable",
+              chainId,
+            },
+            {
+              address: product.fractionAddress,
+              abi: assetFractionAbi,
+              functionName: "targetEpochEnd",
+              chainId,
+            },
+            {
+              address: product.fractionAddress,
+              abi: assetFractionAbi,
+              functionName: "trancheDuration",
+              chainId,
+            },
+            {
+              address: product.fractionAddress,
+              abi: assetFractionAbi,
+              functionName: "trancheLengthEpochs",
+              chainId,
+            },
+            {
+              address: product.fractionAddress,
+              abi: assetFractionAbi,
+              functionName: "rewardAsset",
+              chainId,
+            },
+            {
+              address: product.fractionAddress,
+              abi: assetFractionAbi,
+              functionName: "rewardReserve",
+              chainId,
+            },
+            {
+              address: product.fractionAddress,
+              abi: assetFractionAbi,
+              functionName: "settledUnderlying",
+              chainId,
+            },
+            {
+              address: product.fractionAddress,
+              abi: assetFractionAbi,
+              functionName: "decimals",
+              chainId,
+            },
+            ...(userAddress
+              ? [
+                  {
+                    address: product.fractionAddress,
+                    abi: assetFractionAbi,
+                    functionName: "claimableRewards",
+                    args: [userAddress],
+                    chainId,
+                  },
+                  {
+                    address: product.fractionAddress,
+                    abi: assetFractionAbi,
+                    functionName: "availableBalanceOf",
+                    args: [userAddress],
+                    chainId,
+                  },
+                ]
+              : []),
+          ]
+        : [],
+    query: {
+      enabled: enabled && Boolean(assetFractionAbi) && product.fractionAddress !== ZERO_ADDRESS,
+      ...detailReadQueryOptions,
+    },
+  });
+
+  const rewardAsset = asAddress(detailReads.data?.[7]?.result);
+  const rewardTokenReads = useReadContracts({
+    allowFailure: true,
+    contracts: rewardAsset
+      ? [
+          { address: rewardAsset, abi: erc20Abi, functionName: "symbol", chainId },
+          { address: rewardAsset, abi: erc20Abi, functionName: "decimals", chainId },
+        ]
+      : [],
+    query: {
+      enabled: enabled && Boolean(rewardAsset),
+      ...staticReadQueryOptions,
+    },
+  });
+
+  const effectiveVeNftManagerAddress = veNftManager?.address ?? null;
+
+  const heldTokenIdReads = useReadContracts({
+    allowFailure: true,
+    contracts:
+      effectiveVeNftManagerAddress && veNftManager?.abi && product.veNFT
+        ? [
+            {
+              address: effectiveVeNftManagerAddress,
+              abi: veNftManager.abi,
+              functionName: "getHeldTokenIds",
+              args: [product.fractionAddress, product.veNFT],
+              chainId,
+            },
+          ]
+        : [],
+    query: {
+      enabled:
+        enabled && Boolean(effectiveVeNftManagerAddress && veNftManager?.abi && product.veNFT),
+      ...detailReadQueryOptions,
+    },
+  });
+
+  const heldTokenIds = useMemo(
+    () =>
+      Array.isArray(heldTokenIdReads.data?.[0]?.result)
+        ? heldTokenIdReads.data[0].result.filter(
+            (tokenId): tokenId is bigint => typeof tokenId === "bigint",
+          )
+        : [],
+    [heldTokenIdReads.data],
+  );
+
+  const heldPositionReads = useReadContracts({
+    allowFailure: true,
+    contracts:
+      effectiveVeNftManagerAddress && veNftManager?.abi && product.veNFT
+        ? heldTokenIds.map((tokenId) => ({
+            address: effectiveVeNftManagerAddress,
+            abi: veNftManager.abi,
+            functionName: "getPosition",
+            args: [product.veNFT!, tokenId],
+            chainId,
+          }))
+        : [],
+    query: {
+      enabled:
+        enabled &&
+        Boolean(effectiveVeNftManagerAddress && veNftManager?.abi && product.veNFT) &&
+        heldTokenIds.length > 0,
+      ...detailReadQueryOptions,
+    },
+  });
+
+  const veNftAbi = product.veNFT
+    ? supportedVeNftAbiByAddress.get(product.veNFT.toLowerCase())
+    : null;
+  const heldLockReads = useReadContracts({
+    allowFailure: true,
+    contracts:
+      product.veNFT && veNftAbi
+        ? heldTokenIds.map((tokenId) => ({
+            address: product.veNFT!,
+            abi: veNftAbi,
+            functionName: "locked",
+            args: [tokenId],
+            chainId,
+          }))
+        : [],
+    query: {
+      enabled: enabled && Boolean(product.veNFT && veNftAbi) && heldTokenIds.length > 0,
+      ...detailReadQueryOptions,
+    },
+  });
+
+  const [aprBasis, setAprBasis] = useState<AprBasis | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAprBasis() {
+      if (
+        !enabled ||
+        !publicClient ||
+        !assetLedger?.address ||
+        !assetFractionAbi ||
+        product.fractionAddress === ZERO_ADDRESS
+      ) {
+        setAprBasis(null);
+        return;
+      }
+
+      const latestFundings = await scanRewardsFundedEvents({
+        publicClient,
+        chainId,
+        assetLedgerAddress: assetLedger.address,
+        assetLedgerDeploymentBlock: BigInt(assetLedger.deploymentBlock ?? 0),
+        addresses: [product.fractionAddress],
+      });
+
+      const latestFunding = latestFundings.get(product.fractionAddress.toLowerCase());
+      if (!latestFunding) {
+        if (!cancelled) setAprBasis(null);
+        return;
+      }
+
+      const supplyBlockNumber =
+        latestFunding.blockNumber > 0n ? latestFunding.blockNumber - 1n : latestFunding.blockNumber;
+      const totalSupplyAtFundingRaw = await readTotalSupplyAtBlock({
+        publicClient,
+        chainId,
+        address: product.fractionAddress,
+        assetFractionAbi,
+        blockNumber: supplyBlockNumber,
+      });
+
+      if (!cancelled) {
+        setAprBasis(
+          totalSupplyAtFundingRaw
+            ? {
+                rewardAmountRaw: latestFunding.amount,
+                totalSupplyAtFundingRaw,
+                fundingBlockNumber: latestFunding.blockNumber,
+              }
+            : null,
+        );
+      }
+    }
+
+    void loadAprBasis();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    assetFractionAbi,
+    assetLedger?.address,
+    assetLedger?.deploymentBlock,
+    chainId,
+    enabled,
+    product.fractionAddress,
+    publicClient,
+  ]);
+
+  const refundablePositions = useMemo<EarnRefundablePosition[]>(() => {
+    if (!product.veNFT) return [];
+
+    return heldTokenIds
+      .map((tokenId, index) => {
+        const position = heldPositionReads.data?.[index]?.result;
+        if (!Array.isArray(position)) return null;
+
+        const lockedAmountRaw = asBigint(position[0]);
+        const trancheId = asBigint(position[1]);
+        const fraction = asAddress(position[2]);
+        const lock = heldLockReads.data?.[index]?.result;
+        const unlockTime = Array.isArray(lock) ? asBigint(lock[1]) : null;
+
+        if (
+          !lockedAmountRaw ||
+          !trancheId ||
+          !sameAddress(fraction, product.fractionAddress) ||
+          trancheId !== product.trancheId
+        ) {
+          return null;
+        }
+
+        return {
+          key: `${product.veNFT}-${tokenId.toString()}`,
+          veNft: product.veNFT!,
+          tokenId,
+          lockedAmountRaw,
+          unlockTime,
+        };
+      })
+      .filter((position): position is EarnRefundablePosition => Boolean(position));
+  }, [
+    heldLockReads.data,
+    heldPositionReads.data,
+    heldTokenIds,
+    product.fractionAddress,
+    product.trancheId,
+    product.veNFT,
+  ]);
+
+  const rewardSymbol = rewardTokenReads.data?.[0]?.result;
+  const rewardDecimals = rewardTokenReads.data?.[1]?.result;
+
+  const hydratedProduct = useMemo<EarnProduct>(() => {
+    if (!enabled) return product;
+
+    return {
+      ...product,
+      lifecycle: asNumber(detailReads.data?.[0]?.result),
+      totalSupplyRaw: asBigint(detailReads.data?.[1]?.result),
+      isTargetSettlementWindow: asBoolean(detailReads.data?.[2]?.result),
+      isRolloverAvailable: asBoolean(detailReads.data?.[3]?.result),
+      targetEpochEnd: asBigint(detailReads.data?.[4]?.result),
+      trancheDuration: asBigint(detailReads.data?.[5]?.result),
+      trancheLengthEpochs: asBigint(detailReads.data?.[6]?.result),
+      rewardAsset,
+      rewardSymbol: typeof rewardSymbol === "string" && rewardSymbol.trim() ? rewardSymbol : null,
+      rewardDecimals: asNumber(rewardDecimals) ?? 18,
+      rewardReserveRaw: asBigint(detailReads.data?.[8]?.result),
+      settledUnderlyingRaw: asBigint(detailReads.data?.[9]?.result),
+      decimals: asNumber(detailReads.data?.[10]?.result) ?? product.decimals,
+      claimableRewardsRaw: asBigint(detailReads.data?.[11]?.result) ?? 0n,
+      userAvailableBalanceRaw:
+        asBigint(detailReads.data?.[12]?.result) ?? product.userAvailableBalanceRaw,
+      aprRewardAmountRaw: aprBasis?.rewardAmountRaw ?? null,
+      aprTotalSupplyAtFundingRaw: aprBasis?.totalSupplyAtFundingRaw ?? null,
+      aprFundingBlockNumber: aprBasis?.fundingBlockNumber ?? null,
+      refundablePositions,
+    };
+  }, [
+    aprBasis,
+    detailReads.data,
+    enabled,
+    product,
+    refundablePositions,
+    rewardAsset,
+    rewardDecimals,
+    rewardSymbol,
+  ]);
+
+  return {
+    product: hydratedProduct,
+    isLoading:
+      enabled &&
+      (detailReads.isLoading ||
+        rewardTokenReads.isLoading ||
+        heldTokenIdReads.isLoading ||
+        heldPositionReads.isLoading ||
+        heldLockReads.isLoading),
+    isFetching:
+      enabled &&
+      (detailReads.isFetching ||
+        rewardTokenReads.isFetching ||
+        heldTokenIdReads.isFetching ||
+        heldPositionReads.isFetching ||
+        heldLockReads.isFetching),
+    error:
+      (detailReads.error as Error | null) ||
+      (rewardTokenReads.error as Error | null) ||
+      (heldTokenIdReads.error as Error | null) ||
+      (heldPositionReads.error as Error | null) ||
+      (heldLockReads.error as Error | null) ||
+      null,
+    refresh() {
+      void detailReads.refetch();
+      void rewardTokenReads.refetch();
+      void heldTokenIdReads.refetch();
+      void heldPositionReads.refetch();
+      void heldLockReads.refetch();
+    },
   };
 }

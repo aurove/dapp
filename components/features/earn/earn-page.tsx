@@ -20,14 +20,12 @@ import { formatRawTokenAmount } from "@/components/features/trade/helpers/format
 import { deriveTrancheId } from "@/components/features/trade/utils/tranche";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/trade/hooks/use-user-ve-nfts";
 import { type EarnProduct, type EarnVariant, useEarnData } from "./use-earn-data";
+import { EarnPositionCard } from "./earn-position-card";
 
 const QUICK_DURATIONS = [4, 13, 26, 52];
 const VEBTC_DURATIONS = [1, 2, 3, 4];
 const MAX_TRANCHE_WEEKS = 208;
 const MAX_VEBTC_TRANCHE_WEEKS = 4;
-const WEEK_SECONDS = 7n * 24n * 60n * 60n;
-const EPOCH_ROLLOVER_COOLDOWN_SECONDS = 2n * 60n * 60n;
-const SETTLEMENT_DURATION_SECONDS = 12n * 60n * 60n;
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
 type ClaimableSummary = {
@@ -40,26 +38,10 @@ type ClaimableSummary = {
 };
 
 type CreatePositionMode = "erc20" | "venft";
-
 type TrancheAprEstimate = {
   product: EarnProduct;
   aprPercent: number;
 };
-
-function formatDate(timestamp: bigint | null) {
-  if (!timestamp || timestamp === 0n) return "Unavailable";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(Number(timestamp) * 1000));
-}
-
-function formatDuration(seconds: bigint | null, fallbackWeeks: number) {
-  if (!seconds || seconds === 0n) return `${fallbackWeeks} weeks`;
-  const weeks = Number(seconds / (7n * 24n * 60n * 60n));
-  return `${weeks} weeks`;
-}
 
 function formatAmount(value: bigint | null | undefined, decimals = 18, symbol?: string | null) {
   if (value === null || value === undefined) return "Unavailable";
@@ -126,31 +108,6 @@ function amountFromBalancePercent(balance: bigint, percent: number, decimals: nu
   if (balance <= 0n || percent <= 0) return "";
   const boundedPercent = Math.min(100, Math.max(0, Math.round(percent)));
   return formatUnits((balance * BigInt(boundedPercent)) / 100n, decimals);
-}
-
-function epochProgressPercent(product: EarnProduct, blockchainNow: bigint | null): number {
-  if (
-    blockchainNow === null ||
-    !product.targetEpochEnd ||
-    !product.trancheDuration ||
-    product.trancheDuration <= 0n
-  ) {
-    return 0;
-  }
-
-  const now = Number(blockchainNow);
-  const target = Number(product.targetEpochEnd);
-  const duration = Number(product.trancheDuration);
-  const start = target - duration;
-  if (!Number.isFinite(target) || !Number.isFinite(duration) || now <= start) return 0;
-  if (now >= target) return 100;
-  return Math.round(((now - start) / duration) * 100);
-}
-
-function isTargetSettlementWindow(product: EarnProduct, blockchainNow: bigint | null): boolean {
-  if (blockchainNow === null) return product.isTargetSettlementWindow;
-  const epochStart = (blockchainNow / WEEK_SECONDS) * WEEK_SECONDS;
-  return blockchainNow <= epochStart + SETTLEMENT_DURATION_SECONDS;
 }
 
 function txError(handler: (message: string) => void) {
@@ -460,7 +417,7 @@ export function EarnPage() {
                   key={position.id}
                   className="w-[min(100%,22rem)] flex-none snap-start sm:w-96 lg:w-[28rem]"
                 >
-                  <PositionCard
+                  <EarnPositionCard
                     product={position}
                     chainTimestamp={chainTimestamp}
                     withdrawAmount={withdrawAmounts[position.id] ?? ""}
@@ -1003,165 +960,6 @@ function CreatePositionCard({
         </TransactionFlowButton>
       </CardContent>
     </Card>
-  );
-}
-
-function PositionCard({
-  product,
-  chainTimestamp,
-  withdrawAmount,
-  setWithdrawAmount,
-  onSuccess,
-  onError,
-}: {
-  product: EarnProduct;
-  chainTimestamp: bigint | null;
-  withdrawAmount: string;
-  setWithdrawAmount: (value: string) => void;
-  onSuccess: (message: string) => void;
-  onError: (message: string) => void;
-}) {
-  const copy = variantCopy(product.variant);
-  const progress = epochProgressPercent(product, chainTimestamp);
-  const aprEstimate = estimateTrancheApr(product);
-  const parsedWithdraw = parseAmountInput(withdrawAmount, product.decimals);
-  const isSettlementWindowOpen = isTargetSettlementWindow(product, chainTimestamp);
-  const isWithinEpochCooldown =
-    Boolean(product.targetEpochEnd) &&
-    chainTimestamp !== null &&
-    chainTimestamp >= (product.targetEpochEnd ?? 0n) &&
-    chainTimestamp < (product.targetEpochEnd ?? 0n) + EPOCH_ROLLOVER_COOLDOWN_SECONDS;
-  const canWithdraw =
-    isSettlementWindowOpen &&
-    !isWithinEpochCooldown &&
-    parsedWithdraw !== null &&
-    parsedWithdraw <= product.userAvailableBalanceRaw &&
-    parsedWithdraw > 0n;
-
-  return (
-    <Card className="rounded-xl">
-      <CardHeader>
-        <Badge className={copy.tone}>{copy.headline}</Badge>
-        <CardTitle className="mt-3 text-lg">{product.symbol}</CardTitle>
-        <CardDescription>{product.name}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.025] p-3">
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="font-medium text-white">Target epoch progress</span>
-            <span className="text-white/45">{progress}%</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-[var(--accent)] transition-[width]"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-3 text-xs text-white/45">
-            <span>{formatDuration(product.trancheDuration, product.trancheNumber)}</span>
-            <span>{formatDate(product.targetEpochEnd)}</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <InfoTile
-            label="Available Balance"
-            value={formatAmount(product.userAvailableBalanceRaw, product.decimals, product.symbol)}
-          />
-          <InfoTile
-            label="Total Balance"
-            value={formatAmount(product.userBalanceRaw, product.decimals, product.symbol)}
-          />
-          <InfoTile label="Tranche APR" value={formatAprPercent(aprEstimate?.aprPercent)} />
-          <InfoTile
-            label="Rewards Deposited"
-            value={formatAmount(
-              product.aprRewardAmountRaw,
-              product.rewardDecimals,
-              product.rewardSymbol,
-            )}
-          />
-        </div>
-
-        <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.025] p-3">
-          <div className="flex items-center justify-between gap-3">
-            <label htmlFor={`withdraw-${product.id}`} className="text-sm font-medium text-white">
-              Redeem underlying
-            </label>
-            <span className="text-xs text-white/45">
-              {isWithinEpochCooldown
-                ? "Paused for first 2 hours of epoch rollover"
-                : isSettlementWindowOpen
-                  ? "Window open"
-                  : "Unavailable now"}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <Input
-              id={`withdraw-${product.id}`}
-              inputMode="decimal"
-              placeholder="0.00"
-              value={withdrawAmount}
-              onChange={(event) => setWithdrawAmount(event.target.value)}
-              disabled={!isSettlementWindowOpen || isWithinEpochCooldown}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                setWithdrawAmount(formatUnits(product.userAvailableBalanceRaw, product.decimals))
-              }
-              disabled={!isSettlementWindowOpen || isWithinEpochCooldown}
-            >
-              Max
-            </Button>
-          </div>
-          <TransactionFlowButton
-            className="w-full"
-            variant="secondary"
-            disabled={!canWithdraw}
-            steps={({ account }) => [
-              makeContractWriteStep({
-                key: "withdraw",
-                label: "Redeem claims",
-                displayLabelBtn: true,
-                contractName: "AssetLedger",
-                variables: {
-                  functionName: "withdraw",
-                  args: [product.trancheId, parsedWithdraw ?? 0n, account],
-                },
-              }) as unknown as TxStep,
-            ]}
-            onComplete={() => {
-              setWithdrawAmount("");
-              onSuccess(`${product.symbol} claims redeemed.`);
-            }}
-            onError={txError(onError)}
-          >
-            {isWithinEpochCooldown
-              ? "Temporarily paused"
-              : isSettlementWindowOpen
-                ? "Withdraw underlying"
-                : "Await settlement window"}
-          </TransactionFlowButton>
-          {isWithinEpochCooldown ? (
-            <p className="text-xs text-amber-100/80">
-              Withdraw/refund actions are paused for 2 hours after epoch rollover so backend claims
-              can settle first.
-            </p>
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function InfoTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-      <p className="text-xs text-white/42">{label}</p>
-      <p className="mt-1 break-words text-sm font-medium text-white">{value}</p>
-    </div>
   );
 }
 
