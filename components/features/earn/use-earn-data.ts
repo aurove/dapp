@@ -32,6 +32,7 @@ export type EarnProduct = {
   variant: EarnVariant;
   name: string;
   symbol: string;
+  decimals: number;
   lifecycle: number | null;
   totalSupplyRaw: bigint | null;
   userBalanceRaw: bigint;
@@ -427,20 +428,21 @@ export function useEarnData() {
   const fractionReads = useReadContracts({
     allowFailure: true,
     contracts: fractionAddresses.flatMap((address) => [
-      { address, abi: assetFractionAbi, functionName: "symbol", chainId },
-      { address, abi: assetFractionAbi, functionName: "name", chainId },
-      { address, abi: assetFractionAbi, functionName: "trancheId", chainId },
-      { address, abi: assetFractionAbi, functionName: "veNFT", chainId },
-      { address, abi: assetFractionAbi, functionName: "totalSupply", chainId },
-      { address, abi: assetFractionAbi, functionName: "currentLifecycle", chainId },
-      { address, abi: assetFractionAbi, functionName: "isTargetSettlementWindow", chainId },
-      { address, abi: assetFractionAbi, functionName: "isRolloverAvailable", chainId },
-      { address, abi: assetFractionAbi, functionName: "targetEpochEnd", chainId },
-      { address, abi: assetFractionAbi, functionName: "trancheDuration", chainId },
-      { address, abi: assetFractionAbi, functionName: "trancheLengthEpochs", chainId },
-      { address, abi: assetFractionAbi, functionName: "rewardAsset", chainId },
-      { address, abi: assetFractionAbi, functionName: "rewardReserve", chainId },
-      { address, abi: assetFractionAbi, functionName: "settledUnderlying", chainId },
+      { address, abi: assetFractionAbi, functionName: "symbol", chainId }, // 0
+      { address, abi: assetFractionAbi, functionName: "name", chainId }, // 1
+      { address, abi: assetFractionAbi, functionName: "trancheId", chainId }, // 2
+      { address, abi: assetFractionAbi, functionName: "veNFT", chainId }, // 3
+      { address, abi: assetFractionAbi, functionName: "lifecycle", chainId }, // 4
+      { address, abi: assetFractionAbi, functionName: "totalSupply", chainId }, // 5
+      { address, abi: assetFractionAbi, functionName: "isTargetSettlementWindow", chainId }, // 6
+      { address, abi: assetFractionAbi, functionName: "isRolloverAvailable", chainId }, // 7
+      { address, abi: assetFractionAbi, functionName: "targetEpochEnd", chainId }, // 8
+      { address, abi: assetFractionAbi, functionName: "trancheDuration", chainId }, // 9
+      { address, abi: assetFractionAbi, functionName: "trancheLengthEpochs", chainId }, // 10
+      { address, abi: assetFractionAbi, functionName: "rewardAsset", chainId }, // 11
+      { address, abi: assetFractionAbi, functionName: "rewardReserve", chainId }, // 12
+      { address, abi: assetFractionAbi, functionName: "settledUnderlying", chainId }, // 13
+      { address, abi: assetFractionAbi, functionName: "decimals", chainId }, // 14
       ...(userAddress
         ? [
             {
@@ -466,7 +468,7 @@ export function useEarnData() {
     },
   });
 
-  const rowSize = userAddress ? 16 : 14;
+  const rowSize = userAddress ? 17 : 15;
 
   const fractionCore = useMemo<FractionCore[]>(() => {
     return fractionAddresses.map((address, index) => {
@@ -603,10 +605,12 @@ export function useEarnData() {
 
   const rewardAssets = useMemo(() => {
     const assets = new Set<Address>();
+
     fractionAddresses.forEach((_, index) => {
       const rewardAsset = asAddress(fractionReads.data?.[index * rowSize + 11]?.result);
       if (rewardAsset) assets.add(rewardAsset);
     });
+
     return [...assets];
   }, [fractionAddresses, fractionReads.data, rowSize]);
 
@@ -724,6 +728,7 @@ export function useEarnData() {
             : sameAddress(fraction.veNFT, veMezo?.address)
               ? "veMEZO"
               : inferVariantFromSymbol(fraction.symbol));
+
         if (!variant || (variant !== "veBTC" && variant !== "veMEZO")) return null;
 
         const offset = index * rowSize;
@@ -738,27 +743,33 @@ export function useEarnData() {
           variant,
           name: fraction.name,
           symbol: fraction.symbol,
-          totalSupplyRaw: asBigint(fractionReads.data?.[offset + 4]?.result),
-          lifecycle: asNumber(fractionReads.data?.[offset + 5]?.result),
+
+          lifecycle: asNumber(fractionReads.data?.[offset + 4]?.result),
+          totalSupplyRaw: asBigint(fractionReads.data?.[offset + 5]?.result),
           isTargetSettlementWindow: asBoolean(fractionReads.data?.[offset + 6]?.result),
           isRolloverAvailable: asBoolean(fractionReads.data?.[offset + 7]?.result),
           targetEpochEnd: asBigint(fractionReads.data?.[offset + 8]?.result),
           trancheDuration: asBigint(fractionReads.data?.[offset + 9]?.result),
           trancheLengthEpochs: asBigint(fractionReads.data?.[offset + 10]?.result),
+
           rewardAsset,
           rewardSymbol: rewardMeta?.symbol ?? null,
           rewardDecimals: rewardMeta?.decimals ?? 18,
           rewardReserveRaw: asBigint(fractionReads.data?.[offset + 12]?.result),
+
+          settledUnderlyingRaw: asBigint(fractionReads.data?.[offset + 13]?.result),
+          decimals: asNumber(fractionReads.data?.[offset + 14]?.result) ?? 18,
+
           aprRewardAmountRaw:
             aprBasisByFraction[fraction.address.toLowerCase()]?.rewardAmountRaw ?? null,
           aprTotalSupplyAtFundingRaw:
             aprBasisByFraction[fraction.address.toLowerCase()]?.totalSupplyAtFundingRaw ?? null,
           aprFundingBlockNumber:
             aprBasisByFraction[fraction.address.toLowerCase()]?.fundingBlockNumber ?? null,
-          settledUnderlyingRaw: asBigint(fractionReads.data?.[offset + 13]?.result),
+
           userBalanceRaw: ledgerBalancesByTranche.get(fraction.trancheId.toString()) ?? 0n,
-          claimableRewardsRaw: asBigint(fractionReads.data?.[offset + 14]?.result) ?? 0n,
-          userAvailableBalanceRaw: asBigint(fractionReads.data?.[offset + 15]?.result) ?? 0n,
+          claimableRewardsRaw: asBigint(fractionReads.data?.[offset + 15]?.result) ?? 0n,
+          userAvailableBalanceRaw: asBigint(fractionReads.data?.[offset + 16]?.result) ?? 0n,
         };
 
         return product;
@@ -786,6 +797,7 @@ export function useEarnData() {
       variant: item.variant,
       name: `${item.variant} liquid lock`,
       symbol: `f${item.variant}-W4`,
+      decimals: 18,
       lifecycle: null,
       totalSupplyRaw: null,
       userBalanceRaw: 0n,

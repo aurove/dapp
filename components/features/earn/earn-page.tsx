@@ -25,6 +25,7 @@ const QUICK_DURATIONS = [4, 13, 26, 52];
 const VEBTC_DURATIONS = [1, 2, 3, 4];
 const MAX_TRANCHE_WEEKS = 208;
 const MAX_VEBTC_TRANCHE_WEEKS = 4;
+const WEEK_SECONDS = 7n * 24n * 60n * 60n;
 const EPOCH_ROLLOVER_COOLDOWN_SECONDS = 2n * 60n * 60n;
 const SETTLEMENT_DURATION_SECONDS = 12n * 60n * 60n;
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
@@ -147,11 +148,9 @@ function epochProgressPercent(product: EarnProduct, blockchainNow: bigint | null
 }
 
 function isTargetSettlementWindow(product: EarnProduct, blockchainNow: bigint | null): boolean {
-  if (blockchainNow === null || !product.targetEpochEnd) return false;
-  return (
-    blockchainNow >= product.targetEpochEnd &&
-    blockchainNow <= product.targetEpochEnd + SETTLEMENT_DURATION_SECONDS
-  );
+  if (blockchainNow === null) return product.isTargetSettlementWindow;
+  const epochStart = (blockchainNow / WEEK_SECONDS) * WEEK_SECONDS;
+  return blockchainNow <= epochStart + SETTLEMENT_DURATION_SECONDS;
 }
 
 function txError(handler: (message: string) => void) {
@@ -211,7 +210,7 @@ export function EarnPage() {
     : null;
   const selectedTrancheId = useMemo(
     () => deriveTrancheId(variant, trancheWeeks),
-    [variant, trancheWeeks],
+    [trancheWeeks, variant],
   );
   const matchingProduct = products.find((product) => product.trancheId === selectedTrancheId);
   const availableVeNfts = useMemo(
@@ -1025,7 +1024,7 @@ function PositionCard({
   const copy = variantCopy(product.variant);
   const progress = epochProgressPercent(product, chainTimestamp);
   const aprEstimate = estimateTrancheApr(product);
-  const parsedWithdraw = parseAmountInput(withdrawAmount, 18);
+  const parsedWithdraw = parseAmountInput(withdrawAmount, product.decimals);
   const isSettlementWindowOpen = isTargetSettlementWindow(product, chainTimestamp);
   const isWithinEpochCooldown =
     Boolean(product.targetEpochEnd) &&
@@ -1067,11 +1066,11 @@ function PositionCard({
         <div className="grid grid-cols-2 gap-3">
           <InfoTile
             label="Available Balance"
-            value={formatAmount(product.userAvailableBalanceRaw, 18, product.symbol)}
+            value={formatAmount(product.userAvailableBalanceRaw, product.decimals, product.symbol)}
           />
           <InfoTile
             label="Total Balance"
-            value={formatAmount(product.userBalanceRaw, 18, product.symbol)}
+            value={formatAmount(product.userBalanceRaw, product.decimals, product.symbol)}
           />
           <InfoTile label="Tranche APR" value={formatAprPercent(aprEstimate?.aprPercent)} />
           <InfoTile
@@ -1109,7 +1108,9 @@ function PositionCard({
             <Button
               type="button"
               variant="outline"
-              onClick={() => setWithdrawAmount(formatUnits(product.userAvailableBalanceRaw, 18))}
+              onClick={() =>
+                setWithdrawAmount(formatUnits(product.userAvailableBalanceRaw, product.decimals))
+              }
               disabled={!isSettlementWindowOpen || isWithinEpochCooldown}
             >
               Max

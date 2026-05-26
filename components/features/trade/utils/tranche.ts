@@ -26,7 +26,6 @@ export function deriveFractionSymbol(
   trancheNumber: number,
 ): string {
   // Match AssetTokenNaming.deriveTokenSymbol: fve{BTC|MEZO}-W{trancheNumber}
-  deriveTrancheId(variant, trancheNumber);
   return `fve${variant === "veBTC" ? "BTC" : "MEZO"}-W${trancheNumber}`;
 }
 
