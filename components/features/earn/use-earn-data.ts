@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { erc20Abi, parseAbiItem, type Abi, type Address, type PublicClient } from "viem";
 import { useAccount, useChainId, usePublicClient, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
