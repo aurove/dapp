@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { parseUnits, erc20Abi, erc721Abi, type Address } from "viem";
+import { parseUnits, erc721Abi, type Address } from "viem";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { getContractConfig } from "@/contracts/client";
 import { staticReadQueryOptions } from "@/lib/web3/read-query-options";
@@ -13,6 +13,7 @@ import type {
   CreateVeTradeListingInput,
   TradeAsset,
 } from "../types";
+import { buildErc20MetadataContracts, parseErc20MetadataReads } from "../utils/token-metadata";
 
 type TradePaymentTokenOption = {
   address: `0x${string}`;
@@ -99,28 +100,19 @@ export function useTradeListing() {
 
   const paymentTokenMetadataContracts = useMemo(
     () =>
-      supportedPaymentTokens.flatMap((token) => {
-        const isNativeLike =
-          token.toLowerCase() === btcAddress?.toLowerCase() ||
-          token.toLowerCase() === mezoAddress?.toLowerCase();
-        if (isNativeLike) return [];
-
-        return [
-          {
-            address: token,
-            abi: erc20Abi,
-            functionName: "symbol",
-            chainId,
-          },
-          {
-            address: token,
-            abi: erc20Abi,
-            functionName: "decimals",
-            chainId,
-          },
-        ];
+      buildErc20MetadataContracts({
+        chainId,
+        tokens: supportedPaymentTokens,
+        skipToken: (token) => {
+          const normalized = token.toLowerCase();
+          return (
+            normalized === btcAddress?.toLowerCase() ||
+            normalized === mezoAddress?.toLowerCase() ||
+            normalized === musdAddress?.toLowerCase()
+          );
+        },
       }),
-    [btcAddress, chainId, mezoAddress, supportedPaymentTokens],
+    [btcAddress, chainId, mezoAddress, musdAddress, supportedPaymentTokens],
   );
 
   const paymentTokenMetadataReads = useReadContracts({
@@ -133,41 +125,45 @@ export function useTradeListing() {
   });
 
   const paymentTokenOptions = useMemo<TradePaymentTokenOption[]>(() => {
-    const options: TradePaymentTokenOption[] = [];
-    let metadataCursor = 0;
+    const presetByToken: Record<string, { symbol: string; decimals: number }> = {};
+    if (btcAddress) {
+      presetByToken[btcAddress.toLowerCase()] = {
+        symbol: "BTC",
+        decimals: NATIVE_TOKEN_DECIMALS,
+      };
+    }
+    if (mezoAddress) {
+      presetByToken[mezoAddress.toLowerCase()] = {
+        symbol: "MEZO",
+        decimals: NATIVE_TOKEN_DECIMALS,
+      };
+    }
+    if (musdAddress) {
+      presetByToken[musdAddress.toLowerCase()] = {
+        symbol: "MUSD",
+        decimals: NATIVE_TOKEN_DECIMALS,
+      };
+    }
 
-    for (const token of supportedPaymentTokens) {
-      const isBtc = token.toLowerCase() === btcAddress?.toLowerCase();
-      const isMezo = token.toLowerCase() === mezoAddress?.toLowerCase();
-      const isMusd = token.toLowerCase() === musdAddress?.toLowerCase();
+    const options = parseErc20MetadataReads({
+      tokens: supportedPaymentTokens,
+      reads: paymentTokenMetadataReads.data,
+      presetByToken,
+      fallbackDecimals: 18,
+    }).map((token) => ({
+      address: token.address,
+      symbol: token.symbol,
+      decimals: token.decimals,
+    }));
 
-      if (isBtc) {
-        options.push({ address: token, symbol: "BTC", decimals: NATIVE_TOKEN_DECIMALS });
-        continue;
-      }
-      if (isMezo) {
-        options.push({ address: token, symbol: "MEZO", decimals: NATIVE_TOKEN_DECIMALS });
-        continue;
-      }
-
-      const symbolResult = paymentTokenMetadataReads.data?.[metadataCursor]?.result;
-      const decimalsResult = paymentTokenMetadataReads.data?.[metadataCursor + 1]?.result;
-      metadataCursor += 2;
-
-      options.push({
-        address: token,
-        symbol:
-          typeof symbolResult === "string"
-            ? symbolResult
-            : isMusd
-              ? "MUSD"
-              : `${token.slice(0, 6)}...${token.slice(-4)}`,
-        decimals:
-          typeof decimalsResult === "number"
-            ? decimalsResult
-            : typeof decimalsResult === "bigint"
-              ? Number(decimalsResult)
-              : 18,
+    if (
+      musdAddress &&
+      !options.some((token) => token.address.toLowerCase() === musdAddress.toLowerCase())
+    ) {
+      options.unshift({
+        address: musdAddress,
+        symbol: "MUSD",
+        decimals: NATIVE_TOKEN_DECIMALS,
       });
     }
 

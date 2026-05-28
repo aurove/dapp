@@ -1,12 +1,18 @@
 "use client";
 
 import { useMemo } from "react";
-import { formatUnits, type Abi, type Address } from "viem";
+import { type Abi, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { detailReadQueryOptions, staticReadQueryOptions } from "@/lib/web3/read-query-options";
 import type { TradeVeAssetType } from "../types";
+import {
+  formatCompactTokenAmount,
+  formatLockEndLabel,
+  parseReadError,
+  toBigInt,
+} from "../utils/read-parsers";
 
 const MAX_TOKENS_PER_COLLECTION = 50;
 
@@ -52,41 +58,6 @@ function formatCount(balance: bigint): string {
   return `${new Intl.NumberFormat("en-US").format(Number(balance))} veNFT${balance === 1n ? "" : "s"}`;
 }
 
-function formatCompactAmount(amount: bigint, decimals = 18): string {
-  const full = formatUnits(amount, decimals);
-  const [whole, fraction = ""] = full.split(".");
-  const cleanFraction = fraction.replace(/0+$/, "").slice(0, 6);
-  const compact = cleanFraction.length > 0 ? `${whole}.${cleanFraction}` : whole;
-  const numeric = Number.parseFloat(compact);
-  if (!Number.isFinite(numeric)) return compact;
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(numeric);
-}
-
-function parseReadError(value: unknown): Error | null {
-  if (!value) return null;
-  if (value instanceof Error) return value;
-  if (typeof value === "object" && value !== null && "message" in value) {
-    const message = (value as { message?: unknown }).message;
-    if (typeof message === "string") {
-      return new Error(message);
-    }
-  }
-  return new Error("Unable to load veNFT positions.");
-}
-
-function asBigInt(value: unknown): bigint {
-  if (typeof value === "bigint") return value;
-  if (typeof value === "number" && Number.isFinite(value)) return BigInt(Math.trunc(value));
-  if (typeof value === "string") {
-    try {
-      return BigInt(value);
-    } catch {
-      return 0n;
-    }
-  }
-  return 0n;
-}
-
 function parseLockedBalance(value: unknown): { amount: bigint; end: bigint; isPermanent: boolean } {
   if (!value) {
     return { amount: 0n, end: 0n, isPermanent: false };
@@ -94,8 +65,8 @@ function parseLockedBalance(value: unknown): { amount: bigint; end: bigint; isPe
 
   if (Array.isArray(value)) {
     return {
-      amount: asBigInt(value[0]),
-      end: asBigInt(value[1]),
+      amount: toBigInt(value[0]),
+      end: toBigInt(value[1]),
       isPermanent: Boolean(value[2]),
     };
   }
@@ -103,29 +74,13 @@ function parseLockedBalance(value: unknown): { amount: bigint; end: bigint; isPe
   if (typeof value === "object") {
     const payload = value as { amount?: unknown; end?: unknown; isPermanent?: unknown };
     return {
-      amount: asBigInt(payload.amount),
-      end: asBigInt(payload.end),
+      amount: toBigInt(payload.amount),
+      end: toBigInt(payload.end),
       isPermanent: Boolean(payload.isPermanent),
     };
   }
 
   return { amount: 0n, end: 0n, isPermanent: false };
-}
-
-function formatLockEndLabel(lockEnd: bigint, isPermanent: boolean): string {
-  if (isPermanent) return "Permanent lock";
-  if (lockEnd <= 0n) return "No lock end";
-
-  const millis = Number(lockEnd) * 1000;
-  if (!Number.isFinite(millis) || millis <= 0) {
-    return "Unknown lock end";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  }).format(new Date(millis));
 }
 
 export function useUserVeNFTs(): UseUserVeNftsResult {
@@ -328,12 +283,12 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
           contractAddress: summary.contractAddress,
           tokenId,
           lockAmountRaw: lockAmount,
-          lockAmountFormatted: formatCompactAmount(lockAmount, 18),
+          lockAmountFormatted: formatCompactTokenAmount(lockAmount, 18),
           lockEnd: locked.end,
           lockEndLabel: formatLockEndLabel(locked.end, locked.isPermanent),
           isPermanent: locked.isPermanent,
           availableFractionCapacityRaw: capacity,
-          availableFractionCapacityFormatted: formatCompactAmount(capacity, 18),
+          availableFractionCapacityFormatted: formatCompactTokenAmount(capacity, 18),
         };
       });
 
@@ -349,9 +304,9 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
   }, [lockReads.data, tokenIdsByCollection]);
 
   const error =
-    parseReadError(summaryReads.error) ||
-    parseReadError(tokenIdReads.error) ||
-    parseReadError(lockReads.error) ||
+    parseReadError(summaryReads.error, "Unable to load veNFT positions.") ||
+    parseReadError(tokenIdReads.error, "Unable to load veNFT positions.") ||
+    parseReadError(lockReads.error, "Unable to load veNFT positions.") ||
     summaryReads.data?.find((item) => item.status === "failure")?.error ||
     tokenIdReads.data?.find((item) => item.status === "failure")?.error ||
     lockReads.data?.find((item) => item.status === "failure")?.error ||

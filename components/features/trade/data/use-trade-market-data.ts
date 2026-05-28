@@ -12,26 +12,7 @@ import {
   parseActiveListingsReadResult,
 } from "./contracts";
 import type { TradeAsset } from "../types";
-
-const DEFAULT_DECIMALS = 18;
-
-function toAddress(value: unknown): Address | null {
-  if (typeof value !== "string" || !value.startsWith("0x")) {
-    return null;
-  }
-  return value as Address;
-}
-
-function toDecimals(value: unknown): number {
-  if (typeof value === "number") return value;
-  if (typeof value === "bigint") return Number(value);
-  return DEFAULT_DECIMALS;
-}
-
-function toTokenSymbol(value: unknown, fallbackAddress: Address): string {
-  if (typeof value === "string" && value.trim().length > 0) return value.trim();
-  return `${fallbackAddress.slice(0, 6)}...${fallbackAddress.slice(-4)}`;
-}
+import { toAddress, toDecimals, toTokenSymbol } from "../utils/read-parsers";
 
 type UseTradeMarketDataParams = {
   chainId: number;
@@ -155,7 +136,7 @@ export function useTradeMarketData({
 
   const defaultPaymentTokenDecimals = useMemo(() => {
     if (!resolvedDefaultPaymentToken) {
-      return DEFAULT_DECIMALS;
+      return 18;
     }
 
     const existingPaymentTokenDecimals = decimalsByToken[resolvedDefaultPaymentToken.toLowerCase()];
@@ -164,7 +145,7 @@ export function useTradeMarketData({
     }
 
     if (metadataPlan.defaultPaymentDecimalsReadIndex === null) {
-      return DEFAULT_DECIMALS;
+      return 18;
     }
 
     const decimalsReadResult =

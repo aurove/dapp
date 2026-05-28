@@ -22,6 +22,8 @@ import type {
 } from "../types";
 import { getBestAsk, getBestBid, sortAsksByBestPrice, sortBidsByBestPrice } from "../utils/pricing";
 import { decodeTrancheId, deriveFractionSymbol } from "../utils/tranche";
+import { toAddress } from "../utils/read-parsers";
+import { buildErc20MetadataContracts, parseErc20MetadataReads } from "../utils/token-metadata";
 
 type TradeListingTuple = {
   listingId: bigint;
@@ -90,22 +92,6 @@ function inferFractionBase(symbol: string): TradeMarketBase {
   if (normalized.startsWith("fvebtc")) return "veBTC";
   if (normalized.startsWith("fvemezo")) return "veMEZO";
   return "veAsset";
-}
-
-function toAddress(value: unknown): Address | null {
-  if (typeof value !== "string" || !value.startsWith("0x")) return null;
-  return value as Address;
-}
-
-function toTokenSymbol(value: unknown, fallbackAddress: Address): string {
-  if (typeof value === "string" && value.trim().length > 0) return value.trim();
-  return `${fallbackAddress.slice(0, 6)}...${fallbackAddress.slice(-4)}`;
-}
-
-function toDecimals(value: unknown): number {
-  if (typeof value === "number") return value;
-  if (typeof value === "bigint") return Number(value);
-  return DEFAULT_DECIMALS;
 }
 
 function toSafeNumber(value: bigint, decimals: number): number {
@@ -515,28 +501,19 @@ export function useMarkets() {
 
   const paymentTokenMetadataContracts = useMemo(
     () =>
-      supportedTokens.flatMap((token) => {
-        const isNativeLike =
-          token.toLowerCase() === btcAddress?.toLowerCase() ||
-          token.toLowerCase() === mezoAddress?.toLowerCase();
-        if (isNativeLike) return [];
-
-        return [
-          {
-            address: token,
-            abi: erc20Abi,
-            functionName: "symbol",
-            chainId,
-          },
-          {
-            address: token,
-            abi: erc20Abi,
-            functionName: "decimals",
-            chainId,
-          },
-        ];
+      buildErc20MetadataContracts({
+        chainId,
+        tokens: supportedTokens,
+        skipToken: (token) => {
+          const normalized = token.toLowerCase();
+          return (
+            normalized === btcAddress?.toLowerCase() ||
+            normalized === mezoAddress?.toLowerCase() ||
+            normalized === musdAddress?.toLowerCase()
+          );
+        },
       }),
-    [btcAddress, chainId, mezoAddress, supportedTokens],
+    [btcAddress, chainId, mezoAddress, musdAddress, supportedTokens],
   );
 
   const paymentTokenReads = useReadContracts({
@@ -549,38 +526,32 @@ export function useMarkets() {
   });
 
   const paymentTokens = useMemo<TradePaymentTokenInfo[]>(() => {
-    const items: TradePaymentTokenInfo[] = [];
-    let metadataCursor = 0;
-
-    for (const token of supportedTokens) {
-      const isBtc = token.toLowerCase() === btcAddress?.toLowerCase();
-      const isMezo = token.toLowerCase() === mezoAddress?.toLowerCase();
-      const isMusd = token.toLowerCase() === musdAddress?.toLowerCase();
-
-      if (isBtc) {
-        items.push({ address: token, symbol: "BTC", decimals: DEFAULT_DECIMALS });
-        continue;
-      }
-      if (isMezo) {
-        items.push({ address: token, symbol: "MEZO", decimals: DEFAULT_DECIMALS });
-        continue;
-      }
-
-      const symbolResult = paymentTokenReads.data?.[metadataCursor]?.result;
-      const decimalsResult = paymentTokenReads.data?.[metadataCursor + 1]?.result;
-      metadataCursor += 2;
-
-      items.push({
-        address: token,
-        symbol:
-          typeof symbolResult === "string"
-            ? symbolResult
-            : isMusd
-              ? "MUSD"
-              : toTokenSymbol(symbolResult, token),
-        decimals: toDecimals(decimalsResult),
-      });
+    const presetByToken: Record<string, { symbol: string; decimals: number }> = {};
+    if (btcAddress) {
+      presetByToken[btcAddress.toLowerCase()] = {
+        symbol: "BTC",
+        decimals: DEFAULT_DECIMALS,
+      };
     }
+    if (mezoAddress) {
+      presetByToken[mezoAddress.toLowerCase()] = {
+        symbol: "MEZO",
+        decimals: DEFAULT_DECIMALS,
+      };
+    }
+    if (musdAddress) {
+      presetByToken[musdAddress.toLowerCase()] = {
+        symbol: "MUSD",
+        decimals: DEFAULT_DECIMALS,
+      };
+    }
+
+    const items = parseErc20MetadataReads({
+      tokens: supportedTokens,
+      reads: paymentTokenReads.data,
+      presetByToken,
+      fallbackDecimals: DEFAULT_DECIMALS,
+    });
 
     if (
       musdAddress &&
