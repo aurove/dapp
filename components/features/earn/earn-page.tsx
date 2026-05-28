@@ -197,14 +197,15 @@ export function EarnPage() {
         return;
       }
 
-      summaries.set(key, {
-        key,
-        amountRaw: product.claimableRewardsRaw,
-        symbol,
-        decimals: product.rewardDecimals,
-        trancheCount: 1,
-        products: [product],
-      });
+      product.claimableRewardsRaw > 0 &&
+        summaries.set(key, {
+          key,
+          amountRaw: product.claimableRewardsRaw,
+          symbol,
+          decimals: product.rewardDecimals,
+          trancheCount: 1,
+          products: [product],
+        });
     });
 
     return [...summaries.values()].sort((a, b) => a.symbol.localeCompare(b.symbol));
