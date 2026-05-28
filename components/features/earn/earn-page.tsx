@@ -23,7 +23,7 @@ import { type EarnProduct, type EarnVariant, useAprBasis, useEarnData } from "./
 import { EarnPositionCard } from "./earn-position-card";
 import { getContractConfig } from "@/contracts/client";
 
-const QUICK_DURATIONS = [4, 13, 26, 52];
+const QUICK_DURATIONS = [4, 52, 104, 208];
 const VEBTC_DURATIONS = [1, 2, 3, 4];
 const MAX_TRANCHE_WEEKS = 208;
 const MAX_VEBTC_TRANCHE_WEEKS = 4;
