@@ -692,15 +692,125 @@ export function useEarnData() {
   };
 }
 
+async function fetchAprBasisMap(params: {
+  products: EarnProduct[];
+  chainId: number;
+  publicClient: PublicClient;
+}) {
+  const { products, chainId, publicClient } = params;
+
+  const assetLedger = getContractConfig(chainId, "AssetLedger");
+  const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
+
+  const validProducts = products.filter((p) => p.fractionAddress !== ZERO_ADDRESS);
+
+  if (validProducts.length === 0 || !assetLedger?.address || !assetFractionAbi) return {};
+
+  const addresses = [...new Set(validProducts.map((p) => p.fractionAddress))];
+
+  const latestFundings = await scanRewardsFundedEvents({
+    publicClient,
+    chainId,
+    assetLedgerAddress: assetLedger.address,
+    assetLedgerDeploymentBlock: BigInt(assetLedger.deploymentBlock || 0),
+    addresses,
+  });
+
+  const result: Record<string, AprBasis | null> = {};
+
+  await Promise.all(
+    validProducts.map(async (product) => {
+      const key = product.fractionAddress.toLowerCase();
+      const latestFunding = latestFundings.get(key);
+
+      if (!latestFunding) {
+        result[key] = null;
+        return;
+      }
+
+      const supplyBlockNumber =
+        latestFunding.blockNumber > 0n ? latestFunding.blockNumber - 1n : latestFunding.blockNumber;
+
+      const totalSupplyAtFundingRaw = await readTotalSupplyAtBlock({
+        publicClient,
+        chainId,
+        address: product.fractionAddress,
+        assetFractionAbi,
+        blockNumber: supplyBlockNumber,
+      });
+
+      result[key] = totalSupplyAtFundingRaw
+        ? {
+            rewardAmountRaw: latestFunding.amount,
+            totalSupplyAtFundingRaw,
+            fundingBlockNumber: latestFunding.blockNumber,
+          }
+        : null;
+    }),
+  );
+
+  return result;
+}
+import { useQuery } from "@tanstack/react-query";
+
+export function useAprBasis(params: {
+  enabled: boolean;
+  products: EarnProduct[];
+  chainId: number;
+  assetFractionAbi: Abi | undefined;
+}) {
+  const { enabled, products, chainId, assetFractionAbi } = params;
+  const publicClient = usePublicClient();
+
+  const assetLedger = getContractConfig(chainId, "AssetLedger");
+
+  const queryKey = [
+    "apr-basis",
+    chainId,
+    assetLedger?.address,
+    products.map((p) => p.fractionAddress).sort(),
+  ];
+
+  return useQuery({
+    enabled:
+      enabled &&
+      !!publicClient &&
+      !!assetLedger?.address &&
+      !!assetFractionAbi &&
+      products.length > 0,
+
+    queryKey,
+
+    queryFn: () =>
+      fetchAprBasisMap({
+        products,
+        chainId,
+        publicClient: publicClient!,
+      }),
+
+    staleTime: 60_000, // 1 min
+    gcTime: 10 * 60_000, // 10 min cache retention
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+}
+
 export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
   const { address: userAddress } = useAccount();
   const chainId = useChainId();
-  const publicClient = usePublicClient();
-  const assetLedger = getContractConfig(chainId, "AssetLedger");
   const veNftManager = getContractConfig(chainId, "MezoVeNFTManager");
   const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
   const veBtc = getContractConfig(chainId, "VeBTC");
   const veMezo = getContractConfig(chainId, "VeMEZO");
+
+  const aprQuery = useAprBasis({
+    enabled,
+    products: [product],
+    chainId,
+    assetFractionAbi,
+  });
+
+  const aprBasisMap = aprQuery.data ?? {};
 
   const supportedVeNftAbiByAddress = useMemo(() => {
     const entries: Array<readonly [string, Abi]> = [];
@@ -884,75 +994,6 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
     },
   });
 
-  const [aprBasis, setAprBasis] = useState<AprBasis | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadAprBasis() {
-      if (
-        !enabled ||
-        !publicClient ||
-        !assetLedger?.address ||
-        !assetFractionAbi ||
-        product.fractionAddress === ZERO_ADDRESS
-      ) {
-        setAprBasis(null);
-        return;
-      }
-
-      const latestFundings = await scanRewardsFundedEvents({
-        publicClient,
-        chainId,
-        assetLedgerAddress: assetLedger.address,
-        assetLedgerDeploymentBlock: BigInt(assetLedger.deploymentBlock ?? 0),
-        addresses: [product.fractionAddress],
-      });
-
-      const latestFunding = latestFundings.get(product.fractionAddress.toLowerCase());
-      if (!latestFunding) {
-        if (!cancelled) setAprBasis(null);
-        return;
-      }
-
-      const supplyBlockNumber =
-        latestFunding.blockNumber > 0n ? latestFunding.blockNumber - 1n : latestFunding.blockNumber;
-      const totalSupplyAtFundingRaw = await readTotalSupplyAtBlock({
-        publicClient,
-        chainId,
-        address: product.fractionAddress,
-        assetFractionAbi,
-        blockNumber: supplyBlockNumber,
-      });
-
-      if (!cancelled) {
-        setAprBasis(
-          totalSupplyAtFundingRaw
-            ? {
-                rewardAmountRaw: latestFunding.amount,
-                totalSupplyAtFundingRaw,
-                fundingBlockNumber: latestFunding.blockNumber,
-              }
-            : null,
-        );
-      }
-    }
-
-    void loadAprBasis();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    assetFractionAbi,
-    assetLedger?.address,
-    assetLedger?.deploymentBlock,
-    chainId,
-    enabled,
-    product.fractionAddress,
-    publicClient,
-  ]);
-
   const refundablePositions = useMemo<EarnRefundablePosition[]>(() => {
     if (!product.veNFT) return [];
 
@@ -1001,6 +1042,8 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
   const hydratedProduct = useMemo<EarnProduct>(() => {
     if (!enabled) return product;
 
+    const aprBasis = aprBasisMap[product.fractionAddress.toLowerCase()];
+
     return {
       ...product,
       totalSupplyRaw: asBigint(detailReads.data?.[0]?.result),
@@ -1023,7 +1066,7 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
       refundablePositions,
     };
   }, [
-    aprBasis,
+    aprBasisMap,
     detailReads.data,
     enabled,
     product,

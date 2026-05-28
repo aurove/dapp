@@ -10,7 +10,10 @@ import { Skeleton } from "@fractals/ui/ui/skeleton";
 import { cn } from "@fractals/ui/lib/cn";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
-import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
+import {
+  formatRawNumber,
+  formatRawTokenAmount,
+} from "@/components/features/trade/helpers/formatters";
 import { type EarnProduct, type EarnVariant, useEarnProductDetails } from "./use-earn-data";
 
 const WEEK_SECONDS = 7n * 24n * 60n * 60n;
@@ -413,7 +416,7 @@ function formatAprPercent(value: number | null | undefined) {
   if (value > 0 && value < 0.01) return "<0.01%";
   const fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
   return (
-    new Intl.NumberFormat("en-US", {
+    new Intl.NumberFormat(undefined, {
       maximumFractionDigits: fractionDigits,
       minimumFractionDigits: fractionDigits,
     }).format(value) + "%"

@@ -53,14 +53,9 @@ function toSubscript(value: number): string {
     .join("");
 }
 
-export function formatRawTokenAmount(
-  value: bigint | null | undefined,
-  decimals: number,
-  symbol?: string,
-): string {
-  if (value === null || value === undefined) return "-";
+export function formatRawNumber(raw: string) {
+  if (isNaN(Number(raw))) throw new Error(`${raw} is NaN`);
 
-  const raw = formatTokenAmount(Number(formatUnits(value, decimals)));
   const [whole, fraction = ""] = raw.split(".");
 
   let formatted: string;
@@ -79,6 +74,19 @@ export function formatRawTokenAmount(
       formatted = raw;
     }
   }
+
+  return formatted;
+}
+
+export function formatRawTokenAmount(
+  value: bigint | null | undefined,
+  decimals: number,
+  symbol?: string,
+): string {
+  if (value === null || value === undefined) return "-";
+
+  const raw = formatTokenAmount(Number(formatUnits(value, decimals)));
+  const formatted = formatRawNumber(raw);
 
   return symbol ? `${formatted} ${symbol}` : formatted;
 }

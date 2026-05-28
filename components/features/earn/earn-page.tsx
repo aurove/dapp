@@ -19,8 +19,9 @@ import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
 import { deriveTrancheId } from "@/components/features/trade/utils/tranche";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/trade/hooks/use-user-ve-nfts";
-import { type EarnProduct, type EarnVariant, useEarnData } from "./use-earn-data";
+import { type EarnProduct, type EarnVariant, useAprBasis, useEarnData } from "./use-earn-data";
 import { EarnPositionCard } from "./earn-position-card";
+import { getContractConfig } from "@/contracts/client";
 
 const QUICK_DURATIONS = [4, 13, 26, 52];
 const VEBTC_DURATIONS = [1, 2, 3, 4];
@@ -208,12 +209,31 @@ export function EarnPage() {
 
     return [...summaries.values()].sort((a, b) => a.symbol.localeCompare(b.symbol));
   }, [products]);
+
+  const chainId = useChainId();
+  const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
+  const aprQuery = useAprBasis({
+    enabled: true,
+    products: products,
+    chainId,
+    assetFractionAbi,
+  });
+  const aprBasisMap = aprQuery.data ?? {};
   const bestAprEstimate = useMemo(() => {
     return products
-      .map(estimateTrancheApr)
+      .map((product) => {
+        const aprBasis = aprBasisMap[product.fractionAddress.toLowerCase()];
+
+        return estimateTrancheApr({
+          ...product,
+          aprRewardAmountRaw: aprBasis?.rewardAmountRaw ?? null,
+          aprTotalSupplyAtFundingRaw: aprBasis?.totalSupplyAtFundingRaw ?? null,
+          aprFundingBlockNumber: aprBasis?.fundingBlockNumber ?? null,
+        });
+      })
       .filter((estimate): estimate is TrancheAprEstimate => Boolean(estimate))
       .sort((a, b) => b.aprPercent - a.aprPercent)[0];
-  }, [products]);
+  }, [products, aprBasisMap]);
 
   const createDisabledReason = !selectedToken?.underlyingAddress
     ? "Underlying token unavailable for this network."
