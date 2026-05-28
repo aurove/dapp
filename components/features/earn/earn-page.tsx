@@ -383,7 +383,6 @@ export function EarnPage() {
         <section className="order-2 min-w-0 space-y-4 lg:order-1">
           <ClaimablesPanel
             summaries={claimableSummaries}
-            products={products}
             assetLedger={assetLedger}
             onSuccess={(message) => handleSuccess(message)}
             onError={handleError}
@@ -523,18 +522,16 @@ function StatusPanel({
 
 function ClaimablesPanel({
   summaries,
-  products,
   assetLedger,
   onSuccess,
   onError,
 }: {
   summaries: ClaimableSummary[];
-  products: EarnProduct[];
   assetLedger: ReturnType<typeof useEarnData>["assetLedger"];
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
-  const totalTranches = products.length;
+  const totalTranches = summaries.reduce((t, c) => c.products.length + t, 0);
 
   return (
     <Card className="rounded-xl">
