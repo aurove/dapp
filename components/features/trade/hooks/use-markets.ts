@@ -184,7 +184,7 @@ export function useMarkets() {
   const { address: userAddress } = useAccount();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = txFlowChainId ?? activeChain.id;
-  const { blockNumber, chainTimestampNumber } = useChainTime();
+  const { chainTimestampNumber } = useChainTime();
   const chainTimestamp = chainTimestampNumber;
 
   const marketplace = getContractConfig(chainId, "Marketplace");
@@ -322,7 +322,6 @@ export function useMarkets() {
 
   const listingReads = useReadContracts({
     allowFailure: true,
-    blockNumber: blockNumber ?? undefined,
     contracts: listingPageContracts,
     query: {
       enabled: listingPageContracts.length > 0,
@@ -359,7 +358,6 @@ export function useMarkets() {
 
   const bidReads = useReadContracts({
     allowFailure: true,
-    blockNumber: blockNumber ?? undefined,
     contracts: bidPageContracts,
     query: {
       enabled: bidPageContracts.length > 0,
