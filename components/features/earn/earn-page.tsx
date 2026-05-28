@@ -86,14 +86,6 @@ function estimateTrancheApr(product: EarnProduct): TrancheAprEstimate | null {
   };
 }
 
-function isRewardClaimSolvent(product: EarnProduct) {
-  return (
-    product.claimableRewardsRaw > 0n &&
-    product.rewardReserveRaw !== null &&
-    product.claimableRewardsRaw <= product.rewardReserveRaw
-  );
-}
-
 function parseAmountInput(amount: string, decimals: number): bigint | null {
   try {
     if (!amount.trim()) return null;
@@ -169,7 +161,10 @@ export function EarnPage() {
     () => deriveTrancheId(variant, trancheWeeks),
     [trancheWeeks, variant],
   );
-  const matchingProduct = products.find((product) => product.trancheId === selectedTrancheId);
+  const matchingProduct = useMemo(
+    () => products.find((product) => product.trancheId === selectedTrancheId),
+    [products],
+  );
   const availableVeNfts = useMemo(
     () => veCollections.flatMap((collection) => collection.veNfts),
     [veCollections],
@@ -185,29 +180,11 @@ export function EarnPage() {
       ) ?? null,
     [availableVeNftsForVariant, selectedVeNftKey],
   );
-  const claimableProducts = useMemo(
-    () =>
-      products.filter(
-        (product) =>
-          isRewardClaimSolvent(product) &&
-          product.fractionAddress !== "0x0000000000000000000000000000000000000000",
-      ),
-    [products],
-  );
-  const pendingButUnderfundedCount = useMemo(
-    () =>
-      products.filter(
-        (product) =>
-          product.claimableRewardsRaw > 0n &&
-          product.fractionAddress !== "0x0000000000000000000000000000000000000000" &&
-          !isRewardClaimSolvent(product),
-      ).length,
-    [products],
-  );
+
   const claimableSummaries = useMemo<ClaimableSummary[]>(() => {
     const summaries = new Map<string, ClaimableSummary>();
 
-    claimableProducts.forEach((product) => {
+    products.forEach((product) => {
       const symbol = product.rewardSymbol ?? "Reward";
       const key = product.rewardAsset?.toLowerCase() ?? `${symbol}-${product.rewardDecimals}`;
       const existing = summaries.get(key);
@@ -230,7 +207,7 @@ export function EarnPage() {
     });
 
     return [...summaries.values()].sort((a, b) => a.symbol.localeCompare(b.symbol));
-  }, [claimableProducts]);
+  }, [products]);
   const bestAprEstimate = useMemo(() => {
     return products
       .map(estimateTrancheApr)
@@ -385,8 +362,7 @@ export function EarnPage() {
         <section className="order-2 min-w-0 space-y-4 lg:order-1">
           <ClaimablesPanel
             summaries={claimableSummaries}
-            claimableProducts={claimableProducts}
-            pendingButUnderfundedCount={pendingButUnderfundedCount}
+            products={products}
             assetLedger={assetLedger}
             onSuccess={(message) => handleSuccess(message)}
             onError={handleError}
@@ -526,20 +502,18 @@ function StatusPanel({
 
 function ClaimablesPanel({
   summaries,
-  claimableProducts,
-  pendingButUnderfundedCount,
+  products,
   assetLedger,
   onSuccess,
   onError,
 }: {
   summaries: ClaimableSummary[];
-  claimableProducts: EarnProduct[];
-  pendingButUnderfundedCount: number;
+  products: EarnProduct[];
   assetLedger: ReturnType<typeof useEarnData>["assetLedger"];
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
-  const totalTranches = claimableProducts.length;
+  const totalTranches = products.length;
 
   return (
     <Card className="rounded-xl">
@@ -586,13 +560,6 @@ function ClaimablesPanel({
             ))}
           </div>
         )}
-        {pendingButUnderfundedCount > 0 ? (
-          <div className="mt-3 rounded-xl border border-amber-300/20 bg-amber-500/10 p-3 text-xs text-amber-100/80">
-            {pendingButUnderfundedCount} tranche{pendingButUnderfundedCount === 1 ? "" : "s"}{" "}
-            currently show pending rewards above the funded reserve and were excluded from this
-            claim.
-          </div>
-        ) : null}
       </CardContent>
     </Card>
   );

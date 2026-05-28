@@ -50,7 +50,6 @@ export type EarnProduct = {
   trancheDuration: bigint | null;
   trancheLengthEpochs: bigint | null;
   isTargetSettlementWindow: boolean;
-  isRolloverAvailable: boolean;
   refundablePositions: EarnRefundablePosition[];
 };
 
@@ -347,12 +346,14 @@ function inferVariantFromSymbol(symbol: string): EarnVariant | null {
 }
 
 function makeProductFromCore(fraction: FractionCore, userBalanceRaw = 0n): EarnProduct {
+  const variant = fraction.decoded?.variant ?? inferVariantFromSymbol(fraction.symbol) ?? "veMEZO";
+
   return {
     id: `${fraction.address}-${fraction.trancheId.toString()}`,
     fractionAddress: fraction.address,
     trancheId: fraction.trancheId,
     trancheNumber: fraction.decoded?.trancheNumber ?? Number(fraction.trancheId & 0xffffn),
-    variant: fraction.decoded?.variant ?? inferVariantFromSymbol(fraction.symbol) ?? "veMEZO",
+    variant,
     name: fraction.name,
     symbol: fraction.symbol,
     veNFT: fraction.veNFT,
@@ -362,7 +363,7 @@ function makeProductFromCore(fraction: FractionCore, userBalanceRaw = 0n): EarnP
     claimableRewardsRaw: 0n,
     userAvailableBalanceRaw: userBalanceRaw,
     rewardAsset: null,
-    rewardSymbol: null,
+    rewardSymbol: variant == "veBTC" ? "BTC" : "MEZO",
     rewardDecimals: 18,
     rewardReserveRaw: null,
     aprRewardAmountRaw: null,
@@ -375,7 +376,6 @@ function makeProductFromCore(fraction: FractionCore, userBalanceRaw = 0n): EarnP
       ? BigInt(fraction.decoded.trancheNumber)
       : null,
     isTargetSettlementWindow: false,
-    isRolloverAvailable: false,
     refundablePositions: [],
   };
 }
@@ -642,7 +642,6 @@ export function useEarnData() {
       trancheDuration: null,
       trancheLengthEpochs: 4n,
       isTargetSettlementWindow: false,
-      isRolloverAvailable: false,
       refundablePositions: [],
     }));
   }, [liveProducts, supportedVeNfts]);
@@ -730,12 +729,6 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
             {
               address: product.fractionAddress,
               abi: assetFractionAbi,
-              functionName: "isRolloverAvailable",
-              chainId,
-            },
-            {
-              address: product.fractionAddress,
-              abi: assetFractionAbi,
               functionName: "targetEpochEnd",
               chainId,
             },
@@ -801,7 +794,7 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
     },
   });
 
-  const rewardAsset = asAddress(detailReads.data?.[6]?.result);
+  const rewardAsset = asAddress(detailReads.data?.[5]?.result);
   const rewardTokenReads = useReadContracts({
     allowFailure: true,
     contracts: rewardAsset
@@ -1012,19 +1005,18 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
       ...product,
       totalSupplyRaw: asBigint(detailReads.data?.[0]?.result),
       isTargetSettlementWindow: asBoolean(detailReads.data?.[1]?.result),
-      isRolloverAvailable: asBoolean(detailReads.data?.[2]?.result),
-      targetEpochEnd: asBigint(detailReads.data?.[3]?.result),
-      trancheDuration: asBigint(detailReads.data?.[4]?.result),
-      trancheLengthEpochs: asBigint(detailReads.data?.[5]?.result),
+      targetEpochEnd: asBigint(detailReads.data?.[2]?.result),
+      trancheDuration: asBigint(detailReads.data?.[3]?.result),
+      trancheLengthEpochs: asBigint(detailReads.data?.[4]?.result),
       rewardAsset,
       rewardSymbol: typeof rewardSymbol === "string" && rewardSymbol.trim() ? rewardSymbol : null,
       rewardDecimals: asNumber(rewardDecimals) ?? 18,
-      rewardReserveRaw: asBigint(detailReads.data?.[7]?.result),
-      settledUnderlyingRaw: asBigint(detailReads.data?.[8]?.result),
-      decimals: asNumber(detailReads.data?.[9]?.result) ?? product.decimals,
-      claimableRewardsRaw: asBigint(detailReads.data?.[10]?.result) ?? 0n,
+      rewardReserveRaw: asBigint(detailReads.data?.[6]?.result),
+      settledUnderlyingRaw: asBigint(detailReads.data?.[7]?.result),
+      decimals: asNumber(detailReads.data?.[8]?.result) ?? product.decimals,
+      claimableRewardsRaw: asBigint(detailReads.data?.[9]?.result) ?? 0n,
       userAvailableBalanceRaw:
-        asBigint(detailReads.data?.[11]?.result) ?? product.userAvailableBalanceRaw,
+        asBigint(detailReads.data?.[10]?.result) ?? product.userAvailableBalanceRaw,
       aprRewardAmountRaw: aprBasis?.rewardAmountRaw ?? null,
       aprTotalSupplyAtFundingRaw: aprBasis?.totalSupplyAtFundingRaw ?? null,
       aprFundingBlockNumber: aprBasis?.fundingBlockNumber ?? null,
