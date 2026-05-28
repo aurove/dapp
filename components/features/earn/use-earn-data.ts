@@ -34,7 +34,6 @@ export type EarnProduct = {
   symbol: string;
   veNFT: Address | null;
   decimals: number;
-  lifecycle: number | null;
   totalSupplyRaw: bigint | null;
   userBalanceRaw: bigint;
   claimableRewardsRaw: bigint;
@@ -347,23 +346,6 @@ function inferVariantFromSymbol(symbol: string): EarnVariant | null {
   return null;
 }
 
-export function lifecycleLabel(value: number | null): string {
-  switch (value) {
-    case 0:
-      return "Active";
-    case 1:
-      return "Epoch settling";
-    case 2:
-      return "Maturity window";
-    case 3:
-      return "Rollover ready";
-    case 4:
-      return "Rolled active";
-    default:
-      return "Unknown";
-  }
-}
-
 function makeProductFromCore(fraction: FractionCore, userBalanceRaw = 0n): EarnProduct {
   return {
     id: `${fraction.address}-${fraction.trancheId.toString()}`,
@@ -375,7 +357,6 @@ function makeProductFromCore(fraction: FractionCore, userBalanceRaw = 0n): EarnP
     symbol: fraction.symbol,
     veNFT: fraction.veNFT,
     decimals: 18,
-    lifecycle: null,
     totalSupplyRaw: null,
     userBalanceRaw,
     claimableRewardsRaw: 0n,
@@ -645,7 +626,6 @@ export function useEarnData() {
       symbol: `f${item.variant}-W4`,
       veNFT: item.veNftAddress,
       decimals: 18,
-      lifecycle: null,
       totalSupplyRaw: null,
       userBalanceRaw: 0n,
       claimableRewardsRaw: 0n,
@@ -738,12 +718,6 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
             {
               address: product.fractionAddress,
               abi: assetFractionAbi,
-              functionName: "lifecycle",
-              chainId,
-            },
-            {
-              address: product.fractionAddress,
-              abi: assetFractionAbi,
               functionName: "totalSupply",
               chainId,
             },
@@ -827,7 +801,7 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
     },
   });
 
-  const rewardAsset = asAddress(detailReads.data?.[7]?.result);
+  const rewardAsset = asAddress(detailReads.data?.[6]?.result);
   const rewardTokenReads = useReadContracts({
     allowFailure: true,
     contracts: rewardAsset
@@ -991,13 +965,15 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
 
     return heldTokenIds
       .map((tokenId, index) => {
+        // TODO we need to make these strictly typed
         const position = heldPositionReads.data?.[index]?.result as any;
+        if (!position) return null;
 
         const lockedAmountRaw = asBigint(position.lockedAmount);
         const trancheId = asBigint(position.trancheId);
         const fraction = asAddress(position.fraction);
-        const lock = heldLockReads.data?.[index]?.result;
-        const unlockTime = Array.isArray(lock) ? asBigint(lock[1]) : null;
+        const lock = heldLockReads.data?.[index]?.result as any;
+        const unlockTime = lock?.end ?? null;
 
         if (
           !lockedAmountRaw ||
@@ -1034,22 +1010,21 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
 
     return {
       ...product,
-      lifecycle: asNumber(detailReads.data?.[0]?.result),
-      totalSupplyRaw: asBigint(detailReads.data?.[1]?.result),
-      isTargetSettlementWindow: asBoolean(detailReads.data?.[2]?.result),
-      isRolloverAvailable: asBoolean(detailReads.data?.[3]?.result),
-      targetEpochEnd: asBigint(detailReads.data?.[4]?.result),
-      trancheDuration: asBigint(detailReads.data?.[5]?.result),
-      trancheLengthEpochs: asBigint(detailReads.data?.[6]?.result),
+      totalSupplyRaw: asBigint(detailReads.data?.[0]?.result),
+      isTargetSettlementWindow: asBoolean(detailReads.data?.[1]?.result),
+      isRolloverAvailable: asBoolean(detailReads.data?.[2]?.result),
+      targetEpochEnd: asBigint(detailReads.data?.[3]?.result),
+      trancheDuration: asBigint(detailReads.data?.[4]?.result),
+      trancheLengthEpochs: asBigint(detailReads.data?.[5]?.result),
       rewardAsset,
       rewardSymbol: typeof rewardSymbol === "string" && rewardSymbol.trim() ? rewardSymbol : null,
       rewardDecimals: asNumber(rewardDecimals) ?? 18,
-      rewardReserveRaw: asBigint(detailReads.data?.[8]?.result),
-      settledUnderlyingRaw: asBigint(detailReads.data?.[9]?.result),
-      decimals: asNumber(detailReads.data?.[10]?.result) ?? product.decimals,
-      claimableRewardsRaw: asBigint(detailReads.data?.[11]?.result) ?? 0n,
+      rewardReserveRaw: asBigint(detailReads.data?.[7]?.result),
+      settledUnderlyingRaw: asBigint(detailReads.data?.[8]?.result),
+      decimals: asNumber(detailReads.data?.[9]?.result) ?? product.decimals,
+      claimableRewardsRaw: asBigint(detailReads.data?.[10]?.result) ?? 0n,
       userAvailableBalanceRaw:
-        asBigint(detailReads.data?.[12]?.result) ?? product.userAvailableBalanceRaw,
+        asBigint(detailReads.data?.[11]?.result) ?? product.userAvailableBalanceRaw,
       aprRewardAmountRaw: aprBasis?.rewardAmountRaw ?? null,
       aprTotalSupplyAtFundingRaw: aprBasis?.totalSupplyAtFundingRaw ?? null,
       aprFundingBlockNumber: aprBasis?.fundingBlockNumber ?? null,

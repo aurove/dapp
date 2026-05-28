@@ -491,18 +491,12 @@ function isEpochCooldown(blockchainNow: bigint | null): boolean {
 
 function isTrancheExpired(product: EarnProduct, blockchainNow: bigint | null): boolean {
   if (blockchainNow !== null) {
-    const hasExpiredManagedPosition = product.refundablePositions.some(
+    return product.refundablePositions.some(
       (position) => position.unlockTime !== null && position.unlockTime <= blockchainNow,
     );
-    if (hasExpiredManagedPosition) return true;
   }
 
-  return (
-    blockchainNow !== null &&
-    product.targetEpochEnd !== null &&
-    product.targetEpochEnd > 0n &&
-    blockchainNow >= product.targetEpochEnd
-  );
+  return false;
 }
 
 function txError(handler: (message: string) => void) {
