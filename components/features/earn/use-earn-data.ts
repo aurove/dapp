@@ -991,12 +991,11 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
 
     return heldTokenIds
       .map((tokenId, index) => {
-        const position = heldPositionReads.data?.[index]?.result;
-        if (!Array.isArray(position)) return null;
+        const position = heldPositionReads.data?.[index]?.result as any;
 
-        const lockedAmountRaw = asBigint(position[0]);
-        const trancheId = asBigint(position[1]);
-        const fraction = asAddress(position[2]);
+        const lockedAmountRaw = asBigint(position.lockedAmount);
+        const trancheId = asBigint(position.trancheId);
+        const fraction = asAddress(position.fraction);
         const lock = heldLockReads.data?.[index]?.result;
         const unlockTime = Array.isArray(lock) ? asBigint(lock[1]) : null;
 
