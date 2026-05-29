@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { erc20Abi, erc1155Abi } from "viem";
-import { useAccount, useChainId, useReadContract } from "wagmi";
+import { useAccount, useReadContracts } from "wagmi";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import {
 } from "@fractals/ui/ui/dialog";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
-import { coreReadQueryOptions, detailReadQueryOptions } from "@/lib/web3/read-query-options";
+import { detailReadQueryOptions } from "@/lib/web3/read-query-options";
 import type { TradeMarket } from "../types";
 import {
   getBestAsk,
@@ -25,7 +25,6 @@ import {
 import {
   MarketDepthCard,
   OrderbookCard,
-  ReadinessCard,
   TradeActionsCard,
   type TradeTab,
 } from "./trade-market-dialog-sections";
@@ -47,17 +46,18 @@ export function TradeMarketDialog({
   const [buyListingIdOverride, setBuyListingId] = useState<string | null>(null);
   const [sellBidIdOverride, setSellBidId] = useState<string | null>(null);
 
-  const { address: userAddress, isConnected } = useAccount();
-  const txFlowChainId = useChainId();
-  const activeChain = getActiveChain(resolveAppEnvironment());
-  const expectedChainId = activeChain.id;
-  const chainId = txFlowChainId ?? expectedChainId;
-  const isCorrectNetwork = chainId === expectedChainId;
+  const { address: userAddress } = useAccount();
+  const expectedChain = getActiveChain(resolveAppEnvironment());
+  const expectedChainId = expectedChain.id;
 
   const marketplace = getContractConfig(expectedChainId, "Marketplace");
   const marketplaceAdmin = getContractConfig(expectedChainId, "MarketplaceAdmin");
   const paymentRouter = getContractConfig(expectedChainId, "PaymentRouter");
   const assetLedger = getContractConfig(expectedChainId, "AssetLedger");
+  const marketplaceAdminAddress = marketplaceAdmin?.address;
+  const paymentRouterAddress = paymentRouter?.address;
+  const assetLedgerAddress = assetLedger?.address;
+  const marketplaceAddress = marketplace?.address;
 
   const asksByBestPrice = useMemo(
     () => sortAsksByBestPrice(market.topListings),
@@ -91,79 +91,86 @@ export function TradeMarketDialog({
     [market.topBids, sellBidId],
   );
 
-  const pausedRead = useReadContract({
-    address: marketplaceAdmin?.address,
-    abi: getContractConfig(expectedChainId, "MarketplaceAdmin")!.abi,
-    functionName: "isPaused",
-    chainId: expectedChainId,
-    query: {
-      enabled: Boolean(open && marketplaceAdmin?.address),
-      ...coreReadQueryOptions,
-    },
-  });
+  const hasPausedRead = Boolean(marketplaceAdminAddress);
+  const hasAllowanceRead = Boolean(paymentRouterAddress);
+  const hasFractionRead = Boolean(assetLedgerAddress && assetLedger.abi);
+  const hasFractionApprovalRead = Boolean(hasFractionRead && marketplaceAddress);
 
-  const isPaused = pausedRead.data === true;
-
-  const paymentBalanceRead = useReadContract({
-    address: market.paymentToken,
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: userAddress ? [userAddress] : undefined,
-    chainId: expectedChainId,
+  const reads = useReadContracts({
+    allowFailure: true,
+    contracts:
+      open && userAddress
+        ? [
+            ...(hasPausedRead && marketplaceAdminAddress
+              ? [
+                  {
+                    address: marketplaceAdminAddress,
+                    abi: getContractConfig(expectedChainId, "MarketplaceAdmin")!.abi,
+                    functionName: "isPaused",
+                    chainId: expectedChainId,
+                  },
+                ]
+              : []),
+            {
+              address: market.paymentToken,
+              abi: erc20Abi,
+              functionName: "balanceOf",
+              args: [userAddress],
+              chainId: expectedChainId,
+            },
+            ...(hasAllowanceRead && paymentRouterAddress
+              ? [
+                  {
+                    address: market.paymentToken,
+                    abi: erc20Abi,
+                    functionName: "allowance",
+                    args: [userAddress, paymentRouterAddress],
+                    chainId: expectedChainId,
+                  },
+                ]
+              : []),
+            ...(hasFractionRead && assetLedgerAddress
+              ? [
+                  {
+                    address: assetLedgerAddress,
+                    abi: assetLedger!.abi,
+                    functionName: "balanceOf",
+                    args: [userAddress, market.trancheId],
+                    chainId: expectedChainId,
+                  },
+                  ...(hasFractionApprovalRead && marketplaceAddress
+                    ? [
+                        {
+                          address: assetLedgerAddress,
+                          abi: erc1155Abi,
+                          functionName: "isApprovedForAll",
+                          args: [userAddress, marketplaceAddress],
+                          chainId: expectedChainId,
+                        },
+                      ]
+                    : []),
+                ]
+              : []),
+          ]
+        : [],
     query: {
       enabled: Boolean(open && userAddress),
       ...detailReadQueryOptions,
     },
   });
 
-  const paymentAllowanceRead = useReadContract({
-    address: market.paymentToken,
-    abi: erc20Abi,
-    functionName: "allowance",
-    args: userAddress && paymentRouter?.address ? [userAddress, paymentRouter.address] : undefined,
-    chainId: expectedChainId,
-    query: {
-      enabled: Boolean(open && userAddress && paymentRouter?.address),
-      ...detailReadQueryOptions,
-    },
-  });
-
-  const fractionBalanceRead = useReadContract({
-    address: assetLedger?.address,
-    abi: assetLedger?.abi,
-    functionName: "balanceOf",
-    args: userAddress && assetLedger?.address ? [userAddress, market.trancheId] : undefined,
-    chainId: expectedChainId,
-    query: {
-      enabled: Boolean(open && userAddress && assetLedger?.address && assetLedger.abi),
-      ...detailReadQueryOptions,
-    },
-  });
-
-  const fractionApprovalRead = useReadContract({
-    address: assetLedger?.address,
-    abi: erc1155Abi,
-    functionName: "isApprovedForAll",
-    args: userAddress && marketplace?.address ? [userAddress, marketplace.address] : undefined,
-    chainId: expectedChainId,
-    query: {
-      enabled: Boolean(open && userAddress && assetLedger?.address && marketplace?.address),
-      ...detailReadQueryOptions,
-    },
-  });
-
-  const paymentBalance = (paymentBalanceRead.data as bigint | undefined) ?? 0n;
-  const paymentAllowance = (paymentAllowanceRead.data as bigint | undefined) ?? 0n;
-  const fractionBalance = (fractionBalanceRead.data as bigint | undefined) ?? 0n;
-  const fractionApproved = fractionApprovalRead.data === true;
-
-  const readinessError = !isConnected
-    ? "Connect a wallet to trade."
-    : !isCorrectNetwork
-      ? `Switch to ${activeChain.name}.`
-      : isPaused
-        ? "Marketplace is paused by admin."
-        : null;
+  const isPaused = hasPausedRead ? reads.data?.[0]?.result === true : false;
+  const paymentBalanceIndex = hasPausedRead ? 1 : 0;
+  const paymentBalance = (reads.data?.[paymentBalanceIndex]?.result as bigint | undefined) ?? 0n;
+  const paymentAllowanceIndex = paymentBalanceIndex + 1;
+  const paymentAllowance = hasAllowanceRead
+    ? ((reads.data?.[paymentAllowanceIndex]?.result as bigint | undefined) ?? 0n)
+    : 0n;
+  const fractionBalanceIndex = paymentAllowanceIndex + (hasAllowanceRead ? 1 : 0);
+  const fractionBalance = (reads.data?.[fractionBalanceIndex]?.result as bigint | undefined) ?? 0n;
+  const fractionApproved =
+    hasFractionApprovalRead &&
+    (reads.data?.[fractionBalanceIndex + 1]?.result as boolean | undefined) === true;
 
   return (
     <Dialog

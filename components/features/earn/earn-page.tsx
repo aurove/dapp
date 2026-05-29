@@ -164,7 +164,7 @@ export function EarnPage() {
   );
   const matchingProduct = useMemo(
     () => products.find((product) => product.trancheId === selectedTrancheId),
-    [products],
+    [products, selectedTrancheId],
   );
   const availableVeNfts = useMemo(
     () => veCollections.flatMap((collection) => collection.veNfts),
@@ -197,7 +197,7 @@ export function EarnPage() {
         return;
       }
 
-      product.claimableRewardsRaw > 0 &&
+      if (product.claimableRewardsRaw > 0n) {
         summaries.set(key, {
           key,
           amountRaw: product.claimableRewardsRaw,
@@ -206,6 +206,7 @@ export function EarnPage() {
           trancheCount: 1,
           products: [product],
         });
+      }
     });
 
     return [...summaries.values()].sort((a, b) => a.symbol.localeCompare(b.symbol));
@@ -219,7 +220,7 @@ export function EarnPage() {
     chainId,
     assetFractionAbi,
   });
-  const aprBasisMap = aprQuery.data ?? {};
+  const aprBasisMap = useMemo(() => aprQuery.data ?? {}, [aprQuery.data]);
   const bestAprEstimate = useMemo(() => {
     return products
       .map((product) => {
@@ -416,6 +417,7 @@ export function EarnPage() {
                   <EarnPositionCard
                     product={position}
                     chainTimestamp={chainTimestamp}
+                    aprBasisMap={aprBasisMap}
                     withdrawAmount={withdrawAmounts[position.id] ?? ""}
                     setWithdrawAmount={(value) =>
                       setWithdrawAmounts((prev) => ({ ...prev, [position.id]: value }))

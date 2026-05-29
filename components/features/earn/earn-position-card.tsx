@@ -11,7 +11,12 @@ import { cn } from "@fractals/ui/lib/cn";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
-import { type EarnProduct, type EarnVariant, useEarnProductDetails } from "./use-earn-data";
+import {
+  type EarnAprBasisMap,
+  type EarnProduct,
+  type EarnVariant,
+  useEarnProductDetails,
+} from "./use-earn-data";
 
 const WEEK_SECONDS = 7n * 24n * 60n * 60n;
 const EPOCH_ROLLOVER_COOLDOWN_SECONDS = 2n * 60n * 60n;
@@ -28,6 +33,7 @@ type TrancheAprEstimate = {
 export function EarnPositionCard({
   product: initialProduct,
   chainTimestamp,
+  aprBasisMap,
   withdrawAmount,
   setWithdrawAmount,
   onSuccess,
@@ -35,13 +41,14 @@ export function EarnPositionCard({
 }: {
   product: EarnProduct;
   chainTimestamp: bigint | null;
+  aprBasisMap?: EarnAprBasisMap | null;
   withdrawAmount: string;
   setWithdrawAmount: (value: string) => void;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
   const { ref, inView } = useInView<HTMLDivElement>();
-  const { product, isLoading } = useEarnProductDetails(initialProduct, inView);
+  const { product, isLoading } = useEarnProductDetails(initialProduct, inView, aprBasisMap);
 
   return (
     <div ref={ref} className="min-h-[30rem]">
@@ -86,16 +93,19 @@ function PositionCardContent({
   const isSettlementWindowOpen = isTargetSettlementWindow(product, chainTimestamp);
   const isWithinEpochCooldown = isEpochCooldown(chainTimestamp);
   const isExpired = isTrancheExpired(product, chainTimestamp);
-  const [actionMode, setActionMode] = useState<PositionActionMode>(
+  const [actionModeState, setActionMode] = useState<PositionActionMode>(
     isExpired ? "withdraw" : "refund",
   );
-  const [selectedRefundKey, setSelectedRefundKey] = useState("");
+  const [selectedRefundKeyState, setSelectedRefundKey] = useState("");
+  const selectedRefundKey = product.refundablePositions.some(
+    (position) => position.key === selectedRefundKeyState,
+  )
+    ? selectedRefundKeyState
+    : (product.refundablePositions[0]?.key ?? "");
   const selectedRefundPosition =
-    product.refundablePositions.find((position) => position.key === selectedRefundKey) ??
-    product.refundablePositions[0] ??
-    null;
+    product.refundablePositions.find((position) => position.key === selectedRefundKey) ?? null;
   const isActionWindowOpen = isSettlementWindowOpen && product.targetEpochEnd !== null;
-  const effectiveActionMode: PositionActionMode = isExpired ? actionMode : "refund";
+  const effectiveActionMode: PositionActionMode = isExpired ? actionModeState : "refund";
   const canWithdraw =
     effectiveActionMode === "withdraw" &&
     isExpired &&
@@ -144,21 +154,6 @@ function PositionCardContent({
       }) as unknown as TxStep,
     ];
   };
-
-  useEffect(() => {
-    setActionMode(isExpired ? "withdraw" : "refund");
-  }, [isExpired, product.id]);
-
-  useEffect(() => {
-    if (product.refundablePositions.length === 0) {
-      setSelectedRefundKey("");
-      return;
-    }
-
-    if (!product.refundablePositions.some((position) => position.key === selectedRefundKey)) {
-      setSelectedRefundKey(product.refundablePositions[0].key);
-    }
-  }, [product.refundablePositions, selectedRefundKey]);
 
   return (
     <Card className="rounded-xl">
@@ -231,7 +226,7 @@ function PositionCardContent({
                   key={option.value}
                   className={cn(
                     "flex cursor-pointer items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white/60 transition",
-                    actionMode === option.value && "bg-white/10 text-white shadow-inner",
+                    actionModeState === option.value && "bg-white/10 text-white shadow-inner",
                   )}
                 >
                   <input
@@ -239,7 +234,7 @@ function PositionCardContent({
                     className="sr-only"
                     name={`position-action-${product.id}`}
                     value={option.value}
-                    checked={actionMode === option.value}
+                    checked={actionModeState === option.value}
                     onChange={() => setActionMode(option.value as PositionActionMode)}
                   />
                   {option.label}
@@ -272,7 +267,7 @@ function PositionCardContent({
             <div className="space-y-2">
               <select
                 id={`refund-${product.id}`}
-                value={selectedRefundPosition?.key ?? ""}
+                value={selectedRefundKey}
                 onChange={(event) => setSelectedRefundKey(event.target.value)}
                 disabled={
                   !isActionWindowOpen ||

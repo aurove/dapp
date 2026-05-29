@@ -76,6 +76,8 @@ type AprBasis = {
   fundingBlockNumber: bigint;
 };
 
+export type EarnAprBasisMap = Record<string, AprBasis | null>;
+
 type FundingEventSnapshot = {
   amount: bigint;
   blockNumber: bigint;
@@ -795,7 +797,11 @@ export function useAprBasis(params: {
   });
 }
 
-export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
+export function useEarnProductDetails(
+  product: EarnProduct,
+  enabled: boolean,
+  aprBasisMapOverride?: EarnAprBasisMap | null,
+) {
   const { address: userAddress } = useAccount();
   const chainId = useChainId();
   const veNftManager = getContractConfig(chainId, "MezoVeNFTManager");
@@ -804,13 +810,16 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
   const veMezo = getContractConfig(chainId, "VeMEZO");
 
   const aprQuery = useAprBasis({
-    enabled,
+    enabled: enabled && !aprBasisMapOverride,
     products: [product],
     chainId,
     assetFractionAbi,
   });
 
-  const aprBasisMap = aprQuery.data ?? {};
+  const aprBasisMap = useMemo<EarnAprBasisMap>(
+    () => aprBasisMapOverride ?? aprQuery.data ?? {},
+    [aprBasisMapOverride, aprQuery.data],
+  );
 
   const supportedVeNftAbiByAddress = useMemo(() => {
     const entries: Array<readonly [string, Abi]> = [];
@@ -942,7 +951,7 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
     },
   });
 
-  const heldTokenIds = useMemo(
+  const heldTokenIds = useMemo<bigint[]>(
     () =>
       Array.isArray(heldTokenIdReads.data?.[0]?.result)
         ? heldTokenIdReads.data[0].result.filter(
@@ -994,47 +1003,55 @@ export function useEarnProductDetails(product: EarnProduct, enabled: boolean) {
     },
   });
 
-  const refundablePositions = useMemo<EarnRefundablePosition[]>(() => {
+  const refundablePositions = (() => {
     if (!product.veNFT) return [];
 
-    return heldTokenIds
-      .map((tokenId, index) => {
-        // TODO we need to make these strictly typed
-        const position = heldPositionReads.data?.[index]?.result as any;
-        if (!position) return null;
+    type HeldPositionResult = {
+      lockedAmount?: unknown;
+      trancheId?: unknown;
+      fraction?: unknown;
+    };
+    type HeldLockResult = {
+      end?: unknown;
+    };
 
-        const lockedAmountRaw = asBigint(position.lockedAmount);
-        const trancheId = asBigint(position.trancheId);
-        const fraction = asAddress(position.fraction);
-        const lock = heldLockReads.data?.[index]?.result as any;
-        const unlockTime = lock?.end ?? null;
+    const heldPositionResults = heldPositionReads.data as
+      | readonly { result?: unknown }[]
+      | undefined;
+    const heldLockResults = heldLockReads.data as readonly { result?: unknown }[] | undefined;
 
-        if (
-          !lockedAmountRaw ||
-          !trancheId ||
-          !sameAddress(fraction, product.fractionAddress) ||
-          trancheId !== product.trancheId
-        ) {
-          return null;
-        }
+    const positions: EarnRefundablePosition[] = [];
 
-        return {
-          key: `${product.veNFT}-${tokenId.toString()}`,
-          veNft: product.veNFT!,
-          tokenId,
-          lockedAmountRaw,
-          unlockTime,
-        };
-      })
-      .filter((position): position is EarnRefundablePosition => Boolean(position));
-  }, [
-    heldLockReads.data,
-    heldPositionReads.data,
-    heldTokenIds,
-    product.fractionAddress,
-    product.trancheId,
-    product.veNFT,
-  ]);
+    heldTokenIds.forEach((tokenId, index) => {
+      const position = heldPositionResults?.[index]?.result as HeldPositionResult | undefined;
+      if (!position) return;
+
+      const lockedAmountRaw = asBigint(position.lockedAmount);
+      const trancheId = asBigint(position.trancheId);
+      const fraction = asAddress(position.fraction);
+      const lock = heldLockResults?.[index]?.result as HeldLockResult | undefined;
+      const unlockTime = asBigint(lock?.end) ?? null;
+
+      if (
+        !lockedAmountRaw ||
+        !trancheId ||
+        !sameAddress(fraction, product.fractionAddress) ||
+        trancheId !== product.trancheId
+      ) {
+        return;
+      }
+
+      positions.push({
+        key: `${product.veNFT}-${tokenId.toString()}`,
+        veNft: product.veNFT!,
+        tokenId,
+        lockedAmountRaw,
+        unlockTime,
+      });
+    });
+
+    return positions;
+  })();
 
   const rewardSymbol = rewardTokenReads.data?.[0]?.result;
   const rewardDecimals = rewardTokenReads.data?.[1]?.result;

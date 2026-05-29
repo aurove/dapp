@@ -54,7 +54,7 @@ export function TradeAssetListing() {
     isRefreshing,
     error,
     refreshMarkets,
-  } = useMarkets();
+  } = useMarkets({ paymentTokenOptionsOverride: paymentTokenOptions });
 
   const [lastCreated, setLastCreated] = useState<TradeAsset | null>(null);
   const pathname = usePathname();

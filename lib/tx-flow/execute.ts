@@ -1,14 +1,7 @@
 import { normalizeFunctionArgs } from "@/contracts/types";
 import { getParsedError } from "./getParsedError";
 import { createTxNotificationLifecycle } from "@/lib/notifications/txLifecycle";
-import type { ContractAbi } from "@/contracts/types";
-import type {
-  TxFlowRuntimeContext,
-  TxPreparedWriteStep,
-  TxStepResult,
-  TxWriteCall,
-  TxWriteFunctionName,
-} from "./types";
+import type { TxFlowRuntimeContext, TxPreparedWriteStep, TxStepResult } from "./types";
 
 export const ctxPrevResultsStore = new WeakMap<object, TxStepResult[]>();
 
@@ -18,25 +11,6 @@ export function bindStepResultsStore(ctx: object, results: TxStepResult[]) {
 
 export function getPrevStepResults(ctx: object): TxStepResult[] {
   return ctxPrevResultsStore.get(ctx) ?? [];
-}
-
-async function simulateWriteCall<
-  TAbi extends ContractAbi,
-  TFunctionName extends TxWriteFunctionName<TAbi>,
->(ctx: TxFlowRuntimeContext, call: TxWriteCall<TAbi, TFunctionName>) {
-  const { contract, request } = call;
-  const { functionName, args: namedArgs, ...otherVars } = request;
-
-  const args = normalizeFunctionArgs(contract.abi, functionName, namedArgs);
-
-  return ctx.publicClient.simulateContract({
-    account: ctx.account,
-    abi: contract.abi,
-    address: contract.address,
-    functionName,
-    args,
-    ...(otherVars as Record<string, unknown>),
-  } as Parameters<TxFlowRuntimeContext["publicClient"]["simulateContract"]>[0]);
 }
 
 export async function executePreparedWriteStep(
@@ -53,19 +27,23 @@ export async function executePreparedWriteStep(
 
   try {
     const call = await step.prepare(ctx, getPrevStepResults(ctx));
-    const simulation = await simulateWriteCall(ctx, call);
-
-    step.onSimulated?.(
-      simulation as Awaited<ReturnType<TxFlowRuntimeContext["publicClient"]["simulateContract"]>>,
-    );
 
     if (lifecycle.onAwaitingWalletConfirmation) {
       await lifecycle.onAwaitingWalletConfirmation({ key: step.key, label: step.label, ctx, meta });
     }
 
-    const hash = (await ctx.writeAsync(
-      simulation.request as Parameters<TxFlowRuntimeContext["writeAsync"]>[0],
-    )) as `0x${string}`;
+    const { contract, request } = call;
+    const { functionName, args: namedArgs, ...otherVars } = request;
+    const args = normalizeFunctionArgs(contract.abi, functionName, namedArgs);
+
+    const hash = (await ctx.writeAsync({
+      ...otherVars,
+      abi: contract.abi,
+      address: contract.address,
+      args,
+      functionName,
+      chainId: ctx.chainId,
+    } as Parameters<TxFlowRuntimeContext["writeAsync"]>[0])) as `0x${string}`;
     if (lifecycle.onTransactionSubmitted) {
       await lifecycle.onTransactionSubmitted({ key: step.key, label: step.label, ctx, hash, meta });
     }

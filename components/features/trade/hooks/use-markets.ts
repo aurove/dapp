@@ -74,6 +74,10 @@ type TradePaymentTokenInfo = {
   decimals: number;
 };
 
+type UseMarketsParams = {
+  paymentTokenOptionsOverride?: TradePaymentTokenInfo[] | null;
+};
+
 type FractionInfo = {
   address: Address;
   trancheId: bigint;
@@ -165,7 +169,7 @@ function buildMarketId(fraction: FractionInfo, token: TradePaymentTokenInfo): st
   return `${fraction.symbol}-${token.symbol}`;
 }
 
-export function useMarkets() {
+export function useMarkets({ paymentTokenOptionsOverride = null }: UseMarketsParams = {}) {
   const txFlowChainId = useChainId();
   const { address: userAddress } = useAccount();
   const activeChain = getActiveChain(resolveAppEnvironment());
@@ -184,6 +188,8 @@ export function useMarkets() {
   const [stateFilter, setStateFilter] = useState<"all" | TradeMarketState>("all");
   const [activeOnly, setActiveOnly] = useState(false);
   const [sortBy, setSortBy] = useState<TradeMarketSortOption>(TRADE_MARKET_SORT_OPTIONS[0]!.value);
+  const hasProvidedPaymentTokens =
+    Array.isArray(paymentTokenOptionsOverride) && paymentTokenOptionsOverride.length > 0;
   const canReadCore = Boolean(
     marketplace?.address && marketplace.abi && paymentRouter?.address && paymentRouter.abi,
   );
@@ -501,31 +507,43 @@ export function useMarkets() {
 
   const paymentTokenMetadataContracts = useMemo(
     () =>
-      buildErc20MetadataContracts({
-        chainId,
-        tokens: supportedTokens,
-        skipToken: (token) => {
-          const normalized = token.toLowerCase();
-          return (
-            normalized === btcAddress?.toLowerCase() ||
-            normalized === mezoAddress?.toLowerCase() ||
-            normalized === musdAddress?.toLowerCase()
-          );
-        },
-      }),
-    [btcAddress, chainId, mezoAddress, musdAddress, supportedTokens],
+      hasProvidedPaymentTokens
+        ? []
+        : buildErc20MetadataContracts({
+            chainId,
+            tokens: supportedTokens,
+            skipToken: (token) => {
+              const normalized = token.toLowerCase();
+              return (
+                normalized === btcAddress?.toLowerCase() ||
+                normalized === mezoAddress?.toLowerCase() ||
+                normalized === musdAddress?.toLowerCase()
+              );
+            },
+          }),
+    [btcAddress, chainId, hasProvidedPaymentTokens, mezoAddress, musdAddress, supportedTokens],
   );
 
   const paymentTokenReads = useReadContracts({
     allowFailure: true,
     contracts: paymentTokenMetadataContracts,
     query: {
-      enabled: paymentTokenMetadataContracts.length > 0,
+      enabled: !hasProvidedPaymentTokens && paymentTokenMetadataContracts.length > 0,
       ...staticReadQueryOptions,
     },
   });
 
   const paymentTokens = useMemo<TradePaymentTokenInfo[]>(() => {
+    if (hasProvidedPaymentTokens) {
+      return [...paymentTokenOptionsOverride!].sort((a, b) => {
+        const aMusd = a.symbol.toLowerCase() === "musd";
+        const bMusd = b.symbol.toLowerCase() === "musd";
+        if (aMusd && !bMusd) return -1;
+        if (!aMusd && bMusd) return 1;
+        return a.symbol.localeCompare(b.symbol);
+      });
+    }
+
     const presetByToken: Record<string, { symbol: string; decimals: number }> = {};
     if (btcAddress) {
       presetByToken[btcAddress.toLowerCase()] = {
@@ -567,7 +585,15 @@ export function useMarkets() {
       if (!aMusd && bMusd) return 1;
       return a.symbol.localeCompare(b.symbol);
     });
-  }, [btcAddress, mezoAddress, musdAddress, paymentTokenReads.data, supportedTokens]);
+  }, [
+    btcAddress,
+    hasProvidedPaymentTokens,
+    mezoAddress,
+    musdAddress,
+    paymentTokenOptionsOverride,
+    paymentTokenReads.data,
+    supportedTokens,
+  ]);
 
   const balanceContracts = useMemo(() => {
     if (!assetLedger?.address || !assetLedger.abi || !userAddress || marketFractions.length === 0)
@@ -967,7 +993,9 @@ export function useMarkets() {
     (bidPageContracts.length > 0 && bidReads.isPending) ||
     (fractionAddressContracts.length > 0 && fractionAddressReads.isPending) ||
     (fractionMetaContracts.length > 0 && fractionMetaReads.isPending) ||
-    (paymentTokenMetadataContracts.length > 0 && paymentTokenReads.isPending) ||
+    (!hasProvidedPaymentTokens &&
+      paymentTokenMetadataContracts.length > 0 &&
+      paymentTokenReads.isPending) ||
     (balanceContracts.length > 0 && balanceReads.isPending) ||
     (sellerInventoryContracts.length > 0 && sellerInventoryReads.isPending) ||
     (bidFundingContracts.length > 0 && bidFundingReads.isPending);
@@ -978,7 +1006,9 @@ export function useMarkets() {
     (bidPageContracts.length > 0 && bidReads.isFetching) ||
     (fractionAddressContracts.length > 0 && fractionAddressReads.isFetching) ||
     (fractionMetaContracts.length > 0 && fractionMetaReads.isFetching) ||
-    (paymentTokenMetadataContracts.length > 0 && paymentTokenReads.isFetching) ||
+    (!hasProvidedPaymentTokens &&
+      paymentTokenMetadataContracts.length > 0 &&
+      paymentTokenReads.isFetching) ||
     (balanceContracts.length > 0 && balanceReads.isFetching) ||
     (sellerInventoryContracts.length > 0 && sellerInventoryReads.isFetching) ||
     (bidFundingContracts.length > 0 && bidFundingReads.isFetching);
@@ -1000,7 +1030,9 @@ export function useMarkets() {
     void bidReads.refetch();
     void fractionAddressReads.refetch();
     void fractionMetaReads.refetch();
-    void paymentTokenReads.refetch();
+    if (!hasProvidedPaymentTokens) {
+      void paymentTokenReads.refetch();
+    }
     void balanceReads.refetch();
     void sellerInventoryReads.refetch();
     void bidFundingReads.refetch();

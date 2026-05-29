@@ -1,7 +1,7 @@
 "use client";
 
 import { erc721Abi, type Address } from "viem";
-import { useReadContract } from "wagmi";
+import { useReadContracts } from "wagmi";
 import { detailReadQueryOptions } from "@/lib/web3/read-query-options";
 
 const MARKETPLACE_OPERATOR_ABI = [
@@ -52,78 +52,69 @@ export function useListingRequirements({
   includeVeFlow = true,
 }: UseListingRequirementsParams) {
   const canReadSellerApprovals = Boolean(sellerAddress && listingWorkflowContracts);
-  const canReadVeNftApproval = Boolean(
-    includeVeFlow && sellerAddress && veNftCollectionAddress && listingWorkflowContracts,
-  );
 
-  const veNftApprovalRead = useReadContract({
-    address: veNftCollectionAddress,
-    abi: erc721Abi,
-    functionName: "isApprovedForAll",
-    args:
+  const reads = useReadContracts({
+    allowFailure: true,
+    contracts:
       sellerAddress && listingWorkflowContracts
-        ? [sellerAddress, listingWorkflowContracts.listingWrapperAddress]
-        : undefined,
-    chainId,
-    query: {
-      enabled: canReadVeNftApproval,
-      ...detailReadQueryOptions,
-    },
-  });
-
-  const marketplaceOperatorRead = useReadContract({
-    address: listingWorkflowContracts?.marketplaceAddress,
-    abi: MARKETPLACE_OPERATOR_ABI,
-    functionName: "isListingOperator",
-    args:
-      sellerAddress && listingWorkflowContracts
-        ? [sellerAddress, listingWorkflowContracts.listingWrapperAddress]
-        : undefined,
-    chainId,
-    query: {
-      enabled: canReadSellerApprovals && includeVeFlow,
-      ...detailReadQueryOptions,
-    },
-  });
-
-  const fractionApprovalRead = useReadContract({
-    address: listingWorkflowContracts?.assetLedgerAddress,
-    abi: ERC1155_APPROVAL_ABI,
-    functionName: "isApprovedForAll",
-    args:
-      sellerAddress && listingWorkflowContracts
-        ? [sellerAddress, listingWorkflowContracts.marketplaceAddress]
-        : undefined,
-    chainId,
+        ? [
+            ...(includeVeFlow && veNftCollectionAddress
+              ? [
+                  {
+                    address: veNftCollectionAddress,
+                    abi: erc721Abi,
+                    functionName: "isApprovedForAll",
+                    args: [sellerAddress, listingWorkflowContracts.listingWrapperAddress],
+                    chainId,
+                  },
+                ]
+              : []),
+            ...(includeVeFlow
+              ? [
+                  {
+                    address: listingWorkflowContracts.marketplaceAddress,
+                    abi: MARKETPLACE_OPERATOR_ABI,
+                    functionName: "isListingOperator",
+                    args: [sellerAddress, listingWorkflowContracts.listingWrapperAddress],
+                    chainId,
+                  },
+                ]
+              : []),
+            {
+              address: listingWorkflowContracts.assetLedgerAddress,
+              abi: ERC1155_APPROVAL_ABI,
+              functionName: "isApprovedForAll",
+              args: [sellerAddress, listingWorkflowContracts.marketplaceAddress],
+              chainId,
+            },
+          ]
+        : [],
     query: {
       enabled: canReadSellerApprovals,
       ...detailReadQueryOptions,
     },
   });
 
-  const veNftTransferApproved = includeVeFlow ? veNftApprovalRead.data === true : true;
-  const marketplaceOperatorApproved = includeVeFlow ? marketplaceOperatorRead.data === true : true;
-  const fractionTransferApproved = fractionApprovalRead.data === true;
+  const veNftApprovalRead = reads.data?.[0]?.result;
+  const marketplaceOperatorRead =
+    reads.data?.[includeVeFlow && veNftCollectionAddress ? 1 : 0]?.result;
+  const fractionApprovalIndex =
+    (includeVeFlow && veNftCollectionAddress ? 1 : 0) + (includeVeFlow ? 1 : 0);
+  const fractionApprovalRead = reads.data?.[fractionApprovalIndex]?.result;
 
-  const isChecking =
-    (includeVeFlow && (veNftApprovalRead.isPending || veNftApprovalRead.isFetching)) ||
-    (includeVeFlow && (marketplaceOperatorRead.isPending || marketplaceOperatorRead.isFetching)) ||
-    fractionApprovalRead.isPending ||
-    fractionApprovalRead.isFetching;
+  const veNftTransferApproved = includeVeFlow ? veNftApprovalRead === true : true;
+  const marketplaceOperatorApproved = includeVeFlow ? marketplaceOperatorRead === true : true;
+  const fractionTransferApproved = fractionApprovalRead === true;
 
-  const anyError =
-    (includeVeFlow ? (veNftApprovalRead.error as Error | null) : null) ||
-    (includeVeFlow ? (marketplaceOperatorRead.error as Error | null) : null) ||
-    (fractionApprovalRead.error as Error | null) ||
-    null;
+  const isChecking = reads.isPending || reads.isFetching;
+
+  const anyError = (reads.error as Error | null) || null;
 
   const allApproved =
     veNftTransferApproved && marketplaceOperatorApproved && fractionTransferApproved;
 
   function refresh() {
-    void veNftApprovalRead.refetch();
-    void marketplaceOperatorRead.refetch();
-    void fractionApprovalRead.refetch();
+    void reads.refetch();
   }
 
   return {
