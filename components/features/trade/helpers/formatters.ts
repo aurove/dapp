@@ -85,7 +85,9 @@ export function formatRawTokenAmount(
 ): string {
   if (value === null || value === undefined) return "-";
 
-  const raw = formatTokenAmount(Number(formatUnits(value, decimals)));
+  // Keep the source string canonical so `formatRawNumber` only sees plain decimals.
+  // Compact notation like `142.11K` cannot be parsed back into a number safely.
+  const raw = formatUnits(value, decimals);
   const formatted = formatRawNumber(raw);
 
   return symbol ? `${formatted} ${symbol}` : formatted;
