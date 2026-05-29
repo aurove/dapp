@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
+import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { formatUnits, parseUnits, type Address } from "viem";
 import { Badge } from "@fractals/ui/ui/badge";
 import { Button } from "@fractals/ui/ui/button";
@@ -10,10 +10,7 @@ import { Skeleton } from "@fractals/ui/ui/skeleton";
 import { cn } from "@fractals/ui/lib/cn";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
-import {
-  formatRawNumber,
-  formatRawTokenAmount,
-} from "@/components/features/trade/helpers/formatters";
+import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
 import { type EarnProduct, type EarnVariant, useEarnProductDetails } from "./use-earn-data";
 
 const WEEK_SECONDS = 7n * 24n * 60n * 60n;
@@ -460,22 +457,20 @@ function parseAmountInput(amount: string, decimals: number): bigint | null {
 }
 
 function epochProgressPercent(product: EarnProduct, blockchainNow: bigint | null): number {
-  if (
-    blockchainNow === null ||
-    !product.targetEpochEnd ||
-    !product.trancheDuration ||
-    product.trancheDuration <= 0n
-  ) {
-    return 0;
-  }
+  if (blockchainNow === null || !product.trancheDuration) return 0;
+  if (product.refundablePositions.length === 0) return 100;
 
-  const now = Number(blockchainNow);
-  const target = Number(product.targetEpochEnd);
-  const duration = Number(product.trancheDuration);
-  const start = target - duration;
-  if (!Number.isFinite(target) || !Number.isFinite(duration) || now <= start) return 0;
-  if (now >= target) return 100;
-  return Math.round(((now - start) / duration) * 100);
+  const maxUnlock = (max: bigint, pos: EarnProduct["refundablePositions"][number]) =>
+    pos.unlockTime ? (pos.unlockTime > max ? pos.unlockTime : max) : max;
+  const start = product.refundablePositions.reduce(maxUnlock, 0n) - product.trancheDuration;
+
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(Number((blockchainNow - start) * 100n) / Number(product.trancheDuration)),
+    ),
+  );
 }
 
 function isTargetSettlementWindow(product: EarnProduct, blockchainNow: bigint | null): boolean {
