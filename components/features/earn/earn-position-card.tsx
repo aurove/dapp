@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
-import { formatUnits, parseUnits, type Address } from "viem";
+import { formatUnits, type Address } from "viem";
 import { Badge } from "@fractals/ui/ui/badge";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fractals/ui/ui/card";
@@ -11,6 +11,7 @@ import { cn } from "@fractals/ui/lib/cn";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
+import { parseAmountRaw } from "@/lib/web3/value-parsers";
 import {
   type EarnAprBasisMap,
   type EarnProduct,
@@ -89,7 +90,7 @@ function PositionCardContent({
   const copy = variantCopy(product.variant);
   const progress = epochProgressPercent(product, chainTimestamp);
   const aprEstimate = estimateTrancheApr(product);
-  const parsedWithdraw = parseAmountInput(withdrawAmount, product.decimals);
+  const parsedWithdraw = parseAmountRaw(withdrawAmount, product.decimals);
   const isSettlementWindowOpen = isTargetSettlementWindow(product, chainTimestamp);
   const isWithinEpochCooldown = isEpochCooldown(chainTimestamp);
   const isExpired = isTrancheExpired(product, chainTimestamp);
@@ -439,16 +440,6 @@ function estimateTrancheApr(product: EarnProduct): TrancheAprEstimate | null {
     product,
     aprPercent: (rewardDeposited / totalSupply) * annualization * 100,
   };
-}
-
-function parseAmountInput(amount: string, decimals: number): bigint | null {
-  try {
-    if (!amount.trim()) return null;
-    const parsed = parseUnits(amount.trim(), decimals);
-    return parsed > 0n ? parsed : null;
-  } catch {
-    return null;
-  }
 }
 
 function epochProgressPercent(product: EarnProduct, blockchainNow: bigint | null): number {

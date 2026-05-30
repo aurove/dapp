@@ -15,11 +15,11 @@ import {
 } from "@fractals/ui/ui/dialog";
 import { Input } from "@fractals/ui/ui/input";
 import { CircleAlert, Info, Loader2 } from "lucide-react";
-import { parseUnits } from "viem";
 import { makeContractWriteStep, TransactionFlowButton, type TxStep } from "@/lib/tx-flow";
 import { useReadContract } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { coreReadQueryOptions, detailReadQueryOptions } from "@/lib/web3/read-query-options";
+import { parseAmountRaw } from "@/lib/web3/value-parsers";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
 import { formatRawTokenAmount, formatTokenAmount } from "../helpers/formatters";
 import { useBidRequirements } from "../hooks/use-bid-requirements";
@@ -131,17 +131,6 @@ function parseBidError(error: unknown): string {
   }
 
   return text.length > 220 ? `${text.slice(0, 220)}...` : text;
-}
-
-function parseAmountRaw(value: string, decimals: number): bigint | null {
-  const normalized = value.trim();
-  if (!isValidDecimalInput(normalized, decimals)) return null;
-  try {
-    const parsed = parseUnits(normalized, decimals);
-    return parsed > 0n ? parsed : null;
-  } catch {
-    return null;
-  }
 }
 
 function marketVariant(market: TradeMarket): CanonicalAssetVariant | null {

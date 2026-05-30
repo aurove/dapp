@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { CheckCircle2, Coins, LockKeyhole, RefreshCw, Sparkles, Wallet } from "lucide-react";
-import { erc20Abi, erc721Abi, formatUnits, parseUnits, type Address } from "viem";
+import { erc20Abi, erc721Abi, formatUnits, type Address } from "viem";
 import { useChainId } from "wagmi";
 import { Badge } from "@fractals/ui/ui/badge";
 import { Button } from "@fractals/ui/ui/button";
@@ -16,10 +16,11 @@ import { appRoutes } from "@/components/app/app-nav";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { useChainTime } from "@/lib/web3/use-chain-time";
+import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
 import { deriveTrancheId } from "@/components/features/trade/utils/tranche";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/trade/hooks/use-user-ve-nfts";
-import { type EarnProduct, type EarnVariant, useAprBasis, useEarnData } from "./use-earn-data";
+import { type EarnProduct, type EarnVariant, useAprBasis, useEarnSnapshot } from "./use-earn-data";
 import { EarnPositionCard } from "./earn-position-card";
 import { getContractConfig } from "@/contracts/client";
 
@@ -87,16 +88,6 @@ function estimateTrancheApr(product: EarnProduct): TrancheAprEstimate | null {
   };
 }
 
-function parseAmountInput(amount: string, decimals: number): bigint | null {
-  try {
-    if (!amount.trim()) return null;
-    const parsed = parseUnits(amount.trim(), decimals);
-    return parsed > 0n ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 function amountFromBalancePercent(balance: bigint, percent: number, decimals: number): string {
   if (balance <= 0n || percent <= 0) return "";
   const boundedPercent = Math.min(100, Math.max(0, Math.round(percent)));
@@ -137,7 +128,7 @@ export function EarnPage() {
     isFetching,
     error,
     refresh,
-  } = useEarnData();
+  } = useEarnSnapshot();
   const {
     veCollections,
     isLoading: veNftsLoading,
@@ -155,9 +146,7 @@ export function EarnPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedToken = tokens[variant];
-  const parsedCreateAmount = selectedToken
-    ? parseAmountInput(amount, selectedToken.decimals)
-    : null;
+  const parsedCreateAmount = selectedToken ? parseAmountRaw(amount, selectedToken.decimals) : null;
   const selectedTrancheId = useMemo(
     () => deriveTrancheId(variant, trancheWeeks),
     [trancheWeeks, variant],
@@ -186,6 +175,10 @@ export function EarnPage() {
     const summaries = new Map<string, ClaimableSummary>();
 
     products.forEach((product) => {
+      if (product.claimableRewardsRaw <= 0n) {
+        return;
+      }
+
       const symbol = product.rewardSymbol ?? "Reward";
       const key = product.rewardAsset?.toLowerCase() ?? `${symbol}-${product.rewardDecimals}`;
       const existing = summaries.get(key);
@@ -197,16 +190,14 @@ export function EarnPage() {
         return;
       }
 
-      if (product.claimableRewardsRaw > 0n) {
-        summaries.set(key, {
-          key,
-          amountRaw: product.claimableRewardsRaw,
-          symbol,
-          decimals: product.rewardDecimals,
-          trancheCount: 1,
-          products: [product],
-        });
-      }
+      summaries.set(key, {
+        key,
+        amountRaw: product.claimableRewardsRaw,
+        symbol,
+        decimals: product.rewardDecimals,
+        trancheCount: 1,
+        products: [product],
+      });
     });
 
     return [...summaries.values()].sort((a, b) => a.symbol.localeCompare(b.symbol));
@@ -529,7 +520,7 @@ function ClaimablesPanel({
   onError,
 }: {
   summaries: ClaimableSummary[];
-  assetLedger: ReturnType<typeof useEarnData>["assetLedger"];
+  assetLedger: ReturnType<typeof useEarnSnapshot>["assetLedger"];
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
@@ -568,7 +559,7 @@ function ClaimablesPanel({
                   {summary.trancheCount === 1 ? "" : "s"}
                 </p>
                 <p className="mt-2 break-words text-xl font-semibold text-white">
-                  {formatAmount(summary.amountRaw, summary.decimals, summary.symbol)}
+                  {formatCompactRawTokenAmount(summary.amountRaw, summary.decimals, summary.symbol)}
                 </p>
                 <ClaimableTokenButton
                   summary={summary}
@@ -592,7 +583,7 @@ function ClaimableTokenButton({
   onError,
 }: {
   summary: ClaimableSummary;
-  assetLedger: ReturnType<typeof useEarnData>["assetLedger"];
+  assetLedger: ReturnType<typeof useEarnSnapshot>["assetLedger"];
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
@@ -710,7 +701,7 @@ function CreatePositionCard({
   veNftsLoading: boolean;
   veNftsFetching: boolean;
   veNftsError: Error | null;
-  selectedToken: ReturnType<typeof useEarnData>["tokens"][EarnVariant];
+  selectedToken: ReturnType<typeof useEarnSnapshot>["tokens"][EarnVariant];
   matchingProduct?: EarnProduct;
   disabledReason: string | null;
   createSteps: (account: Address) => TxStep[];
@@ -720,7 +711,7 @@ function CreatePositionCard({
   const copy = variantCopy(variant);
   const durationOptions = variant === "veBTC" ? VEBTC_DURATIONS : QUICK_DURATIONS;
   const maxTrancheWeeks = variant === "veBTC" ? MAX_VEBTC_TRANCHE_WEEKS : MAX_TRANCHE_WEEKS;
-  const parsedAmount = selectedToken ? parseAmountInput(amount, selectedToken.decimals) : null;
+  const parsedAmount = selectedToken ? parseAmountRaw(amount, selectedToken.decimals) : null;
   const balancePercent =
     selectedToken?.balanceRaw && selectedToken.balanceRaw > 0n && parsedAmount
       ? Math.min(100, Number((parsedAmount * 100n) / selectedToken.balanceRaw))

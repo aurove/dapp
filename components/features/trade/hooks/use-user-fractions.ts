@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useEarnData } from "@/components/features/earn/use-earn-data";
+import { useEarnSnapshot } from "@/components/features/earn/use-earn-data";
 import { formatRawTokenAmount } from "../helpers/formatters";
 
 export type UserFractionPosition = {
@@ -15,7 +15,7 @@ export type UserFractionPosition = {
 };
 
 export function useUserFractions() {
-  const { userPositions, isLoading, isFetching, error, refresh } = useEarnData();
+  const { userPositions, isLoading, isFetching, error, refresh } = useEarnSnapshot();
 
   const positions = useMemo<UserFractionPosition[]>(() => {
     return userPositions.map((position) => ({

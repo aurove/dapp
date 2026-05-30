@@ -10,7 +10,7 @@ import {
 } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { erc1155Abi, erc20Abi, formatUnits, parseUnits, type Abi, type Address } from "viem";
+import { erc1155Abi, erc20Abi, formatUnits, type Abi, type Address } from "viem";
 import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { Input } from "@fractals/ui/ui/input";
 import { Loader2 } from "lucide-react";
@@ -20,6 +20,7 @@ import {
   TransactionFlowButton,
   type TxStep,
 } from "@/lib/tx-flow";
+import { parseAmountRaw } from "@/lib/web3/value-parsers";
 import { formatRawTokenAmount } from "../helpers/formatters";
 import type { TradeMarket, TradeMarketBidPreview, TradeMarketListingPreview } from "../types";
 import { quoteRequiredPaymentRaw } from "../utils/pricing";
@@ -86,15 +87,6 @@ const FRACTION_DECIMALS = 18;
 
 function formatAddress(value: string): string {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
-}
-
-function parseAmountRaw(value: string, decimals: number): bigint | null {
-  try {
-    const parsed = parseUnits(value.trim(), decimals);
-    return parsed > 0n ? parsed : null;
-  } catch {
-    return null;
-  }
 }
 
 function formatAmountInput(value: bigint, decimals: number): string {
