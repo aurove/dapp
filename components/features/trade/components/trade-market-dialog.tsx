@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@fractals/ui/ui/dialog";
+import { AddTokenToWalletButton } from "@/components/shared/add-token-to-wallet-button";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { detailReadQueryOptions } from "@/lib/web3/read-query-options";
@@ -181,10 +182,19 @@ export function TradeMarketDialog({
     >
       <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] max-w-5xl overflow-x-hidden overflow-y-auto p-0 sm:w-[calc(100vw-2rem)]">
         <DialogHeader className="min-w-0 border-b border-white/10 px-4 py-5 sm:px-6">
-          <DialogTitle className="break-words text-2xl">{market.pair} Market</DialogTitle>
-          <DialogDescription>
-            Trade {market.fractionName} with {market.paymentTokenSymbol}.
-          </DialogDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <DialogTitle className="break-words text-2xl">{market.pair} Market</DialogTitle>
+              <DialogDescription>
+                Trade {market.fractionName} with {market.paymentTokenSymbol}.
+              </DialogDescription>
+            </div>
+            <AddTokenToWalletButton
+              address={market.fractionAddress}
+              symbol={market.fractionSymbol}
+              className="shrink-0"
+            />
+          </div>
         </DialogHeader>
 
         <div className="grid min-w-0 gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">

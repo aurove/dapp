@@ -48,6 +48,7 @@ export function TradeAssetListing() {
     setSortBy,
     allMarkets,
     markets,
+    availableFractions,
     totalCount,
     paymentTokenOptions: marketPaymentTokens,
     isLoading,
@@ -148,6 +149,7 @@ export function TradeAssetListing() {
               />
               <TradePlaceBidDialog
                 markets={markets}
+                availableFractions={availableFractions}
                 paymentTokenOptions={paymentTokenOptions}
                 createBidSteps={createBidSteps}
                 canPlaceBid={canPlaceBid}

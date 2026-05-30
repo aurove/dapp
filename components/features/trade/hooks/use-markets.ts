@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { erc1155Abi, erc20Abi, formatUnits, zeroAddress, type Abi, type Address } from "viem";
+import { erc1155Abi, erc20Abi, formatUnits, type Abi, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
@@ -21,7 +21,6 @@ import type {
   TradeMarketState,
 } from "../types";
 import { getBestAsk, getBestBid, sortAsksByBestPrice, sortBidsByBestPrice } from "../utils/pricing";
-import { decodeTrancheId, deriveFractionSymbol } from "../utils/tranche";
 import { toAddress } from "../utils/read-parsers";
 import { buildErc20MetadataContracts, parseErc20MetadataReads } from "../utils/token-metadata";
 
@@ -109,28 +108,6 @@ function minBigint(a: bigint, b: bigint): bigint {
 function quoteToFractionAmountRaw(paymentCapacityRaw: bigint, pricePerUnitRaw: bigint): bigint {
   if (paymentCapacityRaw <= 0n || pricePerUnitRaw <= 0n) return 0n;
   return (paymentCapacityRaw * 10n ** BigInt(FRACTION_DECIMALS)) / pricePerUnitRaw;
-}
-
-function buildFallbackFractionInfo(trancheId: bigint, address: Address): FractionInfo {
-  const decoded = decodeTrancheId(trancheId);
-  if (decoded) {
-    const symbol = deriveFractionSymbol(decoded.variant, decoded.trancheNumber);
-    return {
-      address,
-      trancheId,
-      name: symbol,
-      symbol,
-      base: decoded.variant,
-    };
-  }
-
-  return {
-    address,
-    trancheId,
-    name: `Unknown tranche #${trancheId.toString()}`,
-    symbol: `TRANCHE-${trancheId.toString()}`,
-    base: "veAsset",
-  };
 }
 
 function applyMarketSort(items: TradeMarket[], sortBy: TradeMarketSortOption): TradeMarket[] {
@@ -476,34 +453,7 @@ export function useMarkets({ paymentTokenOptionsOverride = null }: UseMarketsPar
     return items;
   }, [fractionAddresses, fractionMetaReads.data]);
 
-  const marketTrancheIds = useMemo(() => {
-    const ids = new Map<string, bigint>();
-    for (const fraction of fractions) {
-      ids.set(fraction.trancheId.toString(), fraction.trancheId);
-    }
-    for (const listing of allListings) {
-      const key = listing.tokenId.toString();
-      if (!ids.has(key)) ids.set(key, listing.tokenId);
-    }
-    for (const bid of allBids) {
-      const key = bid.tokenId.toString();
-      if (!ids.has(key)) ids.set(key, bid.tokenId);
-    }
-    return [...ids.values()];
-  }, [allBids, allListings, fractions]);
-
-  const marketFractions = useMemo(() => {
-    const knownFractionsByTrancheId = new Map(
-      fractions.map((fraction) => [fraction.trancheId.toString(), fraction] as const),
-    );
-    const fallbackAddress = assetLedger?.address ?? zeroAddress;
-
-    return marketTrancheIds.map((trancheId) => {
-      const existingFraction = knownFractionsByTrancheId.get(trancheId.toString());
-      if (existingFraction) return existingFraction;
-      return buildFallbackFractionInfo(trancheId, fallbackAddress);
-    });
-  }, [assetLedger?.address, fractions, marketTrancheIds]);
+  const marketFractions = fractions;
 
   const paymentTokenMetadataContracts = useMemo(
     () =>
@@ -1054,6 +1004,11 @@ export function useMarkets({ paymentTokenOptionsOverride = null }: UseMarketsPar
     allMarkets: markets,
     markets: filteredMarkets,
     totalCount: markets.length,
+    availableFractions: fractions.map((fraction) => ({
+      trancheId: fraction.trancheId,
+      fractionSymbol: fraction.symbol,
+      fractionBase: fraction.base,
+    })),
     paymentTokenOptions: paymentTokens,
     isLoading,
     isRefreshing,

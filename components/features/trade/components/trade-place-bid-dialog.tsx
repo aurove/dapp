@@ -28,16 +28,11 @@ import { buildBidAutoMatchCandidate, extractCreatedBidId } from "../utils/order-
 import type { CreateTradeBidInput, TradeMarket } from "../types";
 import { asTrimmedString, isValidDecimalInput } from "../utils/form";
 import { quoteRequiredPaymentRaw } from "../utils/pricing";
-import {
-  deriveFractionSymbol,
-  deriveTrancheId,
-  TRANCHE_MAX,
-  TRANCHE_MIN,
-  type CanonicalAssetVariant,
-} from "../utils/tranche";
+import { deriveTrancheId, decodeTrancheId, type CanonicalAssetVariant } from "../utils/tranche";
 
 type TradePlaceBidDialogProps = {
   markets: TradeMarket[];
+  availableFractions: Array<Pick<TradeMarket, "trancheId" | "fractionSymbol" | "fractionBase">>;
   paymentTokenOptions: Array<{
     address: `0x${string}`;
     symbol: string;
@@ -72,10 +67,7 @@ const INITIAL_FORM: FormState = {
   expiryDays: "7",
 };
 
-const MAX_VEBTC_BID_WEEKS = 4;
 const EXPIRY_PRESETS = [7, 14, 30] as const;
-const VEBTC_TRANCHE_PRESETS = [1, 2, 3, 4] as const;
-const VEMEZO_TRANCHE_PRESETS = [4, 12, 26, 52, 104, 208] as const;
 
 const MARKETPLACE_ADMIN_ABI = [
   {
@@ -146,6 +138,7 @@ function marketVariant(market: TradeMarket): CanonicalAssetVariant | null {
 
 export function TradePlaceBidDialog({
   markets,
+  availableFractions,
   paymentTokenOptions,
   createBidSteps,
   canPlaceBid,
@@ -168,6 +161,35 @@ export function TradePlaceBidDialog({
   const canonicalMarkets = useMemo(
     () => markets.filter((market) => marketVariant(market) !== null),
     [markets],
+  );
+
+  const availableTrancheOptionsByVariant = useMemo(() => {
+    const options: Record<CanonicalAssetVariant, number[]> = { veBTC: [], veMEZO: [] };
+
+    for (const fraction of availableFractions) {
+      if (fraction.fractionBase !== "veBTC" && fraction.fractionBase !== "veMEZO") continue;
+
+      const decoded = decodeTrancheId(fraction.trancheId);
+      if (!decoded || decoded.variant !== fraction.fractionBase) continue;
+
+      const bucket = options[fraction.fractionBase];
+      if (!bucket.includes(decoded.trancheNumber)) {
+        bucket.push(decoded.trancheNumber);
+      }
+    }
+
+    options.veBTC.sort((left, right) => left - right);
+    options.veMEZO.sort((left, right) => left - right);
+
+    return options;
+  }, [availableFractions]);
+
+  const availableAssetVariants = useMemo(
+    () =>
+      (["veBTC", "veMEZO"] as const).filter(
+        (variant) => availableTrancheOptionsByVariant[variant].length > 0,
+      ),
+    [availableTrancheOptionsByVariant],
   );
 
   const adminContractRead = useReadContract({
@@ -216,18 +238,21 @@ export function TradePlaceBidDialog({
             }
 
             const parsed = Number.parseInt(v, 10);
-            if (!Number.isInteger(parsed) || parsed < TRANCHE_MIN || parsed > TRANCHE_MAX) {
+            const variant = (this.parent as FormState).assetVariant;
+            const availableOptions =
+              variant === "veBTC" || variant === "veMEZO"
+                ? availableTrancheOptionsByVariant[variant]
+                : [];
+
+            if (availableOptions.length === 0) {
               return this.createError({
-                message: `Tranche weeks must be ${TRANCHE_MIN}-${TRANCHE_MAX}.`,
+                message: "No deployed tranche durations are available for the selected asset.",
               });
             }
 
-            if (
-              (this.parent as FormState).assetVariant === "veBTC" &&
-              parsed > MAX_VEBTC_BID_WEEKS
-            ) {
+            if (!Number.isInteger(parsed) || !availableOptions.includes(parsed)) {
               return this.createError({
-                message: `veBTC bids are limited to ${MAX_VEBTC_BID_WEEKS} weeks.`,
+                message: `Lock duration must be one of ${availableOptions.join(", ")} weeks.`,
               });
             }
 
@@ -270,7 +295,7 @@ export function TradePlaceBidDialog({
             return Number.isFinite(parsed) && parsed >= 1;
           }),
       }),
-    [paymentTokenOptions],
+    [availableTrancheOptionsByVariant, paymentTokenOptions],
   );
 
   const formik = useFormik<FormState>({
@@ -280,20 +305,20 @@ export function TradePlaceBidDialog({
   });
 
   const trancheNumberValue = Number.parseInt(formik.values.trancheNumber, 10);
-  const maxBidWeeks = formik.values.assetVariant === "veBTC" ? MAX_VEBTC_BID_WEEKS : TRANCHE_MAX;
-  const tranchePresets =
-    formik.values.assetVariant === "veBTC" ? VEBTC_TRANCHE_PRESETS : VEMEZO_TRANCHE_PRESETS;
+  const trancheOptions = useMemo(() => {
+    if (formik.values.assetVariant === "veBTC" || formik.values.assetVariant === "veMEZO") {
+      return availableTrancheOptionsByVariant[formik.values.assetVariant];
+    }
+
+    return [];
+  }, [availableTrancheOptionsByVariant, formik.values.assetVariant]);
+  const selectedTrancheIndex = trancheOptions.findIndex((value) => value === trancheNumberValue);
 
   const computedTokenId = useMemo(() => {
     if (formik.values.assetVariant !== "veBTC" && formik.values.assetVariant !== "veMEZO") {
       return null;
     }
-    if (
-      !Number.isInteger(trancheNumberValue) ||
-      trancheNumberValue < TRANCHE_MIN ||
-      trancheNumberValue > TRANCHE_MAX ||
-      (formik.values.assetVariant === "veBTC" && trancheNumberValue > MAX_VEBTC_BID_WEEKS)
-    ) {
+    if (!Number.isInteger(trancheNumberValue) || !trancheOptions.includes(trancheNumberValue)) {
       return null;
     }
 
@@ -302,26 +327,20 @@ export function TradePlaceBidDialog({
     } catch {
       return null;
     }
-  }, [formik.values.assetVariant, trancheNumberValue]);
+  }, [formik.values.assetVariant, trancheNumberValue, trancheOptions]);
 
   const computedFractionSymbol = useMemo(() => {
-    if (formik.values.assetVariant !== "veBTC" && formik.values.assetVariant !== "veMEZO") {
-      return null;
-    }
-    if (
-      !Number.isInteger(trancheNumberValue) ||
-      trancheNumberValue < TRANCHE_MIN ||
-      trancheNumberValue > TRANCHE_MAX ||
-      (formik.values.assetVariant === "veBTC" && trancheNumberValue > MAX_VEBTC_BID_WEEKS)
-    ) {
-      return null;
-    }
-    try {
-      return deriveFractionSymbol(formik.values.assetVariant, trancheNumberValue);
-    } catch {
-      return null;
-    }
-  }, [formik.values.assetVariant, trancheNumberValue]);
+    if (!computedTokenId) return null;
+    return (
+      availableFractions.find((fraction) => fraction.trancheId === computedTokenId)
+        ?.fractionSymbol ?? null
+    );
+  }, [availableFractions, computedTokenId]);
+
+  const selectedFraction = useMemo(
+    () => availableFractions.find((fraction) => fraction.trancheId === computedTokenId) ?? null,
+    [availableFractions, computedTokenId],
+  );
 
   const selectedPaymentToken = useMemo(
     () =>
@@ -418,14 +437,6 @@ export function TradePlaceBidDialog({
       return null;
     }
 
-    if (
-      formik.values.assetVariant === "veBTC" &&
-      Number.isFinite(trancheNumberValue) &&
-      trancheNumberValue > MAX_VEBTC_BID_WEEKS
-    ) {
-      return null;
-    }
-
     return {
       collection: assetLedgerAddress,
       tokenId: computedTokenId,
@@ -456,8 +467,6 @@ export function TradePlaceBidDialog({
     parsedBidDays,
     requiredPaymentRaw,
     selectedPaymentToken,
-    formik.values.assetVariant,
-    trancheNumberValue,
     unitPriceInput,
   ]);
 
@@ -572,22 +581,19 @@ export function TradePlaceBidDialog({
       {
         key: "token-id",
         label: "Fraction symbol derived",
-        detail: computedFractionSymbol
-          ? `Computed symbol: ${computedFractionSymbol}`
+        detail: selectedFraction
+          ? `Computed symbol: ${selectedFraction.fractionSymbol}`
           : "Set asset type and lock duration to derive a valid fraction symbol.",
-        ready: Boolean(computedFractionSymbol),
+        ready: Boolean(selectedFraction),
       },
       {
         key: "duration-cap",
-        label: "Bid duration cap",
+        label: "Available durations",
         detail:
-          formik.values.assetVariant === "veBTC"
-            ? `veBTC bids are capped at ${MAX_VEBTC_BID_WEEKS} weeks.`
-            : `veMEZO bids can use up to ${TRANCHE_MAX} weeks.`,
-        ready:
-          formik.values.assetVariant !== "veBTC" ||
-          !Number.isFinite(trancheNumberValue) ||
-          trancheNumberValue <= MAX_VEBTC_BID_WEEKS,
+          formik.values.assetVariant === "veBTC" || formik.values.assetVariant === "veMEZO"
+            ? `Available durations: ${trancheOptions.map((weeks) => `${weeks}w`).join(", ")}`
+            : "Select an available asset type to unlock tranche durations.",
+        ready: trancheOptions.length > 0 && Boolean(selectedFraction),
       },
       {
         key: "pause",
@@ -614,7 +620,6 @@ export function TradePlaceBidDialog({
     ],
     [
       allowanceLabel,
-      computedFractionSymbol,
       expectedChainId,
       isConnected,
       isCorrectNetwork,
@@ -622,7 +627,8 @@ export function TradePlaceBidDialog({
       bidAutoMatchCandidate,
       preparedBidInput?.requiresPaymentApproval,
       formik.values.assetVariant,
-      trancheNumberValue,
+      selectedFraction,
+      trancheOptions,
     ],
   );
 
@@ -659,19 +665,44 @@ export function TradePlaceBidDialog({
   }, [bidAutoMatchCandidate, preparedBidInput]);
 
   useEffect(() => {
-    if (formik.values.assetVariant !== "veBTC" && formik.values.assetVariant !== "veMEZO") {
-      void formik.setFieldValue("assetVariant", "veBTC");
+    if (availableAssetVariants.length === 0) {
+      if (formik.values.assetVariant) {
+        void formik.setFieldValue("assetVariant", "");
+      }
+      if (formik.values.trancheNumber) {
+        void formik.setFieldValue("trancheNumber", "");
+      }
+      return;
+    }
+
+    const nextVariant =
+      formik.values.assetVariant === "veBTC" || formik.values.assetVariant === "veMEZO"
+        ? formik.values.assetVariant
+        : availableAssetVariants[0]!;
+
+    if (formik.values.assetVariant !== nextVariant) {
+      void formik.setFieldValue("assetVariant", nextVariant);
+      return;
     }
 
     const existingTranche = Number.parseInt(formik.values.trancheNumber, 10);
-    if (
-      formik.values.assetVariant === "veBTC" &&
-      Number.isInteger(existingTranche) &&
-      existingTranche > MAX_VEBTC_BID_WEEKS
-    ) {
+    const currentTrancheOptions = availableTrancheOptionsByVariant[nextVariant];
+
+    if (currentTrancheOptions.length === 0) {
       void formik.setFieldValue("trancheNumber", "");
+      return;
     }
-  }, [formik, formik.values.assetVariant, formik.values.trancheNumber]);
+
+    if (!Number.isInteger(existingTranche) || !currentTrancheOptions.includes(existingTranche)) {
+      void formik.setFieldValue("trancheNumber", String(currentTrancheOptions[0]));
+    }
+  }, [
+    availableAssetVariants,
+    availableTrancheOptionsByVariant,
+    formik,
+    formik.values.assetVariant,
+    formik.values.trancheNumber,
+  ]);
 
   useEffect(() => {
     if (paymentTokenOptions.length === 0) {
@@ -878,7 +909,10 @@ export function TradePlaceBidDialog({
                           : "border-white/15 bg-white/[0.02]"
                       }`}
                       onClick={() => void formik.setFieldValue("assetVariant", option.value)}
-                      disabled={isBroadcasting}
+                      disabled={
+                        isBroadcasting ||
+                        !availableAssetVariants.includes(option.value as CanonicalAssetVariant)
+                      }
                     >
                       {option.label}
                     </button>
@@ -888,41 +922,52 @@ export function TradePlaceBidDialog({
 
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
-                  Lock duration (weeks) ({TRANCHE_MIN}-{maxBidWeeks})
+                  Lock duration (weeks)
                 </p>
-                <Input
-                  name="trancheNumber"
-                  type="number"
-                  min={TRANCHE_MIN}
-                  max={maxBidWeeks}
-                  step={1}
-                  value={formik.values.trancheNumber}
-                  onChange={formik.handleChange}
-                  disabled={isBroadcasting}
-                />
-                <div className="flex flex-wrap gap-2">
-                  {tranchePresets.map((preset) => (
-                    <Button
-                      key={preset}
-                      type="button"
-                      size="sm"
-                      variant={
-                        Number.parseInt(formik.values.trancheNumber, 10) === preset
-                          ? "default"
-                          : "secondary"
+                {trancheOptions.length > 0 ? (
+                  <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-3">
+                    <input
+                      aria-label="Lock duration"
+                      aria-valuetext={
+                        trancheOptions[selectedTrancheIndex >= 0 ? selectedTrancheIndex : 0]
+                          ? `${trancheOptions[selectedTrancheIndex >= 0 ? selectedTrancheIndex : 0]} weeks`
+                          : "No duration selected"
                       }
-                      onClick={() => void formik.setFieldValue("trancheNumber", String(preset))}
+                      className="h-2 w-full cursor-pointer accent-[#d6a85d] disabled:cursor-not-allowed disabled:opacity-50"
                       disabled={isBroadcasting}
-                    >
-                      {preset}w
-                    </Button>
-                  ))}
-                </div>
-                {formik.values.assetVariant === "veBTC" ? (
+                      min={0}
+                      max={Math.max(trancheOptions.length - 1, 0)}
+                      step={1}
+                      type="range"
+                      value={selectedTrancheIndex >= 0 ? selectedTrancheIndex : 0}
+                      onChange={(event) => {
+                        const nextIndex = Number(event.target.value);
+                        const nextDuration = trancheOptions[nextIndex];
+                        if (typeof nextDuration === "number") {
+                          void formik.setFieldValue("trancheNumber", String(nextDuration));
+                        }
+                      }}
+                    />
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {trancheOptions.map((weeks, index) => (
+                        <span
+                          key={weeks}
+                          className={`rounded-full px-2 py-1 ${
+                            selectedTrancheIndex === index
+                              ? "bg-[#b58f5f]/20 text-[var(--foreground)]"
+                              : "bg-white/[0.03] text-[var(--muted)]"
+                          }`}
+                        >
+                          {weeks}w
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
                   <p className="text-xs text-amber-100">
-                    veBTC bids can only target lock durations up to {MAX_VEBTC_BID_WEEKS} weeks.
+                    No deployed tranche durations are available for the selected asset type.
                   </p>
-                ) : null}
+                )}
               </div>
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
@@ -947,26 +992,39 @@ export function TradePlaceBidDialog({
                 </p>
               </div>
 
-              {selectedMarket ? (
+              {selectedFraction ? (
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm">
-                  <p className="font-semibold text-[var(--foreground)]">{selectedMarket.pair}</p>
+                  <p className="font-semibold text-[var(--foreground)]">
+                    {selectedMarket?.pair ?? selectedFraction.fractionSymbol}
+                  </p>
                   <div className="mt-2 grid gap-2 text-xs text-[var(--muted)] sm:grid-cols-2">
-                    <p>Bidding on: {selectedMarket.fractionName}</p>
+                    <p>
+                      Bidding on: {selectedMarket?.fractionName ?? selectedFraction.fractionSymbol}
+                    </p>
                     <p>Tranche tokenId: {computedTokenId?.toString() ?? "-"}</p>
-                    <p>
-                      Best ask:{" "}
-                      {selectedMarket.floorPrice
-                        ? formatTokenAmount(selectedMarket.floorPrice)
-                        : "-"}{" "}
-                      {selectedMarket.paymentTokenSymbol}
-                    </p>
-                    <p>
-                      Best bid:{" "}
-                      {selectedMarket.bestBidPrice
-                        ? formatTokenAmount(selectedMarket.bestBidPrice)
-                        : "-"}{" "}
-                      {selectedMarket.paymentTokenSymbol}
-                    </p>
+                    {selectedMarket ? (
+                      <>
+                        <p>
+                          Best ask:{" "}
+                          {selectedMarket.floorPrice
+                            ? formatTokenAmount(selectedMarket.floorPrice)
+                            : "-"}{" "}
+                          {selectedMarket.paymentTokenSymbol}
+                        </p>
+                        <p>
+                          Best bid:{" "}
+                          {selectedMarket.bestBidPrice
+                            ? formatTokenAmount(selectedMarket.bestBidPrice)
+                            : "-"}{" "}
+                          {selectedMarket.paymentTokenSymbol}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="sm:col-span-2">
+                        No active orderbook yet for this deployed fraction. You can still place a
+                        bid if you know the price.
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : null}
@@ -1143,8 +1201,8 @@ export function TradePlaceBidDialog({
                     Review bid
                   </p>
                   <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
-                    {selectedMarket && computedTokenId
-                      ? `${selectedMarket.pair} • tokenId ${computedTokenId.toString()}`
+                    {selectedFraction && computedTokenId
+                      ? `${selectedMarket?.pair ?? selectedFraction.fractionSymbol} • tokenId ${computedTokenId.toString()}`
                       : "Bid configuration incomplete"}
                   </p>
                 </div>
@@ -1153,13 +1211,14 @@ export function TradePlaceBidDialog({
                   <p className="rounded-lg bg-black/20 px-3 py-2 text-[var(--muted)]">
                     Market pair:{" "}
                     <span className="font-medium text-[var(--foreground)]">
-                      {computedFractionSymbol ?? "-"}
+                      {computedFractionSymbol ?? selectedFraction?.fractionSymbol ?? "-"}
                     </span>
                   </p>
                   <p className="rounded-lg bg-black/20 px-3 py-2 text-[var(--muted)]">
                     Bid amount:{" "}
                     <span className="font-medium text-[var(--foreground)]">
-                      {formik.values.bidAmount} {selectedMarket?.fractionSymbol ?? ""}
+                      {formik.values.bidAmount}{" "}
+                      {selectedMarket?.fractionSymbol ?? selectedFraction?.fractionSymbol ?? ""}
                     </span>
                   </p>
                   <p className="rounded-lg bg-black/20 px-3 py-2 text-[var(--muted)]">

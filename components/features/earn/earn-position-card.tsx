@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@frac
 import { Input } from "@fractals/ui/ui/input";
 import { Skeleton } from "@fractals/ui/ui/skeleton";
 import { cn } from "@fractals/ui/lib/cn";
+import { AddTokenToWalletButton } from "@/components/shared/add-token-to-wallet-button";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
@@ -158,9 +159,19 @@ function PositionCardContent({
   return (
     <Card className="rounded-xl">
       <CardHeader>
-        <Badge className={copy.tone}>{copy.headline}</Badge>
-        <CardTitle className="mt-3 text-lg">{product.symbol}</CardTitle>
-        <CardDescription>{product.name}</CardDescription>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Badge className={copy.tone}>{copy.headline}</Badge>
+            <CardTitle className="mt-3 text-lg">{product.symbol}</CardTitle>
+            <CardDescription>{product.name}</CardDescription>
+          </div>
+          <AddTokenToWalletButton
+            address={product.fractionAddress}
+            symbol={product.symbol}
+            decimals={product.decimals}
+            className="shrink-0"
+          />
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading ? <Skeleton className="h-2 w-24 rounded-full" /> : null}
@@ -330,9 +341,19 @@ function PositionCardShell({ product }: { product: EarnProduct }) {
   return (
     <Card className="rounded-xl">
       <CardHeader>
-        <Badge className={copy.tone}>{copy.headline}</Badge>
-        <CardTitle className="mt-3 text-lg">{product.symbol}</CardTitle>
-        <CardDescription>{product.name}</CardDescription>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Badge className={copy.tone}>{copy.headline}</Badge>
+            <CardTitle className="mt-3 text-lg">{product.symbol}</CardTitle>
+            <CardDescription>{product.name}</CardDescription>
+          </div>
+          <AddTokenToWalletButton
+            address={product.fractionAddress}
+            symbol={product.symbol}
+            decimals={product.decimals}
+            className="shrink-0"
+          />
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <Skeleton className="h-20 rounded-xl" />

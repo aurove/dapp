@@ -5,6 +5,7 @@ import { ArrowUpDown, Landmark, Layers, ShoppingCart } from "lucide-react";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent } from "@fractals/ui/ui/card";
 import { cn } from "@fractals/ui/lib/cn";
+import { AddTokenToWalletButton } from "@/components/shared/add-token-to-wallet-button";
 import { formatTokenAmount } from "../helpers/formatters";
 import type { TradeMarket } from "../types";
 
@@ -40,18 +41,25 @@ export function TradeAssetCard({ asset, marketHref, onOpen }: TradeAssetCardProp
             <h3 className="text-lg font-semibold text-[var(--foreground)]">{asset.pair}</h3>
             <p className="text-xs text-[var(--muted)]">{asset.fractionName} </p>
           </div>
-          <span
-            className={cn(
-              "rounded-md border px-2 py-1 text-xs font-medium",
-              stateBadgeClass(asset.state),
-            )}
-          >
-            {asset.state === "active"
-              ? "Active"
-              : asset.state === "expired"
-                ? "Only historical orders"
-                : "Illiquid"}
-          </span>
+          <div className="flex flex-col items-end gap-2">
+            <span
+              className={cn(
+                "rounded-md border px-2 py-1 text-xs font-medium",
+                stateBadgeClass(asset.state),
+              )}
+            >
+              {asset.state === "active"
+                ? "Active"
+                : asset.state === "expired"
+                  ? "Only historical orders"
+                  : "Illiquid"}
+            </span>
+            <AddTokenToWalletButton
+              address={asset.fractionAddress}
+              symbol={asset.fractionSymbol}
+              className="shrink-0"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-sm">
