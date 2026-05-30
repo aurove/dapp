@@ -10,8 +10,7 @@ import { Skeleton } from "@fractals/ui/ui/skeleton";
 import { cn } from "@fractals/ui/lib/cn";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
-import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
-import { parseAmountRaw } from "@/lib/web3/value-parsers";
+import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import {
   type EarnAprBasisMap,
   type EarnProduct,
@@ -400,8 +399,7 @@ function formatDuration(seconds: bigint | null, fallbackWeeks: number) {
 }
 
 function formatAmount(value: bigint | null | undefined, decimals = 18, symbol?: string | null) {
-  if (value === null || value === undefined) return "Unavailable";
-  return formatRawTokenAmount(value, decimals, symbol ?? undefined);
+  return formatCompactRawTokenAmount(value, decimals, symbol ?? undefined);
 }
 
 function formatAprPercent(value: number | null | undefined) {

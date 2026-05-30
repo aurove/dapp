@@ -154,11 +154,7 @@ export function formatCompactRawTokenAmount(
   }
 
   const formatted =
-    Math.abs(numeric) >= 1_000
-      ? formatCompactNumber(numeric)
-      : new Intl.NumberFormat(undefined, {
-          maximumFractionDigits: 6,
-        }).format(numeric);
+    Math.abs(numeric) > 0.1 ? formatCompactNumber(numeric, 4) : formatRawNumber(raw);
 
   return symbol ? `${formatted} ${symbol}` : formatted;
 }
