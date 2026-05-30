@@ -17,7 +17,6 @@ import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
-import { formatRawTokenAmount } from "@/components/features/trade/helpers/formatters";
 import { deriveTrancheId } from "@/components/features/trade/utils/tranche";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/trade/hooks/use-user-ve-nfts";
 import { type EarnProduct, type EarnVariant, useAprBasis, useEarnSnapshot } from "./use-earn-data";
@@ -44,11 +43,6 @@ type TrancheAprEstimate = {
   product: EarnProduct;
   aprPercent: number;
 };
-
-function formatAmount(value: bigint | null | undefined, decimals = 18, symbol?: string | null) {
-  if (value === null || value === undefined) return "Unavailable";
-  return formatRawTokenAmount(value, decimals, symbol ?? undefined);
-}
 
 function formatAprPercent(value: number | null | undefined) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "Not estimated";
@@ -796,7 +790,7 @@ function CreatePositionCard({
                 </label>
                 <span className="text-white/45">
                   Balance{" "}
-                  {formatAmount(
+                  {formatCompactRawTokenAmount(
                     selectedToken?.balanceRaw ?? 0n,
                     selectedToken?.decimals ?? 18,
                     selectedToken?.symbol,

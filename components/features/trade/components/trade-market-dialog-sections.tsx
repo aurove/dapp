@@ -6,7 +6,7 @@ import { type Abi, type Address } from "viem";
 import { Button } from "@fractals/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
 import { cn } from "@fractals/ui/lib/cn";
-import { formatRawTokenAmount, formatTokenAmount } from "../helpers/formatters";
+import { formatCompactRawTokenAmount, formatTokenAmount } from "../helpers/formatters";
 import type { TradeMarket, TradeMarketBidPreview, TradeMarketListingPreview } from "../types";
 import { BidTradeAction, BuyTradeAction, SellTradeAction } from "./trade-market-action-forms";
 
@@ -311,7 +311,7 @@ export function OrderbookCard({
                   Spread / Mid price
                 </p>
                 <p className="text-xs font-medium text-[var(--foreground)]">
-                  {formatRawTokenAmount(
+                  {formatCompactRawTokenAmount(
                     midPriceRaw,
                     market.paymentTokenDecimals,
                     market.paymentTokenSymbol,
@@ -322,7 +322,7 @@ export function OrderbookCard({
               <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
                 <span>
                   Spread{" "}
-                  {formatRawTokenAmount(
+                  {formatCompactRawTokenAmount(
                     spreadRaw,
                     market.paymentTokenDecimals,
                     market.paymentTokenSymbol,

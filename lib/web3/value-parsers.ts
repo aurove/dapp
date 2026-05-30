@@ -100,7 +100,7 @@ function toSubscript(value: number): string {
     .join("");
 }
 
-export function formatRawNumber(raw: string) {
+function formatRawNumber(raw: string, significantDigits = 5) {
   if (isNaN(Number(raw))) throw new Error(`${raw} is NaN`);
 
   const [whole, fraction = ""] = raw.split(".");
@@ -114,7 +114,7 @@ export function formatRawNumber(raw: string) {
 
     // e.g. 0.000000000045566 -> 0.0₁₀45566
     if (leadingZeros > 3) {
-      const significant = fraction.slice(leadingZeros).slice(0, 5);
+      const significant = fraction.slice(leadingZeros).slice(0, significantDigits);
       formatted = `0.0${toSubscript(leadingZeros)}${significant}`;
     } else {
       formatted = raw;
@@ -143,6 +143,7 @@ export function formatCompactRawTokenAmount(
   value: bigint | null | undefined,
   decimals: number,
   symbol?: string | null,
+  maximumFractionDigits = 4,
 ): string {
   if (value === null || value === undefined) return "Unavailable";
 
@@ -154,7 +155,9 @@ export function formatCompactRawTokenAmount(
   }
 
   const formatted =
-    Math.abs(numeric) > 0.1 ? formatCompactNumber(numeric, 4) : formatRawNumber(raw);
+    Math.abs(numeric) > 0.0001
+      ? formatCompactNumber(numeric, maximumFractionDigits)
+      : formatRawNumber(raw, maximumFractionDigits);
 
   return symbol ? `${formatted} ${symbol}` : formatted;
 }

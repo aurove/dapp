@@ -2,7 +2,6 @@ export {
   formatCompactRawTokenAmount,
   formatCompactUsd,
   formatPct,
-  formatRawNumber,
   formatRawTokenAmount,
   formatTokenAmount,
   formatUsd,

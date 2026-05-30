@@ -21,7 +21,7 @@ import {
   type TxStep,
 } from "@/lib/tx-flow";
 import { parseAmountRaw } from "@/lib/web3/value-parsers";
-import { formatRawTokenAmount } from "../helpers/formatters";
+import { formatCompactRawTokenAmount } from "../helpers/formatters";
 import type { TradeMarket, TradeMarketBidPreview, TradeMarketListingPreview } from "../types";
 import { quoteRequiredPaymentRaw } from "../utils/pricing";
 
@@ -192,7 +192,7 @@ function AmountRatioField({
         <div className="flex items-center justify-between gap-3 text-xs">
           <span className="text-[var(--muted)]">{totalLabel}</span>
           <span className="font-medium text-[var(--foreground)]">
-            {formatRawTokenAmount(totalRaw, FRACTION_DECIMALS)} {symbol}
+            {formatCompactRawTokenAmount(totalRaw, FRACTION_DECIMALS)} {symbol}
           </span>
         </div>
         <input
@@ -425,11 +425,11 @@ export function BuyTradeAction({
         />
         <SummaryRow
           label="Estimated cost"
-          value={`${formatRawTokenAmount(requiredPayment, market.paymentTokenDecimals)} ${market.paymentTokenSymbol}`}
+          value={`${formatCompactRawTokenAmount(requiredPayment, market.paymentTokenDecimals, market.paymentTokenSymbol, 10)}`}
         />
         <SummaryRow
           label="Balance / allowance"
-          value={`${formatRawTokenAmount(paymentBalance, market.paymentTokenDecimals)} / ${formatRawTokenAmount(paymentAllowance, market.paymentTokenDecimals)} ${market.paymentTokenSymbol}`}
+          value={`${formatCompactRawTokenAmount(paymentBalance, market.paymentTokenDecimals)} / ${formatCompactRawTokenAmount(paymentAllowance, market.paymentTokenDecimals)} ${market.paymentTokenSymbol}`}
         />
       </div>
 
@@ -647,11 +647,11 @@ export function SellTradeAction({
         />
         <SummaryRow
           label="Estimated proceeds"
-          value={`${formatRawTokenAmount(expectedProceeds, market.paymentTokenDecimals)} ${market.paymentTokenSymbol}`}
+          value={`${formatCompactRawTokenAmount(expectedProceeds, market.paymentTokenDecimals)} ${market.paymentTokenSymbol}`}
         />
         <SummaryRow
           label="Wallet fraction balance"
-          value={`${formatRawTokenAmount(fractionBalance, 18)} ${market.fractionSymbol}`}
+          value={`${formatCompactRawTokenAmount(fractionBalance, 18)} ${market.fractionSymbol}`}
         />
       </div>
 
@@ -906,15 +906,15 @@ export function BidTradeAction({
       <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-4">
         <SummaryRow
           label="Estimated reserve"
-          value={`${formatRawTokenAmount(requiredPayment, market.paymentTokenDecimals)} ${market.paymentTokenSymbol}`}
+          value={`${formatCompactRawTokenAmount(requiredPayment, market.paymentTokenDecimals)} ${market.paymentTokenSymbol}`}
         />
         <SummaryRow
           label="Wallet balance"
-          value={`${formatRawTokenAmount(paymentBalance, market.paymentTokenDecimals)} ${market.paymentTokenSymbol}`}
+          value={`${formatCompactRawTokenAmount(paymentBalance, market.paymentTokenDecimals)} ${market.paymentTokenSymbol}`}
         />
         <SummaryRow
           label="Allowance"
-          value={`${formatRawTokenAmount(paymentAllowance, market.paymentTokenDecimals)} ${market.paymentTokenSymbol}`}
+          value={`${formatCompactRawTokenAmount(paymentAllowance, market.paymentTokenDecimals)} ${market.paymentTokenSymbol}`}
         />
         <SummaryRow
           label="Expiry"

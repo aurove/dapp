@@ -21,7 +21,7 @@ import { getContractConfig } from "@/contracts/client";
 import { coreReadQueryOptions, detailReadQueryOptions } from "@/lib/web3/read-query-options";
 import { parseAmountRaw } from "@/lib/web3/value-parsers";
 import { ListingReadinessPanel } from "./listing-readiness-panel";
-import { formatRawTokenAmount, formatTokenAmount } from "../helpers/formatters";
+import { formatCompactRawTokenAmount, formatTokenAmount } from "../helpers/formatters";
 import { useBidRequirements } from "../hooks/use-bid-requirements";
 import { useTradeFlowContext } from "../hooks/use-trade-flow-context";
 import { buildBidAutoMatchCandidate, extractCreatedBidId } from "../utils/order-routing";
@@ -369,7 +369,7 @@ export function TradePlaceBidDialog({
     if (!selectedPaymentToken || requiredPaymentRaw <= 0n) {
       return `0 ${selectedPaymentToken?.symbol ?? ""}`;
     }
-    return formatRawTokenAmount(
+    return formatCompactRawTokenAmount(
       requiredPaymentRaw,
       selectedPaymentToken.decimals,
       selectedPaymentToken.symbol,
@@ -378,7 +378,7 @@ export function TradePlaceBidDialog({
 
   const balanceLabel = useMemo(() => {
     if (!selectedPaymentToken) return "-";
-    return formatRawTokenAmount(
+    return formatCompactRawTokenAmount(
       bidRequirements.balanceRaw,
       selectedPaymentToken.decimals,
       selectedPaymentToken.symbol,
@@ -387,7 +387,7 @@ export function TradePlaceBidDialog({
 
   const allowanceLabel = useMemo(() => {
     if (!selectedPaymentToken) return "-";
-    return formatRawTokenAmount(
+    return formatCompactRawTokenAmount(
       bidRequirements.allowanceRaw,
       selectedPaymentToken.decimals,
       selectedPaymentToken.symbol,
