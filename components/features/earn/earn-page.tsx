@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { CheckCircle2, Coins, LockKeyhole, RefreshCw, Sparkles, Wallet } from "lucide-react";
 import { erc20Abi, erc721Abi, formatUnits, type Address } from "viem";
 import { useChainId } from "wagmi";
@@ -581,7 +580,6 @@ function ClaimableTokenButton({
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
-  const activeChainId = useChainId();
   const trancheIds = useMemo(
     () => [...new Set(summary.products.map((product) => product.trancheId))],
     [summary.products],
@@ -590,70 +588,32 @@ function ClaimableTokenButton({
   const isDisabled = !assetLedger?.address || !assetLedger.abi || summary.products.length === 0;
 
   return (
-    <ConnectButton.Custom>
-      {({ account, chain: walletChain, openChainModal, openConnectModal, mounted }) => {
-        const connected = Boolean(mounted && account && walletChain);
-        const wrongNetwork = Boolean(
-          connected && (walletChain?.unsupported || walletChain?.id !== activeChainId),
-        );
-        if (!connected) {
-          return (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              className="w-full"
-              onClick={openConnectModal}
-            >
-              Connect Wallet
-            </Button>
-          );
-        }
-
-        if (wrongNetwork) {
-          return (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              className="w-full"
-              onClick={openChainModal}
-            >
-              Wrong network
-            </Button>
-          );
-        }
-
-        return (
-          <TransactionFlowButton
-            className="w-full"
-            size="sm"
-            variant="secondary"
-            disabled={isDisabled}
-            steps={({ account: connectedAccount }) => [
-              makeContractWriteStep({
-                key: `claim-${summary.key}`,
-                label: `Claim ${summary.symbol}`,
-                displayLabelBtn: true,
-                contractName: "AssetLedger",
-                variables: {
-                  functionName: "claimRewards",
-                  args: [trancheIds, connectedAccount],
-                },
-              }) as unknown as TxStep,
-            ]}
-            onComplete={() => {
-              onSuccess(
-                `${summary.symbol} rewards claimed from ${summary.trancheCount} tranche${summary.trancheCount === 1 ? "" : "s"}.`,
-              );
-            }}
-            onError={txError(onError)}
-          >
-            {`Claim ${summary.symbol}`}
-          </TransactionFlowButton>
+    <TransactionFlowButton
+      className="w-full"
+      size="sm"
+      variant="secondary"
+      disabled={isDisabled}
+      steps={({ account: connectedAccount }) => [
+        makeContractWriteStep({
+          key: `claim-${summary.key}`,
+          label: `Claim ${summary.symbol}`,
+          displayLabelBtn: true,
+          contractName: "AssetLedger",
+          variables: {
+            functionName: "claimRewards",
+            args: [trancheIds, connectedAccount],
+          },
+        }) as unknown as TxStep,
+      ]}
+      onComplete={() => {
+        onSuccess(
+          `${summary.symbol} rewards claimed from ${summary.trancheCount} tranche${summary.trancheCount === 1 ? "" : "s"}.`,
         );
       }}
-    </ConnectButton.Custom>
+      onError={txError(onError)}
+    >
+      {`Claim ${summary.symbol}`}
+    </TransactionFlowButton>
   );
 }
 

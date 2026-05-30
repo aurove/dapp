@@ -1,15 +1,24 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@fractals/ui/ui/button";
+import { useAppChainSwitch } from "@/lib/web3/use-app-chain-switch";
 
-export function WalletConnectButton() {
+type WalletConnectButtonProps = {
+  children?: ReactNode;
+};
+
+export function WalletConnectButton({ children }: WalletConnectButtonProps) {
+  const { expectedChain, switchToExpectedChain } = useAppChainSwitch();
+
   return (
     <ConnectButton.Custom>
       {({ account, chain, mounted, openAccountModal, openChainModal, openConnectModal }) => {
         const ready = mounted;
         const connected = ready && account && chain;
+        const wrongNetwork = Boolean(chain?.unsupported || chain?.id !== expectedChain.id);
 
         if (!connected) {
           return (
@@ -19,12 +28,22 @@ export function WalletConnectButton() {
           );
         }
 
-        if (chain.unsupported) {
+        if (wrongNetwork) {
           return (
-            <Button size="sm" variant="destructive" onClick={openChainModal}>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => {
+                void switchToExpectedChain(openChainModal);
+              }}
+            >
               Wrong Network
             </Button>
           );
+        }
+
+        if (children != null) {
+          return children;
         }
 
         return (

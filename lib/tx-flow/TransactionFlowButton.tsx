@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount, useChainId, usePublicClient, useWriteContract } from "wagmi";
+import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import type { Address } from "viem";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { Button } from "@fractals/ui/ui/button";
 
+import { WalletConnectButton } from "@/components/app/wallet-connect-button";
 import { useTxFlowRuntime } from "@/lib/providers/web3-providers";
 
 import { bindStepResultsStore, executePreparedWriteStep } from "./execute";
@@ -35,7 +35,6 @@ export default function TransactionFlowButton({
   ...props
 }: Props) {
   const { address, chain } = useAccount();
-  const chainId = useChainId();
   const publicClient = usePublicClient()!; // will be available since we wrap display in connect btn
   const { writeContractAsync } = useWriteContract();
 
@@ -113,31 +112,19 @@ export default function TransactionFlowButton({
   const label = running && activeLabel ? activeLabel : children;
 
   return (
-    <ConnectButton.Custom>
-      {({ account, chain: walletChain, openChainModal, openConnectModal, mounted }) => {
-        const connected = Boolean(mounted && account && walletChain);
-        const wrongNetwork = Boolean(
-          connected && (walletChain?.unsupported || walletChain?.id !== chainId),
-        );
-
-        const onClick = !connected ? openConnectModal : wrongNetwork ? openChainModal : handleClick;
-        const isDisabled = !connected ? false : wrongNetwork ? false : !canRun;
-
-        return (
-          <Button
-            {...props}
-            type="button"
-            className={className}
-            onClick={onClick}
-            disabled={isDisabled}
-            aria-busy={connected && !wrongNetwork ? running : false}
-          >
-            {icon}
-            <span>{!connected ? "Connect Wallet" : wrongNetwork ? "Wrong network" : label}</span>
-            {connected && !wrongNetwork && renderStatusIcon ? renderStatusIcon(iconState) : null}
-          </Button>
-        );
-      }}
-    </ConnectButton.Custom>
+    <WalletConnectButton>
+      <Button
+        {...props}
+        type="button"
+        className={className}
+        onClick={handleClick}
+        disabled={!canRun}
+        aria-busy={running}
+      >
+        {icon}
+        <span>{label}</span>
+        {renderStatusIcon ? renderStatusIcon(iconState) : null}
+      </Button>
+    </WalletConnectButton>
   );
 }

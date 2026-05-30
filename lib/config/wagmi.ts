@@ -3,6 +3,8 @@ import type { Chain } from "viem";
 import { createConfig, http, type Config } from "wagmi";
 import { getRuntimeConfig } from "@/lib/config/env";
 
+import { supportedChains } from "./chains";
+
 let wagmiConfig: Config | undefined;
 let wagmiConfigChainId: number | undefined;
 let serverWagmiConfig: Config | undefined;
@@ -15,9 +17,11 @@ function getChainRpcUrl(chain: Chain): string {
 function getServerWagmiConfig(activeChain: Chain): Config {
   if (!serverWagmiConfig || serverWagmiConfigChainId !== activeChain.id) {
     serverWagmiConfig = createConfig({
-      chains: [activeChain],
+      chains: supportedChains,
       transports: {
-        [activeChain.id]: http(getChainRpcUrl(activeChain)),
+        ...Object.fromEntries(
+          supportedChains.map((chain) => [chain.id, http(getChainRpcUrl(chain))]),
+        ),
       },
       ssr: true,
     });
@@ -37,10 +41,12 @@ export function getWagmiConfig(activeChain: Chain): Config {
   if (!wagmiConfig || wagmiConfigChainId !== activeChain.id) {
     wagmiConfig = getDefaultConfig({
       appName: "Fractals Marketplace",
-      chains: [activeChain],
+      chains: supportedChains,
       projectId: runtime.walletConnectProjectId,
       transports: {
-        [activeChain.id]: http(getChainRpcUrl(activeChain)),
+        ...Object.fromEntries(
+          supportedChains.map((chain) => [chain.id, http(getChainRpcUrl(chain))]),
+        ),
       },
       ssr: true,
     });
