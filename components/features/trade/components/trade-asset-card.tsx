@@ -57,6 +57,7 @@ export function TradeAssetCard({ asset, marketHref, onOpen }: TradeAssetCardProp
             <AddTokenToWalletButton
               address={asset.fractionAddress}
               symbol={asset.fractionSymbol}
+              tokenId={asset.trancheId}
               className="shrink-0"
             />
           </div>

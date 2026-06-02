@@ -11,6 +11,7 @@ type AddTokenToWalletButtonProps = {
   address: Address;
   symbol: string;
   decimals?: number;
+  tokenId?: bigint;
   className?: string;
   label?: string;
   size?: ButtonProps["size"];
@@ -21,6 +22,7 @@ export function AddTokenToWalletButton({
   address,
   symbol,
   decimals = 18,
+  tokenId,
   className,
   label = "Add to MetaMask",
   size = "sm",
@@ -34,7 +36,7 @@ export function AddTokenToWalletButton({
     setStatus("pending");
 
     try {
-      const accepted = await watchTokenAsset({ address, symbol, decimals });
+      const accepted = await watchTokenAsset({ address, symbol, decimals, tokenId });
       if (!accepted) {
         setStatus("idle");
         return;

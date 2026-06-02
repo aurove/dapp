@@ -169,6 +169,7 @@ function PositionCardContent({
             address={product.fractionAddress}
             symbol={product.symbol}
             decimals={product.decimals}
+            tokenId={product.trancheId}
             className="shrink-0"
           />
         </div>
@@ -351,6 +352,7 @@ function PositionCardShell({ product }: { product: EarnProduct }) {
             address={product.fractionAddress}
             symbol={product.symbol}
             decimals={product.decimals}
+            tokenId={product.trancheId}
             className="shrink-0"
           />
         </div>

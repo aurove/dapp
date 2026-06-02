@@ -192,6 +192,7 @@ export function TradeMarketDialog({
             <AddTokenToWalletButton
               address={market.fractionAddress}
               symbol={market.fractionSymbol}
+              tokenId={market.trancheId}
               className="shrink-0"
             />
           </div>
