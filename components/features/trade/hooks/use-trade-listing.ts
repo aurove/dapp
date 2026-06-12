@@ -14,6 +14,7 @@ import type {
   TradeAsset,
 } from "../types";
 import { buildErc20MetadataContracts, parseErc20MetadataReads } from "../utils/token-metadata";
+import { deriveTrancheIdFromLock } from "../utils/tranche";
 
 type TradePaymentTokenOption = {
   address: `0x${string}`;
@@ -219,6 +220,9 @@ export function useTradeListing() {
     if (!input.veNftAddress) {
       throw new Error("Missing selected ve token contract address.");
     }
+    if (input.veNftIsPermanent) {
+      throw new Error("Permanent veNFT positions cannot be listed through the fraction market.");
+    }
     if (!input.paymentToken) {
       throw new Error(
         "No payment token selected. Configure PaymentRouter supported tokens and pick one.",
@@ -233,6 +237,16 @@ export function useTradeListing() {
         throw new Error("Current chain time is unavailable.");
       }
       expiry = chainTimestamp + BigInt(Math.max(1, Math.floor(input.expiryDays)) * 24 * 60 * 60);
+    }
+    const listingTime = chainTimestamp ?? BigInt(Math.floor(Date.now() / 1000));
+    const trancheId = deriveTrancheIdFromLock(
+      input.veAssetType,
+      input.veNftLockEnd,
+      input.veNftIsPermanent,
+      listingTime,
+    );
+    if (!trancheId) {
+      throw new Error("Unable to derive the listing tranche from the selected veNFT.");
     }
 
     const steps: TxStep[] = [];
@@ -281,7 +295,7 @@ export function useTradeListing() {
           const request = {
             seller: userAddress,
             collection: assetLedger.address,
-            tokenId: input.veNftTokenId,
+            tokenId: trancheId,
             amount: parseUnits(input.listAmount, 18),
             paymentToken: input.paymentToken,
             pricePerUnit: parseUnits(input.unitPrice, input.paymentTokenDecimals),
@@ -384,8 +398,8 @@ export function useTradeListing() {
   function mapCreatedListingAsset(input: CreateVeTradeListingInput, hash: string): TradeAsset {
     return {
       id: hash,
-      name: `${input.veAssetType} Fraction #${input.veNftTokenId.toString()}`,
-      symbol: `${input.veAssetType}-${input.veNftTokenId.toString()}`,
+      name: `${input.veAssetType} Fraction #${input.veNftLockEnd.toString()}`,
+      symbol: `${input.veAssetType}-${input.veNftLockEnd.toString()}`,
       thumbnail: input.veAssetType === "veBTC" ? "🟧" : "🟩",
       priceUsd: Number(input.unitPrice),
       volume24hUsd: 0,

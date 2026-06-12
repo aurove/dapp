@@ -2,6 +2,7 @@ export type CanonicalAssetVariant = "veBTC" | "veMEZO";
 
 export const TRANCHE_MIN = 1;
 export const TRANCHE_MAX = 208;
+const WEEK_SECONDS = 7n * 24n * 60n * 60n;
 
 function variantPart(variant: CanonicalAssetVariant): number {
   return variant === "veBTC" ? 1 : 2;
@@ -21,12 +22,40 @@ export function deriveTrancheId(variant: CanonicalAssetVariant, trancheNumber: n
   return BigInt((variantPart(variant) << 16) | trancheNumber);
 }
 
+export function deriveTrancheNumberFromLock(
+  lockEnd: bigint,
+  isPermanent: boolean,
+  timestamp: bigint,
+): number | null {
+  if (isPermanent) return null;
+
+  const remaining = lockEnd > timestamp ? lockEnd - timestamp : 0n;
+  const trancheNumber = remaining === 0n ? 0n : ((remaining - 1n) / WEEK_SECONDS) + 1n;
+
+  if (trancheNumber < BigInt(TRANCHE_MIN)) return TRANCHE_MIN;
+  if (trancheNumber > BigInt(TRANCHE_MAX)) return TRANCHE_MAX;
+
+  return Number(trancheNumber);
+}
+
+export function deriveTrancheIdFromLock(
+  variant: CanonicalAssetVariant,
+  lockEnd: bigint,
+  isPermanent: boolean,
+  timestamp: bigint,
+): bigint | null {
+  const trancheNumber = deriveTrancheNumberFromLock(lockEnd, isPermanent, timestamp);
+  if (trancheNumber === null) return null;
+
+  return deriveTrancheId(variant, trancheNumber);
+}
+
 export function deriveFractionSymbol(
   variant: CanonicalAssetVariant,
   trancheNumber: number,
 ): string {
-  // Match AssetTokenNaming.deriveTokenSymbol: fve{BTC|MEZO}-W{trancheNumber}
-  return `fve${variant === "veBTC" ? "BTC" : "MEZO"}-W${trancheNumber}`;
+  // Match AssetTokenNaming.deriveTokenSymbol: av{BTC|MEZO}w{trancheNumber}
+  return `av${variant === "veBTC" ? "BTC" : "MEZO"}w${trancheNumber}`;
 }
 
 export function decodeTrancheId(

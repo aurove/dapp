@@ -97,6 +97,8 @@ export type CreateVeTradeListingInput = {
   veAssetType: TradeVeAssetType;
   veNftAddress: `0x${string}`;
   veNftTokenId: bigint;
+  veNftLockEnd: bigint;
+  veNftIsPermanent: boolean;
   listAmount: string;
   paymentToken: `0x${string}`;
   paymentTokenDecimals: number;

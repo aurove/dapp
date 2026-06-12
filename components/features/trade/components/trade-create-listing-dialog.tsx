@@ -19,9 +19,11 @@ import { formatTokenAmount } from "../helpers/formatters";
 import { useListingPreview } from "../hooks/use-listing-preview";
 import { useListingRequirements } from "../hooks/use-listing-requirements";
 import { useTradeFlowContext } from "../hooks/use-trade-flow-context";
+import { useChainTime } from "@/lib/web3/use-chain-time";
 import { useUserFractions } from "../hooks/use-user-fractions";
 import { useUserVeNFTs, type UserVeNft } from "../hooks/use-user-ve-nfts";
 import { buildListingAutoMatchCandidate, extractCreatedListingId } from "../utils/order-routing";
+import { deriveTrancheIdFromLock } from "../utils/tranche";
 
 import type {
   CreateFractionTradeListingInput,
@@ -118,6 +120,7 @@ export function TradeCreateListingDialog({
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [successHash, setSuccessHash] = useState<`0x${string}` | null>(null);
   const { userAddress, isConnected, expectedChainId, isCorrectNetwork } = useTradeFlowContext();
+  const { chainTimestamp } = useChainTime();
   const marketplace = getContractConfig(expectedChainId, "Marketplace");
 
   const { veCollections, isLoading, isFetching, error, refresh: refreshVeNfts } = useUserVeNFTs();
@@ -373,6 +376,8 @@ export function TradeCreateListingDialog({
       veAssetType: formik.values.veAssetType,
       veNftAddress: selectedCollection.contractAddress,
       veNftTokenId: selectedNft.tokenId,
+      veNftLockEnd: selectedNft.lockEnd,
+      veNftIsPermanent: selectedNft.isPermanent,
       listAmount: commonListingInputs.listAmount,
       paymentToken: selectedPaymentToken.address,
       paymentTokenDecimals: selectedPaymentToken.decimals,
@@ -463,9 +468,20 @@ export function TradeCreateListingDialog({
       });
     }
     if (preparedVeListingInput) {
+      const trancheId = chainTimestamp !== null
+        ? deriveTrancheIdFromLock(
+            preparedVeListingInput.veAssetType,
+            preparedVeListingInput.veNftLockEnd,
+            preparedVeListingInput.veNftIsPermanent,
+            chainTimestamp,
+          )
+        : null;
+      if (!trancheId) {
+        return null;
+      }
       return buildListingAutoMatchCandidate({
         markets,
-        tokenId: preparedVeListingInput.veNftTokenId,
+        tokenId: trancheId,
         paymentToken: preparedVeListingInput.paymentToken,
         askPriceRaw: parseUnits(
           preparedVeListingInput.unitPrice,
@@ -476,7 +492,7 @@ export function TradeCreateListingDialog({
       });
     }
     return null;
-  }, [markets, preparedFractionListingInput, preparedVeListingInput, userAddress]);
+  }, [chainTimestamp, markets, preparedFractionListingInput, preparedVeListingInput, userAddress]);
 
   const listingSteps = useMemo<TxStep[]>(() => {
     try {
