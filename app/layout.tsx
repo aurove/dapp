@@ -5,16 +5,16 @@ import { Web3Providers } from "@/lib/providers/web3-providers";
 import { NotificationsToaster } from "@/lib/notifications";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://fractals.finance"),
+  metadataBase: new URL("https://yieldbits.finance"),
   title: {
-    default: "Fractals | Simple Fungible Mezo Earn Products",
-    template: "%s | Fractals",
+    default: "Yield Bits | Simple Fungible Mezo Earn Products",
+    template: "%s | Yield Bits",
   },
   description:
-    "Fractals simplifies Mezo Earn by turning complex veBTC / veMEZO positions, gauges, lock durations, boosts, rewards, and incentive routing into simple fungible Earn products users can understand, trade, and use.",
-  applicationName: "Fractals",
+    "Yield Bits simplifies Mezo Earn by turning complex veBTC / veMEZO positions, gauges, lock durations, boosts, rewards, and incentive routing into simple fungible Earn products users can understand, trade, and use.",
+  applicationName: "Yield Bits",
   keywords: [
-    "Fractals",
+    "Yield Bits",
     "veBTC",
     "veMEZO",
     "Mezo Earn",
@@ -23,16 +23,16 @@ export const metadata: Metadata = {
     "settlement windows",
   ],
   openGraph: {
-    title: "Fractals | Simple Fungible Mezo Earn Products",
+    title: "Yield Bits | Simple Fungible Mezo Earn Products",
     description:
       "Simple fungible Earn products for complex veBTC / veMEZO positions, gauges, boosts, rewards, and incentive routing.",
     type: "website",
-    siteName: "Fractals",
+    siteName: "Yield Bits",
     url: "/",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Fractals | Simple Fungible Mezo Earn Products",
+    title: "Yield Bits | Simple Fungible Mezo Earn Products",
     description:
       "Understand, trade, and use Mezo Earn exposure through simple fungible Earn products.",
   },

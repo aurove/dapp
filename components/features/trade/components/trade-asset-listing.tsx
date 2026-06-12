@@ -159,7 +159,7 @@ export function TradeAssetListing() {
           </div>
           <CardTitle className="text-2xl sm:text-3xl">Fungible Earn Product Markets</CardTitle>
           <p className="max-w-3xl text-sm leading-7 text-[var(--muted)] sm:text-base">
-            Browse market pairs for Fractals Earn products. Open a market to inspect orderbook depth
+            Browse market pairs for Yield Bits Earn products. Open a market to inspect orderbook depth
             and trade simple fungible exposure backed by Mezo Earn positions.
           </p>
           {lastCreated ? (

@@ -8,7 +8,7 @@ const steps = [
   },
   {
     title: "Receive Fungible Earn Products",
-    body: "Fractals represents position ownership through product units that are easier to understand, hold, transfer, and price.",
+    body: "Yield Bits represents position ownership through product units that are easier to understand, hold, transfer, and price.",
   },
   {
     title: "Trade or Manage Exposure",
@@ -26,7 +26,7 @@ export function HowItWorksSection() {
       <SectionHeading
         badge="How It Works"
         title="A clear flow from Mezo Earn complexity to usable products."
-        description="Fractals turns complex veBTC / veMEZO positions, gauges, lock durations, boosts, rewards, and incentive routing into simple fungible Earn products."
+        description="Yield Bits turns complex veBTC / veMEZO positions, gauges, lock durations, boosts, rewards, and incentive routing into simple fungible Earn products."
       />
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">

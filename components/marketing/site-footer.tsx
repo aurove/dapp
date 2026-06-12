@@ -12,7 +12,7 @@ export function SiteFooter() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 sm:px-6 lg:px-8 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-base font-semibold tracking-tight text-[var(--foreground)]">
-            Fractals
+            Yield Bits
           </p>
           <p className="mt-1 text-sm text-[var(--muted)]">
             Simple fungible Earn products for complex Mezo Earn exposure.

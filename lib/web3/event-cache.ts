@@ -1,10 +1,10 @@
 import type { Address, Hex } from "viem";
 
-const CACHE_DB_NAME = "fractals_event_cache_v1";
+const CACHE_DB_NAME = "yield_bits_event_cache_v1";
 const CACHE_DB_VERSION = 1;
 const EVENTS_STORE = "event_logs";
 const RANGES_STORE = "event_ranges";
-const BIGINT_MARKER = "__fractals_bigint__";
+const BIGINT_MARKER = "__yield_bits_bigint__";
 
 type BlockRange = {
   from: number;

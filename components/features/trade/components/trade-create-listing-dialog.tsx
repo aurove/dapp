@@ -611,7 +611,7 @@ export function TradeCreateListingDialog({
       {
         key: "network",
         label: "Correct network",
-        detail: `Connect to chain ${expectedChainId} to use deployed Fractals contracts.`,
+        detail: `Connect to chain ${expectedChainId} to use deployed Yield Bits contracts.`,
         ready: isCorrectNetwork,
       },
       ...(formik.values.listingMode === "ve_nft"
@@ -823,7 +823,7 @@ export function TradeCreateListingDialog({
         return;
       }
       if (!isCorrectNetwork) {
-        setStepValidationErrors(["Switch to the configured Fractals network before publishing."]);
+        setStepValidationErrors(["Switch to the configured Yield Bits network before publishing."]);
         return;
       }
       if (!canCreateListing || !listingWorkflowContracts) {
@@ -859,7 +859,7 @@ export function TradeCreateListingDialog({
           <DialogTitle>Create listing</DialogTitle>
           <DialogDescription>
             {formik.values.listingMode == "ve_nft" ? "Fractionalize a veNFT and p" : "P"}ublish a
-            non-custodial listing backed by your fractals position.
+            non-custodial listing backed by your Yield Bits position.
           </DialogDescription>
         </DialogHeader>
 

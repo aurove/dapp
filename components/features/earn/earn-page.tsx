@@ -331,7 +331,7 @@ export function EarnPage() {
                 Mezo Earn, simplified into fungible yield products.
               </h1>
               <p className="text-base leading-7 text-white/68 md:text-lg">
-                Fractals turns complex veBTC / veMEZO positions, gauges, lock durations, boosts,
+                Yield Bits turns complex veBTC / veMEZO positions, gauges, lock durations, boosts,
                 rewards, and incentive routing into simple fungible Earn products users can
                 understand, trade, and use.
               </p>

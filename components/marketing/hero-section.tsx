@@ -33,7 +33,7 @@ export function HeroSection() {
             Simple fungible Earn products for complex veBTC and veMEZO positions.
           </h1>
           <p className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-[var(--muted)]">
-            Fractals turns gauges, lock durations, boosts, rewards, and incentive routing into Earn
+            Yield Bits turns gauges, lock durations, boosts, rewards, and incentive routing into Earn
             products users can understand, trade, and use.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">

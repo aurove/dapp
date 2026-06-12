@@ -1,6 +1,6 @@
 # Spectrum Nodes RPC Architecture
 
-Fractals uses Spectrum Nodes as the primary RPC provider for the Mezo testnet demo. The dApp is a Next.js + wagmi application, so all wallet reads, contract reads, and transaction broadcasts share the same wagmi transport.
+Yield Bits uses Spectrum Nodes as the primary RPC provider for the Mezo testnet demo. The dApp is a Next.js + wagmi application, so all wallet reads, contract reads, and transaction broadcasts share the same wagmi transport.
 
 ## Configuration
 
@@ -36,4 +36,4 @@ Spectrum documents RPC endpoint creation through the dashboard and blockchain AP
 - https://spectrumnodes.gitbook.io/docs/developer-guides/apis
 - https://spectrumnodes.gitbook.io/docs/developer-guides/apis/general-blockchain-api
 
-The General Blockchain API docs describe supported query patterns such as `getBlockHeights`, `getBlockByNumber`, `getTransactionByHash`, and `getAddressBalance`. Fractals uses the EVM JSON-RPC endpoint directly through wagmi because its app flows require contract ABI reads and transaction submission on Mezo testnet.
+The General Blockchain API docs describe supported query patterns such as `getBlockHeights`, `getBlockByNumber`, `getTransactionByHash`, and `getAddressBalance`. Yield Bits uses the EVM JSON-RPC endpoint directly through wagmi because its app flows require contract ABI reads and transaction submission on Mezo testnet.

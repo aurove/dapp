@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-export const RPC_SESSION_COOKIE_NAME = "fractals_rpc_session";
+export const RPC_SESSION_COOKIE_NAME = "yield_bits_rpc_session";
 const RPC_SESSION_TTL_SECONDS = 10 * 60;
 
 function getSessionSecret(): string {

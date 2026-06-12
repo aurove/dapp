@@ -14,7 +14,7 @@ export function BenefitsSection() {
       <SectionHeading
         badge="Earn Product Outcomes"
         title="Built to make complex Mezo Earn positions usable."
-        description="Fractals connects liquidity, settlement, rewards, boosts, and incentive routing inside simple fungible Earn products."
+        description="Yield Bits connects liquidity, settlement, rewards, boosts, and incentive routing inside simple fungible Earn products."
       />
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">

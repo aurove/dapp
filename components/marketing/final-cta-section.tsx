@@ -10,7 +10,7 @@ export function FinalCtaSection() {
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(230,210,173,0.46),transparent)]" />
 
         <div className="relative z-10 max-w-3xl">
-          <Badge className="mb-4">Enter Fractals</Badge>
+          <Badge className="mb-4">Enter Yield Bits</Badge>
           <h2 className="text-balance text-3xl font-semibold leading-tight text-[var(--foreground)] sm:text-4xl">
             Access simple fungible Earn products for veBTC and veMEZO exposure.
           </h2>
