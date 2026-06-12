@@ -40,7 +40,7 @@ export function getWagmiConfig(activeChain: Chain): Config {
 
   if (!wagmiConfig || wagmiConfigChainId !== activeChain.id) {
     wagmiConfig = getDefaultConfig({
-      appName: "Yield Bits",
+      appName: "Aurove",
       chains: supportedChains,
       projectId: runtime.walletConnectProjectId,
       transports: {

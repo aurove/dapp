@@ -28,7 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href="/"
               className="inline-flex items-center gap-2 rounded-xl px-2 py-1 text-white"
             >
-              <span className="text-lg font-semibold tracking-tight">Yield Bits</span>
+              <span className="text-lg font-semibold tracking-tight">Aurove</span>
             </Link>
             <div className="hidden lg:block">
               <AppNav variant="inline" />
@@ -44,7 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-2 px-4 pb-3 md:px-6">
           <Badge className="normal-case tracking-normal border-white/20 bg-white/5 text-xs text-white/70">
             <ShieldCheck className="mr-1 h-3.5 w-3.5" />
-            Yield Bits protocol surface
+            Aurove protocol surface
           </Badge>
           <Badge
             className={
@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <footer className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-8 pt-2 text-xs text-white/40 md:px-6">
         <p>
-          © {year} Yield Bits. This interface reflects configured contract state. Verify transaction
+          © {year} Aurove. This interface reflects configured contract state. Verify transaction
           details and destination contracts before signing.
         </p>
       </footer>

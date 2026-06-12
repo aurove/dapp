@@ -28,13 +28,14 @@ export function HeroSection() {
     <section className="pt-14">
       <div className="grid items-center gap-10 lg:grid-cols-[1.08fr_0.92fr]">
         <div className="fade-up">
-          <Badge className="mb-5">Mezo Earn, Simplified</Badge>
+          <Badge className="mb-5">Mezo Earn, made liquid.</Badge>
           <h1 className="text-balance text-4xl font-semibold leading-tight text-[var(--foreground)] sm:text-5xl">
             Simple fungible Earn products for complex veBTC and veMEZO positions.
           </h1>
           <p className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-[var(--muted)]">
-            Yield Bits turns gauges, lock durations, boosts, rewards, and incentive routing into Earn
-            products users can understand, trade, and use.
+            Aurove is the liquid ve-yield layer for Mezo Earn. It turns gauges, lock durations,
+            boosts, rewards, and incentive routing into Earn products users can understand, trade,
+            and use.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/app" className={buttonVariants({ size: "lg", className: "gap-2" })}>

@@ -565,7 +565,7 @@ export function TradePlaceBidDialog({
       {
         key: "network",
         label: "Correct network",
-        detail: `Connect to chain ${expectedChainId} for Yield Bits marketplace contracts.`,
+        detail: `Connect to chain ${expectedChainId} for Aurove marketplace contracts.`,
         ready: isCorrectNetwork,
       },
       {
@@ -768,7 +768,7 @@ export function TradePlaceBidDialog({
         return;
       }
       if (!isCorrectNetwork) {
-        setStepValidationErrors(["Switch to the configured Yield Bits network before placing a bid."]);
+        setStepValidationErrors(["Switch to the configured Aurove network before placing a bid."]);
         return;
       }
       if (!canPlaceBid || !bidWorkflowContracts) {

@@ -1,12 +1,12 @@
-# Yield Bits dApp
+# Aurove dApp
 
-The Yield Bits dApp is the user-facing web app for creating, managing, and trading simple fungible Earn products from Mezo veNFT positions. It is built with Next.js, React, wagmi, RainbowKit, Tailwind CSS, and the local shared UI source in `components/ui/`.
+The Aurove dApp is the user-facing web app for creating, managing, and trading simple fungible Earn products from Mezo veNFT positions. It is built with Next.js, React, wagmi, RainbowKit, Tailwind CSS, and the local shared UI source in `components/ui/`.
 
 ## Overview
 
 The app has three primary surfaces:
 
-- **Marketing site:** explains how Yield Bits simplifies Mezo Earn.
+- **Marketing site:** explains how Aurove simplifies Mezo Earn.
 - **Earn app:** create simple fungible Earn products from ERC20 deposits or existing veNFTs, inspect positions, claim rewards, and redeem during settlement windows.
 - **Trade app:** browse fraction markets, create listings, place bids, buy listings, match orders, and cancel user orders.
 
@@ -22,7 +22,7 @@ _Market Order View_
 ## Routes
 
 - `/` - landing page and product overview.
-- `/app` - Earn dashboard for creating and managing Yield Bits positions.
+- `/app` - Earn dashboard for creating and managing Aurove positions.
 - `/app/trade` - secondary market for ERC1155 fraction tranches.
 
 ## Project Structure
@@ -71,7 +71,7 @@ pnpm dev
 Or from this package:
 
 ```bash
-pnpm --filter @yield-bits/dapp dev
+pnpm --filter @aurove/dapp dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
@@ -90,11 +90,11 @@ The UI reads live listings and bids from `Marketplace`, uses `PaymentRouter.MUSD
 ## Build
 
 ```bash
-pnpm --filter @yield-bits/dapp build
+pnpm --filter @aurove/dapp build
 ```
 
 ## Lint
 
 ```bash
-pnpm --filter @yield-bits/dapp lint
+pnpm --filter @aurove/dapp lint
 ```

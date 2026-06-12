@@ -20,9 +20,9 @@ export function OverviewSection() {
   return (
     <section id="overview" className="mt-20">
       <SectionHeading
-        badge="Why Yield Bits"
+        badge="Why Aurove"
         title="Mezo Earn stays powerful. Its products become simple to use."
-        description="Yield Bits simplifies complex veBTC / veMEZO positions into fungible Earn products users can understand, trade, and use without awkward manual veNFT handling."
+        description="Aurove simplifies complex veBTC / veMEZO positions into fungible Earn products users can understand, trade, and use without awkward manual veNFT handling."
       />
 
       <div className="mt-8 grid gap-4 md:grid-cols-3">
