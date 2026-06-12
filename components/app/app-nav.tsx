@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, CandlestickChart } from "lucide-react";
 import type { ComponentType } from "react";
-import { cn } from "@fractals/ui/lib/cn";
+import { cn } from "@ui";
 
 type AppRoute = {
   href: string;

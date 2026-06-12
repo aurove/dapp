@@ -11,8 +11,7 @@ import {
 import { useFormik } from "formik";
 import * as yup from "yup";
 import { erc1155Abi, erc20Abi, formatUnits, type Abi, type Address } from "viem";
-import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
-import { Input } from "@fractals/ui/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, Input } from "@ui";
 import { Loader2 } from "lucide-react";
 import {
   makeAddressWriteStep,

@@ -2,9 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, Clock3, ExternalLink, History, Loader2, XCircle } from "lucide-react";
-import { Button } from "@fractals/ui/ui/button";
-import { ScrollArea } from "@fractals/ui/ui/scroll-area";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@fractals/ui/ui/sheet";
+import { Button, ScrollArea, Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@ui";
 import { useNotifyStore } from "./store";
 import { getExplorerTxUrl } from "./urls";
 

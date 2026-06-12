@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, Workflow } from "lucide-react";
-import { Badge } from "@fractals/ui/ui/badge";
-import { buttonVariants } from "@fractals/ui/ui/button";
+import { Badge, buttonVariants } from "@ui";
 
 export function FinalCtaSection() {
   return (

@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { ArrowUpDown, Landmark, Layers, ShoppingCart } from "lucide-react";
-import { Button } from "@fractals/ui/ui/button";
-import { Card, CardContent } from "@fractals/ui/ui/card";
-import { cn } from "@fractals/ui/lib/cn";
+import { Button, Card, CardContent, cn } from "@ui";
 import { AddTokenToWalletButton } from "@/components/shared/add-token-to-wallet-button";
 import { formatTokenAmount } from "../helpers/formatters";
 import type { TradeMarket } from "../types";

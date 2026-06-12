@@ -1,6 +1,5 @@
 import { Search, SlidersHorizontal } from "lucide-react";
-import { Button } from "@fractals/ui/ui/button";
-import { Input } from "@fractals/ui/ui/input";
+import { Button, Input } from "@ui";
 import {
   TRADE_FRACTION_FILTERS,
   TRADE_MARKET_SORT_OPTIONS,

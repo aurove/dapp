@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { ChevronDown } from "lucide-react";
-import { Button } from "@fractals/ui/ui/button";
+import { Button } from "@ui";
 import { useAppChainSwitch } from "@/lib/web3/use-app-chain-switch";
 
 type WalletConnectButtonProps = {

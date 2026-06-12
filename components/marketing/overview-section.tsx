@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@ui";
 import { SectionHeading } from "@/components/site/section-heading";
 
 const cards = [

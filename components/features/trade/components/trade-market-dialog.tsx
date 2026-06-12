@@ -3,13 +3,7 @@
 import { useMemo, useState } from "react";
 import { erc20Abi, erc1155Abi } from "viem";
 import { useAccount, useReadContracts } from "wagmi";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@fractals/ui/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@ui";
 import { AddTokenToWalletButton } from "@/components/shared/add-token-to-wallet-button";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";

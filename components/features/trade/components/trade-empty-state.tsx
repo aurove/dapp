@@ -1,5 +1,5 @@
 import { SearchX } from "lucide-react";
-import { Button } from "@fractals/ui/ui/button";
+import { Button } from "@ui";
 
 type TradeEmptyStateProps = {
   onClear: () => void;

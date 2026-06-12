@@ -2,12 +2,7 @@
 
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { formatUnits, type Address } from "viem";
-import { Badge } from "@fractals/ui/ui/badge";
-import { Button } from "@fractals/ui/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@fractals/ui/ui/card";
-import { Input } from "@fractals/ui/ui/input";
-import { Skeleton } from "@fractals/ui/ui/skeleton";
-import { cn } from "@fractals/ui/lib/cn";
+import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
 import { AddTokenToWalletButton } from "@/components/shared/add-token-to-wallet-button";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";

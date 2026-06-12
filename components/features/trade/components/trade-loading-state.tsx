@@ -1,4 +1,4 @@
-import { Skeleton } from "@fractals/ui/ui/skeleton";
+import { Skeleton } from "@ui";
 
 export function TradeLoadingState() {
   return (

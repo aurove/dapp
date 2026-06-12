@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import type { Address } from "viem";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
-import { Button } from "@fractals/ui/ui/button";
+import { Button } from "@ui";
 
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";
 import { useTxFlowRuntime } from "@/lib/providers/web3-providers";

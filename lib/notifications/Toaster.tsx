@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ExternalLink, X } from "lucide-react";
-import { Button } from "@fractals/ui/ui/button";
+import { Button } from "@ui";
 import { getExplorerTxUrl, shortHash } from "./urls";
 import { useNotifyStore } from "./store";
 

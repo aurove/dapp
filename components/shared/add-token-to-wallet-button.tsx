@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CheckCircle2, Loader2, Wallet } from "lucide-react";
 import type { Address } from "viem";
-import { Button, type ButtonProps } from "@fractals/ui/ui/button";
+import { Button, type ButtonProps } from "@ui";
 import { notify } from "@/lib/notifications";
 import { watchTokenAsset } from "@/lib/web3/watch-asset";
 

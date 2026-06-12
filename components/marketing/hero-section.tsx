@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, Workflow } from "lucide-react";
-import { Badge } from "@fractals/ui/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@fractals/ui/ui/card";
-import { buttonVariants } from "@fractals/ui/ui/button";
+import { Badge, Card, CardContent, CardHeader, CardTitle, buttonVariants } from "@ui";
 
 const highlights = [
   { label: "Earn", value: "Simple fungible products" },

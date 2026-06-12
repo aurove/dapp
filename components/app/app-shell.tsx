@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { BellRing, ShieldCheck } from "lucide-react";
-import { Badge } from "@fractals/ui/ui/badge";
+import { Badge } from "@ui";
 import { AppNav } from "@/components/app/app-nav";
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";

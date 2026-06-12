@@ -3,17 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { Button } from "@fractals/ui/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@fractals/ui/ui/dialog";
-import { Input } from "@fractals/ui/ui/input";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input } from "@ui";
 import { CircleAlert, Info, Loader2 } from "lucide-react";
 import { makeContractWriteStep, TransactionFlowButton, type TxStep } from "@/lib/tx-flow";
 import { useReadContract } from "wagmi";

@@ -1,6 +1,6 @@
 # Fractals dApp
 
-The Fractals dApp is the user-facing web app for creating, managing, and trading simple fungible Earn products from Mezo veNFT positions. It is built with Next.js, React, wagmi, RainbowKit, Tailwind CSS, and the local `@fractals/ui` component package.
+The Fractals dApp is the user-facing web app for creating, managing, and trading simple fungible Earn products from Mezo veNFT positions. It is built with Next.js, React, wagmi, RainbowKit, Tailwind CSS, and the local shared UI source in `components/ui/`.
 
 ## Overview
 
@@ -35,7 +35,7 @@ _Market Order View_
 - `contracts/` - generated contract registry and typing used by transaction flows.
 - `lib/tx-flow/` - reusable multi-step transaction execution utilities.
 - `lib/providers/` - wagmi, RainbowKit, and query providers.
-- `lib/ui/` - local shared UI package exported as `@fractals/ui`.
+- `components/ui/` - local shared UI source used throughout the app via the `@ui` path alias.
 
 ## Environment
 

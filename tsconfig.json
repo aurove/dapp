@@ -24,6 +24,8 @@
       }
     ],
     "paths": {
+      "@ui": ["./components/ui/index.ts"],
+      "@ui/*": ["./components/ui/*"],
       "@/*": ["./*"]
     }
   },
