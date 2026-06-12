@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { erc20Abi, erc1155Abi } from "viem";
+import { erc1155Abi } from "viem";
 import { useAccount, useReadContracts } from "wagmi";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@ui";
 import { AddTokenToWalletButton } from "@/components/shared/add-token-to-wallet-button";
+import { useKnownMezoTokenBalance } from "@/components/shared/use-known-mezo-token-balance";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { detailReadQueryOptions } from "@/lib/web3/read-query-options";
@@ -87,9 +88,16 @@ export function TradeMarketDialog({
   );
 
   const hasPausedRead = Boolean(marketplaceAdminAddress);
-  const hasAllowanceRead = Boolean(paymentRouterAddress);
   const hasFractionRead = Boolean(assetLedgerAddress && assetLedger.abi);
   const hasFractionApprovalRead = Boolean(hasFractionRead && marketplaceAddress);
+
+  const paymentTokenBalance = useKnownMezoTokenBalance({
+    ownerAddress: userAddress,
+    tokenAddress: market.paymentToken,
+    tokenSymbol: market.paymentTokenSymbol,
+    spenderAddress: paymentRouterAddress,
+    chainId: expectedChainId,
+  });
 
   const reads = useReadContracts({
     allowFailure: true,
@@ -102,24 +110,6 @@ export function TradeMarketDialog({
                     address: marketplaceAdminAddress,
                     abi: getContractConfig(expectedChainId, "MarketplaceAdmin")!.abi,
                     functionName: "isPaused",
-                    chainId: expectedChainId,
-                  },
-                ]
-              : []),
-            {
-              address: market.paymentToken,
-              abi: erc20Abi,
-              functionName: "balanceOf",
-              args: [userAddress],
-              chainId: expectedChainId,
-            },
-            ...(hasAllowanceRead && paymentRouterAddress
-              ? [
-                  {
-                    address: market.paymentToken,
-                    abi: erc20Abi,
-                    functionName: "allowance",
-                    args: [userAddress, paymentRouterAddress],
                     chainId: expectedChainId,
                   },
                 ]
@@ -155,13 +145,9 @@ export function TradeMarketDialog({
   });
 
   const isPaused = hasPausedRead ? reads.data?.[0]?.result === true : false;
-  const paymentBalanceIndex = hasPausedRead ? 1 : 0;
-  const paymentBalance = (reads.data?.[paymentBalanceIndex]?.result as bigint | undefined) ?? 0n;
-  const paymentAllowanceIndex = paymentBalanceIndex + 1;
-  const paymentAllowance = hasAllowanceRead
-    ? ((reads.data?.[paymentAllowanceIndex]?.result as bigint | undefined) ?? 0n)
-    : 0n;
-  const fractionBalanceIndex = paymentAllowanceIndex + (hasAllowanceRead ? 1 : 0);
+  const paymentBalance = paymentTokenBalance.balanceRaw;
+  const paymentAllowance = paymentTokenBalance.allowanceRaw;
+  const fractionBalanceIndex = hasPausedRead ? 1 : 0;
   const fractionBalance = (reads.data?.[fractionBalanceIndex]?.result as bigint | undefined) ?? 0n;
   const fractionApproved =
     hasFractionApprovalRead &&

@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { erc20Abi, parseAbiItem, type Abi, type Address, type PublicClient } from "viem";
 import { useAccount, useChainId, usePublicClient, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
+import { useKnownMezoTokenBalance } from "@/components/shared/use-known-mezo-token-balance";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { detailReadQueryOptions, staticReadQueryOptions } from "@/lib/web3/read-query-options";
 import {
@@ -128,7 +129,6 @@ const TRANCHE_META_READS = 4;
 const PRODUCT_STATIC_READS = 9;
 const PRODUCT_ACCOUNT_READS = 3;
 const TOKEN_META_READS = 2;
-const TOKEN_ACCOUNT_READS = 2;
 const POSITION_READS = 2;
 
 function getFundingScanCache(chainId: number): FundingScanCache {
@@ -516,24 +516,17 @@ function buildTokenInfoMap(params: {
   veNftAddress: Address;
   underlyingAddress: Address | null;
   meta: { symbol: string | null; decimals: number };
-  userAddress: Address | null | undefined;
-  accountReads: Array<{ result?: unknown }> | undefined;
-  index: number;
+  balanceRaw: bigint;
+  allowanceRaw: bigint;
   fallbackSymbol: string;
 }) {
-  const cursor = params.index * TOKEN_ACCOUNT_READS;
-  const balanceResult = readResult<bigint>(params.accountReads, cursor);
-  const allowanceResult = readResult<bigint>(params.accountReads, cursor + 1);
-
   return {
     veNftAddress: params.veNftAddress,
     underlyingAddress: params.underlyingAddress,
     symbol: params.meta.symbol ?? params.fallbackSymbol,
     decimals: params.meta.decimals,
-    balanceRaw:
-      params.userAddress && params.underlyingAddress ? (readBigint(balanceResult) ?? 0n) : 0n,
-    allowanceRaw:
-      params.userAddress && params.underlyingAddress ? (readBigint(allowanceResult) ?? 0n) : 0n,
+    balanceRaw: params.underlyingAddress ? params.balanceRaw : 0n,
+    allowanceRaw: params.underlyingAddress ? params.allowanceRaw : 0n,
   } satisfies EarnTokenInfo;
 }
 
@@ -937,65 +930,19 @@ export function useEarnSnapshot() {
     },
   });
 
-  const veTokenAccountContracts = useMemo(() => {
-    if (!userAddress) return [];
-
-    const contracts: Array<{
-      address: Address;
-      abi: Abi;
-      functionName: "balanceOf" | "allowance";
-      args: readonly [Address] | readonly [Address, Address];
-      chainId: number;
-    }> = [];
-
-    if (veBtcUnderlyingAddress && assetLedger?.address) {
-      contracts.push(
-        {
-          address: veBtcUnderlyingAddress,
-          abi: erc20Abi,
-          functionName: "balanceOf",
-          args: [userAddress],
-          chainId,
-        },
-        {
-          address: veBtcUnderlyingAddress,
-          abi: erc20Abi,
-          functionName: "allowance",
-          args: [userAddress, assetLedger.address],
-          chainId,
-        },
-      );
-    }
-
-    if (veMezoUnderlyingAddress && assetLedger?.address) {
-      contracts.push(
-        {
-          address: veMezoUnderlyingAddress,
-          abi: erc20Abi,
-          functionName: "balanceOf",
-          args: [userAddress],
-          chainId,
-        },
-        {
-          address: veMezoUnderlyingAddress,
-          abi: erc20Abi,
-          functionName: "allowance",
-          args: [userAddress, assetLedger.address],
-          chainId,
-        },
-      );
-    }
-
-    return contracts;
-  }, [assetLedger?.address, chainId, userAddress, veBtcUnderlyingAddress, veMezoUnderlyingAddress]);
-
-  const veTokenAccountReads = useReadContracts({
-    allowFailure: true,
-    contracts: veTokenAccountContracts,
-    query: {
-      enabled: veTokenAccountContracts.length > 0,
-      ...detailReadQueryOptions,
-    },
+  const veBtcTokenBalance = useKnownMezoTokenBalance({
+    ownerAddress: userAddress,
+    tokenAddress: veBtcUnderlyingAddress,
+    tokenSymbol: "BTC",
+    spenderAddress: assetLedger?.address,
+    chainId,
+  });
+  const veMezoTokenBalance = useKnownMezoTokenBalance({
+    ownerAddress: userAddress,
+    tokenAddress: veMezoUnderlyingAddress,
+    tokenSymbol: "MEZO",
+    spenderAddress: assetLedger?.address,
+    chainId,
   });
 
   const tokens = useMemo<Record<EarnVariant, EarnTokenInfo | null>>(() => {
@@ -1024,10 +971,9 @@ export function useEarnSnapshot() {
               symbol: "BTC",
               decimals: 18,
             },
-            userAddress,
-            accountReads: veTokenAccountReads.data,
-            index: 0,
             fallbackSymbol: "BTC",
+            balanceRaw: veBtcTokenBalance.balanceRaw,
+            allowanceRaw: veBtcTokenBalance.allowanceRaw,
           })
         : null;
 
@@ -1040,10 +986,9 @@ export function useEarnSnapshot() {
               symbol: "MEZO",
               decimals: 18,
             },
-            userAddress,
-            accountReads: veTokenAccountReads.data,
-            index: veBtcUnderlyingAddress ? 1 : 0,
             fallbackSymbol: "MEZO",
+            balanceRaw: veMezoTokenBalance.balanceRaw,
+            allowanceRaw: veMezoTokenBalance.allowanceRaw,
           })
         : null;
 
@@ -1052,12 +997,14 @@ export function useEarnSnapshot() {
       veMEZO: veMezoToken,
     };
   }, [
-    userAddress,
-    veBtc?.address,
+    veBtc,
     veBtcUnderlyingAddress,
-    veMezo?.address,
+    veBtcTokenBalance.allowanceRaw,
+    veBtcTokenBalance.balanceRaw,
+    veMezo,
     veMezoUnderlyingAddress,
-    veTokenAccountReads.data,
+    veMezoTokenBalance.allowanceRaw,
+    veMezoTokenBalance.balanceRaw,
     veTokenMetaReads.data,
   ]);
 
@@ -1149,7 +1096,8 @@ export function useEarnSnapshot() {
     productAccountReads.isLoading ||
     rewardMetadataReads.isLoading ||
     veTokenMetaReads.isLoading ||
-    veTokenAccountReads.isLoading;
+    veBtcTokenBalance.isChecking ||
+    veMezoTokenBalance.isChecking;
 
   const isFetching =
     ledgerReads.isFetching ||
@@ -1159,7 +1107,8 @@ export function useEarnSnapshot() {
     productAccountReads.isFetching ||
     rewardMetadataReads.isFetching ||
     veTokenMetaReads.isFetching ||
-    veTokenAccountReads.isFetching;
+    veBtcTokenBalance.isChecking ||
+    veMezoTokenBalance.isChecking;
 
   const error =
     (ledgerReads.error as Error | null) ||
@@ -1169,7 +1118,8 @@ export function useEarnSnapshot() {
     (productAccountReads.error as Error | null) ||
     (rewardMetadataReads.error as Error | null) ||
     (veTokenMetaReads.error as Error | null) ||
-    (veTokenAccountReads.error as Error | null) ||
+    (veBtcTokenBalance.error as Error | null) ||
+    (veMezoTokenBalance.error as Error | null) ||
     null;
 
   function refresh() {
@@ -1181,7 +1131,8 @@ export function useEarnSnapshot() {
       productAccountReads.refetch(),
       rewardMetadataReads.refetch(),
       veTokenMetaReads.refetch(),
-      veTokenAccountReads.refetch(),
+      veBtcTokenBalance.refresh(),
+      veMezoTokenBalance.refresh(),
     ]);
     void queryClient.invalidateQueries({ queryKey: [EARN_APR_QUERY_PREFIX] });
   }
@@ -1213,7 +1164,6 @@ export function useEarnProductDetails(
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = connectedChainId ?? activeChain.id;
   const veNftManager = getContractConfig(chainId, "MezoVeNFTManager");
-  const assetLedger = getContractConfig(chainId, "AssetLedger");
   const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
   const veNftAbi = getContractConfig(
     chainId,

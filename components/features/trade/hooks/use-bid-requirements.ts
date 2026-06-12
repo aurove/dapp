@@ -1,13 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
-import { erc20Abi, type Address } from "viem";
-import { useReadContracts } from "wagmi";
-import { detailReadQueryOptions } from "@/lib/web3/read-query-options";
+import type { Address } from "viem";
+import { useKnownMezoTokenBalance } from "@/components/shared/use-known-mezo-token-balance";
 
 type UseBidRequirementsParams = {
   bidderAddress?: Address;
   paymentToken?: Address;
+  paymentTokenSymbol?: string;
   paymentRouterAddress?: Address;
   requiredPaymentRaw: bigint;
   isNativePayment?: boolean;
@@ -17,53 +16,24 @@ type UseBidRequirementsParams = {
 export function useBidRequirements({
   bidderAddress,
   paymentToken,
+  paymentTokenSymbol,
   paymentRouterAddress,
   requiredPaymentRaw,
   chainId,
 }: UseBidRequirementsParams) {
-  const contracts = useMemo(
-    () =>
-      bidderAddress && paymentToken && paymentRouterAddress
-        ? [
-            {
-              address: paymentToken,
-              abi: erc20Abi,
-              functionName: "balanceOf",
-              args: [bidderAddress],
-              chainId,
-            },
-            {
-              address: paymentToken,
-              abi: erc20Abi,
-              functionName: "allowance",
-              args: [bidderAddress, paymentRouterAddress],
-              chainId,
-            },
-          ]
-        : [],
-    [bidderAddress, chainId, paymentRouterAddress, paymentToken],
-  );
-
-  const reads = useReadContracts({
-    allowFailure: true,
-    contracts,
-    query: {
-      enabled: contracts.length > 0,
-      ...detailReadQueryOptions,
-    },
+  const paymentTokenBalance = useKnownMezoTokenBalance({
+    ownerAddress: bidderAddress,
+    tokenAddress: paymentToken,
+    tokenSymbol: paymentTokenSymbol,
+    spenderAddress: paymentRouterAddress,
+    chainId,
   });
 
-  const balanceRaw = (reads.data?.[0]?.result as bigint | undefined) ?? 0n;
-  const allowanceRaw = (reads.data?.[1]?.result as bigint | undefined) ?? 0n;
+  const balanceRaw = paymentTokenBalance.balanceRaw;
+  const allowanceRaw = paymentTokenBalance.allowanceRaw;
 
   const hasEnoughBalance = requiredPaymentRaw <= 0n || balanceRaw >= requiredPaymentRaw;
   const hasEnoughAllowance = requiredPaymentRaw <= 0n || allowanceRaw >= requiredPaymentRaw;
-
-  const anyError = (reads.error as Error | null) ?? null;
-
-  function refresh() {
-    void reads.refetch();
-  }
 
   return {
     balanceRaw,
@@ -71,8 +41,8 @@ export function useBidRequirements({
     hasEnoughBalance,
     hasEnoughAllowance,
     needsApproval: requiredPaymentRaw > 0n && !hasEnoughAllowance,
-    isChecking: reads.isPending || reads.isFetching,
-    error: anyError,
-    refresh,
+    isChecking: paymentTokenBalance.isChecking,
+    error: paymentTokenBalance.error,
+    refresh: paymentTokenBalance.refresh,
   };
 }

@@ -3,7 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useFormik } from "formik";
 import * as yup from "yup";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input } from "@ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  Input,
+} from "@ui";
 import { CircleAlert, Info, Loader2 } from "lucide-react";
 import { makeContractWriteStep, TransactionFlowButton, type TxStep } from "@/lib/tx-flow";
 import { useReadContract } from "wagmi";
@@ -368,6 +378,7 @@ export function TradePlaceBidDialog({
   const bidRequirements = useBidRequirements({
     bidderAddress: userAddress,
     paymentToken: selectedPaymentToken?.address,
+    paymentTokenSymbol: selectedPaymentToken?.symbol,
     paymentRouterAddress: bidWorkflowContracts?.paymentRouterAddress,
     requiredPaymentRaw,
     isNativePayment: selectedPaymentToken?.symbol === "BTC",
