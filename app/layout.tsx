@@ -7,14 +7,14 @@ import { NotificationsToaster } from "@/lib/notifications";
 export const metadata: Metadata = {
   metadataBase: new URL("https://aurove.xyz"),
   title: {
-    default: "Aurove | Simple Fungible Mezo Earn Products",
+    default: "Aurove | Liquid ve-Yield Layer for Mezo Earn",
     template: "%s | Aurove",
   },
   description:
     "Aurove is the liquid ve-yield layer for Mezo Earn.",
   applicationName: "Aurove",
   keywords: [
-    "Aurove",
+    "BTC",
     "veBTC",
     "veMEZO",
     "Mezo Earn",
@@ -23,16 +23,16 @@ export const metadata: Metadata = {
     "optimised yields",
   ],
   openGraph: {
-    title: "Aurove | Simple Fungible Mezo Earn Products",
+    title: "Aurove | Liquid ve-Yield Layer for Mezo Earn",
     description:
-      "Simple fungible Earn products for complex veBTC / veMEZO positions, gauges, boosts, rewards, and incentive routing.",
+      "Aurove turns veBTC and veMEZO positions into liquid, tradable Mezo Earn products.",
     type: "website",
     siteName: "Aurove",
     url: "/",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Aurove | Simple Fungible Mezo Earn Products",
+    title: "Aurove | Liquid ve-Yield Layer for Mezo Earn",
     description:
       "Aurove turns veBTC and veMEZO positions into liquid, tradable Mezo Earn products.",
   },
