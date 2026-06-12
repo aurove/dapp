@@ -4,19 +4,6 @@ import { erc721Abi, type Address } from "viem";
 import { useReadContracts } from "wagmi";
 import { detailReadQueryOptions } from "@/lib/web3/read-query-options";
 
-const MARKETPLACE_OPERATOR_ABI = [
-  {
-    inputs: [
-      { internalType: "address", name: "seller", type: "address" },
-      { internalType: "address", name: "operator", type: "address" },
-    ],
-    name: "isListingOperator",
-    outputs: [{ internalType: "bool", name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
-
 const ERC1155_APPROVAL_ABI = [
   {
     inputs: [
@@ -69,17 +56,6 @@ export function useListingRequirements({
                   },
                 ]
               : []),
-            ...(includeVeFlow
-              ? [
-                  {
-                    address: listingWorkflowContracts.marketplaceAddress,
-                    abi: MARKETPLACE_OPERATOR_ABI,
-                    functionName: "isListingOperator",
-                    args: [sellerAddress, listingWorkflowContracts.listingWrapperAddress],
-                    chainId,
-                  },
-                ]
-              : []),
             {
               address: listingWorkflowContracts.assetLedgerAddress,
               abi: ERC1155_APPROVAL_ABI,
@@ -96,22 +72,17 @@ export function useListingRequirements({
   });
 
   const veNftApprovalRead = reads.data?.[0]?.result;
-  const marketplaceOperatorRead =
-    reads.data?.[includeVeFlow && veNftCollectionAddress ? 1 : 0]?.result;
-  const fractionApprovalIndex =
-    (includeVeFlow && veNftCollectionAddress ? 1 : 0) + (includeVeFlow ? 1 : 0);
+  const fractionApprovalIndex = includeVeFlow && veNftCollectionAddress ? 1 : 0;
   const fractionApprovalRead = reads.data?.[fractionApprovalIndex]?.result;
 
   const veNftTransferApproved = includeVeFlow ? veNftApprovalRead === true : true;
-  const marketplaceOperatorApproved = includeVeFlow ? marketplaceOperatorRead === true : true;
   const fractionTransferApproved = fractionApprovalRead === true;
 
   const isChecking = reads.isPending || reads.isFetching;
 
   const anyError = (reads.error as Error | null) || null;
 
-  const allApproved =
-    veNftTransferApproved && marketplaceOperatorApproved && fractionTransferApproved;
+  const allApproved = veNftTransferApproved && fractionTransferApproved;
 
   function refresh() {
     void reads.refetch();
@@ -119,7 +90,6 @@ export function useListingRequirements({
 
   return {
     veNftTransferApproved,
-    marketplaceOperatorApproved,
     fractionTransferApproved,
     allApproved,
     isChecking,

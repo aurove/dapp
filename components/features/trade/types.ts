@@ -104,7 +104,6 @@ export type CreateVeTradeListingInput = {
   expiryMode: "timed" | "none";
   expiryDays: number;
   requiresVeNftApproval?: boolean;
-  requiresListingOperatorApproval?: boolean;
   requiresFractionTransferApproval?: boolean;
 };
 

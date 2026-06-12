@@ -8,7 +8,7 @@ import { getKnownMezoTokenConfig } from "./known-mezo-tokens";
 
 type UseKnownMezoTokenBalanceParams = {
   ownerAddress?: Address;
-  tokenAddress?: Address;
+  tokenAddress?: Address | null;
   tokenSymbol?: string;
   spenderAddress?: Address;
   chainId?: number;
@@ -78,8 +78,8 @@ export function useKnownMezoTokenBalance({
 
   const balanceRaw = (reads.data?.[0]?.result as bigint | undefined) ?? 0n;
   const allowanceRaw =
-    spenderAddress && reads.data?.length > 1
-      ? ((reads.data?.[1]?.result as bigint | undefined) ?? 0n)
+    spenderAddress && reads.data?.[1]
+      ? ((reads.data[1].result as bigint | undefined) ?? 0n)
       : 0n;
 
   return {

@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { parseUnits, erc721Abi, type Address } from "viem";
+import { parseUnits, erc721Abi, type Address, type Hex } from "viem";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { getContractConfig } from "@/contracts/client";
 import { staticReadQueryOptions } from "@/lib/web3/read-query-options";
 import { useChainTime } from "@/lib/web3/use-chain-time";
-import { useReadContracts } from "wagmi";
+import { useReadContracts, useWalletClient } from "wagmi";
 import { useTradeFlowContext } from "./use-trade-flow-context";
 import type {
   CreateFractionTradeListingInput,
@@ -24,13 +24,26 @@ type TradePaymentTokenOption = {
 const NATIVE_TOKEN_DECIMALS = 18;
 
 export function useTradeListing() {
-  const { chainId, blockExplorerUrl } = useTradeFlowContext();
+  const { chainId, blockExplorerUrl, userAddress } = useTradeFlowContext();
   const { chainTimestamp } = useChainTime();
+  const { data: walletClient } = useWalletClient();
 
-  const listingWrapper = getContractConfig(chainId, "VeNftFractionListing");
+  const listingWrapper = getContractConfig(chainId, "VeNftListing");
   const assetLedger = getContractConfig(chainId, "AssetLedger");
   const marketplace = getContractConfig(chainId, "Marketplace");
   const paymentRouter = getContractConfig(chainId, "PaymentRouter");
+  const listingDomain = useMemo(
+    () =>
+      marketplace?.address
+        ? ({
+            name: "AuroveMarketplace",
+            version: "1",
+            chainId,
+            verifyingContract: marketplace.address,
+          } as const)
+        : null,
+    [chainId, marketplace?.address],
+  );
 
   const paymentTokenConfigContracts = useMemo(
     () =>
@@ -189,13 +202,19 @@ export function useTradeListing() {
 
   function createVeListingSteps(input: CreateVeTradeListingInput) {
     if (!listingWrapper?.address || !listingWrapper.abi) {
-      throw new Error("VeNftFractionListing contract is unavailable for the connected network.");
+      throw new Error("VeNftListing contract is unavailable for the connected network.");
     }
     if (!assetLedger?.address || !assetLedger.abi) {
       throw new Error("AssetLedger contract is unavailable for the connected network.");
     }
     if (!marketplace?.address || !marketplace.abi) {
       throw new Error("Marketplace contract is unavailable for the connected network.");
+    }
+    if (!walletClient || !listingDomain) {
+      throw new Error("Connected wallet is unavailable for signing the listing request.");
+    }
+    if (!userAddress) {
+      throw new Error("Connect your wallet before publishing a listing.");
     }
     if (!input.veNftAddress) {
       throw new Error("Missing selected ve token contract address.");
@@ -234,20 +253,6 @@ export function useTradeListing() {
       );
     }
 
-    if (input.requiresListingOperatorApproval) {
-      steps.push(
-        makeContractWriteStep({
-          key: "approve-marketplace-operator",
-          label: "Approve Marketplace",
-          contractName: "Marketplace",
-          variables: {
-            functionName: "setListingOperator",
-            args: [listingWrapper.address, true],
-          },
-        }) as unknown as TxStep,
-      );
-    }
-
     if (input.requiresFractionTransferApproval) {
       steps.push(
         makeContractWriteStep({
@@ -266,17 +271,48 @@ export function useTradeListing() {
       makeContractWriteStep({
         key: "fractionalize-list",
         label: "List Asset",
-        contractName: "VeNftFractionListing",
-        variables: {
-          functionName: "fractionalizeAndList",
-          args: [
-            input.veNftAddress,
-            input.veNftTokenId,
-            parseUnits(input.listAmount, 18),
-            input.paymentToken,
-            parseUnits(input.unitPrice, input.paymentTokenDecimals),
+        contractName: "VeNftListing",
+        variables: async () => {
+          if (!walletClient || !listingDomain) {
+            throw new Error("Connected wallet is unavailable for signing the listing request.");
+          }
+
+          const now = chainTimestamp ?? BigInt(Math.floor(Date.now() / 1000));
+          const request = {
+            seller: userAddress,
+            collection: assetLedger.address,
+            tokenId: input.veNftTokenId,
+            amount: parseUnits(input.listAmount, 18),
+            paymentToken: input.paymentToken,
+            pricePerUnit: parseUnits(input.unitPrice, input.paymentTokenDecimals),
             expiry,
-          ],
+            nonce: BigInt(Date.now()),
+            deadline: now + 30n * 60n,
+          } as const;
+          const sellerSignature = (await walletClient.signTypedData({
+            account: userAddress,
+            domain: listingDomain,
+            types: {
+              ListingRequest: [
+                { name: "seller", type: "address" },
+                { name: "collection", type: "address" },
+                { name: "tokenId", type: "uint256" },
+                { name: "amount", type: "uint256" },
+                { name: "paymentToken", type: "address" },
+                { name: "pricePerUnit", type: "uint256" },
+                { name: "expiry", type: "uint64" },
+                { name: "nonce", type: "uint256" },
+                { name: "deadline", type: "uint256" },
+              ],
+            },
+            primaryType: "ListingRequest",
+            message: request,
+          })) as Hex;
+
+          return {
+            functionName: "listVeNft",
+            args: [input.veNftAddress, input.veNftTokenId, request, sellerSignature],
+          };
         },
       }) as unknown as TxStep,
     );

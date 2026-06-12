@@ -380,7 +380,6 @@ export function TradeCreateListingDialog({
       expiryMode: formik.values.expiryMode,
       expiryDays: formik.values.expiryMode === "none" ? 0 : commonListingInputs.expiryDays,
       requiresVeNftApproval: !requirements.veNftTransferApproved,
-      requiresListingOperatorApproval: !requirements.marketplaceOperatorApproved,
       requiresFractionTransferApproval: !requirements.fractionTransferApproved,
     } satisfies CreateVeTradeListingInput;
   }, [
@@ -395,7 +394,6 @@ export function TradeCreateListingDialog({
     isConnected,
     isCorrectNetwork,
     requirements.fractionTransferApproved,
-    requirements.marketplaceOperatorApproved,
     requirements.veNftTransferApproved,
     selectedCollection,
     selectedNft,
@@ -577,7 +575,6 @@ export function TradeCreateListingDialog({
   const primaryActionLabel = useMemo(() => {
     if (preparedVeListingInput) {
       if (preparedVeListingInput.requiresVeNftApproval) return "Approve veNFT";
-      if (preparedVeListingInput.requiresListingOperatorApproval) return "Approve listing operator";
       if (preparedVeListingInput.requiresFractionTransferApproval)
         return "Approve fraction transfers";
       return listingAutoMatchCandidate ? "Publish & match" : "Publish listing";
@@ -622,12 +619,6 @@ export function TradeCreateListingDialog({
               detail: "Required for wrapper-driven fractionalization.",
               ready: requirements.veNftTransferApproved,
             },
-            {
-              key: "operator",
-              label: "Listing operator approval",
-              detail: "Allows wrapper to create listing on your behalf.",
-              ready: requirements.marketplaceOperatorApproved,
-            },
           ]
         : []),
       {
@@ -643,7 +634,6 @@ export function TradeCreateListingDialog({
       isCorrectNetwork,
       formik.values.listingMode,
       requirements.fractionTransferApproved,
-      requirements.marketplaceOperatorApproved,
       requirements.veNftTransferApproved,
     ],
   );
@@ -665,12 +655,6 @@ export function TradeCreateListingDialog({
               label: "veNFT transfer approval",
               detail: "A one-time approval transaction may be requested.",
               ready: requirements.veNftTransferApproved,
-            },
-            {
-              key: "operator-approval",
-              label: "Wrapper listing operator",
-              detail: "A one-time operator approval may be requested.",
-              ready: requirements.marketplaceOperatorApproved,
             },
           ]
         : []),
@@ -697,7 +681,6 @@ export function TradeCreateListingDialog({
     preparedFractionListingInput,
     preparedVeListingInput,
     requirements.fractionTransferApproved,
-    requirements.marketplaceOperatorApproved,
     requirements.veNftTransferApproved,
   ]);
 
