@@ -60,6 +60,8 @@ const KNOWN_ERROR_ABIS = (() => {
   return abis;
 })();
 
+const RETURN_DATA_REGEX = /return data:\s*(0x[a-fA-F0-9]+)/;
+
 function isHexLike(value: unknown): value is HexLike {
   return typeof value === "string" && value.startsWith("0x");
 }
@@ -113,6 +115,8 @@ function formatKnownCustomError(errorName: string, args: readonly unknown[]): st
       return "Enter a price greater than zero.";
     case "InvalidExpiry":
       return "The selected expiry is invalid.";
+    case "ListingSignatureExpired":
+      return `The listing signature expired at ${stringifyArg(args[0])}. Please create a new listing.`;
     case "PaymentTokenNotAllowed":
       return `The selected payment token (${formatAddress(args[0])}) is not allowed for this marketplace.`;
     case "InvalidAdminContract":
@@ -204,6 +208,15 @@ function parseCustomErrorString(value: string): { errorName: string; args: strin
   };
 }
 
+function extractReturnData(value: string | undefined): HexLike | undefined {
+  if (!value) return undefined;
+
+  const match = value.match(RETURN_DATA_REGEX);
+  if (!match) return undefined;
+
+  return match[1] as HexLike;
+}
+
 function formatCustomError(errorName: string, args: readonly unknown[]): string {
   return formatKnownCustomError(errorName, args) ?? formatRawCustomError(errorName, args);
 }
@@ -258,7 +271,11 @@ function decodeCustomErrorFallback(errorData: HexLike): string | undefined {
 export const getParsedError = (error: unknown): string => {
   const candidate = error as ParsedErrorLike | undefined;
   const parsedError = candidate?.walk ? candidate.walk() : error;
-  const revertData = extractRevertData(parsedError);
+  const revertData =
+    extractRevertData(parsedError) ||
+    extractReturnData(candidate?.shortMessage) ||
+    extractReturnData(candidate?.details) ||
+    extractReturnData(candidate?.message);
 
   if (parsedError instanceof BaseViemError) {
     if (
@@ -321,6 +338,15 @@ export const getParsedError = (error: unknown): string => {
     const shortMessage =
       typeof fallback.shortMessage === "string" ? fallback.shortMessage : undefined;
     const message = typeof fallback.message === "string" ? fallback.message : undefined;
+    const rawData = extractReturnData(shortMessage) || extractReturnData(message);
+
+    if (rawData) {
+      const decoded = decodeCustomErrorFallback(rawData);
+      if (decoded) {
+        return decoded;
+      }
+    }
+
     return (
       formatKnownErrorInMessage(shortMessage) ??
       formatKnownErrorInMessage(message) ??
