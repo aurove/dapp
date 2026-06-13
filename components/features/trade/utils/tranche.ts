@@ -3,6 +3,10 @@ export type CanonicalAssetVariant = "veBTC" | "veMEZO";
 export const TRANCHE_MIN = 1;
 export const TRANCHE_MAX = 208;
 const WEEK_SECONDS = 7n * 24n * 60n * 60n;
+const MAX_TRANCHE_BY_VARIANT: Record<CanonicalAssetVariant, number> = {
+  veBTC: 4,
+  veMEZO: 208,
+};
 
 function variantPart(variant: CanonicalAssetVariant): number {
   return variant === "veBTC" ? 1 : 2;
@@ -23,6 +27,7 @@ export function deriveTrancheId(variant: CanonicalAssetVariant, trancheNumber: n
 }
 
 export function deriveTrancheNumberFromLock(
+  variant: CanonicalAssetVariant,
   lockEnd: bigint,
   isPermanent: boolean,
   timestamp: bigint,
@@ -30,10 +35,14 @@ export function deriveTrancheNumberFromLock(
   if (isPermanent) return null;
 
   const remaining = lockEnd > timestamp ? lockEnd - timestamp : 0n;
-  const trancheNumber = remaining === 0n ? 0n : ((remaining - 1n) / WEEK_SECONDS) + 1n;
+  const trancheNumber =
+    remaining === 0n ? 0n : ((remaining - 1n) / WEEK_SECONDS) + 1n;
+  const variantMax = BigInt(MAX_TRANCHE_BY_VARIANT[variant]);
+
+  if (trancheNumber === 0n) return MAX_TRANCHE_BY_VARIANT[variant];
 
   if (trancheNumber < BigInt(TRANCHE_MIN)) return TRANCHE_MIN;
-  if (trancheNumber > BigInt(TRANCHE_MAX)) return TRANCHE_MAX;
+  if (trancheNumber > variantMax) return MAX_TRANCHE_BY_VARIANT[variant];
 
   return Number(trancheNumber);
 }
@@ -44,7 +53,7 @@ export function deriveTrancheIdFromLock(
   isPermanent: boolean,
   timestamp: bigint,
 ): bigint | null {
-  const trancheNumber = deriveTrancheNumberFromLock(lockEnd, isPermanent, timestamp);
+  const trancheNumber = deriveTrancheNumberFromLock(variant, lockEnd, isPermanent, timestamp);
   if (trancheNumber === null) return null;
 
   return deriveTrancheId(variant, trancheNumber);
