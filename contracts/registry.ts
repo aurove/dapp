@@ -607,7 +607,7 @@ const contracts = {
       ],
     },
     AssetFractionBeacon: {
-      address: "0x56cB5406C23d0fb16EaC535D6108CA72980c8072",
+      address: "0x0165878A594ca255338adfa4d48449f69242Eb8F",
       abi: [
         {
           inputs: [
@@ -687,7 +687,7 @@ const contracts = {
       ],
     },
     AssetLedger: {
-      address: "0x566be608Fe7e9f23c9337004cfB60877810E6d28",
+      address: "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         {
@@ -1335,7 +1335,7 @@ const contracts = {
       ],
     },
     ClaimsLib: {
-      address: "0xF978b011bcf604b201996FEb3E53eD3D52F0A90F",
+      address: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
       abi: [
         { inputs: [], name: "BurnAmountMismatch", type: "error" },
         { inputs: [], name: "FractionMismatch", type: "error" },
@@ -1532,7 +1532,7 @@ const contracts = {
       ],
     },
     Marketplace: {
-      address: "0x8406DE314Ce609Ff8228193b2535f13527917803",
+      address: "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
       abi: [
         {
           inputs: [
@@ -2849,7 +2849,7 @@ const contracts = {
       ],
     },
     MarketplaceAdmin: {
-      address: "0x1c2fb12ECCA5EDB9ac8dA583cAa865E7C893a7ef",
+      address: "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
       abi: [
         {
           inputs: [{ internalType: "address", name: "defaultAdmin", type: "address" }],
@@ -3259,7 +3259,7 @@ const contracts = {
       ],
     },
     MezoRewardConverter: {
-      address: "0xa2a0D69221829d6005E31Bb187A0A5DEBEaD8331",
+      address: "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         {
@@ -3762,7 +3762,7 @@ const contracts = {
       ],
     },
     MezoVeNFTManager: {
-      address: "0xca9507C5F707103e86B45DF4b35C37FE2700BB5B",
+      address: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         {
@@ -4943,7 +4943,7 @@ const contracts = {
       ],
     },
     PaymentRouter: {
-      address: "0x42E5a852Aa5cd4284227796Bc5d2461189A65b8a",
+      address: "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1",
       abi: [
         {
           inputs: [
@@ -5221,7 +5221,7 @@ const contracts = {
       ],
     },
     PositionOpsLib: {
-      address: "0x6B99600daD0a1998337357696827381D122825F3",
+      address: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
       abi: [
         { inputs: [], name: "BurnAmountMismatch", type: "error" },
         { inputs: [], name: "FractionMismatch", type: "error" },
@@ -5252,7 +5252,7 @@ const contracts = {
       ],
     },
     VeBTC: {
-      address: "0x38E35d92E6Bfc6787272A62345856B13eA12130a",
+      address: "0x3d4b1b884a7a1e59fe8589a3296ec8f8cbb6f279",
       abi: [
         {
           inputs: [{ internalType: "address", name: "owner", type: "address" }],
@@ -5600,7 +5600,7 @@ const contracts = {
       ],
     },
     VeMEZO: {
-      address: "0xaCE816CA2bcc9b12C59799dcC5A959Fb9b98111b",
+      address: "0xb90fdad3dfd180458d62cc6acedc983d78e20122",
       abi: [
         {
           inputs: [{ internalType: "address", name: "owner", type: "address" }],
@@ -5948,7 +5948,7 @@ const contracts = {
       ],
     },
     VeNftListing: {
-      address: "0x58ea05b958f7997Dd186C71579B40Aa8456c770b",
+      address: "0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1",
       abi: [
         {
           inputs: [
@@ -6029,7 +6029,7 @@ const contracts = {
       ],
     },
     VotingLib: {
-      address: "0x8233369E29653b70E50E93d1276a50B8f2122a01",
+      address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
       abi: [
         { inputs: [], name: "FractionMismatch", type: "error" },
         { inputs: [], name: "InvalidBoostParams", type: "error" },
