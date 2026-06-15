@@ -4,7 +4,7 @@ import { FaXTwitter } from "react-icons/fa6";
 export function XAccountLink() {
   return (
     <Link
-      href="https://x.com/Aurove"
+      href="https://x.com/aurove_xyz"
       target="_blank"
       rel="noreferrer"
       aria-label="Follow Aurove on X"
