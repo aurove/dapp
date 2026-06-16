@@ -51,7 +51,6 @@ export function Web3Providers({
 
   useEffect(() => {
     if (environment !== "testnet") {
-      setRpcSessionReady(true);
       return;
     }
 

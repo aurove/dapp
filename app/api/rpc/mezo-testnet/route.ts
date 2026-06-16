@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  createNoStoreErrorResponse,
+  createNoStoreJsonResponse,
+  getClientKey,
+} from "@/lib/server/http";
 import { consumeRpcRateLimit } from "@/lib/server/rpc-rate-limit";
 import { RPC_SESSION_COOKIE_NAME, verifyRpcSessionToken } from "@/lib/server/rpc-session";
 
 export const runtime = "nodejs";
-
-function getClientKey(request: NextRequest): string {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    const first = forwardedFor.split(",")[0]?.trim();
-    if (first) return `ip:${first}`;
-  }
-  const realIp = request.headers.get("x-real-ip");
-  if (realIp) return `ip:${realIp}`;
-  return "ip:unknown";
-}
 
 function getSpectrumEndpoint(): string {
   const endpoint = process.env.SPECTRUM_MEZO_TESTNET_RPC_HTTP;
@@ -26,12 +20,12 @@ function getSpectrumEndpoint(): string {
 export async function POST(request: NextRequest) {
   const sessionToken = request.cookies.get(RPC_SESSION_COOKIE_NAME)?.value;
   if (!verifyRpcSessionToken(sessionToken)) {
-    return NextResponse.json({ error: "Unauthorized RPC session." }, { status: 401 });
+    return createNoStoreErrorResponse("Unauthorized RPC session.", 401);
   }
 
   const rateCheck = consumeRpcRateLimit(getClientKey(request));
   if (!rateCheck.allowed) {
-    return NextResponse.json(
+    return createNoStoreJsonResponse(
       { error: "RPC rate limit exceeded." },
       {
         status: 429,
@@ -46,7 +40,7 @@ export async function POST(request: NextRequest) {
   try {
     payload = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
+    return createNoStoreErrorResponse("Invalid JSON payload.");
   }
 
   try {
@@ -68,6 +62,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "RPC proxy failed.";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return createNoStoreErrorResponse(message, 502);
   }
 }

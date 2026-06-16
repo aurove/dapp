@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./globals.css";
+import { WalletAuthProvider } from "@/lib/auth/provider";
 import { Web3Providers } from "@/lib/providers/web3-providers";
 import { NotificationsToaster } from "@/lib/notifications";
 
@@ -46,7 +47,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
-        <Web3Providers>{children}</Web3Providers>
+        <Web3Providers>
+          <WalletAuthProvider>{children}</WalletAuthProvider>
+        </Web3Providers>
         <NotificationsToaster />
       </body>
     </html>

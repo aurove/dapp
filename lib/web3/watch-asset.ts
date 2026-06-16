@@ -42,9 +42,11 @@ export async function watchTokenAsset({
   address,
   symbol,
   decimals = 18,
-  tokenId,
+  tokenId: _tokenId,
   image,
 }: WatchTokenAssetParams): Promise<boolean> {
+  void _tokenId;
+
   const ethereum = getEthereumProvider();
   if (!ethereum?.request) {
     throw new Error("MetaMask or a compatible wallet extension was not found.");

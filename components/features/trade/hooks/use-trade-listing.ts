@@ -33,18 +33,14 @@ export function useTradeListing() {
   const assetLedger = getContractConfig(chainId, "AssetLedger");
   const marketplace = getContractConfig(chainId, "Marketplace");
   const paymentRouter = getContractConfig(chainId, "PaymentRouter");
-  const listingDomain = useMemo(
-    () =>
-      marketplace?.address
-        ? ({
-            name: "AuroveMarketplace",
-            version: "1",
-            chainId,
-            verifyingContract: marketplace.address,
-          } as const)
-        : null,
-    [chainId, marketplace?.address],
-  );
+  const listingDomain = marketplace?.address
+    ? ({
+        name: "AuroveMarketplace",
+        version: "1",
+        chainId,
+        verifyingContract: marketplace.address,
+      } as const)
+    : null;
 
   const paymentTokenConfigContracts = useMemo(
     () =>
