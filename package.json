@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts --prefix timestamp --name app_schema",
+    "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
+    "db:studio": "drizzle-kit studio --config drizzle.config.ts"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.12",
@@ -41,8 +44,11 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.10",
+    "drizzle-orm": "^0.45.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "postgres": "^3.4.9",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

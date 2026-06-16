@@ -1,28 +1,31 @@
 import { randomBytes } from "node:crypto";
 
+import { and, desc, eq, gt, isNull, ne } from "drizzle-orm";
 import { verifyMessage, type Address } from "viem";
 
-import { getSupabaseAdminClient } from "@/lib/supabase";
-import type { Database } from "@/lib/supabase";
+import { db } from "@/lib/db";
+import {
+  authChallenges,
+  authSessions,
+  type AuthChallenge,
+  type AuthSession,
+  type User,
+  users,
+} from "@/lib/db/schema";
 
 import { WALLET_AUTH_CHALLENGE_TTL_MS } from "./constants";
-import { buildWalletAuthMessage, formatWalletAddress, normalizeWalletAddress, parseWalletAuthMessage } from "./utils";
+import {
+  buildWalletAuthMessage,
+  formatWalletAddress,
+  normalizeWalletAddress,
+  parseWalletAuthMessage,
+} from "./utils";
 import {
   createWalletAuthSessionExpiration,
   createWalletAuthSessionToken,
   hashWalletAuthSessionToken,
 } from "./session";
-import type {
-  WalletAuthChallenge,
-  WalletAuthSession,
-  WalletAuthUser,
-} from "./types";
-
-type SupabaseTables = Database["public"]["Tables"];
-
-type UserRow = SupabaseTables["users"]["Row"];
-type ChallengeRow = SupabaseTables["auth_challenges"]["Row"];
-type SessionRow = SupabaseTables["auth_sessions"]["Row"];
+import type { WalletAuthChallenge, WalletAuthSession, WalletAuthUser } from "./types";
 
 type ChallengeInput = {
   walletAddressNormalized: string;
@@ -37,47 +40,43 @@ type VerifyWalletInput = {
   origin: string;
 };
 
-function mapUser(row: UserRow): WalletAuthUser {
+function mapUser(row: User): WalletAuthUser {
   return {
     id: row.id,
-    walletAddress: row.wallet_address,
-    walletAddressNormalized: row.wallet_address_normalized,
-    chainId: row.chain_id,
-    displayName: row.display_name,
-    avatarUrl: row.avatar_url,
-    lastLoginAt: row.last_login_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    walletAddress: row.walletAddress,
+    walletAddressNormalized: row.walletAddressNormalized,
+    chainId: row.chainId,
+    displayName: row.displayName,
+    avatarUrl: row.avatarUrl,
+    lastLoginAt: row.lastLoginAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
-function mapChallenge(row: ChallengeRow): WalletAuthChallenge {
+function mapChallenge(row: AuthChallenge): WalletAuthChallenge {
   return {
     id: row.id,
-    walletAddressNormalized: row.wallet_address_normalized,
-    chainId: row.chain_id,
+    walletAddressNormalized: row.walletAddressNormalized,
+    chainId: row.chainId,
     nonce: row.nonce,
-    expiresAt: row.expires_at,
-    usedAt: row.used_at,
-    createdAt: row.created_at,
+    expiresAt: row.expiresAt,
+    usedAt: row.usedAt,
+    createdAt: row.createdAt,
   };
 }
 
-function mapSession(row: SessionRow): WalletAuthSession {
+function mapSession(row: AuthSession): WalletAuthSession {
   return {
     id: row.id,
-    userId: row.user_id,
-    walletAddressNormalized: row.wallet_address_normalized,
-    chainId: row.chain_id,
-    expiresAt: row.expires_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    lastSeenAt: row.last_seen_at,
+    userId: row.userId,
+    walletAddressNormalized: row.walletAddressNormalized,
+    chainId: row.chainId,
+    expiresAt: row.expiresAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    lastSeenAt: row.lastSeenAt,
   };
-}
-
-function getAdminClient() {
-  return getSupabaseAdminClient();
 }
 
 function createNonce(): string {
@@ -88,50 +87,48 @@ export async function findRecentActiveChallenge(
   walletAddressNormalized: string,
   chainId: number,
 ): Promise<WalletAuthChallenge | null> {
-  const supabase = getAdminClient();
   const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("auth_challenges")
-    .select("*")
-    .eq("wallet_address_normalized", walletAddressNormalized)
-    .eq("chain_id", chainId)
-    .is("used_at", null)
-    .gt("expires_at", now)
-    .order("created_at", { ascending: false })
+  const rows = await db
+    .select()
+    .from(authChallenges)
+    .where(
+      and(
+        eq(authChallenges.walletAddressNormalized, walletAddressNormalized),
+        eq(authChallenges.chainId, chainId),
+        isNull(authChallenges.usedAt),
+        gt(authChallenges.expiresAt, now),
+      ),
+    )
+    .orderBy(desc(authChallenges.createdAt))
     .limit(1);
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data?.[0] ? mapChallenge(data[0] as ChallengeRow) : null;
+  return rows[0] ? mapChallenge(rows[0]) : null;
 }
 
 export async function createWalletAuthChallengeRecord(
   input: ChallengeInput,
 ): Promise<WalletAuthChallenge> {
-  const supabase = getAdminClient();
   const expiresAt = new Date(Date.now() + WALLET_AUTH_CHALLENGE_TTL_MS).toISOString();
   const createdAt = new Date().toISOString();
   const nonce = createNonce();
 
-  const { data, error } = await supabase
-    .from("auth_challenges")
-    .insert({
-      wallet_address_normalized: input.walletAddressNormalized,
-      chain_id: input.chainId,
+  const rows = await db
+    .insert(authChallenges)
+    .values({
+      walletAddressNormalized: input.walletAddressNormalized,
+      chainId: input.chainId,
       nonce,
-      expires_at: expiresAt,
-      created_at: createdAt,
+      expiresAt,
+      createdAt,
     })
-    .select("*")
-    .single();
+    .returning();
 
-  if (error) {
-    throw new Error(error.message);
+  const challenge = rows[0];
+  if (!challenge) {
+    throw new Error("Failed to create wallet auth challenge.");
   }
 
-  return mapChallenge(data as ChallengeRow);
+  return mapChallenge(challenge);
 }
 
 export async function getOrCreateWalletAuthChallenge(
@@ -165,45 +162,42 @@ export async function upsertWalletAuthUser(input: {
   walletAddressNormalized: string;
   chainId: number;
 }): Promise<WalletAuthUser> {
-  const supabase = getAdminClient();
   const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("users")
-    .upsert(
-      {
-        wallet_address: formatWalletAddress(input.walletAddress),
-        wallet_address_normalized: input.walletAddressNormalized,
-        chain_id: input.chainId,
-        last_login_at: now,
+  const rows = await db
+    .insert(users)
+    .values({
+      walletAddress: formatWalletAddress(input.walletAddress),
+      walletAddressNormalized: input.walletAddressNormalized,
+      chainId: input.chainId,
+      lastLoginAt: now,
+    })
+    .onConflictDoUpdate({
+      target: users.walletAddressNormalized,
+      set: {
+        walletAddress: formatWalletAddress(input.walletAddress),
+        chainId: input.chainId,
+        lastLoginAt: now,
       },
-      { onConflict: "wallet_address_normalized" },
-    )
-    .select("*")
-    .single();
+    })
+    .returning();
 
-  if (error) {
-    throw new Error(error.message);
+  const user = rows[0];
+  if (!user) {
+    throw new Error("Failed to upsert wallet auth user.");
   }
 
-  return mapUser(data as UserRow);
+  return mapUser(user);
 }
 
 export async function markChallengeUsed(challengeId: string): Promise<void> {
-  const supabase = getAdminClient();
   const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("auth_challenges")
-    .update({ used_at: now })
-    .eq("id", challengeId)
-    .is("used_at", null)
-    .select("id")
-    .maybeSingle();
+  const rows = await db
+    .update(authChallenges)
+    .set({ usedAt: now })
+    .where(and(eq(authChallenges.id, challengeId), isNull(authChallenges.usedAt)))
+    .returning({ id: authChallenges.id });
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
+  if (!rows[0]) {
     throw new Error("Challenge has already been used.");
   }
 }
@@ -213,21 +207,20 @@ export async function findWalletAuthChallengeByNonce(input: {
   chainId: number;
   nonce: string;
 }): Promise<WalletAuthChallenge | null> {
-  const supabase = getAdminClient();
-  const { data, error } = await supabase
-    .from("auth_challenges")
-    .select("*")
-    .eq("wallet_address_normalized", input.walletAddressNormalized)
-    .eq("chain_id", input.chainId)
-    .eq("nonce", input.nonce)
-    .is("used_at", null)
-    .maybeSingle();
+  const rows = await db
+    .select()
+    .from(authChallenges)
+    .where(
+      and(
+        eq(authChallenges.walletAddressNormalized, input.walletAddressNormalized),
+        eq(authChallenges.chainId, input.chainId),
+        eq(authChallenges.nonce, input.nonce),
+        isNull(authChallenges.usedAt),
+      ),
+    )
+    .limit(1);
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ? mapChallenge(data as ChallengeRow) : null;
+  return rows[0] ? mapChallenge(rows[0]) : null;
 }
 
 export async function createWalletAuthSessionRecord(input: {
@@ -235,62 +228,60 @@ export async function createWalletAuthSessionRecord(input: {
   walletAddressNormalized: string;
   chainId: number;
 }): Promise<{ session: WalletAuthSession; token: string }> {
-  const supabase = getAdminClient();
   const token = createWalletAuthSessionToken();
   const tokenHash = hashWalletAuthSessionToken(token);
   const expiresAt = createWalletAuthSessionExpiration().toISOString();
   const now = new Date().toISOString();
 
-  const { data: sessionData, error: sessionError } = await supabase
-    .from("auth_sessions")
-    .insert({
-      user_id: input.userId,
-      wallet_address_normalized: input.walletAddressNormalized,
-      chain_id: input.chainId,
-      token_hash: tokenHash,
-      expires_at: expiresAt,
-      last_seen_at: now,
+  const sessionRows = await db
+    .insert(authSessions)
+    .values({
+      userId: input.userId,
+      walletAddressNormalized: input.walletAddressNormalized,
+      chainId: input.chainId,
+      tokenHash,
+      expiresAt,
+      lastSeenAt: now,
     })
-    .select("*")
-    .single();
+    .returning();
 
-  if (sessionError) {
-    throw new Error(sessionError.message);
+  const session = sessionRows[0];
+  if (!session) {
+    throw new Error("Failed to create wallet auth session.");
   }
 
-  const { error: revokeError } = await supabase
-    .from("auth_sessions")
-    .update({ revoked_at: now })
-    .eq("wallet_address_normalized", input.walletAddressNormalized)
-    .is("revoked_at", null)
-    .neq("id", (sessionData as SessionRow).id);
-
-  if (revokeError) {
-    throw new Error(revokeError.message);
-  }
+  await db
+    .update(authSessions)
+    .set({ revokedAt: now })
+    .where(
+      and(
+        eq(authSessions.walletAddressNormalized, input.walletAddressNormalized),
+        isNull(authSessions.revokedAt),
+        ne(authSessions.id, session.id),
+      ),
+    );
 
   return {
-    session: mapSession(sessionData as SessionRow),
+    session: mapSession(session),
     token,
   };
 }
 
 export async function getWalletAuthSessionByTokenHash(tokenHash: string) {
-  const supabase = getAdminClient();
   const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("auth_sessions")
-    .select("*")
-    .eq("token_hash", tokenHash)
-    .is("revoked_at", null)
-    .gt("expires_at", now)
-    .maybeSingle();
+  const rows = await db
+    .select()
+    .from(authSessions)
+    .where(
+      and(
+        eq(authSessions.tokenHash, tokenHash),
+        isNull(authSessions.revokedAt),
+        gt(authSessions.expiresAt, now),
+      ),
+    )
+    .limit(1);
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ? mapSession(data as SessionRow) : null;
+  return rows[0] ? mapSession(rows[0]) : null;
 }
 
 export async function getWalletAuthSessionWithUserByTokenHash(tokenHash: string): Promise<{
@@ -302,24 +293,16 @@ export async function getWalletAuthSessionWithUserByTokenHash(tokenHash: string)
     return null;
   }
 
-  const supabase = getAdminClient();
-  const { data: userData, error: userError } = await supabase
-    .from("users")
-    .select("*")
-    .eq("id", session.userId)
-    .maybeSingle();
+  const rows = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+  const user = rows[0];
 
-  if (userError) {
-    throw new Error(userError.message);
-  }
-
-  if (!userData) {
+  if (!user) {
     return null;
   }
 
   return {
     session,
-    user: mapUser(userData as UserRow),
+    user: mapUser(user),
   };
 }
 
@@ -327,7 +310,6 @@ export async function rotateWalletAuthSessionToken(tokenHash: string): Promise<{
   token: string;
   session: WalletAuthSession;
 } | null> {
-  const supabase = getAdminClient();
   const current = await getWalletAuthSessionByTokenHash(tokenHash);
   if (!current) {
     return null;
@@ -338,54 +320,43 @@ export async function rotateWalletAuthSessionToken(tokenHash: string): Promise<{
   const expiresAt = createWalletAuthSessionExpiration().toISOString();
   const now = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from("auth_sessions")
-    .update({
-      token_hash: nextHash,
-      expires_at: expiresAt,
-      last_seen_at: now,
+  const rows = await db
+    .update(authSessions)
+    .set({
+      tokenHash: nextHash,
+      expiresAt,
+      lastSeenAt: now,
     })
-    .eq("token_hash", tokenHash)
-    .is("revoked_at", null)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
-  }
+    .where(and(eq(authSessions.tokenHash, tokenHash), isNull(authSessions.revokedAt)))
+    .returning();
 
   return {
     token,
-    session: mapSession(data as SessionRow),
+    session: mapSession(rows[0]),
   };
 }
 
 export async function revokeWalletAuthSessionByTokenHash(tokenHash: string): Promise<void> {
-  const supabase = getAdminClient();
   const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("auth_sessions")
-    .update({ revoked_at: now })
-    .eq("token_hash", tokenHash)
-    .is("revoked_at", null);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  await db
+    .update(authSessions)
+    .set({ revokedAt: now })
+    .where(and(eq(authSessions.tokenHash, tokenHash), isNull(authSessions.revokedAt)));
 }
 
-export async function revokeWalletAuthSessionsForWallet(walletAddressNormalized: string): Promise<void> {
-  const supabase = getAdminClient();
+export async function revokeWalletAuthSessionsForWallet(
+  walletAddressNormalized: string,
+): Promise<void> {
   const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("auth_sessions")
-    .update({ revoked_at: now })
-    .eq("wallet_address_normalized", walletAddressNormalized)
-    .is("revoked_at", null);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  await db
+    .update(authSessions)
+    .set({ revokedAt: now })
+    .where(
+      and(
+        eq(authSessions.walletAddressNormalized, walletAddressNormalized),
+        isNull(authSessions.revokedAt),
+      ),
+    );
 }
 
 export async function verifyWalletAuthSignature({
