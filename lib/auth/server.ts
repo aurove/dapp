@@ -11,7 +11,7 @@ import {
   type AuthSession,
   type User,
   users,
-} from "@/lib/db/schema";
+} from "@/lib/db/auth-schema";
 
 import { WALLET_AUTH_CHALLENGE_TTL_MS } from "./constants";
 import {
