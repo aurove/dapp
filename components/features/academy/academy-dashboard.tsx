@@ -1,5 +1,7 @@
 "use client";
 
+import type { AcademyLeaderboardEntry, AcademyLeaderboardPage, AcademySummary } from "@/lib/academy/types";
+
 import { AcademyActivityDialog } from "./academy-activity-dialog";
 import { AcademyDashboardView } from "./academy-dashboard-view";
 import { useAcademyActivity } from "./use-academy-activity";
@@ -7,7 +9,17 @@ import { useAcademyDashboard } from "./use-academy-dashboard";
 import { useAcademyReferral } from "./use-academy-referral";
 import { AcademyApiError } from "@/lib/academy/client";
 
-export function AcademyDashboard() {
+type AcademyDashboardProps = {
+  initialLeaderboard: AcademyLeaderboardPage | null;
+  initialSummary: AcademySummary | null;
+  initialCurrentUserLeaderboardEntry: AcademyLeaderboardEntry | null;
+};
+
+export function AcademyDashboard({
+  initialLeaderboard,
+  initialSummary,
+  initialCurrentUserLeaderboardEntry,
+}: AcademyDashboardProps) {
   const {
     isAuthenticated,
     summaryQuery,
@@ -16,7 +28,12 @@ export function AcademyDashboard() {
     checkInMutation,
     leaderboardPage,
     setLeaderboardPage,
-  } = useAcademyDashboard();
+    currentUserLeaderboardEntry,
+  } = useAcademyDashboard(
+    initialLeaderboard,
+    initialSummary,
+    initialCurrentUserLeaderboardEntry,
+  );
   useAcademyReferral();
   const seasonId = summaryQuery.data?.season?.id ?? leaderboardQuery.data?.season?.id ?? null;
   const activity = useAcademyActivity(seasonId);
@@ -30,6 +47,7 @@ export function AcademyDashboard() {
         isAuthenticated={isAuthenticated}
         summary={summaryQuery.data ?? null}
         leaderboard={leaderboardQuery.data ?? null}
+        currentUserLeaderboardEntry={currentUserLeaderboardEntry}
         checkIn={checkInQuery.data ?? null}
         summaryError={summaryError}
         leaderboardError={leaderboardError}

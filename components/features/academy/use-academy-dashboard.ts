@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -9,38 +9,46 @@ import {
   requestAcademyLeaderboard,
   requestAcademySummary,
 } from "@/lib/academy/client";
+import type { AcademyLeaderboardEntry, AcademyLeaderboardPage, AcademySummary } from "@/lib/academy/types";
 import { useWalletAuth } from "@/lib/auth/provider";
 
 const academyQueryKeys = {
-  summary: (walletKey: string) => ["academy", "summary", walletKey] as const,
-  leaderboard: (page: number, limit: number, walletKey: string) =>
-    ["academy", "leaderboard", page, limit, walletKey] as const,
-  checkIn: (walletKey: string) => ["academy", "check-in", walletKey] as const,
+  summary: (sessionKey: string) => ["academy", "summary", sessionKey] as const,
+  leaderboard: (page: number, limit: number, sessionKey: string) =>
+    ["academy", "leaderboard", page, limit, sessionKey] as const,
+  checkIn: (sessionKey: string) => ["academy", "check-in", sessionKey] as const,
 };
 
-export function useAcademyDashboard() {
+export function useAcademyDashboard(
+  initialLeaderboard: AcademyLeaderboardPage | null,
+  initialSummary: AcademySummary | null,
+  initialCurrentUserLeaderboardEntry: AcademyLeaderboardEntry | null,
+) {
   const [leaderboardPage, setLeaderboardPage] = useState(1);
   const leaderboardLimit = 10;
   const queryClient = useQueryClient();
-  const { chainId, isAuthenticated, walletAddressNormalized } = useWalletAuth();
+  const { chainId, isAuthenticated, user, walletAddress, walletAddressNormalized } = useWalletAuth();
   const walletKey = walletAddressNormalized && chainId ? `${walletAddressNormalized}:${chainId}` : "guest";
+  const sessionKey = `${walletKey}:${isAuthenticated && user ? user.id : "guest"}`;
   const checkInEnabled = Boolean(walletAddressNormalized && chainId);
 
   const summaryQuery = useQuery({
-    queryKey: academyQueryKeys.summary(walletKey),
+    queryKey: academyQueryKeys.summary(sessionKey),
     queryFn: requestAcademySummary,
     staleTime: 15_000,
+    initialData: initialSummary ?? undefined,
   });
 
   const leaderboardQuery = useQuery({
-    queryKey: academyQueryKeys.leaderboard(leaderboardPage, leaderboardLimit, walletKey),
+    queryKey: academyQueryKeys.leaderboard(leaderboardPage, leaderboardLimit, "public"),
     queryFn: () => requestAcademyLeaderboard({ page: leaderboardPage, limit: leaderboardLimit }),
     staleTime: 15_000,
+    initialData: leaderboardPage === 1 ? initialLeaderboard ?? undefined : undefined,
     placeholderData: keepPreviousData,
   });
 
   const checkInQuery = useQuery({
-    queryKey: academyQueryKeys.checkIn(walletKey),
+    queryKey: academyQueryKeys.checkIn(sessionKey),
     queryFn: requestAcademyCheckInState,
     enabled: checkInEnabled,
     staleTime: 15_000,
@@ -49,11 +57,41 @@ export function useAcademyDashboard() {
   const checkInMutation = useMutation({
     mutationFn: requestAcademyCheckIn,
     onSuccess: async (result) => {
-      queryClient.setQueryData(academyQueryKeys.checkIn(walletKey), result.checkIn);
-      queryClient.setQueryData(academyQueryKeys.summary(walletKey), result.summary);
+      queryClient.setQueryData(academyQueryKeys.checkIn(sessionKey), result.checkIn);
+      queryClient.setQueryData(academyQueryKeys.summary(sessionKey), result.summary);
       await queryClient.invalidateQueries({ queryKey: ["academy", "leaderboard"] });
     },
   });
+
+  const currentUserLeaderboardEntry = useMemo(() => {
+    if (!summaryQuery.data?.authenticated || !summaryQuery.data.rank) {
+      return null;
+    }
+
+    if (initialCurrentUserLeaderboardEntry) {
+      return initialCurrentUserLeaderboardEntry;
+    }
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      userId: user.id,
+      rank: summaryQuery.data.rank,
+      walletAddress: walletAddress ?? user.walletAddress,
+      totalPoints: summaryQuery.data.totalPoints,
+      entryCount: 0,
+      isCurrentUser: true,
+    };
+  }, [
+    initialCurrentUserLeaderboardEntry,
+    summaryQuery.data?.authenticated,
+    summaryQuery.data?.rank,
+    summaryQuery.data?.totalPoints,
+    user,
+    walletAddress,
+  ]);
 
   return {
     isAuthenticated,
@@ -64,5 +102,6 @@ export function useAcademyDashboard() {
     leaderboardPage,
     setLeaderboardPage,
     leaderboardLimit,
+    currentUserLeaderboardEntry,
   };
 }

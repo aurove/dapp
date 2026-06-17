@@ -15,14 +15,20 @@ import {
 
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton, cn } from "@ui";
 import { formatPoints } from "@/lib/academy/utils";
-import { shortenWalletAddress } from "@/lib/auth/utils";
-import type { AcademyCheckInState, AcademyLeaderboardPage, AcademySummary } from "@/lib/academy/types";
+import { normalizeWalletAddress, shortenWalletAddress } from "@/lib/auth/utils";
+import type {
+  AcademyCheckInState,
+  AcademyLeaderboardEntry,
+  AcademyLeaderboardPage,
+  AcademySummary,
+} from "@/lib/academy/types";
 import { AcademyTasksCarousel } from "./academy-tasks-carousel";
 
 type AcademyDashboardViewProps = {
   isAuthenticated: boolean;
   summary: AcademySummary | null;
   leaderboard: AcademyLeaderboardPage | null;
+  currentUserLeaderboardEntry: AcademyLeaderboardEntry | null;
   checkIn: AcademyCheckInState | null;
   summaryError: string | null;
   leaderboardError: string | null;
@@ -127,6 +133,7 @@ export function AcademyDashboardView({
   isAuthenticated,
   summary,
   leaderboard,
+  currentUserLeaderboardEntry,
   checkIn,
   summaryError,
   leaderboardError,
@@ -146,6 +153,16 @@ export function AcademyDashboardView({
   const season = summary?.season ?? leaderboard?.season ?? null;
   const referral = summary?.referral ?? null;
   const hasAnyError = Boolean(summaryError || leaderboardError || checkInError);
+  const currentUserWallet = currentUserLeaderboardEntry
+    ? normalizeWalletAddress(currentUserLeaderboardEntry.walletAddress)
+    : null;
+  const leaderboardEntries = currentUserWallet
+    ? leaderboard?.items.filter(
+        (entry) => normalizeWalletAddress(entry.walletAddress) !== currentUserWallet,
+      ) ?? null
+    : leaderboard?.items ?? null;
+  const visibleLeaderboardEntries = leaderboardEntries ?? [];
+  const showLeaderboardContent = visibleLeaderboardEntries.length > 0 || Boolean(currentUserLeaderboardEntry);
   const pointsValue = isSummaryLoading ? "..." : summary ? formatPoints(summary.totalPoints) : summaryError ? "Unavailable" : "0";
   const rankValue = isSummaryLoading
     ? "..."
@@ -171,6 +188,52 @@ export function AcademyDashboardView({
     } catch {
       setCopied(false);
     }
+  }
+
+  function LeaderboardRow({
+    entry,
+  }: {
+    entry: AcademyLeaderboardEntry;
+  }) {
+    return (
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-label={`Open activity log for ${shortenWalletAddress(entry.walletAddress)}`}
+        onClick={() => onLeaderboardUserOpen(entry.walletAddress)}
+        onMouseEnter={() => onLeaderboardUserPrefetch(entry.walletAddress)}
+        onFocus={() => onLeaderboardUserPrefetch(entry.walletAddress)}
+        className={cn(
+          "flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition",
+          entry.isCurrentUser
+            ? "border-amber-300/30 bg-amber-300/[0.08] ring-1 ring-amber-300/20"
+            : "border-white/10 bg-white/[0.03]",
+          "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/40",
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-2xl border text-sm font-semibold", rankTone(entry.rank))}>
+            {entry.rank}
+          </div>
+          <div className="min-w-0 space-y-0.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="min-w-0 truncate font-medium text-white" title={entry.walletAddress}>
+                {shortenWalletAddress(entry.walletAddress)}
+              </p>
+              {entry.isCurrentUser ? (
+                <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">
+                  You
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-base font-semibold text-white">{formatPoints(entry.totalPoints)}</p>
+          <p className="text-xs text-white/45">points</p>
+        </div>
+      </button>
+    );
   }
 
   return (
@@ -331,48 +394,20 @@ export function AcademyDashboardView({
                 actionLabel="Retry"
                 onAction={onRetryAll}
               />
-            ) : leaderboard?.items.length ? (
+            ) : showLeaderboardContent ? (
               <>
+                {currentUserLeaderboardEntry ? (
+                  <div className="space-y-2 rounded-3xl border border-amber-300/20 bg-amber-300/[0.06] p-3">
+                    <div className="flex items-center justify-between gap-2 px-1">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-amber-100/70">Your position</p>
+                      <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">Pinned</Badge>
+                    </div>
+                    <LeaderboardRow entry={currentUserLeaderboardEntry} />
+                  </div>
+                ) : null}
                 <div className="space-y-2">
-                  {leaderboard.items.map((entry) => (
-                    <button
-                      key={entry.userId}
-                      type="button"
-                      aria-haspopup="dialog"
-                      aria-label={`Open activity log for ${shortenWalletAddress(entry.walletAddress)}`}
-                      onClick={() => onLeaderboardUserOpen(entry.walletAddress)}
-                      onMouseEnter={() => onLeaderboardUserPrefetch(entry.walletAddress)}
-                      onFocus={() => onLeaderboardUserPrefetch(entry.walletAddress)}
-                      className={cn(
-                        "flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition",
-                        entry.isCurrentUser
-                          ? "border-amber-300/30 bg-amber-300/[0.08] ring-1 ring-amber-300/20"
-                          : "border-white/10 bg-white/[0.03]",
-                        "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/40",
-                      )}
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-2xl border text-sm font-semibold", rankTone(entry.rank))}>
-                          {entry.rank}
-                        </div>
-                        <div className="min-w-0 space-y-0.5">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <p className="min-w-0 truncate font-medium text-white" title={entry.walletAddress}>
-                              {shortenWalletAddress(entry.walletAddress)}
-                            </p>
-                            {entry.isCurrentUser ? (
-                              <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">
-                                You
-                              </Badge>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-base font-semibold text-white">{formatPoints(entry.totalPoints)}</p>
-                        <p className="text-xs text-white/45">points</p>
-                      </div>
-                    </button>
+                  {visibleLeaderboardEntries.map((entry) => (
+                    <LeaderboardRow key={entry.userId} entry={entry} />
                   ))}
                 </div>
 
@@ -382,33 +417,35 @@ export function AcademyDashboardView({
                   </p>
                 ) : null}
 
-                <div className="flex items-center justify-between gap-2 pt-1 text-sm">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onLeaderboardPageChange(Math.max(1, leaderboardPage - 1))}
-                    disabled={leaderboardPage <= 1}
-                    className="gap-1"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Prev
-                  </Button>
-                  <p className="text-xs text-white/45">
-                    Page {leaderboard.page} of {leaderboard.totalPages || 1}
-                  </p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      onLeaderboardPageChange(Math.min(leaderboard.totalPages || 1, leaderboardPage + 1))
-                    }
-                    disabled={leaderboardPage >= (leaderboard.totalPages || 1)}
-                    className="gap-1"
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
+                {leaderboard ? (
+                  <div className="flex items-center justify-between gap-2 pt-1 text-sm">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onLeaderboardPageChange(Math.max(1, leaderboardPage - 1))}
+                      disabled={leaderboardPage <= 1}
+                      className="gap-1"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Prev
+                    </Button>
+                    <p className="text-xs text-white/45">
+                      Page {leaderboard.page} of {leaderboard.totalPages || 1}
+                    </p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() =>
+                        onLeaderboardPageChange(Math.min(leaderboard.totalPages || 1, leaderboardPage + 1))
+                      }
+                      disabled={leaderboardPage >= (leaderboard.totalPages || 1)}
+                      className="gap-1"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : null}
               </>
             ) : (
               <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-6 text-sm text-white/55">
