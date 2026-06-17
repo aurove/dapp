@@ -66,6 +66,23 @@ function getAwardLabel(sourceDetails: Record<string, unknown>): string | null {
   return toLabel(awardType);
 }
 
+function getAwardLabelClass(sourceDetails: Record<string, unknown>): string {
+  const awardType = typeof sourceDetails.awardType === "string" ? sourceDetails.awardType : null;
+  if (awardType === "task_award_user") {
+    return "border-amber-300/25 bg-amber-300/10 text-amber-50 shadow-[0_0_24px_rgba(245,158,11,0.18)]";
+  }
+
+  if (awardType === "task_award_referral_grand") {
+    return "border-violet-300/25 bg-violet-300/10 text-violet-50 shadow-[0_0_24px_rgba(139,92,246,0.16)]";
+  }
+
+  if (awardType === "task_award_referral_direct") {
+    return "border-sky-300/25 bg-sky-300/10 text-sky-50 shadow-[0_0_24px_rgba(56,189,248,0.14)]";
+  }
+
+  return "border-white/10 bg-white/5 text-white/75";
+}
+
 function groupByDate(items: AcademyActivityEntry[]): Array<{ dateKey: string; label: string; entries: AcademyActivityEntry[] }> {
   const groups = new Map<string, AcademyActivityEntry[]>();
 
@@ -105,6 +122,7 @@ function EmptyState({ title, description }: { title: string; description: ReactN
 function ActivityEntryCard({ entry }: { entry: AcademyActivityEntry }) {
   const positive = entry.pointsDelta >= 0;
   const pointsLabel = `${positive ? "+" : "-"}${formatPoints(Math.abs(entry.pointsDelta))}`;
+  const awardLabel = getAwardLabel(entry.sourceDetails);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -113,10 +131,8 @@ function ActivityEntryCard({ entry }: { entry: AcademyActivityEntry }) {
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium text-white">{entry.activityName}</p>
             <Badge className="border-white/10 bg-white/5 text-white/75">{toLabel(entry.sourceKind)}</Badge>
-            {getAwardLabel(entry.sourceDetails) ? (
-              <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-100">
-                {getAwardLabel(entry.sourceDetails)}
-              </Badge>
+            {awardLabel ? (
+              <Badge className={getAwardLabelClass(entry.sourceDetails)}>{awardLabel}</Badge>
             ) : null}
           </div>
           <p className="text-xs text-white/45">
