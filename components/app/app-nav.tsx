@@ -38,7 +38,7 @@ export function AppNav({ variant = "inline", onSelect }: AppNavProps) {
       {appRoutes.map((route) => {
         const isActive =
           pathname === route.href ||
-          (route.href !== "/app" && pathname.startsWith(`${route.href}/`));
+          (route.href !== "/earn" && pathname.startsWith(`${route.href}/`));
 
         return (
           <Link

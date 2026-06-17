@@ -1,12 +1,17 @@
 import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { pointsUserBalances, type PointsProgram } from "@/lib/db/schema";
+import { pointsPrograms, pointsUserBalances, users, type PointsProgram } from "@/lib/db/schema";
+import { normalizeWalletAddress } from "@/lib/auth/utils";
 
-import { DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE } from "./constants";
+import { DEFAULT_ACADEMY_ACTIVITY_PAGE_SIZE, DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE } from "./constants";
 import { runAcademyTask } from "./tasks";
+import { AcademyActivityUserNotFoundError } from "./tasks/errors";
 import { resolveActiveAcademyProgram } from "./tasks/points";
 import type {
+  AcademyActivityEntry,
+  AcademyActivityPage,
+  AcademyActivityUser,
   AcademyCheckInState,
   AcademyLeaderboardEntry,
   AcademyLeaderboardPage,
@@ -25,6 +30,21 @@ type LeaderboardRow = {
   entry_count: string | number | bigint;
   leaderboard_rank: string | number | bigint;
 };
+
+type ActivityRow = {
+  id: string;
+  activity_definition_id: string;
+  activity_code: string;
+  activity_name: string;
+  source_kind: string;
+  source_reference: string | null;
+  source_details: JsonRecord;
+  points_delta: string | number | bigint;
+  occurred_at: string;
+  recorded_at: string;
+};
+
+type ProgramUser = typeof users.$inferSelect;
 type ProgramBalance = typeof pointsUserBalances.$inferSelect;
 
 function asRecord(value: unknown): JsonRecord {
@@ -94,6 +114,27 @@ function paginate(totalItems: number, limit: number): { totalPages: number } {
   };
 }
 
+async function resolveAcademyUser(userId: string): Promise<ProgramUser | null> {
+  const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return rows[0] ?? null;
+}
+
+async function resolveAcademyUserByWalletAddress(walletAddress: string): Promise<ProgramUser | null> {
+  const normalizedWalletAddress = normalizeWalletAddress(walletAddress);
+  const rows = await db
+    .select()
+    .from(users)
+    .where(eq(users.walletAddressNormalized, normalizedWalletAddress))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+async function resolveAcademyProgramById(programId: string): Promise<PointsProgram | null> {
+  const rows = await db.select().from(pointsPrograms).where(eq(pointsPrograms.id, programId)).limit(1);
+  return rows[0] ?? null;
+}
+
 async function resolveAcademyBalance(
   programId: string,
   userId: string,
@@ -105,6 +146,36 @@ async function resolveAcademyBalance(
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+function toActivityUser(
+  user: ProgramUser,
+  balance: ProgramBalance | null,
+  rank: number | null,
+  currentUserId: string | null,
+): AcademyActivityUser {
+  return {
+    id: user.id,
+    walletAddress: user.walletAddress,
+    totalPoints: balance ? asNumber(balance.currentPoints) : 0,
+    rank,
+    isCurrentUser: currentUserId ? user.id === currentUserId : false,
+  };
+}
+
+function toActivityEntry(row: ActivityRow): AcademyActivityEntry {
+  return {
+    id: row.id,
+    activityDefinitionId: row.activity_definition_id,
+    activityCode: row.activity_code,
+    activityName: row.activity_name,
+    sourceKind: row.source_kind,
+    sourceReference: row.source_reference,
+    sourceDetails: asRecord(row.source_details),
+    pointsDelta: asNumber(row.points_delta),
+    occurredAt: row.occurred_at,
+    recordedAt: row.recorded_at,
+  };
 }
 
 async function resolveAcademyLeaderboardRow(
@@ -183,6 +254,88 @@ async function resolveAcademyLeaderboardPage(
   };
 }
 
+async function resolveAcademyActivityPage(
+  programId: string,
+  userRow: ProgramUser,
+  page: number,
+  limit: number,
+  currentUserId: string | null,
+): Promise<AcademyActivityPage> {
+  const normalizedPage = normalizePage(page);
+  const normalizedLimit = normalizeLimit(limit, DEFAULT_ACADEMY_ACTIVITY_PAGE_SIZE);
+  const offset = (normalizedPage - 1) * normalizedLimit;
+
+  const [balance, leaderboardRow, activityRows, countRows, programRow] = await Promise.all([
+    resolveAcademyBalance(programId, userRow.id),
+    resolveAcademyLeaderboardRowByProgramId(programId, userRow.id),
+    db.execute(sql`
+      select
+        id,
+        activity_definition_id,
+        activity_code,
+        activity_name,
+        source_kind,
+        source_reference,
+        source_details,
+        points_delta,
+        occurred_at,
+        recorded_at
+      from public.points_activity_feed
+      where program_id = ${programId}
+        and user_id = ${userRow.id}
+      order by occurred_at desc, recorded_at desc, id desc
+      limit ${normalizedLimit} offset ${offset}
+    `),
+    db.execute(sql`
+      select count(*)::bigint as total_items
+      from public.points_activity_feed
+      where program_id = ${programId}
+        and user_id = ${userRow.id}
+    `),
+    resolveAcademyProgramById(programId),
+  ]);
+
+  const totalItems = asNumber((countRows[0] as { total_items?: unknown } | undefined)?.total_items, 0);
+  const season = programRow ? toSeason(programRow) : null;
+  const items = (activityRows as unknown as ActivityRow[]).map((row) => toActivityEntry(row));
+
+  return {
+    season,
+    user: toActivityUser(
+      userRow,
+      balance,
+      leaderboardRow ? asNumber(leaderboardRow.leaderboard_rank) : null,
+      currentUserId,
+    ),
+    page: normalizedPage,
+    limit: normalizedLimit,
+    totalPages: totalItems === 0 ? 0 : Math.ceil(totalItems / normalizedLimit),
+    items,
+  };
+}
+
+async function resolveAcademyLeaderboardRowByProgramId(
+  programId: string,
+  userId: string,
+): Promise<LeaderboardRow | null> {
+  const rows = await db.execute(sql`
+    select
+      user_id,
+      wallet_address,
+      current_points,
+      lifetime_earned_points,
+      lifetime_spent_points,
+      entry_count,
+      leaderboard_rank
+    from public.points_program_leaderboard
+    where program_id = ${programId}
+      and user_id = ${userId}
+    limit 1
+  `);
+
+  return (rows[0] as LeaderboardRow | undefined) ?? null;
+}
+
 async function buildAcademySummary(input: {
   program: PointsProgram | null;
   userId: string | null;
@@ -216,6 +369,15 @@ async function buildAcademySummary(input: {
 export type AcademyService = {
   getSummary(userId: string | null): Promise<AcademySummary>;
   getLeaderboard(page: number, limit: number, userId: string | null): Promise<AcademyLeaderboardPage>;
+  getActivity(
+    input: {
+      walletAddress: string;
+      seasonId?: string | null;
+      page: number;
+      limit: number;
+    },
+    currentUserId: string | null,
+  ): Promise<AcademyActivityPage>;
   checkIn(userId: string): Promise<AcademyCheckInState>;
 };
 
@@ -242,6 +404,29 @@ export function createAcademyService(): AcademyService {
       }
 
       return resolveAcademyLeaderboardPage(program.slug, page, limit, userId);
+    },
+    async getActivity(input, currentUserId) {
+      const userRow = await resolveAcademyUserByWalletAddress(input.walletAddress);
+      if (!userRow) {
+        throw new AcademyActivityUserNotFoundError(`Academy user "${input.walletAddress}" was not found.`);
+      }
+
+      const program = input.seasonId
+        ? await resolveAcademyProgramById(input.seasonId)
+        : await resolveActiveAcademyProgram(db);
+
+      if (!program) {
+        return {
+          season: null,
+          user: toActivityUser(userRow, null, null, currentUserId),
+          page: normalizePage(input.page),
+          limit: normalizeLimit(input.limit, DEFAULT_ACADEMY_ACTIVITY_PAGE_SIZE),
+          totalPages: 0,
+          items: [],
+        };
+      }
+
+      return resolveAcademyActivityPage(program.id, userRow, input.page, input.limit, currentUserId);
     },
     async checkIn(userId) {
       return runAcademyTask("check_in", userId);

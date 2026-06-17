@@ -19,7 +19,7 @@ export function FinalCtaSection() {
             product surface users can understand, trade, and use.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/app" className={buttonVariants({ size: "lg", className: "gap-2" })}>
+            <Link href="/earn" className={buttonVariants({ size: "lg", className: "gap-2" })}>
               <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               Launch App
             </Link>

@@ -26,6 +26,36 @@ export type AcademySummary = {
   rank: number | null;
 };
 
+export type AcademyActivityUser = {
+  id: string;
+  walletAddress: string;
+  totalPoints: number;
+  rank: number | null;
+  isCurrentUser: boolean;
+};
+
+export type AcademyActivityEntry = {
+  id: string;
+  activityDefinitionId: string;
+  activityCode: string;
+  activityName: string;
+  sourceKind: string;
+  sourceReference: string | null;
+  sourceDetails: Record<string, unknown>;
+  pointsDelta: number;
+  occurredAt: string;
+  recordedAt: string;
+};
+
+export type AcademyActivityPage = {
+  season: AcademySeason | null;
+  user: AcademyActivityUser | null;
+  page: number;
+  limit: number;
+  totalPages: number;
+  items: AcademyActivityEntry[];
+};
+
 export type AcademyCheckInState = {
   taskCode: "check_in";
   status: "success" | "cooldown";

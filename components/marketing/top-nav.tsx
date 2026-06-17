@@ -37,7 +37,7 @@ export function TopNav() {
 
         <div className="flex items-center gap-2">
           <XAccountLink />
-          <Link href="/app" className={buttonVariants({ size: "sm", className: "gap-2" })}>
+          <Link href="/earn" className={buttonVariants({ size: "sm", className: "gap-2" })}>
             <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
             Enter App
           </Link>

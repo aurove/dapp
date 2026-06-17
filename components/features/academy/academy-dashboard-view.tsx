@@ -15,6 +15,8 @@ type AcademyDashboardViewProps = {
   isLeaderboardLoading: boolean;
   leaderboardPage: number;
   onLeaderboardPageChange: (page: number) => void;
+  onLeaderboardUserOpen: (walletAddress: string) => void;
+  onLeaderboardUserPrefetch: (walletAddress: string) => void;
 };
 
 function StatCard({
@@ -67,6 +69,8 @@ export function AcademyDashboardView({
   isLeaderboardLoading,
   leaderboardPage,
   onLeaderboardPageChange,
+  onLeaderboardUserOpen,
+  onLeaderboardUserPrefetch,
 }: AcademyDashboardViewProps) {
   const season = summary?.season ?? leaderboard?.season ?? null;
   const authenticated = Boolean(summary?.authenticated);
@@ -135,13 +139,20 @@ export function AcademyDashboardView({
             <>
               <div className="space-y-2">
                 {leaderboard.items.map((entry) => (
-                  <div
+                  <button
                     key={entry.userId}
+                    type="button"
+                    aria-haspopup="dialog"
+                    aria-label={`Open activity log for ${shortenWalletAddress(entry.walletAddress)}`}
+                    onClick={() => onLeaderboardUserOpen(entry.walletAddress)}
+                    onMouseEnter={() => onLeaderboardUserPrefetch(entry.walletAddress)}
+                    onFocus={() => onLeaderboardUserPrefetch(entry.walletAddress)}
                     className={cn(
-                      "flex items-center justify-between gap-3 rounded-2xl border p-3 transition",
+                      "flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition",
                       entry.isCurrentUser
                         ? "border-amber-300/30 bg-amber-300/[0.08] ring-1 ring-amber-300/20"
                         : "border-white/10 bg-white/[0.03]",
+                      "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/40",
                     )}
                   >
                     <div className="flex items-center gap-3">
@@ -165,7 +176,7 @@ export function AcademyDashboardView({
                       <p className="text-base font-semibold text-white">{formatPoints(entry.totalPoints)}</p>
                       <p className="text-xs text-white/45">points</p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
 

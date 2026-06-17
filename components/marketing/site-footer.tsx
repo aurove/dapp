@@ -28,7 +28,7 @@ export function SiteFooter() {
               {item.label}
             </a>
           ))}
-          <Link href="/app" className="transition hover:text-[var(--foreground)]">
+          <Link href="/earn" className="transition hover:text-[var(--foreground)]">
             App
           </Link>
         </div>

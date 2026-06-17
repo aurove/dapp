@@ -1,4 +1,5 @@
 import type {
+  AcademyActivityPage,
   AcademyCheckInResponse,
   AcademyLeaderboardPage,
   AcademySummary,
@@ -69,5 +70,26 @@ export async function requestAcademyLeaderboard(input: {
 export async function requestAcademyCheckIn(): Promise<AcademyCheckInResponse> {
   return requestJson<AcademyCheckInResponse>("/api/academy/check-in", {
     method: "POST",
+  });
+}
+
+export async function requestAcademyActivity(input: {
+  address: string;
+  seasonId?: string | null;
+  page: number;
+  limit: number;
+}): Promise<AcademyActivityPage> {
+  const searchParams = new URLSearchParams({
+    address: input.address,
+    page: String(input.page),
+    limit: String(input.limit),
+  });
+
+  if (input.seasonId) {
+    searchParams.set("seasonId", input.seasonId);
+  }
+
+  return requestJson<AcademyActivityPage>(`/api/academy/activity?${searchParams.toString()}`, {
+    method: "GET",
   });
 }
