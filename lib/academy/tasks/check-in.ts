@@ -1,12 +1,15 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import {
+  chainTimestampToIso,
+  computeChainSecondsRemaining,
+} from "@/lib/academy/time";
 
 import { ACADEMY_CHECK_IN_TASK_CODE } from "../constants";
 import type { AcademyCheckInState } from "../types";
 import {
   computeAcademyTaskNextEligibleAt,
-  computeSecondsRemaining,
   recordAcademyTaskPoints,
   resolveActiveAcademyProgram,
   resolveAcademyTaskDefinition,
@@ -41,21 +44,24 @@ function buildCheckInIdempotencyKey(input: {
   ].join(":");
 }
 
-async function resolveAcademyCheckInContext(input: {
-  userId: string;
-  chainId: number;
-}): Promise<AcademyCheckInContext> {
-  const program = await resolveActiveAcademyProgram(db);
+async function resolveAcademyCheckInContext(
+  client: typeof db,
+  input: {
+    userId: string;
+    chainId: number;
+  },
+): Promise<AcademyCheckInContext> {
+  const program = await resolveActiveAcademyProgram(client);
   if (!program) {
     throw new AcademyTaskNotFoundError("Academy season is not configured.");
   }
 
-  const task = await resolveAcademyTaskDefinition(db, program.id, ACADEMY_CHECK_IN_TASK_CODE);
+  const task = await resolveAcademyTaskDefinition(client, program.id, ACADEMY_CHECK_IN_TASK_CODE);
   if (!task) {
     throw new AcademyTaskNotFoundError("Academy check-in task is not configured.");
   }
 
-  const latestEntry = await resolveAcademyTaskLedgerEntry(db, {
+  const latestEntry = await resolveAcademyTaskLedgerEntry(client, {
     programId: program.id,
     activityDefinitionId: task.activityDefinition.id,
     userId: input.userId,
@@ -71,13 +77,18 @@ async function resolveAcademyCheckInContext(input: {
 function buildAcademyCheckInState(input: {
   task: AcademyCheckInTask;
   latestEntry: AcademyCheckInLedgerEntry;
+  currentChainTimestamp: number;
 }): AcademyCheckInState {
   if (input.latestEntry) {
     const nextEligibleAt = computeAcademyTaskNextEligibleAt(
       input.latestEntry.occurredAt,
       input.task.config.cooldownHours,
     );
-    if (Date.parse(nextEligibleAt) > Date.now()) {
+    const secondsRemaining = computeChainSecondsRemaining(
+      nextEligibleAt,
+      input.currentChainTimestamp,
+    );
+    if (secondsRemaining > 0) {
       return {
         taskCode: ACADEMY_CHECK_IN_TASK_CODE,
         status: "cooldown",
@@ -85,7 +96,7 @@ function buildAcademyCheckInState(input: {
         pointsAwarded: input.task.config.pointsAwarded,
         lastCheckInAt: input.latestEntry.occurredAt,
         nextEligibleAt,
-        secondsRemaining: computeSecondsRemaining(nextEligibleAt),
+        secondsRemaining,
       };
     }
   }
@@ -97,7 +108,10 @@ function buildAcademyCheckInState(input: {
     pointsAwarded: input.task.config.pointsAwarded,
     lastCheckInAt: input.latestEntry?.occurredAt ?? null,
     nextEligibleAt: input.latestEntry
-      ? computeAcademyTaskNextEligibleAt(input.latestEntry.occurredAt, input.task.config.cooldownHours)
+      ? computeAcademyTaskNextEligibleAt(
+          input.latestEntry.occurredAt,
+          input.task.config.cooldownHours,
+        )
       : null,
     secondsRemaining: 0,
   };
@@ -106,28 +120,30 @@ function buildAcademyCheckInState(input: {
 export async function getAcademyCheckInState(input: {
   userId: string;
   chainId: number;
+  currentChainTimestamp: number;
 }): Promise<AcademyCheckInState> {
-  return db.transaction(async () => {
-    const context = await resolveAcademyCheckInContext(input);
-    return buildAcademyCheckInState(context);
-  });
+  const context = await resolveAcademyCheckInContext(db, input);
+  return buildAcademyCheckInState({ ...context, currentChainTimestamp: input.currentChainTimestamp });
 }
 
 export async function runAcademyCheckIn(input: {
   userId: string;
   chainId: number;
+  currentChainTimestamp: number;
 }): Promise<AcademyCheckInState> {
-  return db.transaction(async (tx) => {
-    const client = tx as typeof db;
-    const context = await resolveAcademyCheckInContext(input);
+  return db.transaction(async (client) => {
+    const context = await resolveAcademyCheckInContext(client, input);
     const { program, task, latestEntry } = context;
-    const currentState = buildAcademyCheckInState(context);
+    const currentState = buildAcademyCheckInState({
+      ...context,
+      currentChainTimestamp: input.currentChainTimestamp,
+    });
 
     if (currentState.status === "cooldown") {
       return currentState;
     }
 
-    const occurredAt = new Date().toISOString();
+    const occurredAt = chainTimestampToIso(input.currentChainTimestamp);
     const idempotencyKey = buildCheckInIdempotencyKey({
       programSlug: program.slug,
       userId: input.userId,
@@ -161,8 +177,9 @@ export async function runAcademyCheckIn(input: {
       pointsAwarded: task.config.pointsAwarded,
       lastCheckInAt: entry.occurredAt,
       nextEligibleAt: computeAcademyTaskNextEligibleAt(entry.occurredAt, task.config.cooldownHours),
-      secondsRemaining: computeSecondsRemaining(
+      secondsRemaining: computeChainSecondsRemaining(
         computeAcademyTaskNextEligibleAt(entry.occurredAt, task.config.cooldownHours),
+        input.currentChainTimestamp,
       ),
     };
   });
