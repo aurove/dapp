@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BadgeCheck,
   ChevronLeft,
@@ -14,8 +14,13 @@ import {
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Progress, cn } from "@ui";
 
 import { ACADEMY_CHECK_IN_COOLDOWN_HOURS } from "@/lib/academy/constants";
+import {
+  computeChainCooldownProgress,
+  computeChainSecondsRemaining,
+} from "@/lib/academy/time";
 import type { AcademyCheckInState } from "@/lib/academy/types";
 import { formatPoints } from "@/lib/academy/utils";
+import { useChainTime } from "@/lib/web3/use-chain-time";
 
 type AcademyTasksCarouselProps = {
   authenticated: boolean;
@@ -56,24 +61,6 @@ function formatTime(value: string | null): string | null {
   });
 }
 
-function useLiveNow(enabled: boolean) {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [enabled]);
-
-  return now;
-}
-
 function CheckInTaskSlide({
   authenticated,
   checkIn,
@@ -83,35 +70,34 @@ function CheckInTaskSlide({
   onCheckIn,
   onRetryCheckIn,
 }: AcademyTasksCarouselProps) {
+  const { chainTimestampNumber } = useChainTime();
   const cooldownHours = checkIn?.cooldownHours ?? ACADEMY_CHECK_IN_COOLDOWN_HOURS;
   const isCoolingDownMode = authenticated && checkIn?.status === "cooldown";
-  const now = useLiveNow(isCoolingDownMode);
   const nextEligibleAt = checkIn?.nextEligibleAt ?? null;
   const lastCheckInAt = checkIn?.lastCheckInAt ?? null;
-  const isCoolingDown = isCoolingDownMode && nextEligibleAt ? Date.parse(nextEligibleAt) > now : false;
+  const currentChainTimestampSeconds = chainTimestampNumber ?? null;
   const cooldownSeconds = useMemo(() => {
-    if (!nextEligibleAt) {
-      return 0;
+    if (!isCoolingDownMode || !nextEligibleAt || currentChainTimestampSeconds === null) {
+      return checkIn?.secondsRemaining ?? 0;
     }
 
-    return Math.max(0, Math.ceil((Date.parse(nextEligibleAt) - now) / 1000));
-  }, [nextEligibleAt, now]);
+    return computeChainSecondsRemaining(nextEligibleAt, currentChainTimestampSeconds);
+  }, [checkIn?.secondsRemaining, currentChainTimestampSeconds, isCoolingDownMode, nextEligibleAt]);
 
+  const isCoolingDown = isCoolingDownMode && cooldownSeconds > 0;
   const ready = !isCoolingDown;
   const pointsLabel = formatPoints(checkIn?.pointsAwarded ?? 0);
   const cooldownElapsed = useMemo(() => {
-    if (!lastCheckInAt || !nextEligibleAt) {
+    if (!lastCheckInAt || !nextEligibleAt || currentChainTimestampSeconds === null) {
       return 0;
     }
 
-    const totalMs = Date.parse(nextEligibleAt) - Date.parse(lastCheckInAt);
-    if (totalMs <= 0) {
-      return 0;
-    }
-
-    const remainingMs = Math.max(0, Date.parse(nextEligibleAt) - now);
-    return Math.min(100, Math.max(0, Math.round(((totalMs - remainingMs) / totalMs) * 100)));
-  }, [lastCheckInAt, nextEligibleAt, now]);
+    return computeChainCooldownProgress({
+      lastCheckInAt,
+      nextEligibleAt,
+      currentChainTimestampSeconds,
+    });
+  }, [currentChainTimestampSeconds, lastCheckInAt, nextEligibleAt]);
 
   if (isCheckInLoading) {
     return (

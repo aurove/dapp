@@ -7,14 +7,14 @@ export type AcademyTaskCode = "check_in";
 
 const academyTaskHandlers: Record<
   AcademyTaskCode,
-  (input: { userId: string; chainId: number }) => Promise<AcademyTaskHandlerResult>
+  (input: { userId: string; chainId: number; currentChainTimestamp: number }) => Promise<AcademyTaskHandlerResult>
 > = {
   check_in: runAcademyCheckIn,
 };
 
 export async function runAcademyTask(
   taskCode: AcademyTaskCode,
-  input: { userId: string; chainId: number },
+  input: { userId: string; chainId: number; currentChainTimestamp: number },
 ): Promise<AcademyTaskHandlerResult> {
   const handler = academyTaskHandlers[taskCode];
   if (!handler) {

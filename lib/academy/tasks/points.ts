@@ -3,6 +3,7 @@ import "server-only";
 import { and, desc, eq, or } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { computeChainSecondsRemaining } from "@/lib/academy/time";
 import {
   pointsActivityDefinitions,
   pointsLedgerEntries,
@@ -179,6 +180,7 @@ async function insertAcademyTaskAward(
       },
       pointsDelta: recipient.pointsDelta,
       occurredAt: input.occurredAt,
+      recordedAt: input.occurredAt,
     })
     .onConflictDoNothing({ target: pointsLedgerEntries.idempotencyKey })
     .returning();
@@ -204,8 +206,11 @@ export function computeAcademyTaskNextEligibleAt(
   return nextEligibleAt.toISOString();
 }
 
-export function computeSecondsRemaining(nextEligibleAt: string, now = new Date()): number {
-  return Math.max(0, Math.ceil((Date.parse(nextEligibleAt) - now.getTime()) / 1000));
+export function computeSecondsRemaining(
+  nextEligibleAt: string,
+  currentChainTimestampSeconds: number,
+): number {
+  return computeChainSecondsRemaining(nextEligibleAt, currentChainTimestampSeconds);
 }
 
 export async function resolveActiveAcademyProgram(client: typeof db): Promise<PointsProgram | null> {

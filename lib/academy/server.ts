@@ -392,8 +392,16 @@ export type AcademyService = {
     },
     currentUserId: string | null,
   ): Promise<AcademyActivityPage>;
-  getCheckIn(input: { userId: string; chainId: number }): Promise<AcademyCheckInState>;
-  checkIn(input: { userId: string; chainId: number }): Promise<AcademyCheckInState>;
+  getCheckIn(input: {
+    userId: string;
+    chainId: number;
+    currentChainTimestamp: number;
+  }): Promise<AcademyCheckInState>;
+  checkIn(input: {
+    userId: string;
+    chainId: number;
+    currentChainTimestamp: number;
+  }): Promise<AcademyCheckInState>;
 };
 
 export function createAcademyService(): AcademyService {

@@ -8,6 +8,7 @@ import {
 } from "@/lib/server/http";
 import { AcademyTaskNotFoundError } from "@/lib/academy/tasks/errors";
 import { getAcademyContext } from "../_shared";
+import { getLatestChainTimestamp } from "@/lib/web3/server-chain-time";
 
 export const runtime = "nodejs";
 
@@ -21,10 +22,20 @@ async function getAcademyCheckIn(request: NextRequest) {
     return createNoStoreErrorResponse("Missing wallet chain context.", 400, "ACADEMY_CHAIN_REQUIRED");
   }
 
+  const currentChainTimestamp = await getLatestChainTimestamp(session.chainId);
+  if (currentChainTimestamp === null) {
+    return createNoStoreErrorResponse(
+      "Current chain time is unavailable.",
+      503,
+      "ACADEMY_CHAIN_TIME_UNAVAILABLE",
+    );
+  }
+
   try {
     const checkIn = await service.getCheckIn({
       userId: session.user.id,
       chainId: session.chainId,
+      currentChainTimestamp,
     });
 
     return createNoStoreJsonResponse(checkIn);
@@ -47,15 +58,26 @@ async function postAcademyCheckIn(request: NextRequest) {
     return createNoStoreErrorResponse("Missing wallet chain context.", 400, "ACADEMY_CHAIN_REQUIRED");
   }
 
+  const origin = getRequestOrigin(request);
+  const currentChainTimestamp = await getLatestChainTimestamp(session.chainId);
+  if (currentChainTimestamp === null) {
+    return createNoStoreErrorResponse(
+      "Current chain time is unavailable.",
+      503,
+      "ACADEMY_CHAIN_TIME_UNAVAILABLE",
+    );
+  }
+
   try {
     const checkIn = await service.checkIn({
       userId: session.user.id,
       chainId: session.chainId,
+      currentChainTimestamp,
     });
     const summary = await service.getSummary({
       userId: session.user.id,
       chainId: session.chainId,
-      origin: getRequestOrigin(request),
+      origin,
     });
 
     return createNoStoreJsonResponse(

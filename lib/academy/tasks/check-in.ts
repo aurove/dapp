@@ -167,6 +167,7 @@ export async function runAcademyCheckIn(input: {
         pointsAwarded: task.config.pointsAwarded,
         lastCheckInAt: latestEntry?.occurredAt ?? null,
         chainId: input.chainId,
+        chainTimestamp: input.currentChainTimestamp,
       },
     });
 
