@@ -18,6 +18,7 @@ function getServerWagmiConfig(activeChain: Chain): Config {
   if (!serverWagmiConfig || serverWagmiConfigChainId !== activeChain.id) {
     serverWagmiConfig = createConfig({
       chains: supportedChains,
+      multiInjectedProviderDiscovery: false,
       transports: {
         ...Object.fromEntries(
           supportedChains.map((chain) => [chain.id, http(getChainRpcUrl(chain))]),
@@ -42,6 +43,7 @@ export function getWagmiConfig(activeChain: Chain): Config {
     wagmiConfig = getDefaultConfig({
       appName: "Aurove",
       chains: supportedChains,
+      multiInjectedProviderDiscovery: false,
       projectId: runtime.walletConnectProjectId,
       transports: {
         ...Object.fromEntries(

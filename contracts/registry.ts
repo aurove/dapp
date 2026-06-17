@@ -1099,6 +1099,13 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "decimals",
+          outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+          stateMutability: "pure",
+          type: "function",
+        },
+        {
           inputs: [
             { internalType: "contract IVotingEscrow", name: "veNFT", type: "address" },
             { internalType: "uint256", name: "trancheNumber", type: "uint256" },
@@ -1171,6 +1178,13 @@ const contracts = {
           name: "mintRewardUnits",
           outputs: [],
           stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "name",
+          outputs: [{ internalType: "string", name: "", type: "string" }],
+          stateMutability: "pure",
           type: "function",
         },
         {
@@ -1274,6 +1288,13 @@ const contracts = {
           name: "supportsInterface",
           outputs: [{ internalType: "bool", name: "", type: "bool" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "symbol",
+          outputs: [{ internalType: "string", name: "", type: "string" }],
+          stateMutability: "pure",
           type: "function",
         },
         {
@@ -7146,6 +7167,13 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "decimals",
+          outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+          stateMutability: "pure",
+          type: "function",
+        },
+        {
           inputs: [
             { internalType: "contract IVotingEscrow", name: "veNFT", type: "address" },
             { internalType: "uint256", name: "trancheNumber", type: "uint256" },
@@ -7218,6 +7246,13 @@ const contracts = {
           name: "mintRewardUnits",
           outputs: [],
           stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "name",
+          outputs: [{ internalType: "string", name: "", type: "string" }],
+          stateMutability: "pure",
           type: "function",
         },
         {
@@ -7321,6 +7356,13 @@ const contracts = {
           name: "supportsInterface",
           outputs: [{ internalType: "bool", name: "", type: "bool" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "symbol",
+          outputs: [{ internalType: "string", name: "", type: "string" }],
+          stateMutability: "pure",
           type: "function",
         },
         {
