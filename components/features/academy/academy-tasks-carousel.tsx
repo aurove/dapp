@@ -13,15 +13,18 @@ import {
 
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Progress, cn } from "@ui";
 
+import { ACADEMY_CHECK_IN_COOLDOWN_HOURS } from "@/lib/academy/constants";
 import type { AcademyCheckInState } from "@/lib/academy/types";
 import { formatPoints } from "@/lib/academy/utils";
 
 type AcademyTasksCarouselProps = {
   authenticated: boolean;
   checkIn: AcademyCheckInState | null;
+  checkInError: string | null;
   isCheckInLoading: boolean;
   isCheckInSubmitting: boolean;
   onCheckIn: () => void;
+  onRetryCheckIn: () => void;
 };
 
 function formatCountdown(seconds: number): string {
@@ -74,11 +77,43 @@ function useLiveNow(enabled: boolean) {
 function CheckInTaskSlide({
   authenticated,
   checkIn,
+  checkInError,
   isCheckInLoading,
   isCheckInSubmitting,
   onCheckIn,
+  onRetryCheckIn,
 }: AcademyTasksCarouselProps) {
-  if (!authenticated || !checkIn) {
+  const cooldownHours = checkIn?.cooldownHours ?? ACADEMY_CHECK_IN_COOLDOWN_HOURS;
+  const isCoolingDownMode = authenticated && checkIn?.status === "cooldown";
+  const now = useLiveNow(isCoolingDownMode);
+  const nextEligibleAt = checkIn?.nextEligibleAt ?? null;
+  const lastCheckInAt = checkIn?.lastCheckInAt ?? null;
+  const isCoolingDown = isCoolingDownMode && nextEligibleAt ? Date.parse(nextEligibleAt) > now : false;
+  const cooldownSeconds = useMemo(() => {
+    if (!nextEligibleAt) {
+      return 0;
+    }
+
+    return Math.max(0, Math.ceil((Date.parse(nextEligibleAt) - now) / 1000));
+  }, [nextEligibleAt, now]);
+
+  const ready = !isCoolingDown;
+  const pointsLabel = formatPoints(checkIn?.pointsAwarded ?? 0);
+  const cooldownElapsed = useMemo(() => {
+    if (!lastCheckInAt || !nextEligibleAt) {
+      return 0;
+    }
+
+    const totalMs = Date.parse(nextEligibleAt) - Date.parse(lastCheckInAt);
+    if (totalMs <= 0) {
+      return 0;
+    }
+
+    const remainingMs = Math.max(0, Date.parse(nextEligibleAt) - now);
+    return Math.min(100, Math.max(0, Math.round(((totalMs - remainingMs) / totalMs) * 100)));
+  }, [lastCheckInAt, nextEligibleAt, now]);
+
+  if (isCheckInLoading) {
     return (
       <Card className="h-full border-white/10 bg-white/[0.03]">
         <CardHeader className="space-y-2">
@@ -87,11 +122,47 @@ function CheckInTaskSlide({
               <Target className="mr-1 h-3.5 w-3.5" />
               Daily mission
             </Badge>
-            <Badge className="border-white/10 bg-white/5 text-white/70">8h cooldown</Badge>
+            <Badge className="border-white/10 bg-white/5 text-white/70">
+              {cooldownHours}h cooldown
+            </Badge>
           </div>
           <CardTitle className="text-2xl text-white">Check in and stack points</CardTitle>
           <CardDescription>
-            Keep your Academy momentum going with a repeatable check-in every eight hours.
+            Keep your Academy momentum going with a repeatable check-in every {cooldownHours} hours.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <div className="space-y-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-5">
+            <div className="flex items-center gap-2 text-white">
+              <BadgeCheck className="h-4 w-4 text-[#e6d2ad]" />
+              <p className="font-medium">Loading check-in status</p>
+            </div>
+            <p className="text-sm leading-6 text-white/58">
+              We are loading your current cooldown and reward details.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <Card className="h-full border-white/10 bg-white/[0.03]">
+        <CardHeader className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-100">
+              <Target className="mr-1 h-3.5 w-3.5" />
+              Daily mission
+            </Badge>
+            <Badge className="border-white/10 bg-white/5 text-white/70">
+              {cooldownHours}h cooldown
+            </Badge>
+          </div>
+          <CardTitle className="text-2xl text-white">Check in and stack points</CardTitle>
+          <CardDescription>
+            Keep your Academy momentum going with a repeatable check-in every {cooldownHours} hours.
           </CardDescription>
         </CardHeader>
 
@@ -110,33 +181,49 @@ function CheckInTaskSlide({
     );
   }
 
-  const now = useLiveNow(checkIn.status === "cooldown");
-  const nextEligibleAt = checkIn.nextEligibleAt;
-  const lastCheckInAt = checkIn.lastCheckInAt;
-  const isCoolingDown = checkIn.status === "cooldown" && nextEligibleAt ? Date.parse(nextEligibleAt) > now : false;
-  const cooldownSeconds = useMemo(() => {
-    if (!nextEligibleAt) {
-      return 0;
-    }
+  if (!checkIn) {
+    return (
+      <Card className="h-full border-white/10 bg-white/[0.03]">
+        <CardHeader className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-100">
+              <Target className="mr-1 h-3.5 w-3.5" />
+              Daily mission
+            </Badge>
+            <Badge className="border-white/10 bg-white/5 text-white/70">
+              {cooldownHours}h cooldown
+            </Badge>
+          </div>
+          <CardTitle className="text-2xl text-white">Check in and stack points</CardTitle>
+          <CardDescription>
+            Keep your Academy momentum going with a repeatable check-in every {cooldownHours} hours.
+          </CardDescription>
+        </CardHeader>
 
-    return Math.max(0, Math.ceil((Date.parse(nextEligibleAt) - now) / 1000));
-  }, [nextEligibleAt, now]);
-
-  const ready = !isCoolingDown;
-  const pointsLabel = formatPoints(checkIn.pointsAwarded);
-  const cooldownElapsed = useMemo(() => {
-    if (!lastCheckInAt || !nextEligibleAt) {
-      return 0;
-    }
-
-    const totalMs = Date.parse(nextEligibleAt) - Date.parse(lastCheckInAt);
-    if (totalMs <= 0) {
-      return 0;
-    }
-
-    const remainingMs = Math.max(0, Date.parse(nextEligibleAt) - now);
-    return Math.min(100, Math.max(0, Math.round(((totalMs - remainingMs) / totalMs) * 100)));
-  }, [lastCheckInAt, nextEligibleAt, now]);
+        <CardContent className="space-y-4">
+          {checkInError ? (
+            <div className="rounded-2xl border border-rose-300/20 bg-rose-500/10 p-4">
+              <p className="font-medium text-rose-100">Unable to load check-in status</p>
+              <p className="mt-1 text-sm leading-6 text-rose-100/75">{checkInError}</p>
+              <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={onRetryCheckIn}>
+                Retry check-in
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-5">
+              <div className="flex items-center gap-2 text-white">
+                <BadgeCheck className="h-4 w-4 text-[#e6d2ad]" />
+                <p className="font-medium">Preparing check-in details</p>
+              </div>
+              <p className="text-sm leading-6 text-white/58">
+                We are loading your current cooldown and reward details.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="h-full border-white/10 bg-white/[0.03]">
@@ -147,94 +234,90 @@ function CheckInTaskSlide({
             Daily mission
           </Badge>
           <Badge className="border-white/10 bg-white/5 text-white/70">
-            {checkIn?.cooldownHours ?? 8}h cooldown
+            {cooldownHours}h cooldown
           </Badge>
         </div>
         <CardTitle className="text-2xl text-white">Check in and stack points</CardTitle>
         <CardDescription>
-          Keep your Academy momentum going with a repeatable check-in every eight hours.
+          Keep your Academy momentum going with a repeatable check-in every {cooldownHours} hours.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {isCheckInLoading ? (
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-            <div className="h-4 w-1/2 animate-pulse rounded bg-white/10" />
-            <div className="h-4 w-3/4 animate-pulse rounded bg-white/10" />
-            <div className="h-24 w-full animate-pulse rounded-2xl bg-white/10" />
+        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Reward</p>
+              <p className="text-2xl font-semibold text-white">{pointsLabel} points</p>
+              <p className="text-sm text-white/55">Per successful check-in.</p>
+            </div>
+            <Badge
+              className={cn(
+                "border",
+                ready
+                  ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
+                  : "border-amber-300/20 bg-amber-300/10 text-amber-100",
+              )}
+            >
+              {ready ? "Ready now" : `Ready in ${formatCountdown(cooldownSeconds)}`}
+            </Badge>
           </div>
-        ) : authenticated && checkIn ? (
-          <>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Reward</p>
-                  <p className="text-2xl font-semibold text-white">{pointsLabel} points</p>
-                  <p className="text-sm text-white/55">Per successful check-in.</p>
-                </div>
-                <Badge
-                  className={cn(
-                    "border",
-                    ready
-                      ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
-                      : "border-amber-300/20 bg-amber-300/10 text-amber-100",
-                  )}
-                >
-                  {ready ? "Ready now" : `Ready in ${formatCountdown(cooldownSeconds)}`}
-                </Badge>
+
+          <div className="mt-4 space-y-3">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-white/45">
+                <span>Cooldown progress</span>
+                <span>{ready ? "100%" : `${cooldownElapsed}%`}</span>
               </div>
+              <Progress value={ready ? 100 : cooldownElapsed} />
+            </div>
 
-              <div className="mt-4 space-y-3">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-white/45">
-                    <span>Cooldown progress</span>
-                    <span>{ready ? "100%" : `${cooldownElapsed}%`}</span>
-                  </div>
-                  <Progress value={ready ? 100 : cooldownElapsed} />
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Last check-in</p>
-                    <p className="mt-1 text-sm text-white/80">
-                      {formatTime(checkIn.lastCheckInAt) ?? "No prior check-in yet."}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Next eligible</p>
-                    <p className="mt-1 text-sm text-white/80">
-                      {formatTime(checkIn.nextEligibleAt) ?? "Available immediately."}
-                    </p>
-                  </div>
-                </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Last check-in</p>
+                <p className="mt-1 text-sm text-white/80">
+                  {formatTime(checkIn.lastCheckInAt) ?? "No prior check-in yet."}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Next eligible</p>
+                <p className="mt-1 text-sm text-white/80">
+                  {formatTime(checkIn.nextEligibleAt) ?? "Available immediately."}
+                </p>
               </div>
             </div>
 
-            <Button
-              type="button"
-              className="w-full gap-2"
-              onClick={onCheckIn}
-              disabled={!ready || isCheckInSubmitting}
-            >
-              {isCheckInSubmitting ? (
-                <>
-                  <RefreshCcw className="h-4 w-4 animate-spin" />
-                  Checking in...
-                </>
-              ) : ready ? (
-                <>
-                  <BadgeCheck className="h-4 w-4" />
-                  Check in now
-                </>
-              ) : (
-                <>
-                  <Clock3 className="h-4 w-4" />
-                  Cooldown active
-                </>
-              )}
-            </Button>
-          </>
-        ) : null}
+            {checkInError ? (
+              <p className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                We are showing the current check-in snapshot while a refresh is attempted.
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          className="w-full gap-2"
+          onClick={onCheckIn}
+          disabled={!ready || isCheckInSubmitting}
+        >
+          {isCheckInSubmitting ? (
+            <>
+              <RefreshCcw className="h-4 w-4 animate-spin" />
+              Checking in...
+            </>
+          ) : ready ? (
+            <>
+              <BadgeCheck className="h-4 w-4" />
+              Check in now
+            </>
+          ) : (
+            <>
+              <Clock3 className="h-4 w-4" />
+              Cooldown active
+            </>
+          )}
+        </Button>
       </CardContent>
     </Card>
   );
@@ -256,7 +339,7 @@ function MomentumSlide() {
 
       <CardContent className="space-y-3 text-sm leading-6 text-white/65">
         <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-          Check in every 8 hours to keep collecting points without missing a beat.
+          Check in every {ACADEMY_CHECK_IN_COOLDOWN_HOURS} hours to keep collecting points without missing a beat.
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
           Your activity updates the leaderboard, feed, and referral rewards in real time.
@@ -272,13 +355,10 @@ function MomentumSlide() {
 export function AcademyTasksCarousel(props: AcademyTasksCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const slides = useMemo(
-    () => [
-      <CheckInTaskSlide key="check-in" {...props} />,
-      <MomentumSlide key="momentum" />,
-    ],
-    [props],
-  );
+  const slides = [
+    <CheckInTaskSlide key="check-in" {...props} />,
+    <MomentumSlide key="momentum" />,
+  ];
 
   const totalSlides = slides.length;
 

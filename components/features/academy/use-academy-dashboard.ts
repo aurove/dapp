@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   requestAcademyCheckIn,
@@ -22,7 +22,7 @@ export function useAcademyDashboard() {
   const [leaderboardPage, setLeaderboardPage] = useState(1);
   const leaderboardLimit = 10;
   const queryClient = useQueryClient();
-  const { chainId, walletAddressNormalized } = useWalletAuth();
+  const { chainId, isAuthenticated, walletAddressNormalized } = useWalletAuth();
   const walletKey = walletAddressNormalized && chainId ? `${walletAddressNormalized}:${chainId}` : "guest";
   const checkInEnabled = Boolean(walletAddressNormalized && chainId);
 
@@ -36,6 +36,7 @@ export function useAcademyDashboard() {
     queryKey: academyQueryKeys.leaderboard(leaderboardPage, leaderboardLimit, walletKey),
     queryFn: () => requestAcademyLeaderboard({ page: leaderboardPage, limit: leaderboardLimit }),
     staleTime: 15_000,
+    placeholderData: keepPreviousData,
   });
 
   const checkInQuery = useQuery({
@@ -55,6 +56,7 @@ export function useAcademyDashboard() {
   });
 
   return {
+    isAuthenticated,
     summaryQuery,
     leaderboardQuery,
     checkInQuery,

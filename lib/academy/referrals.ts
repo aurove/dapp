@@ -28,8 +28,6 @@ import {
 } from "./tasks/errors";
 import type { AcademyReferralSummary } from "./types";
 
-type JsonRecord = Record<string, unknown>;
-
 type ProgramUser = typeof users.$inferSelect;
 
 type ReferralChain = {

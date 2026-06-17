@@ -169,7 +169,7 @@ export function AcademyActivityDialog({
     }
 
     return groupByDate(activity.items);
-  }, [activity?.items]);
+  }, [activity]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

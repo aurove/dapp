@@ -227,11 +227,13 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
     }
 
     queueMicrotask(() => {
-      void loginWithWallet();
+      void refreshSession().catch(() => {
+        // Background rehydration is best-effort; explicit sign-in still works.
+      });
     });
-    // We intentionally only react to wallet/chain changes here. The login flow
-    // performs its own session check before ever prompting for a signature.
-  }, [chainId, clearLocalAuthState, isConnected, loginWithWallet, walletAddress]);
+    // We intentionally only rehydrate an existing session here. Prompting for a
+    // signature remains a user-initiated action via the sign-in button.
+  }, [chainId, clearLocalAuthState, isConnected, refreshSession, walletAddress]);
 
   useEffect(() => {
     if (!isConnected || !walletAddress || !chainId) {

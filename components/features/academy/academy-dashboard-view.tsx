@@ -20,9 +20,13 @@ import type { AcademyCheckInState, AcademyLeaderboardPage, AcademySummary } from
 import { AcademyTasksCarousel } from "./academy-tasks-carousel";
 
 type AcademyDashboardViewProps = {
+  isAuthenticated: boolean;
   summary: AcademySummary | null;
   leaderboard: AcademyLeaderboardPage | null;
   checkIn: AcademyCheckInState | null;
+  summaryError: string | null;
+  leaderboardError: string | null;
+  checkInError: string | null;
   isSummaryLoading: boolean;
   isLeaderboardLoading: boolean;
   isCheckInLoading: boolean;
@@ -31,6 +35,7 @@ type AcademyDashboardViewProps = {
   onLeaderboardPageChange: (page: number) => void;
   onLeaderboardUserOpen: (walletAddress: string) => void;
   onLeaderboardUserPrefetch: (walletAddress: string) => void;
+  onRetryAll: () => void;
   onCheckIn: () => void;
 };
 
@@ -92,10 +97,40 @@ function ReferralMetric({
   );
 }
 
+function NoticeCard({
+  title,
+  description,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  description: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <div role="alert" className="rounded-2xl border border-rose-300/20 bg-rose-500/10 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <p className="font-medium text-rose-100">{title}</p>
+          <p className="text-sm leading-6 text-rose-100/75">{description}</p>
+        </div>
+        <Button type="button" variant="secondary" size="sm" className="shrink-0" onClick={onAction}>
+          {actionLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function AcademyDashboardView({
+  isAuthenticated,
   summary,
   leaderboard,
   checkIn,
+  summaryError,
+  leaderboardError,
+  checkInError,
   isSummaryLoading,
   isLeaderboardLoading,
   isCheckInLoading,
@@ -104,12 +139,29 @@ export function AcademyDashboardView({
   onLeaderboardPageChange,
   onLeaderboardUserOpen,
   onLeaderboardUserPrefetch,
+  onRetryAll,
   onCheckIn,
 }: AcademyDashboardViewProps) {
   const [copied, setCopied] = useState(false);
   const season = summary?.season ?? leaderboard?.season ?? null;
-  const authenticated = Boolean(summary?.authenticated);
   const referral = summary?.referral ?? null;
+  const hasAnyError = Boolean(summaryError || leaderboardError || checkInError);
+  const pointsValue = isSummaryLoading ? "..." : summary ? formatPoints(summary.totalPoints) : summaryError ? "Unavailable" : "0";
+  const rankValue = isSummaryLoading
+    ? "..."
+    : summary
+      ? summary.rank
+        ? `#${summary.rank}`
+        : "Unranked"
+      : summaryError
+        ? "Unavailable"
+        : "Unranked";
+  const seasonValue = isSummaryLoading ? "..." : season?.name ?? (summaryError ? "Unavailable" : "Between seasons");
+  const seasonDescription = season?.description ?? (
+    summaryError
+      ? "We could not load the current season details just now."
+      : "The next Academy campaign will appear here once it opens."
+  );
 
   async function handleCopyReferralLink(link: string) {
     try {
@@ -123,6 +175,15 @@ export function AcademyDashboardView({
 
   return (
     <div className="space-y-6 pb-8">
+      {hasAnyError ? (
+        <NoticeCard
+          title="Some Academy data needs another pass"
+          description="We hit a temporary issue loading one or more Academy sections. You can retry without leaving the page."
+          actionLabel="Retry all"
+          onAction={onRetryAll}
+        />
+      ) : null}
+
       <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.06)_0%,rgba(255,255,255,0.025)_40%,rgba(196,160,106,0.08)_100%)] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(196,160,106,0.22),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(72,99,132,0.25),transparent_30%)]" />
         <div className="relative grid gap-8 p-6 sm:p-8 xl:grid-cols-[1.4fr_0.9fr]">
@@ -153,34 +214,56 @@ export function AcademyDashboardView({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {authenticated && referral?.referralLink ? (
-                  <>
-                    <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                      <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">
-                        Referral link
-                      </p>
-                      <div className="flex items-start gap-2">
-                        <p className="min-w-0 flex-1 break-all text-sm text-white/80">
-                          {referral.referralLink}
-                        </p>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          className="shrink-0 gap-1"
-                          onClick={() => void handleCopyReferralLink(referral.referralLink ?? "")}
-                        >
-                          <Copy className="h-4 w-4" />
-                          {copied ? "Copied" : "Copy"}
-                        </Button>
+                {isAuthenticated ? (
+                  isSummaryLoading ? (
+                    <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <Skeleton className="h-3 w-24 rounded-full" />
+                      <Skeleton className="h-10 w-full rounded-2xl" />
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Skeleton className="h-16 rounded-2xl" />
+                        <Skeleton className="h-16 rounded-2xl" />
                       </div>
                     </div>
+                  ) : summaryError && !referral?.referralLink ? (
+                    <NoticeCard
+                      title="Referral network unavailable"
+                      description={summaryError}
+                      actionLabel="Retry"
+                      onAction={onRetryAll}
+                    />
+                  ) : referral?.referralLink ? (
+                    <>
+                      <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">
+                          Referral link
+                        </p>
+                        <div className="flex items-start gap-2">
+                          <p className="min-w-0 flex-1 break-all text-sm text-white/80">
+                            {referral.referralLink}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="shrink-0 gap-1"
+                            onClick={() => void handleCopyReferralLink(referral.referralLink ?? "")}
+                          >
+                            <Copy className="h-4 w-4" />
+                            {copied ? "Copied" : "Copy"}
+                          </Button>
+                        </div>
+                      </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <ReferralMetric label="Direct referrals" value={`${referral.directCount}`} />
-                      <ReferralMetric label="Grand referrals" value={`${referral.grandCount}`} />
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <ReferralMetric label="Direct referrals" value={`${referral.directCount}`} />
+                        <ReferralMetric label="Grand referrals" value={`${referral.grandCount}`} />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-5 text-sm leading-6 text-white/58">
+                      Your referral link will appear here once your Academy profile is ready.
                     </div>
-                  </>
+                  )
                 ) : (
                   <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-5 text-sm leading-6 text-white/58">
                     Authenticate your wallet to unlock your referral link and track your Academy network.
@@ -195,31 +278,33 @@ export function AcademyDashboardView({
       <div className="grid gap-4 sm:grid-cols-1 xl:grid-cols-3">
         <StatCard
           label="Current points"
-          value={isSummaryLoading ? "..." : formatPoints(summary?.totalPoints ?? 0)}
-          description={authenticated ? "Points earned during the current Academy season." : "Visible after wallet authentication."}
+          value={pointsValue}
+          description={isAuthenticated ? "Points earned during the current Academy season." : "Visible after wallet authentication."}
           icon={Trophy}
         />
         <StatCard
           label="Current rank"
-          value={isSummaryLoading ? "..." : summary?.rank ? `#${summary.rank}` : "Unranked"}
+          value={rankValue}
           description="Earn points to enter the season leaderboard."
           icon={Crown}
         />
         <StatCard
           label="Season"
-          value={isSummaryLoading ? "..." : season?.name ?? "Between seasons"}
-          description={season?.description ?? "The next Academy campaign will appear here once it opens."}
+          value={seasonValue}
+          description={seasonDescription}
           icon={BadgeCheck}
         />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,0.33fr)_minmax(0,0.67fr)]">
         <AcademyTasksCarousel
-          authenticated={authenticated}
+          authenticated={isAuthenticated}
           checkIn={checkIn}
+          checkInError={checkInError}
           isCheckInLoading={isCheckInLoading}
           isCheckInSubmitting={isCheckInSubmitting}
           onCheckIn={onCheckIn}
+          onRetryCheckIn={onRetryAll}
         />
 
         <Card className="border-white/10">
@@ -239,6 +324,13 @@ export function AcademyDashboardView({
                 <Skeleton className="h-16 w-full rounded-2xl" />
                 <Skeleton className="h-16 w-full rounded-2xl" />
               </div>
+            ) : leaderboardError && !leaderboard?.items.length ? (
+              <NoticeCard
+                title="Leaderboard unavailable"
+                description={leaderboardError}
+                actionLabel="Retry"
+                onAction={onRetryAll}
+              />
             ) : leaderboard?.items.length ? (
               <>
                 <div className="space-y-2">
@@ -259,13 +351,13 @@ export function AcademyDashboardView({
                         "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/40",
                       )}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={cn("flex size-10 items-center justify-center rounded-2xl border text-sm font-semibold", rankTone(entry.rank))}>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-2xl border text-sm font-semibold", rankTone(entry.rank))}>
                           {entry.rank}
                         </div>
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-white" title={entry.walletAddress}>
+                        <div className="min-w-0 space-y-0.5">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <p className="min-w-0 truncate font-medium text-white" title={entry.walletAddress}>
                               {shortenWalletAddress(entry.walletAddress)}
                             </p>
                             {entry.isCurrentUser ? (
@@ -276,13 +368,19 @@ export function AcademyDashboardView({
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="shrink-0 text-right">
                         <p className="text-base font-semibold text-white">{formatPoints(entry.totalPoints)}</p>
                         <p className="text-xs text-white/45">points</p>
                       </div>
                     </button>
                   ))}
                 </div>
+
+                {leaderboardError ? (
+                  <p className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                    We are showing the last loaded leaderboard snapshot while a refresh is attempted.
+                  </p>
+                ) : null}
 
                 <div className="flex items-center justify-between gap-2 pt-1 text-sm">
                   <Button
@@ -314,7 +412,9 @@ export function AcademyDashboardView({
               </>
             ) : (
               <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-6 text-sm text-white/55">
-                The leaderboard will populate once the season starts.
+                {season
+                  ? "The leaderboard will populate once the season starts."
+                  : "The Academy leaderboard will appear once a season is live."}
               </div>
             )}
           </CardContent>
