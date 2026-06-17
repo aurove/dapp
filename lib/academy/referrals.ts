@@ -96,6 +96,14 @@ function serializeReferralPendingCookie(input: { refId: string; chainId: number 
   return params.toString();
 }
 
+function formatAcademyReferralUnits(units: bigint): string {
+  const negative = units < 0n;
+  const absoluteUnits = negative ? -units : units;
+  const whole = absoluteUnits / BigInt(ACADEMY_POINTS_SCALE);
+  const fraction = absoluteUnits % BigInt(ACADEMY_POINTS_SCALE);
+  return `${negative ? "-" : ""}${whole.toString()}.${fraction.toString().padStart(4, "0")}`;
+}
+
 export function parseReferralPendingCookie(value: string | null): {
   refId: string;
   chainId: number | null;
@@ -502,12 +510,11 @@ export function toAcademyReferralUnits(value: number | string | bigint): bigint 
 }
 
 export function formatAcademyReferralPoints(value: number | string | bigint): string {
-  const units = toAcademyReferralUnits(value);
-  const negative = units < 0n;
-  const absoluteUnits = negative ? -units : units;
-  const whole = absoluteUnits / BigInt(ACADEMY_POINTS_SCALE);
-  const fraction = absoluteUnits % BigInt(ACADEMY_POINTS_SCALE);
-  return `${negative ? "-" : ""}${whole.toString()}.${fraction.toString().padStart(4, "0")}`;
+  if (typeof value === "bigint") {
+    return formatAcademyReferralUnits(value);
+  }
+
+  return formatAcademyReferralUnits(toAcademyReferralUnits(value));
 }
 
 export function splitAcademyReferralPoints(basePoints: number | string | bigint): {
