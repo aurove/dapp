@@ -1,0 +1,2 @@
+export const ACADEMY_PROGRAM_SLUG = "academy";
+export const DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE = 10;
