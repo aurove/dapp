@@ -24,6 +24,14 @@ export type AcademySummary = {
   season: AcademySeason | null;
   totalPoints: number;
   rank: number | null;
+  referral: AcademyReferralSummary;
+};
+
+export type AcademyReferralSummary = {
+  refId: string | null;
+  referralLink: string | null;
+  directCount: number;
+  grandCount: number;
 };
 
 export type AcademyActivityUser = {
@@ -69,4 +77,9 @@ export type AcademyCheckInState = {
 export type AcademyCheckInResponse = {
   summary: AcademySummary;
   checkIn: AcademyCheckInState;
+};
+
+export type AcademyReferralActionResponse = {
+  status: "pending" | "bound";
+  referral: AcademyReferralSummary | null;
 };

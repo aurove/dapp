@@ -15,6 +15,13 @@
       "when": 1781734622761,
       "tag": "20260618000100_points_system",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781821022761,
+      "tag": "20260618000500_academy_referrals_and_points_precision",
+      "breakpoints": true
     }
   ]
 }

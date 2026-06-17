@@ -3,9 +3,15 @@ import { NextRequest } from "next/server";
 import {
   createWalletAuthSessionCookieOptions,
 } from "@/lib/auth/session";
+import { db } from "@/lib/db";
 import {
   verifyWalletAuthSignature,
 } from "@/lib/auth/server";
+import {
+  bindAcademyReferral,
+  createClearedAcademyReferralPendingCookie,
+  parseReferralPendingCookie,
+} from "@/lib/academy/referrals";
 import { getRequestOrigin } from "@/lib/auth/utils";
 import {
   createNoStoreErrorResponse,
@@ -72,6 +78,24 @@ export async function POST(request: NextRequest) {
       ...createWalletAuthSessionCookieOptions(new Date(result.session.expiresAt)),
       value: result.token,
     });
+
+    const pendingReferral = parseReferralPendingCookie(
+      request.cookies.get("academy_referral")?.value ?? null,
+    );
+    const pendingChainId = pendingReferral?.chainId ?? result.session.chainId;
+    if (pendingReferral && pendingChainId === result.session.chainId) {
+      try {
+        await bindAcademyReferral(db, {
+          referredUserId: result.user.id,
+          chainId: result.session.chainId,
+          refId: pendingReferral.refId,
+        });
+      } catch {
+        // Referral binding should never block authentication.
+      }
+    }
+
+    response.cookies.set(createClearedAcademyReferralPendingCookie());
 
     return response;
   } catch (error) {

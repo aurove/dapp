@@ -5,6 +5,7 @@ export function formatPoints(value: number | bigint | string): string {
   }
 
   return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
   }).format(numeric);
 }

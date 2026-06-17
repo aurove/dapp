@@ -1,7 +1,17 @@
 "use client";
 
-import { type ComponentType } from "react";
-import { BadgeCheck, ChevronLeft, ChevronRight, Crown, Sparkles, Trophy, Users } from "lucide-react";
+import { useState, type ComponentType } from "react";
+import {
+  BadgeCheck,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Crown,
+  Link2,
+  Sparkles,
+  Trophy,
+  Users,
+} from "lucide-react";
 
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton, cn } from "@ui";
 import { formatPoints } from "@/lib/academy/utils";
@@ -62,6 +72,21 @@ function rankTone(rank: number) {
   return "border-white/10 bg-white/5 text-white/80";
 }
 
+function ReferralMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+      <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-white">{value}</p>
+    </div>
+  );
+}
+
 export function AcademyDashboardView({
   summary,
   leaderboard,
@@ -72,8 +97,20 @@ export function AcademyDashboardView({
   onLeaderboardUserOpen,
   onLeaderboardUserPrefetch,
 }: AcademyDashboardViewProps) {
+  const [copied, setCopied] = useState(false);
   const season = summary?.season ?? leaderboard?.season ?? null;
   const authenticated = Boolean(summary?.authenticated);
+  const referral = summary?.referral ?? null;
+
+  async function handleCopyReferralLink(link: string) {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   return (
     <div className="space-y-6 pb-8">
@@ -93,6 +130,55 @@ export function AcademyDashboardView({
                 Complete on-chain and off-chain actions, build your Academy score, and stay ready for future campaigns across the Aurove ecosystem.
               </p>
             </div>
+          </div>
+
+          <div className="flex">
+            <Card className="w-full border-white/10 bg-black/20 backdrop-blur-md">
+              <CardHeader className="space-y-2">
+                <CardTitle className="flex items-center gap-2 text-xl text-white">
+                  <Link2 className="h-5 w-5 text-[#e6d2ad]" />
+                  Referral network
+                </CardTitle>
+                <CardDescription>
+                  Share your Academy link and track who joins your network.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {authenticated && referral?.referralLink ? (
+                  <>
+                    <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">
+                        Referral link
+                      </p>
+                      <div className="flex items-start gap-2">
+                        <p className="min-w-0 flex-1 break-all text-sm text-white/80">
+                          {referral.referralLink}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="shrink-0 gap-1"
+                          onClick={() => void handleCopyReferralLink(referral.referralLink ?? "")}
+                        >
+                          <Copy className="h-4 w-4" />
+                          {copied ? "Copied" : "Copy"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <ReferralMetric label="Direct referrals" value={`${referral.directCount}`} />
+                      <ReferralMetric label="Grand referrals" value={`${referral.grandCount}`} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-5 text-sm leading-6 text-white/58">
+                    Authenticate your wallet to unlock your referral link and track your Academy network.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>

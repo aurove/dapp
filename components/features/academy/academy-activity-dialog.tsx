@@ -45,6 +45,27 @@ function toLabel(input: string): string {
     .join(" ");
 }
 
+function getAwardLabel(sourceDetails: Record<string, unknown>): string | null {
+  const awardType = typeof sourceDetails.awardType === "string" ? sourceDetails.awardType : null;
+  if (!awardType) {
+    return null;
+  }
+
+  if (awardType === "task_award_referral_direct") {
+    return "Direct referral reward";
+  }
+
+  if (awardType === "task_award_referral_grand") {
+    return "Grand referral reward";
+  }
+
+  if (awardType === "task_award_user") {
+    return "Task reward";
+  }
+
+  return toLabel(awardType);
+}
+
 function groupByDate(items: AcademyActivityEntry[]): Array<{ dateKey: string; label: string; entries: AcademyActivityEntry[] }> {
   const groups = new Map<string, AcademyActivityEntry[]>();
 
@@ -92,6 +113,11 @@ function ActivityEntryCard({ entry }: { entry: AcademyActivityEntry }) {
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium text-white">{entry.activityName}</p>
             <Badge className="border-white/10 bg-white/5 text-white/75">{toLabel(entry.sourceKind)}</Badge>
+            {getAwardLabel(entry.sourceDetails) ? (
+              <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-100">
+                {getAwardLabel(entry.sourceDetails)}
+              </Badge>
+            ) : null}
           </div>
           <p className="text-xs text-white/45">
             {formatActivityDate(entry.occurredAt)} at {formatActivityTime(entry.occurredAt)}

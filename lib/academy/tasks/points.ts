@@ -17,6 +17,11 @@ import {
   ACADEMY_CHECK_IN_POINTS,
   ACADEMY_PROGRAM_SLUG,
 } from "../constants";
+import {
+  resolveAcademyReferralRecipients,
+  splitAcademyReferralPoints,
+  toAcademyReferralUnits,
+} from "../referrals";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -38,18 +43,18 @@ function asRecord(value: unknown): JsonRecord {
   return {};
 }
 
-function asPositiveInteger(value: unknown, fallback: number): number {
+function asPositiveNumber(value: unknown, fallback: number): number {
   if (typeof value === "bigint") {
     return value > 0n ? Number(value) : fallback;
   }
 
-  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
     return value;
   }
 
   if (typeof value === "string" && value.trim().length > 0) {
     const parsed = Number(value);
-    if (Number.isInteger(parsed) && parsed > 0) {
+    if (Number.isFinite(parsed) && parsed > 0) {
       return parsed;
     }
   }
@@ -60,9 +65,135 @@ function asPositiveInteger(value: unknown, fallback: number): number {
 function parseTaskMetadata(metadata: unknown): AcademyTaskPointsConfig {
   const record = asRecord(metadata);
   return {
-    cooldownHours: asPositiveInteger(record.cooldownHours, ACADEMY_CHECK_IN_COOLDOWN_HOURS),
-    pointsAwarded: asPositiveInteger(record.pointsAwarded, ACADEMY_CHECK_IN_POINTS),
+    cooldownHours: asPositiveNumber(record.cooldownHours, ACADEMY_CHECK_IN_COOLDOWN_HOURS),
+    pointsAwarded: asPositiveNumber(record.pointsAwarded, ACADEMY_CHECK_IN_POINTS),
   };
+}
+
+type AcademyTaskAwardInput = {
+  programId: string;
+  activityDefinitionId: string;
+  userId: string;
+  chainId: number;
+  idempotencyKey: string;
+  occurredAt: string;
+  pointsDelta: number;
+  sourceReference: string;
+  sourceDetails: JsonRecord;
+};
+
+type AcademyTaskAwardRecipient = {
+  userId: string;
+  rewardType: "task_award_user" | "task_award_referral_direct" | "task_award_referral_grand";
+  referralLevel: "user" | "direct" | "grand";
+  percentage: number;
+  pointsDelta: string;
+  idempotencyKey: string;
+  sourceReference: string;
+};
+
+function formatSourceReference(baseReference: string, rewardType: AcademyTaskAwardRecipient["rewardType"]): string {
+  return `${baseReference}:${rewardType}`;
+}
+
+function buildAcademyTaskAwardRecipients(
+  input: AcademyTaskAwardInput,
+  referralChain: {
+    directReferrerUserId: string | null;
+    grandReferrerUserId: string | null;
+  },
+): AcademyTaskAwardRecipient[] {
+  const split = splitAcademyReferralPoints(input.pointsDelta);
+
+  const recipients: AcademyTaskAwardRecipient[] = [
+    {
+      userId: input.userId,
+      rewardType: "task_award_user",
+      referralLevel: "user",
+      percentage: 90,
+      pointsDelta: split.userPoints,
+      idempotencyKey: `${input.idempotencyKey}:user`,
+      sourceReference: formatSourceReference(input.sourceReference, "task_award_user"),
+    },
+  ];
+
+  if (
+    referralChain.directReferrerUserId &&
+    split.directReferralPoints &&
+    toAcademyReferralUnits(split.directReferralPoints) > 0n
+  ) {
+    recipients.push({
+      userId: referralChain.directReferrerUserId,
+      rewardType: "task_award_referral_direct",
+      referralLevel: "direct",
+      percentage: 3,
+      pointsDelta: split.directReferralPoints,
+      idempotencyKey: `${input.idempotencyKey}:ref:direct`,
+      sourceReference: formatSourceReference(input.sourceReference, "task_award_referral_direct"),
+    });
+  }
+
+  if (
+    referralChain.grandReferrerUserId &&
+    split.grandReferralPoints &&
+    toAcademyReferralUnits(split.grandReferralPoints) > 0n
+  ) {
+    recipients.push({
+      userId: referralChain.grandReferrerUserId,
+      rewardType: "task_award_referral_grand",
+      referralLevel: "grand",
+      percentage: 7,
+      pointsDelta: split.grandReferralPoints,
+      idempotencyKey: `${input.idempotencyKey}:ref:grand`,
+      sourceReference: formatSourceReference(input.sourceReference, "task_award_referral_grand"),
+    });
+  }
+
+  return recipients;
+}
+
+async function insertAcademyTaskAward(
+  client: typeof db,
+  input: AcademyTaskAwardInput,
+  recipient: AcademyTaskAwardRecipient,
+): Promise<PointsLedgerEntry | null> {
+  const rows = await client
+    .insert(pointsLedgerEntries)
+    .values({
+      programId: input.programId,
+      activityDefinitionId: input.activityDefinitionId,
+      userId: recipient.userId,
+      idempotencyKey: recipient.idempotencyKey,
+      sourceKind: "system",
+      sourceReference: recipient.sourceReference,
+      sourceDetails: {
+        ...input.sourceDetails,
+        awardType: recipient.rewardType,
+        referralLevel: recipient.referralLevel,
+        percentage: recipient.percentage,
+        sourceReference: input.sourceReference,
+        recipientUserId: recipient.userId,
+        originalUserId: input.userId,
+        basePoints: input.pointsDelta,
+        pointsAwarded: recipient.pointsDelta,
+      },
+      pointsDelta: recipient.pointsDelta,
+      occurredAt: input.occurredAt,
+    })
+    .onConflictDoNothing({ target: pointsLedgerEntries.idempotencyKey })
+    .returning();
+
+  if (rows[0]) {
+    return rows[0];
+  }
+
+  const existing = await client
+    .select()
+    .from(pointsLedgerEntries)
+    .where(eq(pointsLedgerEntries.idempotencyKey, recipient.idempotencyKey))
+    .limit(1);
+
+  return existing[0] ?? null;
 }
 
 export function computeAcademyTaskNextEligibleAt(
@@ -165,6 +296,7 @@ export async function recordAcademyTaskPoints(
     programId: string;
     activityDefinitionId: string;
     userId: string;
+    chainId: number;
     idempotencyKey: string;
     occurredAt: string;
     pointsDelta: number;
@@ -172,30 +304,30 @@ export async function recordAcademyTaskPoints(
     sourceDetails: JsonRecord;
   },
 ): Promise<PointsLedgerEntry> {
-  const rows = await client
-    .insert(pointsLedgerEntries)
-    .values({
-      programId: input.programId,
-      activityDefinitionId: input.activityDefinitionId,
-      userId: input.userId,
-      idempotencyKey: input.idempotencyKey,
-      sourceKind: "system",
-      sourceReference: input.sourceReference,
-      sourceDetails: input.sourceDetails,
-      pointsDelta: BigInt(input.pointsDelta),
-      occurredAt: input.occurredAt,
-    })
-    .onConflictDoNothing({ target: pointsLedgerEntries.idempotencyKey })
-    .returning();
+  const referralChain = await resolveAcademyReferralRecipients(client, {
+    userId: input.userId,
+    chainId: input.chainId,
+  });
 
-  if (rows[0]) {
-    return rows[0];
+  const recipients = buildAcademyTaskAwardRecipients(input, referralChain);
+  const recordedEntries: Array<PointsLedgerEntry | null> = [];
+
+  for (const recipient of recipients) {
+    const entry = await insertAcademyTaskAward(client, input, recipient);
+    if (entry) {
+      recordedEntries.push(entry);
+    }
+  }
+
+  const userEntry = recordedEntries.find((entry) => entry?.userId === input.userId) ?? null;
+  if (userEntry) {
+    return userEntry;
   }
 
   const existing = await client
     .select()
     .from(pointsLedgerEntries)
-    .where(eq(pointsLedgerEntries.idempotencyKey, input.idempotencyKey))
+    .where(eq(pointsLedgerEntries.idempotencyKey, `${input.idempotencyKey}:user`))
     .limit(1);
 
   const entry = existing[0];

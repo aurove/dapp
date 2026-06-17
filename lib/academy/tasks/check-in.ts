@@ -17,19 +17,24 @@ import { AcademyTaskNotFoundError } from "./errors";
 function buildCheckInIdempotencyKey(input: {
   programSlug: string;
   userId: string;
+  chainId: number;
   taskCode: string;
   lastCheckInAt: string | null;
 }): string {
   return [
     "academy",
     input.programSlug,
+    input.chainId,
     input.taskCode,
     input.userId,
     input.lastCheckInAt ?? "initial",
   ].join(":");
 }
 
-export async function runAcademyCheckIn(userId: string): Promise<AcademyCheckInState> {
+export async function runAcademyCheckIn(input: {
+  userId: string;
+  chainId: number;
+}): Promise<AcademyCheckInState> {
   return db.transaction(async (tx) => {
     const client = tx as typeof db;
     const program = await resolveActiveAcademyProgram(client);
@@ -45,7 +50,7 @@ export async function runAcademyCheckIn(userId: string): Promise<AcademyCheckInS
     const latestEntry = await resolveAcademyTaskLedgerEntry(client, {
       programId: program.id,
       activityDefinitionId: task.activityDefinition.id,
-      userId,
+      userId: input.userId,
     });
 
     if (latestEntry) {
@@ -69,7 +74,8 @@ export async function runAcademyCheckIn(userId: string): Promise<AcademyCheckInS
     const occurredAt = new Date().toISOString();
     const idempotencyKey = buildCheckInIdempotencyKey({
       programSlug: program.slug,
-      userId,
+      userId: input.userId,
+      chainId: input.chainId,
       taskCode: task.activityDefinition.code,
       lastCheckInAt: latestEntry?.occurredAt ?? null,
     });
@@ -77,7 +83,8 @@ export async function runAcademyCheckIn(userId: string): Promise<AcademyCheckInS
     const entry = await recordAcademyTaskPoints(client, {
       programId: program.id,
       activityDefinitionId: task.activityDefinition.id,
-      userId,
+      userId: input.userId,
+      chainId: input.chainId,
       idempotencyKey,
       occurredAt,
       pointsDelta: task.config.pointsAwarded,
@@ -87,6 +94,7 @@ export async function runAcademyCheckIn(userId: string): Promise<AcademyCheckInS
         cooldownHours: task.config.cooldownHours,
         pointsAwarded: task.config.pointsAwarded,
         lastCheckInAt: latestEntry?.occurredAt ?? null,
+        chainId: input.chainId,
       },
     });
 

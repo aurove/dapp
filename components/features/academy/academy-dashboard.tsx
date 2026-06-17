@@ -4,6 +4,7 @@ import { AcademyActivityDialog } from "./academy-activity-dialog";
 import { AcademyDashboardView } from "./academy-dashboard-view";
 import { useAcademyActivity } from "./use-academy-activity";
 import { useAcademyDashboard } from "./use-academy-dashboard";
+import { useAcademyReferral } from "./use-academy-referral";
 import { AcademyApiError } from "@/lib/academy/client";
 
 export function AcademyDashboard() {
@@ -13,6 +14,7 @@ export function AcademyDashboard() {
     leaderboardPage,
     setLeaderboardPage,
   } = useAcademyDashboard();
+  useAcademyReferral();
   const seasonId = summaryQuery.data?.season?.id ?? leaderboardQuery.data?.season?.id ?? null;
   const activity = useAcademyActivity(seasonId);
 

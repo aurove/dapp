@@ -5,6 +5,7 @@ import { pointsPrograms, pointsUserBalances, users, type PointsProgram } from "@
 import { normalizeWalletAddress } from "@/lib/auth/utils";
 
 import { DEFAULT_ACADEMY_ACTIVITY_PAGE_SIZE, DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE } from "./constants";
+import { resolveAcademyReferralSummary } from "./referrals";
 import { runAcademyTask } from "./tasks";
 import { AcademyActivityUserNotFoundError } from "./tasks/errors";
 import { resolveActiveAcademyProgram } from "./tasks/points";
@@ -112,11 +113,6 @@ function paginate(totalItems: number, limit: number): { totalPages: number } {
   return {
     totalPages: totalItems === 0 ? 0 : Math.ceil(totalItems / limit),
   };
-}
-
-async function resolveAcademyUser(userId: string): Promise<ProgramUser | null> {
-  const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  return rows[0] ?? null;
 }
 
 async function resolveAcademyUserByWalletAddress(walletAddress: string): Promise<ProgramUser | null> {
@@ -339,6 +335,8 @@ async function resolveAcademyLeaderboardRowByProgramId(
 async function buildAcademySummary(input: {
   program: PointsProgram | null;
   userId: string | null;
+  chainId: number | null;
+  origin: string;
   authenticated: boolean;
 }): Promise<AcademySummary> {
   const program = input.program;
@@ -349,6 +347,12 @@ async function buildAcademySummary(input: {
       season: null,
       totalPoints: 0,
       rank: null,
+      referral: {
+        refId: null,
+        referralLink: null,
+        directCount: 0,
+        grandCount: 0,
+      },
     };
   }
 
@@ -357,17 +361,27 @@ async function buildAcademySummary(input: {
     : null;
 
   const balance = input.userId ? await resolveAcademyBalance(program.id, input.userId) : null;
+  const referral = await resolveAcademyReferralSummary(db, {
+    userId: input.userId,
+    chainId: input.chainId,
+    origin: input.origin,
+  });
 
   return {
     authenticated: input.authenticated,
     season: toSeason(program),
     totalPoints: balance ? asNumber(balance.currentPoints) : 0,
     rank: leaderboardRow ? asNumber(leaderboardRow.leaderboard_rank) : null,
+    referral,
   };
 }
 
 export type AcademyService = {
-  getSummary(userId: string | null): Promise<AcademySummary>;
+  getSummary(input: {
+    userId: string | null;
+    chainId: number | null;
+    origin: string;
+  }): Promise<AcademySummary>;
   getLeaderboard(page: number, limit: number, userId: string | null): Promise<AcademyLeaderboardPage>;
   getActivity(
     input: {
@@ -378,17 +392,19 @@ export type AcademyService = {
     },
     currentUserId: string | null,
   ): Promise<AcademyActivityPage>;
-  checkIn(userId: string): Promise<AcademyCheckInState>;
+  checkIn(input: { userId: string; chainId: number }): Promise<AcademyCheckInState>;
 };
 
 export function createAcademyService(): AcademyService {
   return {
-    async getSummary(userId) {
+    async getSummary(input) {
       const program = await resolveActiveAcademyProgram(db);
       return buildAcademySummary({
         program,
-        userId,
-        authenticated: Boolean(userId),
+        userId: input.userId,
+        chainId: input.chainId,
+        origin: input.origin,
+        authenticated: Boolean(input.userId),
       });
     },
     async getLeaderboard(page, limit, userId) {
@@ -428,8 +444,8 @@ export function createAcademyService(): AcademyService {
 
       return resolveAcademyActivityPage(program.id, userRow, input.page, input.limit, currentUserId);
     },
-    async checkIn(userId) {
-      return runAcademyTask("check_in", userId);
+    async checkIn(input) {
+      return runAcademyTask("check_in", input);
     },
   };
 }

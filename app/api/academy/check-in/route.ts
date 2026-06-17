@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 
+import { getRequestOrigin } from "@/lib/auth/utils";
 import { createNoStoreErrorResponse, createNoStoreJsonResponse } from "@/lib/server/http";
 import { AcademyTaskNotFoundError } from "@/lib/academy/tasks/errors";
 import { getAcademyContext } from "../_shared";
@@ -13,8 +14,19 @@ export async function POST(request: NextRequest) {
       return createNoStoreErrorResponse("Authentication required.", 401, "ACADEMY_AUTH_REQUIRED");
     }
 
-    const checkIn = await service.checkIn(session.user.id);
-    const summary = await service.getSummary(session.user.id);
+    if (!session.chainId) {
+      return createNoStoreErrorResponse("Missing wallet chain context.", 400, "ACADEMY_CHAIN_REQUIRED");
+    }
+
+    const checkIn = await service.checkIn({
+      userId: session.user.id,
+      chainId: session.chainId,
+    });
+    const summary = await service.getSummary({
+      userId: session.user.id,
+      chainId: session.chainId,
+      origin: getRequestOrigin(request),
+    });
 
     return createNoStoreJsonResponse(
       {
