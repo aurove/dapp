@@ -25,8 +25,8 @@ _Market Order View_
 ## Routes
 
 - `/` - landing page and product overview.
-- `/app` - Earn dashboard for creating and managing Aurove positions.
-- `/app/trade` - secondary market for ERC1155 fraction tranches.
+- `/earn` - Earn dashboard for creating and managing Aurove positions.
+- `/trade` - secondary market for ERC1155 fraction tranches.
 
 ## Project Structure
 
@@ -109,7 +109,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Trade MUSD Markets
 
-`/app/trade` defaults to MUSD quote markets:
+`/trade` defaults to MUSD quote markets:
 
 - `fveBTC-W1 / MUSD`
 - `fveBTC-W4 / MUSD`

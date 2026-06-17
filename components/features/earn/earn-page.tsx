@@ -901,7 +901,7 @@ function EmptyPositions() {
         <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-white/58">
           Create a position from supported BTC or MEZO assets, or buy Earn units on the{" "}
           <Link
-            href={appRoutes.find((route) => route.label === "Markets")?.href ?? "/app/trade"}
+            href={appRoutes.find((route) => route.label === "Markets")?.href ?? "/trade"}
             className="font-medium text-[var(--accent-soft)] underline-offset-4 hover:underline"
           >
             Markets page
