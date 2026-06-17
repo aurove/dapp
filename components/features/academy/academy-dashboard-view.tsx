@@ -5,6 +5,7 @@ import { BadgeCheck, ChevronLeft, ChevronRight, Crown, Sparkles, Trophy, Users }
 
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton, cn } from "@ui";
 import { formatPoints } from "@/lib/academy/utils";
+import { shortenWalletAddress } from "@/lib/auth/utils";
 import type { AcademyLeaderboardPage, AcademySummary } from "@/lib/academy/types";
 
 type AcademyDashboardViewProps = {
@@ -149,16 +150,15 @@ export function AcademyDashboardView({
                       </div>
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-white">{entry.walletAddress}</p>
+                          <p className="font-medium text-white" title={entry.walletAddress}>
+                            {shortenWalletAddress(entry.walletAddress)}
+                          </p>
                           {entry.isCurrentUser ? (
                             <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">
                               You
                             </Badge>
                           ) : null}
                         </div>
-                        <p className="text-xs text-white/45">
-                          {entry.walletAddressNormalized}
-                        </p>
                       </div>
                     </div>
                     <div className="text-right">

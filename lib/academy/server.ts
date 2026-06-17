@@ -19,7 +19,6 @@ type JsonRecord = Record<string, unknown>;
 type LeaderboardRow = {
   user_id: string;
   wallet_address: string;
-  wallet_address_normalized: string;
   current_points: string | number | bigint;
   lifetime_earned_points: string | number | bigint;
   lifetime_spent_points: string | number | bigint;
@@ -75,7 +74,6 @@ function toLeaderboardEntry(row: LeaderboardRow, currentUserId?: string | null):
     userId: row.user_id,
     rank: asNumber(row.leaderboard_rank),
     walletAddress: row.wallet_address,
-    walletAddressNormalized: row.wallet_address_normalized,
     totalPoints: asNumber(row.current_points),
     entryCount: asNumber(row.entry_count),
     isCurrentUser: currentUserId ? row.user_id === currentUserId : false,
@@ -117,7 +115,6 @@ async function resolveAcademyLeaderboardRow(
     select
       user_id,
       wallet_address,
-      wallet_address_normalized,
       current_points,
       lifetime_earned_points,
       lifetime_spent_points,
@@ -146,7 +143,6 @@ async function resolveAcademyLeaderboardPage(
     select
       user_id,
       wallet_address,
-      wallet_address_normalized,
       current_points,
       lifetime_earned_points,
       lifetime_spent_points,
@@ -167,12 +163,23 @@ async function resolveAcademyLeaderboardPage(
   const totalItems = asNumber((countRows[0] as { total_items?: unknown } | undefined)?.total_items, 0);
   const seasonRow = await resolveActiveAcademyProgram(db);
 
+  const items = (rows as unknown as LeaderboardRow[]).map((row) => toLeaderboardEntry(row, currentUserId));
+  if (currentUserId) {
+    const currentUserRow = await resolveAcademyLeaderboardRow(programSlug, currentUserId);
+    if (currentUserRow) {
+      const currentUserEntry = toLeaderboardEntry(currentUserRow, currentUserId);
+      const withoutCurrentUser = items.filter((item) => item.userId !== currentUserId);
+      withoutCurrentUser.unshift(currentUserEntry);
+      items.splice(0, items.length, ...withoutCurrentUser.slice(0, normalizedLimit));
+    }
+  }
+
   return {
     season: seasonRow ? toSeason(seasonRow) : null,
     page: normalizedPage,
     limit: normalizedLimit,
     ...paginate(totalItems, normalizedLimit),
-    items: (rows as unknown as LeaderboardRow[]).map((row) => toLeaderboardEntry(row, currentUserId)),
+    items,
   };
 }
 
