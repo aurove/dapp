@@ -10,11 +10,12 @@ import {
   createNoStoreErrorResponse,
   createNoStoreJsonResponse,
   getClientKey,
+  withNoStoreRouteErrorHandling,
 } from "@/lib/server/http";
 
 export const runtime = "nodejs";
 
-export async function POST(request: NextRequest) {
+async function postAuthNonce(request: NextRequest) {
   let payload: unknown;
   try {
     payload = await request.json();
@@ -40,10 +41,12 @@ export async function POST(request: NextRequest) {
   try {
     normalizedWalletAddress = normalizeWalletAddress(walletAddress);
   } catch {
-    return createNoStoreErrorResponse(
-      "walletAddress is not a valid Ethereum address.",
-      400,
-      "INVALID_ADDRESS",
+    return createNoStoreJsonResponse(
+      {
+        error: "walletAddress is not a valid Ethereum address.",
+        code: "INVALID_ADDRESS",
+      },
+      { status: 400 },
     );
   }
 
@@ -84,3 +87,9 @@ export async function POST(request: NextRequest) {
     },
   );
 }
+
+export const POST = withNoStoreRouteErrorHandling("auth/nonce", postAuthNonce, {
+  message: "Unable to create an authentication challenge.",
+  status: 500,
+  code: "AUTH_NONCE_FAILED",
+});

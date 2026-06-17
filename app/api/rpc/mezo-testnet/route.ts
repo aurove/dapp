@@ -3,6 +3,7 @@ import {
   createNoStoreErrorResponse,
   createNoStoreJsonResponse,
   getClientKey,
+  withNoStoreRouteErrorHandling,
 } from "@/lib/server/http";
 import { consumeRpcRateLimit } from "@/lib/server/rpc-rate-limit";
 import { RPC_SESSION_COOKIE_NAME, verifyRpcSessionToken } from "@/lib/server/rpc-session";
@@ -17,7 +18,7 @@ function getSpectrumEndpoint(): string {
   return endpoint;
 }
 
-export async function POST(request: NextRequest) {
+async function postMezoTestnetRpc(request: NextRequest) {
   const sessionToken = request.cookies.get(RPC_SESSION_COOKIE_NAME)?.value;
   if (!verifyRpcSessionToken(sessionToken)) {
     return createNoStoreErrorResponse("Unauthorized RPC session.", 401);
@@ -43,25 +44,26 @@ export async function POST(request: NextRequest) {
     return createNoStoreErrorResponse("Invalid JSON payload.");
   }
 
-  try {
-    const upstream = await fetch(getSpectrumEndpoint(), {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    });
+  const upstream = await fetch(getSpectrumEndpoint(), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
 
-    const responseText = await upstream.text();
-    return new NextResponse(responseText, {
-      status: upstream.status,
-      headers: {
-        "content-type": upstream.headers.get("content-type") ?? "application/json",
-      },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "RPC proxy failed.";
-    return createNoStoreErrorResponse(message, 502);
-  }
+  const responseText = await upstream.text();
+  return new NextResponse(responseText, {
+    status: upstream.status,
+    headers: {
+      "content-type": upstream.headers.get("content-type") ?? "application/json",
+    },
+  });
 }
+
+export const POST = withNoStoreRouteErrorHandling("rpc/mezo-testnet", postMezoTestnetRpc, {
+  message: "RPC proxy failed.",
+  status: 502,
+  code: "RPC_PROXY_FAILED",
+});

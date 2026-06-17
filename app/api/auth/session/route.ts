@@ -15,6 +15,7 @@ import { normalizeWalletAddress } from "@/lib/auth/utils";
 import {
   createNoStoreJsonResponse,
   parsePositiveInteger,
+  withNoStoreRouteErrorHandling,
 } from "@/lib/server/http";
 
 export const runtime = "nodejs";
@@ -32,7 +33,7 @@ function clearAuthCookie(response: NextResponse) {
   });
 }
 
-export async function GET(request: NextRequest) {
+async function getSessionHandler(request: NextRequest) {
   const token = request.cookies.get(WALLET_AUTH_SESSION_COOKIE_NAME)?.value;
   if (!token) {
     const response = createNoStoreJsonResponse({
@@ -166,7 +167,7 @@ export async function GET(request: NextRequest) {
   return response;
 }
 
-export async function DELETE(request: NextRequest) {
+async function deleteSessionHandler(request: NextRequest) {
   const token = request.cookies.get(WALLET_AUTH_SESSION_COOKIE_NAME)?.value;
   if (token) {
     await revokeWalletAuthSessionByTokenHash(hashWalletAuthSessionToken(token));
@@ -176,3 +177,15 @@ export async function DELETE(request: NextRequest) {
   clearAuthCookie(response);
   return response;
 }
+
+export const GET = withNoStoreRouteErrorHandling("auth/session.get", getSessionHandler, {
+  message: "Session lookup failed.",
+  status: 500,
+  code: "AUTH_SESSION_FAILED",
+});
+
+export const DELETE = withNoStoreRouteErrorHandling("auth/session.delete", deleteSessionHandler, {
+  message: "Logout failed.",
+  status: 500,
+  code: "AUTH_SESSION_DELETE_FAILED",
+});

@@ -31,7 +31,7 @@ export default function AcademyError({ error, unstable_retry }: AcademyErrorProp
         </CardHeader>
         <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-white/55">
-            {error.message || "A temporary error prevented the Academy view from loading."}
+            A temporary error prevented the Academy view from loading. Please try again in a moment.
           </p>
           <Button type="button" className="gap-2" onClick={unstable_retry}>
             <RotateCcw className="h-4 w-4" />

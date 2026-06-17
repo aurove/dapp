@@ -1,23 +1,27 @@
 import { NextRequest } from "next/server";
 
 import { getRequestOrigin } from "@/lib/auth/utils";
-import { createNoStoreErrorResponse, createNoStoreJsonResponse } from "@/lib/server/http";
+import {
+  createNoStoreErrorResponse,
+  createNoStoreJsonResponse,
+  withNoStoreRouteErrorHandling,
+} from "@/lib/server/http";
 import { AcademyTaskNotFoundError } from "@/lib/academy/tasks/errors";
 import { getAcademyContext } from "../_shared";
 
 export const runtime = "nodejs";
 
-export async function GET(request: NextRequest) {
+async function getAcademyCheckIn(request: NextRequest) {
+  const { service, session } = await getAcademyContext(request);
+  if (!session) {
+    return createNoStoreErrorResponse("Authentication required.", 401, "ACADEMY_AUTH_REQUIRED");
+  }
+
+  if (!session.chainId) {
+    return createNoStoreErrorResponse("Missing wallet chain context.", 400, "ACADEMY_CHAIN_REQUIRED");
+  }
+
   try {
-    const { service, session } = await getAcademyContext(request);
-    if (!session) {
-      return createNoStoreErrorResponse("Authentication required.", 401, "ACADEMY_AUTH_REQUIRED");
-    }
-
-    if (!session.chainId) {
-      return createNoStoreErrorResponse("Missing wallet chain context.", 400, "ACADEMY_CHAIN_REQUIRED");
-    }
-
     const checkIn = await service.getCheckIn({
       userId: session.user.id,
       chainId: session.chainId,
@@ -29,22 +33,21 @@ export async function GET(request: NextRequest) {
       return createNoStoreErrorResponse(error.message, error.status, error.code);
     }
 
-    const message = error instanceof Error ? error.message : "Unable to load Academy check-in state.";
-    return createNoStoreErrorResponse(message, 500, "ACADEMY_CHECKIN_FAILED");
+    throw error;
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postAcademyCheckIn(request: NextRequest) {
+  const { service, session } = await getAcademyContext(request);
+  if (!session) {
+    return createNoStoreErrorResponse("Authentication required.", 401, "ACADEMY_AUTH_REQUIRED");
+  }
+
+  if (!session.chainId) {
+    return createNoStoreErrorResponse("Missing wallet chain context.", 400, "ACADEMY_CHAIN_REQUIRED");
+  }
+
   try {
-    const { service, session } = await getAcademyContext(request);
-    if (!session) {
-      return createNoStoreErrorResponse("Authentication required.", 401, "ACADEMY_AUTH_REQUIRED");
-    }
-
-    if (!session.chainId) {
-      return createNoStoreErrorResponse("Missing wallet chain context.", 400, "ACADEMY_CHAIN_REQUIRED");
-    }
-
     const checkIn = await service.checkIn({
       userId: session.user.id,
       chainId: session.chainId,
@@ -67,7 +70,18 @@ export async function POST(request: NextRequest) {
       return createNoStoreErrorResponse(error.message, error.status, error.code);
     }
 
-    const message = error instanceof Error ? error.message : "Unable to process Academy check-in.";
-    return createNoStoreErrorResponse(message, 500, "ACADEMY_CHECKIN_FAILED");
+    throw error;
   }
 }
+
+export const GET = withNoStoreRouteErrorHandling("academy/check-in:get", getAcademyCheckIn, {
+  message: "Unable to load Academy check-in state.",
+  status: 500,
+  code: "ACADEMY_CHECKIN_FAILED",
+});
+
+export const POST = withNoStoreRouteErrorHandling("academy/check-in:post", postAcademyCheckIn, {
+  message: "Unable to process Academy check-in.",
+  status: 500,
+  code: "ACADEMY_CHECKIN_FAILED",
+});

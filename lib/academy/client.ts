@@ -45,7 +45,8 @@ async function requestJson<T>(input: RequestInfo | URL, init: RequestInit): Prom
 
   if (!response.ok) {
     const payload = await readErrorMessage(response);
-    throw new AcademyApiError(payload.error ?? "Request failed.", response.status, payload.code);
+    const message = response.status >= 500 ? "Request failed." : payload.error ?? "Request failed.";
+    throw new AcademyApiError(message, response.status, payload.code);
   }
 
   return (await response.json()) as T;

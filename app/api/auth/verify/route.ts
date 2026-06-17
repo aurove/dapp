@@ -16,11 +16,23 @@ import { getRequestOrigin } from "@/lib/auth/utils";
 import {
   createNoStoreErrorResponse,
   createNoStoreJsonResponse,
+  withNoStoreRouteErrorHandling,
 } from "@/lib/server/http";
 
 export const runtime = "nodejs";
 
-export async function POST(request: NextRequest) {
+const SAFE_AUTH_ERROR_STATUSES = new Map<string, number>([
+  ["Invalid authentication message.", 400],
+  ["Wallet address does not match the signed message.", 401],
+  ["Chain ID does not match the signed message.", 401],
+  ["Authentication message origin does not match this app.", 401],
+  ["Challenge not found or already used.", 401],
+  ["Challenge has expired.", 410],
+  ["Authentication message does not match the stored challenge.", 401],
+  ["Signature verification failed.", 401],
+]);
+
+async function postAuthVerify(request: NextRequest) {
   let payload: unknown;
   try {
     payload = await request.json();
@@ -99,8 +111,21 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    const messageText = error instanceof Error ? error.message : "Unable to verify wallet signature.";
-    const status = /expired/i.test(messageText) ? 410 : /signature|wallet|message|challenge/i.test(messageText) ? 401 : 400;
-    return createNoStoreErrorResponse(messageText, status, "AUTH_FAILED");
+    const messageText = error instanceof Error ? error.message : null;
+    if (messageText && SAFE_AUTH_ERROR_STATUSES.has(messageText)) {
+      return createNoStoreErrorResponse(
+        messageText,
+        SAFE_AUTH_ERROR_STATUSES.get(messageText) ?? 400,
+        "AUTH_FAILED",
+      );
+    }
+
+    throw error;
   }
 }
+
+export const POST = withNoStoreRouteErrorHandling("auth/verify", postAuthVerify, {
+  message: "Unable to verify wallet signature.",
+  status: 500,
+  code: "AUTH_FAILED",
+});

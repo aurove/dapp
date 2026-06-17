@@ -45,8 +45,10 @@ async function requestJson<T>(
 
   if (!response.ok) {
     const payload = await readErrorMessage(response);
+    const message =
+      response.status >= 500 ? "Request failed." : payload.error ?? "Request failed.";
     throw new WalletAuthApiError(
-      payload.error ?? "Request failed.",
+      message,
       response.status,
       payload.code,
     );
@@ -98,8 +100,10 @@ export async function fetchWalletAuthSession(input?: {
 
   if (!response.ok) {
     const payload = await readErrorMessage(response);
+    const message =
+      response.status >= 500 ? "Session lookup failed." : payload.error ?? "Session lookup failed.";
     throw new WalletAuthApiError(
-      payload.error ?? "Session lookup failed.",
+      message,
       response.status,
       payload.code,
     );
@@ -117,8 +121,9 @@ export async function logoutWalletAuthSession(): Promise<void> {
 
   if (!response.ok) {
     const payload = await readErrorMessage(response);
+    const message = response.status >= 500 ? "Logout failed." : payload.error ?? "Logout failed.";
     throw new WalletAuthApiError(
-      payload.error ?? "Logout failed.",
+      message,
       response.status,
       payload.code,
     );
