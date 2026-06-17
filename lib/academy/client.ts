@@ -1,4 +1,5 @@
 import type {
+  AcademyCheckInResponse,
   AcademyLeaderboardPage,
   AcademySummary,
 } from "./types";
@@ -62,5 +63,11 @@ export async function requestAcademyLeaderboard(input: {
 
   return requestJson<AcademyLeaderboardPage>(`/api/academy/leaderboard?${searchParams.toString()}`, {
     method: "GET",
+  });
+}
+
+export async function requestAcademyCheckIn(): Promise<AcademyCheckInResponse> {
+  return requestJson<AcademyCheckInResponse>("/api/academy/check-in", {
+    method: "POST",
   });
 }

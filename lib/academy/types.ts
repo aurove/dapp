@@ -45,3 +45,18 @@ export type AcademySummary = {
   totalPoints: number;
   rank: number | null;
 };
+
+export type AcademyCheckInState = {
+  taskCode: "check_in";
+  status: "success" | "cooldown";
+  cooldownHours: number;
+  pointsAwarded: number;
+  lastCheckInAt: string | null;
+  nextEligibleAt: string | null;
+  secondsRemaining: number;
+};
+
+export type AcademyCheckInResponse = {
+  summary: AcademySummary;
+  checkIn: AcademyCheckInState;
+};

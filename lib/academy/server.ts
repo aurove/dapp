@@ -1,10 +1,13 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { pointsPrograms, pointsUserBalances, users, type PointsProgram } from "@/lib/db/schema";
+import { pointsUserBalances, users, type PointsProgram } from "@/lib/db/schema";
 
-import { ACADEMY_PROGRAM_SLUG, DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE } from "./constants";
+import { DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE } from "./constants";
+import { runAcademyTask } from "./tasks";
+import { resolveActiveAcademyProgram } from "./tasks/points";
 import type {
+  AcademyCheckInState,
   AcademyLeaderboardEntry,
   AcademyLeaderboardPage,
   AcademySeason,
@@ -126,36 +129,6 @@ function paginate(totalItems: number, limit: number): { totalPages: number } {
   };
 }
 
-async function resolveActiveAcademyProgram(): Promise<PointsProgram | null> {
-  const academyProgram = await db
-    .select()
-    .from(pointsPrograms)
-    .where(eq(pointsPrograms.slug, ACADEMY_PROGRAM_SLUG))
-    .limit(1);
-
-  const preferred = academyProgram[0];
-  if (
-    preferred?.status === "active" &&
-    (preferred.kind === "season" || preferred.kind === "campaign")
-  ) {
-    return preferred;
-  }
-
-  const activePrograms = await db
-    .select()
-    .from(pointsPrograms)
-    .where(
-      and(
-        eq(pointsPrograms.status, "active"),
-        sql`${pointsPrograms.kind} in ('season', 'campaign')`,
-      ),
-    )
-    .orderBy(desc(pointsPrograms.startsAt), desc(pointsPrograms.createdAt))
-    .limit(1);
-
-  return activePrograms[0] ?? null;
-}
-
 async function resolveAcademyUser(userId: string): Promise<ProgramUser | null> {
   const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   return rows[0] ?? null;
@@ -248,7 +221,7 @@ async function resolveAcademyLeaderboardPage(
   `);
 
   const totalItems = asNumber((countRows[0] as { total_items?: unknown } | undefined)?.total_items, 0);
-  const seasonRow = await resolveActiveAcademyProgram();
+  const seasonRow = await resolveActiveAcademyProgram(db);
 
   return {
     season: seasonRow ? toSeason(seasonRow) : null,
@@ -318,12 +291,13 @@ async function buildAcademySummary(input: {
 export type AcademyService = {
   getSummary(userId: string | null): Promise<AcademySummary>;
   getLeaderboard(page: number, limit: number, userId: string | null): Promise<AcademyLeaderboardPage>;
+  checkIn(userId: string): Promise<AcademyCheckInState>;
 };
 
 export function createAcademyService(): AcademyService {
   return {
     async getSummary(userId) {
-      const program = await resolveActiveAcademyProgram();
+      const program = await resolveActiveAcademyProgram(db);
       return buildAcademySummary({
         program,
         userId,
@@ -331,7 +305,7 @@ export function createAcademyService(): AcademyService {
       });
     },
     async getLeaderboard(page, limit, userId) {
-      const program = await resolveActiveAcademyProgram();
+      const program = await resolveActiveAcademyProgram(db);
       if (!program) {
         return {
           season: null,
@@ -344,6 +318,9 @@ export function createAcademyService(): AcademyService {
       }
 
       return resolveAcademyLeaderboardPage(program.slug, page, limit, userId);
+    },
+    async checkIn(userId) {
+      return runAcademyTask("check_in", userId);
     },
   };
 }
