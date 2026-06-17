@@ -1,6 +1,7 @@
 import type {
   AcademyActivityPage,
   AcademyCheckInResponse,
+  AcademyCheckInState,
   AcademyLeaderboardPage,
   AcademyReferralActionResponse,
   AcademySummary,
@@ -71,6 +72,12 @@ export async function requestAcademyLeaderboard(input: {
 export async function requestAcademyCheckIn(): Promise<AcademyCheckInResponse> {
   return requestJson<AcademyCheckInResponse>("/api/academy/check-in", {
     method: "POST",
+  });
+}
+
+export async function requestAcademyCheckInState(): Promise<AcademyCheckInState> {
+  return requestJson<AcademyCheckInState>("/api/academy/check-in", {
+    method: "GET",
   });
 }
 

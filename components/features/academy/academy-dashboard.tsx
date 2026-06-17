@@ -11,6 +11,8 @@ export function AcademyDashboard() {
   const {
     summaryQuery,
     leaderboardQuery,
+    checkInQuery,
+    checkInMutation,
     leaderboardPage,
     setLeaderboardPage,
   } = useAcademyDashboard();
@@ -23,12 +25,20 @@ export function AcademyDashboard() {
       <AcademyDashboardView
         summary={summaryQuery.data ?? null}
         leaderboard={leaderboardQuery.data ?? null}
+        checkIn={checkInQuery.data ?? null}
         isSummaryLoading={summaryQuery.isLoading}
         isLeaderboardLoading={leaderboardQuery.isLoading}
+        isCheckInLoading={checkInQuery.isLoading}
+        isCheckInSubmitting={checkInMutation.isPending}
         leaderboardPage={leaderboardPage}
         onLeaderboardPageChange={setLeaderboardPage}
         onLeaderboardUserOpen={activity.openActivityLog}
         onLeaderboardUserPrefetch={activity.prefetchActivityLog}
+        onCheckIn={() => {
+          if (!checkInMutation.isPending) {
+            checkInMutation.mutate();
+          }
+        }}
       />
       <AcademyActivityDialog
         open={activity.isOpen}

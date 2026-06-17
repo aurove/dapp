@@ -3,10 +3,10 @@
 import { useState, type ComponentType } from "react";
 import {
   BadgeCheck,
-  ChevronLeft,
-  ChevronRight,
   Copy,
   Crown,
+  ChevronLeft,
+  ChevronRight,
   Link2,
   Sparkles,
   Trophy,
@@ -16,17 +16,22 @@ import {
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton, cn } from "@ui";
 import { formatPoints } from "@/lib/academy/utils";
 import { shortenWalletAddress } from "@/lib/auth/utils";
-import type { AcademyLeaderboardPage, AcademySummary } from "@/lib/academy/types";
+import type { AcademyCheckInState, AcademyLeaderboardPage, AcademySummary } from "@/lib/academy/types";
+import { AcademyTasksCarousel } from "./academy-tasks-carousel";
 
 type AcademyDashboardViewProps = {
   summary: AcademySummary | null;
   leaderboard: AcademyLeaderboardPage | null;
+  checkIn: AcademyCheckInState | null;
   isSummaryLoading: boolean;
   isLeaderboardLoading: boolean;
+  isCheckInLoading: boolean;
+  isCheckInSubmitting: boolean;
   leaderboardPage: number;
   onLeaderboardPageChange: (page: number) => void;
   onLeaderboardUserOpen: (walletAddress: string) => void;
   onLeaderboardUserPrefetch: (walletAddress: string) => void;
+  onCheckIn: () => void;
 };
 
 function StatCard({
@@ -90,12 +95,16 @@ function ReferralMetric({
 export function AcademyDashboardView({
   summary,
   leaderboard,
+  checkIn,
   isSummaryLoading,
   isLeaderboardLoading,
+  isCheckInLoading,
+  isCheckInSubmitting,
   leaderboardPage,
   onLeaderboardPageChange,
   onLeaderboardUserOpen,
   onLeaderboardUserPrefetch,
+  onCheckIn,
 }: AcademyDashboardViewProps) {
   const [copied, setCopied] = useState(false);
   const season = summary?.season ?? leaderboard?.season ?? null;
@@ -204,103 +213,113 @@ export function AcademyDashboardView({
         />
       </div>
 
-      <Card className="border-white/10">
-        <CardHeader className="space-y-2">
-          <CardTitle className="flex items-center gap-2 text-2xl">
-            <Users className="h-5 w-5 text-[#e6d2ad]" />
-            Leaderboard
-          </CardTitle>
-          <CardDescription>
-            Top Academy participants ranked by total points in the current season.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {isLeaderboardLoading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-16 w-full rounded-2xl" />
-              <Skeleton className="h-16 w-full rounded-2xl" />
-              <Skeleton className="h-16 w-full rounded-2xl" />
-            </div>
-          ) : leaderboard?.items.length ? (
-            <>
-              <div className="space-y-2">
-                {leaderboard.items.map((entry) => (
-                  <button
-                    key={entry.userId}
-                    type="button"
-                    aria-haspopup="dialog"
-                    aria-label={`Open activity log for ${shortenWalletAddress(entry.walletAddress)}`}
-                    onClick={() => onLeaderboardUserOpen(entry.walletAddress)}
-                    onMouseEnter={() => onLeaderboardUserPrefetch(entry.walletAddress)}
-                    onFocus={() => onLeaderboardUserPrefetch(entry.walletAddress)}
-                    className={cn(
-                      "flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition",
-                      entry.isCurrentUser
-                        ? "border-amber-300/30 bg-amber-300/[0.08] ring-1 ring-amber-300/20"
-                        : "border-white/10 bg-white/[0.03]",
-                      "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/40",
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn("flex size-10 items-center justify-center rounded-2xl border text-sm font-semibold", rankTone(entry.rank))}>
-                        {entry.rank}
-                      </div>
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-white" title={entry.walletAddress}>
-                            {shortenWalletAddress(entry.walletAddress)}
-                          </p>
-                          {entry.isCurrentUser ? (
-                            <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">
-                              You
-                            </Badge>
-                          ) : null}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.33fr)_minmax(0,0.67fr)]">
+        <AcademyTasksCarousel
+          authenticated={authenticated}
+          checkIn={checkIn}
+          isCheckInLoading={isCheckInLoading}
+          isCheckInSubmitting={isCheckInSubmitting}
+          onCheckIn={onCheckIn}
+        />
+
+        <Card className="border-white/10">
+          <CardHeader className="space-y-2">
+            <CardTitle className="flex items-center gap-2 text-2xl">
+              <Users className="h-5 w-5 text-[#e6d2ad]" />
+              Leaderboard
+            </CardTitle>
+            <CardDescription>
+              Top Academy participants ranked by total points in the current season.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {isLeaderboardLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-16 w-full rounded-2xl" />
+                <Skeleton className="h-16 w-full rounded-2xl" />
+                <Skeleton className="h-16 w-full rounded-2xl" />
+              </div>
+            ) : leaderboard?.items.length ? (
+              <>
+                <div className="space-y-2">
+                  {leaderboard.items.map((entry) => (
+                    <button
+                      key={entry.userId}
+                      type="button"
+                      aria-haspopup="dialog"
+                      aria-label={`Open activity log for ${shortenWalletAddress(entry.walletAddress)}`}
+                      onClick={() => onLeaderboardUserOpen(entry.walletAddress)}
+                      onMouseEnter={() => onLeaderboardUserPrefetch(entry.walletAddress)}
+                      onFocus={() => onLeaderboardUserPrefetch(entry.walletAddress)}
+                      className={cn(
+                        "flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition",
+                        entry.isCurrentUser
+                          ? "border-amber-300/30 bg-amber-300/[0.08] ring-1 ring-amber-300/20"
+                          : "border-white/10 bg-white/[0.03]",
+                        "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/40",
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn("flex size-10 items-center justify-center rounded-2xl border text-sm font-semibold", rankTone(entry.rank))}>
+                          {entry.rank}
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-white" title={entry.walletAddress}>
+                              {shortenWalletAddress(entry.walletAddress)}
+                            </p>
+                            {entry.isCurrentUser ? (
+                              <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">
+                                You
+                              </Badge>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-base font-semibold text-white">{formatPoints(entry.totalPoints)}</p>
-                      <p className="text-xs text-white/45">points</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                      <div className="text-right">
+                        <p className="text-base font-semibold text-white">{formatPoints(entry.totalPoints)}</p>
+                        <p className="text-xs text-white/45">points</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
 
-              <div className="flex items-center justify-between gap-2 pt-1 text-sm">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => onLeaderboardPageChange(Math.max(1, leaderboardPage - 1))}
-                  disabled={leaderboardPage <= 1}
-                  className="gap-1"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Prev
-                </Button>
-                <p className="text-xs text-white/45">
-                  Page {leaderboard.page} of {leaderboard.totalPages || 1}
-                </p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() =>
-                    onLeaderboardPageChange(Math.min(leaderboard.totalPages || 1, leaderboardPage + 1))
-                  }
-                  disabled={leaderboardPage >= (leaderboard.totalPages || 1)}
-                  className="gap-1"
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center justify-between gap-2 pt-1 text-sm">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onLeaderboardPageChange(Math.max(1, leaderboardPage - 1))}
+                    disabled={leaderboardPage <= 1}
+                    className="gap-1"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Prev
+                  </Button>
+                  <p className="text-xs text-white/45">
+                    Page {leaderboard.page} of {leaderboard.totalPages || 1}
+                  </p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() =>
+                      onLeaderboardPageChange(Math.min(leaderboard.totalPages || 1, leaderboardPage + 1))
+                    }
+                    disabled={leaderboardPage >= (leaderboard.totalPages || 1)}
+                    className="gap-1"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-6 text-sm text-white/55">
+                The leaderboard will populate once the season starts.
               </div>
-            </>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-6 text-sm text-white/55">
-              The leaderboard will populate once the season starts.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

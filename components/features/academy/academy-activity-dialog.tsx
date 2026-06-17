@@ -128,16 +128,6 @@ function ActivityEntryCard({ entry }: { entry: AcademyActivityEntry }) {
         </p>
       </div>
 
-      <div className="mt-3 space-y-1 text-sm text-white/60">
-        <p>
-          Mechanic: <span className="text-white/85">{toLabel(entry.sourceKind)}</span>
-        </p>
-        {entry.sourceReference ? (
-          <p className="break-words">
-            Reference: <span className="text-white/85">{entry.sourceReference}</span>
-          </p>
-        ) : null}
-      </div>
     </div>
   );
 }
