@@ -4,7 +4,7 @@ import { type ComponentType } from "react";
 import { BadgeCheck, ChevronLeft, ChevronRight, Crown, Sparkles, Trophy, Users } from "lucide-react";
 
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton, cn } from "@ui";
-import { buildLeaderboardIdentity, formatPoints } from "@/lib/academy/utils";
+import { formatPoints } from "@/lib/academy/utils";
 import type { AcademyLeaderboardPage, AcademySummary } from "@/lib/academy/types";
 
 type AcademyDashboardViewProps = {
@@ -67,7 +67,6 @@ export function AcademyDashboardView({
   leaderboardPage,
   onLeaderboardPageChange,
 }: AcademyDashboardViewProps) {
-  const userSummary = summary?.user ?? null;
   const season = summary?.season ?? leaderboard?.season ?? null;
   const authenticated = Boolean(summary?.authenticated);
 
@@ -96,13 +95,13 @@ export function AcademyDashboardView({
       <div className="grid gap-4 sm:grid-cols-1 xl:grid-cols-3">
         <StatCard
           label="Current points"
-          value={isSummaryLoading ? "..." : formatPoints(userSummary?.totalPoints ?? 0)}
+          value={isSummaryLoading ? "..." : formatPoints(summary?.totalPoints ?? 0)}
           description={authenticated ? "Points earned during the current Academy season." : "Visible after wallet authentication."}
           icon={Trophy}
         />
         <StatCard
           label="Current rank"
-          value={isSummaryLoading ? "..." : userSummary?.rank ? `#${userSummary.rank}` : "Unranked"}
+          value={isSummaryLoading ? "..." : summary?.rank ? `#${summary.rank}` : "Unranked"}
           description="Earn points to enter the season leaderboard."
           icon={Crown}
         />
@@ -150,7 +149,7 @@ export function AcademyDashboardView({
                       </div>
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-white">{buildLeaderboardIdentity(entry)}</p>
+                          <p className="font-medium text-white">{entry.walletAddress}</p>
                           {entry.isCurrentUser ? (
                             <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">
                               You
@@ -158,7 +157,7 @@ export function AcademyDashboardView({
                           ) : null}
                         </div>
                         <p className="text-xs text-white/45">
-                          {entry.displayName ? entry.walletAddress : entry.walletAddressNormalized}
+                          {entry.walletAddressNormalized}
                         </p>
                       </div>
                     </div>

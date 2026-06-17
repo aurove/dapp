@@ -1,7 +1,7 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { pointsUserBalances, users, type PointsProgram } from "@/lib/db/schema";
+import { pointsUserBalances, type PointsProgram } from "@/lib/db/schema";
 
 import { DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE } from "./constants";
 import { runAcademyTask } from "./tasks";
@@ -12,32 +12,20 @@ import type {
   AcademyLeaderboardPage,
   AcademySeason,
   AcademySummary,
-  AcademySummaryUser,
 } from "./types";
 
 type JsonRecord = Record<string, unknown>;
 
 type LeaderboardRow = {
-  program_id: string;
-  program_slug: string;
-  program_name: string;
-  program_kind: AcademySeason["kind"];
-  program_status: AcademySeason["status"];
   user_id: string;
   wallet_address: string;
   wallet_address_normalized: string;
-  display_name: string | null;
-  avatar_url: string | null;
   current_points: string | number | bigint;
   lifetime_earned_points: string | number | bigint;
   lifetime_spent_points: string | number | bigint;
   entry_count: string | number | bigint;
-  first_activity_at: string | null;
-  last_activity_at: string | null;
   leaderboard_rank: string | number | bigint;
 };
-
-type ProgramUser = typeof users.$inferSelect;
 type ProgramBalance = typeof pointsUserBalances.$inferSelect;
 
 function asRecord(value: unknown): JsonRecord {
@@ -82,35 +70,14 @@ function toSeason(row: PointsProgram): AcademySeason {
   };
 }
 
-function toSummaryUser(
-  user: ProgramUser,
-  balance: ProgramBalance | null,
-  rank: number | null,
-): AcademySummaryUser {
-  return {
-    id: user.id,
-    walletAddress: user.walletAddress,
-    walletAddressNormalized: user.walletAddressNormalized,
-    displayName: user.displayName,
-    avatarUrl: user.avatarUrl,
-    totalPoints: balance ? asNumber(balance.currentPoints) : 0,
-    rank,
-    lastActivityAt: balance?.lastActivityAt ?? null,
-  };
-}
-
 function toLeaderboardEntry(row: LeaderboardRow, currentUserId?: string | null): AcademyLeaderboardEntry {
   return {
     userId: row.user_id,
     rank: asNumber(row.leaderboard_rank),
     walletAddress: row.wallet_address,
     walletAddressNormalized: row.wallet_address_normalized,
-    displayName: row.display_name,
-    avatarUrl: row.avatar_url,
     totalPoints: asNumber(row.current_points),
     entryCount: asNumber(row.entry_count),
-    firstActivityAt: row.first_activity_at,
-    lastActivityAt: row.last_activity_at,
     isCurrentUser: currentUserId ? row.user_id === currentUserId : false,
   };
 }
@@ -127,11 +94,6 @@ function paginate(totalItems: number, limit: number): { totalPages: number } {
   return {
     totalPages: totalItems === 0 ? 0 : Math.ceil(totalItems / limit),
   };
-}
-
-async function resolveAcademyUser(userId: string): Promise<ProgramUser | null> {
-  const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  return rows[0] ?? null;
 }
 
 async function resolveAcademyBalance(
@@ -153,22 +115,13 @@ async function resolveAcademyLeaderboardRow(
 ): Promise<LeaderboardRow | null> {
   const rows = await db.execute(sql`
     select
-      program_id,
-      program_slug,
-      program_name,
-      program_kind,
-      program_status,
       user_id,
       wallet_address,
       wallet_address_normalized,
-      display_name,
-      avatar_url,
       current_points,
       lifetime_earned_points,
       lifetime_spent_points,
       entry_count,
-      first_activity_at,
-      last_activity_at,
       leaderboard_rank
     from public.points_program_leaderboard
     where program_slug = ${programSlug}
@@ -191,22 +144,13 @@ async function resolveAcademyLeaderboardPage(
 
   const rows = await db.execute(sql`
     select
-      program_id,
-      program_slug,
-      program_name,
-      program_kind,
-      program_status,
       user_id,
       wallet_address,
       wallet_address_normalized,
-      display_name,
-      avatar_url,
       current_points,
       lifetime_earned_points,
       lifetime_spent_points,
       entry_count,
-      first_activity_at,
-      last_activity_at,
       leaderboard_rank
     from public.points_program_leaderboard
     where program_slug = ${programSlug}
@@ -227,7 +171,6 @@ async function resolveAcademyLeaderboardPage(
     season: seasonRow ? toSeason(seasonRow) : null,
     page: normalizedPage,
     limit: normalizedLimit,
-    totalItems,
     ...paginate(totalItems, normalizedLimit),
     items: (rows as unknown as LeaderboardRow[]).map((row) => toLeaderboardEntry(row, currentUserId)),
   };
@@ -238,53 +181,28 @@ async function buildAcademySummary(input: {
   userId: string | null;
   authenticated: boolean;
 }): Promise<AcademySummary> {
-  const serverTime = new Date().toISOString();
   const program = input.program;
 
   if (!program) {
-    const user = input.userId ? await resolveAcademyUser(input.userId) : null;
     return {
-      serverTime,
       authenticated: input.authenticated,
       season: null,
-      user: user
-        ? {
-            id: user.id,
-            walletAddress: user.walletAddress,
-            walletAddressNormalized: user.walletAddressNormalized,
-            displayName: user.displayName,
-            avatarUrl: user.avatarUrl,
-            totalPoints: 0,
-            rank: null,
-            lastActivityAt: null,
-          }
-        : null,
       totalPoints: 0,
       rank: null,
     };
   }
 
-  const [leaderboardRow, userRow] = await Promise.all([
-    input.userId ? resolveAcademyLeaderboardRow(program.slug, input.userId) : Promise.resolve(null),
-    input.userId ? resolveAcademyUser(input.userId) : Promise.resolve(null),
-  ]);
-
-  const balance = input.userId ? await resolveAcademyBalance(program.id, input.userId) : null;
-  const user = userRow
-    ? toSummaryUser(
-        userRow,
-        balance,
-        leaderboardRow ? asNumber(leaderboardRow.leaderboard_rank) : null,
-      )
+  const leaderboardRow = input.userId
+    ? await resolveAcademyLeaderboardRow(program.slug, input.userId)
     : null;
 
+  const balance = input.userId ? await resolveAcademyBalance(program.id, input.userId) : null;
+
   return {
-    serverTime,
     authenticated: input.authenticated,
     season: toSeason(program),
-    user,
-    totalPoints: user?.totalPoints ?? 0,
-    rank: user?.rank ?? null,
+    totalPoints: balance ? asNumber(balance.currentPoints) : 0,
+    rank: leaderboardRow ? asNumber(leaderboardRow.leaderboard_rank) : null,
   };
 }
 
@@ -311,7 +229,6 @@ export function createAcademyService(): AcademyService {
           season: null,
           page: normalizePage(page),
           limit: normalizeLimit(limit, DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE),
-          totalItems: 0,
           totalPages: 0,
           items: [],
         };
