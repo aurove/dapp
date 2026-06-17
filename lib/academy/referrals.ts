@@ -87,12 +87,9 @@ function generateReferralId(input: {
     .slice(0, ACADEMY_REFERRAL_CODE_LENGTH);
 }
 
-function serializeReferralPendingCookie(input: { refId: string; chainId: number | null }): string {
+function serializeReferralPendingCookie(input: { refId: string }): string {
   const params = new URLSearchParams();
   params.set("ref", normalizeReferralId(input.refId));
-  if (typeof input.chainId === "number" && Number.isInteger(input.chainId) && input.chainId > 0) {
-    params.set("chainId", String(input.chainId));
-  }
   return params.toString();
 }
 
@@ -106,7 +103,6 @@ function formatAcademyReferralUnits(units: bigint): string {
 
 export function parseReferralPendingCookie(value: string | null): {
   refId: string;
-  chainId: number | null;
 } | null {
   if (!value) {
     return null;
@@ -118,15 +114,8 @@ export function parseReferralPendingCookie(value: string | null): {
     return null;
   }
 
-  const chainIdRaw = params.get("chainId");
-  const chainId = chainIdRaw ? Number(chainIdRaw) : null;
-  if (chainIdRaw !== null && (chainId === null || !Number.isInteger(chainId) || chainId <= 0)) {
-    return null;
-  }
-
   return {
     refId,
-    chainId,
   };
 }
 
@@ -355,7 +344,6 @@ export async function resolveAcademyReferralSummary(
 
   const referralUrl = new URL("/academy", input.origin);
   referralUrl.searchParams.set(ACADEMY_REFERRAL_LINK_QUERY_PARAM, referralCode.refId);
-  referralUrl.searchParams.set("chainId", String(input.chainId));
 
   return {
     refId: referralCode.refId,
@@ -450,7 +438,6 @@ export async function bindAcademyReferral(
 
 export function createAcademyReferralPendingCookie(input: {
   refId: string;
-  chainId: number | null;
 }): {
   name: string;
   value: string;

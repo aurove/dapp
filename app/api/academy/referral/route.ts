@@ -31,8 +31,6 @@ async function postAcademyReferral(request: NextRequest) {
   const refId = typeof (payload as { refId?: unknown }).refId === "string"
     ? (payload as { refId: string }).refId.trim()
     : "";
-  const chainIdRaw = (payload as { chainId?: unknown }).chainId;
-  const chainId = typeof chainIdRaw === "number" ? chainIdRaw : Number(chainIdRaw);
 
   if (!isValidAcademyReferralId(refId)) {
     return createNoStoreErrorResponse("Referral code is invalid.", 400, "ACADEMY_REFERRAL_INVALID");
@@ -42,14 +40,6 @@ async function postAcademyReferral(request: NextRequest) {
   const origin = getRequestOrigin(request);
 
   if (session?.user.id && session.chainId) {
-    if (Number.isInteger(chainId) && chainId > 0 && chainId !== session.chainId) {
-      return createNoStoreErrorResponse(
-        "Referral code does not match the active wallet chain.",
-        400,
-        "ACADEMY_REFERRAL_CHAIN_MISMATCH",
-      );
-    }
-
     try {
       await bindAcademyReferral(db, {
         referredUserId: session.user.id,
@@ -88,10 +78,7 @@ async function postAcademyReferral(request: NextRequest) {
     referral: null,
   });
 
-  response.cookies.set(createAcademyReferralPendingCookie({
-    refId,
-    chainId: Number.isInteger(chainId) && chainId > 0 ? chainId : null,
-  }));
+  response.cookies.set(createAcademyReferralPendingCookie({ refId }));
 
   return response;
 }

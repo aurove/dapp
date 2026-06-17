@@ -105,7 +105,6 @@ export async function requestAcademyActivity(input: {
 
 export async function requestAcademyReferral(input: {
   refId: string;
-  chainId?: number | null;
 }): Promise<AcademyReferralActionResponse> {
   return requestJson<AcademyReferralActionResponse>("/api/academy/referral", {
     method: "POST",

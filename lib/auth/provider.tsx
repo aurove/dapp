@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useAccount, useChainId, useSignMessage } from "wagmi";
 
+import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import {
   fetchWalletAuthSession,
   logoutWalletAuthSession,
@@ -85,8 +86,10 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
     () => (walletAddress ? normalizeWalletAddress(walletAddress) : null),
     [walletAddress],
   );
+  const expectedChain = useMemo(() => getActiveChain(resolveAppEnvironment()), []);
   const walletLabel = walletAddress ? shortenWalletAddress(walletAddress) : null;
   const walletKey = walletAddressNormalized && chainId ? `${walletAddressNormalized}:${chainId}` : null;
+  const isOnExpectedChain = chainId === expectedChain.id;
 
   const isAuthenticated =
     Boolean(user) &&
@@ -203,7 +206,7 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
     try {
       await logoutWalletAuthSession();
       clearLocalAuthState();
-      suppressedWalletKeyRef.current = null;
+      suppressedWalletKeyRef.current = walletKey;
       inFlightRef.current = false;
       setIsAuthenticating(false);
       notifyWalletAuthInfo("Signed out", "Your wallet session was cleared.");
@@ -213,7 +216,7 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
       inFlightRef.current = false;
       setIsAuthenticating(false);
     }
-  }, [clearLocalAuthState]);
+  }, [clearLocalAuthState, walletKey]);
 
   useEffect(() => {
     if (!isConnected || !walletAddress || !chainId) {
@@ -231,9 +234,29 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
         // Background rehydration is best-effort; explicit sign-in still works.
       });
     });
-    // We intentionally only rehydrate an existing session here. Prompting for a
-    // signature remains a user-initiated action via the sign-in button.
   }, [chainId, clearLocalAuthState, isConnected, refreshSession, walletAddress]);
+
+  useEffect(() => {
+    if (!isConnected || !walletAddress || !chainId || !isOnExpectedChain) {
+      return;
+    }
+
+    if (isAuthenticated || isAuthenticating) {
+      return;
+    }
+
+    void loginWithWallet().catch(() => {
+      // loginWithWallet already surfaces failures through notifications.
+    });
+  }, [
+    chainId,
+    isAuthenticated,
+    isAuthenticating,
+    isConnected,
+    isOnExpectedChain,
+    loginWithWallet,
+    walletAddress,
+  ]);
 
   useEffect(() => {
     if (!isConnected || !walletAddress || !chainId) {

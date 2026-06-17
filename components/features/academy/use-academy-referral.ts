@@ -7,15 +7,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { requestAcademyReferral } from "@/lib/academy/client";
 import { useWalletAuth } from "@/lib/auth/provider";
 
-function parsePositiveInteger(value: string | null): number | null {
-  if (value == null || value.trim().length === 0) {
-    return null;
-  }
-
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
 function buildUrl(pathname: string, searchParams: URLSearchParams): string {
   const query = searchParams.toString();
   return query ? `${pathname}?${query}` : pathname;
@@ -32,11 +23,10 @@ export function useAcademyReferral() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const { chainId, isAuthenticated } = useWalletAuth();
+  const { isAuthenticated } = useWalletAuth();
   const handledKeyRef = useRef<string | null>(null);
 
   const refId = searchParams.get("ref");
-  const referralChainId = parsePositiveInteger(searchParams.get("chainId"));
 
   useEffect(() => {
     if (!refId) {
@@ -44,20 +34,16 @@ export function useAcademyReferral() {
       return;
     }
 
-    const handledKey = `${refId}:${referralChainId ?? "none"}:${isAuthenticated ? "auth" : "guest"}:${chainId ?? "none"}`;
+    const handledKey = `${refId}:${isAuthenticated ? "auth" : "guest"}`;
     if (handledKeyRef.current === handledKey) {
       return;
     }
 
     handledKeyRef.current = handledKey;
 
-    const nextChainId = referralChainId ?? chainId;
     void (async () => {
       try {
-        const result = await requestAcademyReferral({
-          refId,
-          chainId: nextChainId,
-        });
+        const result = await requestAcademyReferral({ refId });
 
         if (result.status === "bound") {
           await queryClient.invalidateQueries({ queryKey: ["academy", "summary"] });
@@ -69,5 +55,5 @@ export function useAcademyReferral() {
         router.replace(buildUrl(pathname, params), { scroll: false });
       }
     })();
-  }, [chainId, isAuthenticated, pathname, queryClient, refId, referralChainId, router, searchParams]);
+  }, [isAuthenticated, pathname, queryClient, refId, router, searchParams]);
 }

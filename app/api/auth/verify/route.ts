@@ -94,8 +94,7 @@ async function postAuthVerify(request: NextRequest) {
     const pendingReferral = parseReferralPendingCookie(
       request.cookies.get("academy_referral")?.value ?? null,
     );
-    const pendingChainId = pendingReferral?.chainId ?? result.session.chainId;
-    if (pendingReferral && pendingChainId === result.session.chainId) {
+    if (pendingReferral) {
       try {
         await bindAcademyReferral(db, {
           referredUserId: result.user.id,
