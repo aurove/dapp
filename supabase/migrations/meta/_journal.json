@@ -22,6 +22,13 @@
       "when": 1781821022761,
       "tag": "20260618000500_academy_referrals_and_points_precision",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781907422761,
+      "tag": "20260618001000_internal_cron",
+      "breakpoints": true
     }
   ]
 }

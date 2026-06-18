@@ -64,12 +64,69 @@ Supported variables:
 - `SPECTRUM_MEZO_TESTNET_RPC_HTTP` - server-only Spectrum Nodes Mezo testnet RPC endpoint used by the internal RPC proxy.
 - `SPECTRUM_RPC_SESSION_SECRET` - server secret for short-lived RPC session tokens (rotated every 10 minutes on the client).
 - `SPECTRUM_RPC_RPS_LIMIT` - server-side RPC proxy throttle in requests per second per client IP bucket (defaults to `10`).
+- `CRON_INTERNAL_SECRET` - server-only shared secret used to authenticate internal cron requests with an HMAC signature.
 
 ## Spectrum Nodes RPC
 
 For the Mezo testnet demo, set `NEXT_PUBLIC_APP_ENV=testnet` and configure `SPECTRUM_MEZO_TESTNET_RPC_HTTP` with the HTTPS endpoint created in the Spectrum Nodes dashboard. The browser uses `/api/rpc/mezo-testnet` as the wagmi RPC URL, and the server proxies requests to Spectrum after validating a short-lived session cookie issued by `/api/rpc/session`.
 
 See [docs/spectrum-rpc.md](docs/spectrum-rpc.md) for the architecture notes and hackathon submission details.
+
+## Internal Cron
+
+The app exposes `POST /api/internal/cron` for private scheduler traffic only. The request body is ignored for routing purposes; the endpoint verifies an HMAC signature built from:
+
+- the request timestamp header
+- the HTTP method
+- the pathname
+- the raw request body
+
+Required headers:
+
+- `x-aurove-cron-timestamp`
+- `x-aurove-cron-signature`
+
+Set `CRON_INTERNAL_SECRET` to a long random secret in your server environment. The signature format is `v1=<hex-hmac-sha256>`.
+
+The endpoint checks every registered handler on each invocation, runs only the handlers that are due, and skips the rest. Each handler keeps its own interval in code, so an external scheduler can safely call the endpoint every second without knowing individual handler timings.
+
+Example Cloudflare Worker caller:
+
+```ts
+export default {
+  async fetch(request: Request, env: Env) {
+    const body = "";
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const pathname = "/api/internal/cron";
+    const payload = `${timestamp}.POST.${pathname}.${body}`;
+
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(env.CRON_INTERNAL_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+
+    const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+    const signatureHex = [...new Uint8Array(signature)]
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+
+    return fetch(`${env.APP_BASE_URL}${pathname}`, {
+      method: "POST",
+      headers: {
+        "content-type": "text/plain",
+        "x-aurove-cron-timestamp": timestamp,
+        "x-aurove-cron-signature": `v1=${signatureHex}`,
+      },
+      body,
+    });
+  },
+};
+```
+
+If you need strict one-second invocation timing from Cloudflare itself, run that `fetch()` from a Durable Object alarm or another scheduler that can wake up once per second. The app-side cron logic still decides which registered handlers are due.
 
 ## Wallet Authentication
 
