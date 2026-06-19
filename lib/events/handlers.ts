@@ -226,7 +226,7 @@ function createPlaceholderContractEventHandler(
     eventName,
     run(ctx, event) {
       logEventHandler("contract.event.received.placeholder", {
-        contractName: event.contractName,
+        contractName: ctx.contract.contractName,
         contractAddress: event.contractAddress,
         eventName: event.eventName,
         fingerprint: ctx.fingerprint,
@@ -242,7 +242,7 @@ function createPlaceholderContractEventHandler(
       return {
         ok: true,
         message: "Placeholder contract event handler executed.",
-        contractName: event.contractName,
+        contractName: ctx.contract.contractName,
         contractAddress: event.contractAddress,
         eventName: event.eventName,
         namedArgs: event.namedArgs,

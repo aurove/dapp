@@ -77,7 +77,6 @@ export function decodeContractEvent(
     return {
       chainId: raw.chainId,
       contractAddress: contract.address,
-      contractName: contract.contractName,
       eventName: parsed.eventName,
       eventSignature: toEventSignature(eventAbi),
       topic0: raw.topics[0] ?? "",

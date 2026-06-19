@@ -32,7 +32,6 @@ export type DecodedContractEvent<
 > = {
   chainId: number;
   contractAddress: string;
-  contractName: TContractName;
   eventName: TEventName;
   eventSignature: string;
   topic0: string;
