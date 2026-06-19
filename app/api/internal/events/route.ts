@@ -152,7 +152,6 @@ async function postInternalEvents(request: NextRequest) {
         chainId: raw.chainId,
         contractAddress: raw.contractAddress,
         contractName: contract.contractName,
-        contractFamily: contract.contractFamily,
         reason: "Unable to decode raw contract log.",
       });
       logInternalEventError("event.failed", {
@@ -161,7 +160,6 @@ async function postInternalEvents(request: NextRequest) {
         chainId: raw.chainId,
         contractAddress: raw.contractAddress,
         contractName: contract.contractName,
-        contractFamily: contract.contractFamily,
         logIndex: raw.logIndex,
         reason: "undecodable_log",
       });
@@ -199,7 +197,6 @@ async function postInternalEvents(request: NextRequest) {
       chainId: dispatchResult.chainId,
       contractAddress: dispatchResult.contractAddress,
       contractName: dispatchResult.contractName,
-      contractFamily: dispatchResult.contractFamily,
       eventName: dispatchResult.eventName,
       reason: dispatchResult.reason,
     });

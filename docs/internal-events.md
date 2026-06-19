@@ -61,6 +61,8 @@ Handlers are registered against the decoded contract event, using the contract n
 - `Marketplace.ListingCreated`
 - `PaymentRouter.PaymentRouted`
 
+The `Marketplace.OrdersMatched` handler records a price observation from matched trades only, using the settlement payment token and the gross trade value from the event payload. This gives the backend a canonical execution-price history without relying on listing-side quotes or bid/ask midpoints.
+
 The backend does not trust relay-supplied handler names or decoded payloads. It decodes logs locally, then dispatches the result to the matching handler.
 Static handlers are auto-registered from the generated contract registry, and runtime contracts can register their own handlers with the same helper.
 
@@ -190,3 +192,5 @@ Example raw payload emitted by the relay:
 ```
 
 The endpoint intentionally does not add database-backed ingestion tracking. Handlers should be retry-safe and implement any idempotency they require using the `chainId:txHash:logIndex` fingerprint.
+
+For marketplace execution prices, the handler already enforces that idempotency key when inserting into `marketplace_price_observations`, so duplicate `OrdersMatched` deliveries will not create duplicate price rows.

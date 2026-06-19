@@ -1,4 +1,15 @@
-import type { ContractAbi } from "@/contracts/types";
+import type {
+  AnyContractEventHandlerDefinition,
+  AnyDecodedContractEvent,
+  ContractEventArgs,
+  ContractEventHandlerContext as SharedContractEventHandlerContext,
+  ContractEventHandlerDefinition as SharedContractEventHandlerDefinition,
+  ContractEventHandlerKey,
+  ContractEventNameForContract,
+  ContractEventPayloadValidator as SharedContractEventPayloadValidator,
+  ContractName,
+  DecodedContractEvent as SharedDecodedContractEvent,
+} from "@/contracts/event-types";
 
 export type RawContractEventInput = {
   chainId: number;
@@ -18,62 +29,41 @@ export type RawContractEventInput = {
 export type RegisteredContract = {
   chainId: number;
   address: string;
-  contractName: string;
-  contractFamily: string;
-  abi: ContractAbi;
+  contractName: ContractName;
+  abi: import("viem").Abi;
   deploymentBlock?: number | null;
   source?: "static" | "runtime";
 };
 
-export type DecodedContractEvent<NamedArgs extends Record<string, unknown> = Record<string, unknown>> = {
-  chainId: number;
-  contractAddress: string;
-  contractName: string;
-  contractFamily: string;
-  eventName: string;
-  eventSignature: string;
-  topic0: string;
-  blockNumber: number;
-  blockHash: string;
-  blockTimestamp: number;
-  txHash: string;
-  logIndex: number;
-  transactionIndex: number | null;
-  args: unknown[];
-  namedArgs: NamedArgs;
-  raw: RawContractEventInput;
-  fingerprint: string;
-};
+export type DecodedContractEvent<
+  TContractName extends ContractName = ContractName,
+  TEventName extends ContractEventNameForContract<TContractName> = ContractEventNameForContract<TContractName>,
+> = SharedDecodedContractEvent<TContractName, TEventName>;
 
-export type ContractEventHandlerContext = {
-  now: Date;
-  fingerprint: string;
-  eventIndex: number;
-  eventCount: number;
-  contract: RegisteredContract;
-  raw: RawContractEventInput;
-  logger: Pick<Console, "info" | "warn" | "error">;
-};
+export type ContractEventHandlerContext = SharedContractEventHandlerContext;
 
-export type ContractEventPayloadValidator = {
-  validateSync(
-    value: unknown,
-    options?: {
-      abortEarly?: boolean;
-      stripUnknown?: boolean;
-    },
-  ): DecodedContractEvent;
-};
+export type ContractEventPayloadValidator<
+  TContractName extends ContractName = ContractName,
+  TEventName extends ContractEventNameForContract<TContractName> = ContractEventNameForContract<TContractName>,
+> = SharedContractEventPayloadValidator<TContractName, TEventName>;
 
-export type ContractEventHandlerDefinition = {
-  key: string;
-  description: string;
-  contractName: string;
-  contractFamily: string;
-  eventName: string;
-  schema?: ContractEventPayloadValidator;
-  run(ctx: ContractEventHandlerContext, event: DecodedContractEvent): Promise<unknown> | unknown;
-};
+export type ContractEventHandlerDefinition<
+  TContractName extends ContractName = ContractName,
+  TEventName extends ContractEventNameForContract<TContractName> = ContractEventNameForContract<TContractName>,
+> = SharedContractEventHandlerDefinition<TContractName, TEventName>;
+
+export type DecodedContractEventArgs<
+  TContractName extends ContractName,
+  TEventName extends ContractEventNameForContract<TContractName>,
+> = ContractEventArgs<TContractName, TEventName>;
+
+export type ContractEventHandlerKeyFor<
+  TContractName extends ContractName,
+  TEventName extends ContractEventNameForContract<TContractName>,
+> = ContractEventHandlerKey<TContractName, TEventName>;
+
+export type AnyContractEvent = AnyDecodedContractEvent;
+export type AnyContractEventHandler = AnyContractEventHandlerDefinition;
 
 export type RawContractEventNormalizationResult =
   | {
@@ -106,7 +96,6 @@ export type ContractEventProcessingResult =
       chainId: number;
       contractAddress: string;
       contractName: string;
-      contractFamily: string;
       eventName: string;
       handlerKey: string;
       result: unknown;
@@ -117,7 +106,6 @@ export type ContractEventProcessingResult =
       chainId?: number;
       contractAddress?: string;
       contractName?: string;
-      contractFamily?: string;
       eventName?: string;
       reason: string;
     }
@@ -127,7 +115,6 @@ export type ContractEventProcessingResult =
       chainId?: number;
       contractAddress?: string;
       contractName?: string;
-      contractFamily?: string;
       eventName?: string;
       reason: string;
     };

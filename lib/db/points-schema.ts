@@ -163,7 +163,7 @@ export const pointsUserBalances = pgTable(
     lifetimeSpentPoints: numeric("lifetime_spent_points", { precision: 18, scale: 4, mode: "string" })
       .notNull()
       .default("0.0000"),
-    entryCount: bigint("entry_count", { mode: "bigint" }).notNull().default(0n),
+    entryCount: bigint("entry_count", { mode: "bigint" }).notNull().default(sql`0`),
     firstActivityAt: timestamp("first_activity_at", { withTimezone: true, mode: "string" }),
     lastActivityAt: timestamp("last_activity_at", { withTimezone: true, mode: "string" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })

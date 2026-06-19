@@ -1,9 +1,11 @@
 import "server-only";
 
+import type { ContractName } from "@/contracts/event-types";
+
 import type {
   ContractEventHandlerContext,
   ContractEventProcessingResult,
-  DecodedContractEvent,
+  AnyContractEvent,
 } from "./types";
 import { getContractEventHandler, registerContractEventHandlersForContract } from "./handlers";
 
@@ -13,12 +15,18 @@ function isHandlerResultObject(value: unknown): value is Record<string, unknown>
 
 export async function dispatchDecodedContractEvent(
   ctx: ContractEventHandlerContext,
-  event: DecodedContractEvent,
+  event: AnyContractEvent,
 ): Promise<ContractEventProcessingResult> {
-  let handler = getContractEventHandler(event.contractName, event.eventName);
+  let handler = getContractEventHandler(
+    event.contractName as ContractName,
+    event.eventName as string,
+  );
   if (!handler) {
     registerContractEventHandlersForContract(ctx.contract);
-    handler = getContractEventHandler(event.contractName, event.eventName);
+    handler = getContractEventHandler(
+      event.contractName as ContractName,
+      event.eventName as string,
+    );
   }
   if (!handler) {
     return {
@@ -27,7 +35,6 @@ export async function dispatchDecodedContractEvent(
       chainId: event.chainId,
       contractAddress: event.contractAddress,
       contractName: event.contractName,
-      contractFamily: event.contractFamily,
       eventName: event.eventName,
       reason: "Unknown contract event handler.",
     };
@@ -49,7 +56,6 @@ export async function dispatchDecodedContractEvent(
         chainId: event.chainId,
         contractAddress: event.contractAddress,
         contractName: event.contractName,
-        contractFamily: event.contractFamily,
         eventName: event.eventName,
         reason: typeof result.reason === "string" ? result.reason : "Handler skipped event.",
       };
@@ -62,7 +68,6 @@ export async function dispatchDecodedContractEvent(
         chainId: event.chainId,
         contractAddress: event.contractAddress,
         contractName: event.contractName,
-        contractFamily: event.contractFamily,
         eventName: event.eventName,
         reason: typeof result.reason === "string" ? result.reason : "Handler execution failed.",
       };
@@ -74,7 +79,6 @@ export async function dispatchDecodedContractEvent(
       chainId: event.chainId,
       contractAddress: event.contractAddress,
       contractName: event.contractName,
-      contractFamily: event.contractFamily,
       eventName: event.eventName,
       handlerKey: handler.key,
       result,
@@ -86,7 +90,6 @@ export async function dispatchDecodedContractEvent(
       chainId: event.chainId,
       contractAddress: event.contractAddress,
       contractName: event.contractName,
-      contractFamily: event.contractFamily,
       eventName: event.eventName,
       reason: error instanceof Error ? error.message : "Handler execution failed.",
     };

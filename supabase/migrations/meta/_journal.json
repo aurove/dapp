@@ -29,6 +29,13 @@
       "when": 1781907422761,
       "tag": "20260618001000_internal_cron",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781876465332,
+      "tag": "20260619134105_app_schema",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,7 @@ import { decodeEventLog, toEventSelector, toEventSignature, type Abi, type AbiEv
 
 import { buildInternalEventFingerprint } from "./fingerprint";
 import { toJsonSafeValue } from "./json-safe";
-import type { DecodedContractEvent, RawContractEventInput, RegisteredContract } from "./types";
+import type { AnyContractEvent, RawContractEventInput, RegisteredContract } from "./types";
 
 function buildNamedArgs(parsedArgs: readonly unknown[], inputNames: readonly { name?: string }[]): Record<string, unknown> {
   return inputNames.reduce<Record<string, unknown>>((accumulator, input, index) => {
@@ -45,7 +45,7 @@ function buildOrderedArgs(
 export function decodeContractEvent(
   contract: RegisteredContract,
   raw: RawContractEventInput,
-): DecodedContractEvent | null {
+): AnyContractEvent | null {
   if (!contract.abi || contract.abi.length === 0) {
     return null;
   }
@@ -66,7 +66,7 @@ export function decodeContractEvent(
       strict: false,
     });
 
-    if (parsed.eventName !== eventAbi.name) {
+    if (String(parsed.eventName) !== eventAbi.name) {
       return null;
     }
 
@@ -78,7 +78,6 @@ export function decodeContractEvent(
       chainId: raw.chainId,
       contractAddress: contract.address,
       contractName: contract.contractName,
-      contractFamily: contract.contractFamily,
       eventName: parsed.eventName,
       eventSignature: toEventSignature(eventAbi),
       topic0: raw.topics[0] ?? "",
@@ -92,7 +91,7 @@ export function decodeContractEvent(
       namedArgs,
       raw,
       fingerprint: buildInternalEventFingerprint(raw),
-    };
+    } as unknown as AnyContractEvent;
   } catch {
     return null;
   }

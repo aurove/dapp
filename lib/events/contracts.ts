@@ -6,21 +6,6 @@ import { getAddress, isAddress } from "viem";
 
 import type { RegisteredContract } from "./types";
 
-const CONTRACT_FAMILY_BY_NAME: Record<string, string> = {
-  AssetFraction: "asset-ledger",
-  AssetFractionBeacon: "asset-ledger",
-  AssetLedger: "asset-ledger",
-  MezoRewardConverter: "reward-converter",
-  MezoVeNFTManager: "ve-nft-manager",
-  Marketplace: "marketplace",
-  MarketplaceAdmin: "marketplace",
-  PaymentRouter: "payment-router",
-  VeNftListing: "marketplace",
-  VeBTC: "ve-btc",
-  VeMEZO: "ve-mezo",
-  VotingLib: "ve-nft-manager",
-};
-
 const runtimeContracts = new Map<string, RegisteredContract>();
 const staticContracts = buildStaticContractRegistry();
 
@@ -34,10 +19,6 @@ function normalizeAddress(value: string): string | null {
 
 function makeContractKey(chainId: number, address: string): string {
   return `${chainId}:${address.toLowerCase()}`;
-}
-
-export function resolveContractFamily(contractName: string): string {
-  return CONTRACT_FAMILY_BY_NAME[contractName] ?? contractName;
 }
 
 export function getContractEventNames(abi: ContractAbi): string[] {
@@ -70,8 +51,7 @@ function toRegisteredContract(
   return {
     chainId,
     address,
-    contractName,
-    contractFamily: resolveContractFamily(contractName),
+    contractName: contractName as RegisteredContract["contractName"],
     abi: contract.abi,
     deploymentBlock: Number.isInteger(contract.deploymentBlock) ? contract.deploymentBlock : null,
     source,
@@ -116,7 +96,6 @@ export function registerRuntimeContract(contract: RegisteredContract): Registere
   const normalized: RegisteredContract = {
     ...contract,
     address: normalizedAddress,
-    contractFamily: contract.contractFamily || resolveContractFamily(contract.contractName),
     source: contract.source ?? "runtime",
     deploymentBlock,
   };
@@ -133,10 +112,6 @@ export function getRegisteredContract(chainId: number, address: string): Registe
 
   const key = makeContractKey(chainId, normalizedAddress);
   return runtimeContracts.get(key) ?? staticContracts.get(key) ?? null;
-}
-
-export function listRegisteredContracts(): RegisteredContract[] {
-  return [...staticContracts.values(), ...runtimeContracts.values()];
 }
 
 export function hasRegisteredContractAbi(chainId: number, address: string): boolean {
