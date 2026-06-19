@@ -65,6 +65,8 @@ Supported variables:
 - `SPECTRUM_RPC_SESSION_SECRET` - server secret for short-lived RPC session tokens (rotated every 10 minutes on the client).
 - `SPECTRUM_RPC_RPS_LIMIT` - server-side RPC proxy throttle in requests per second per client IP bucket (defaults to `10`).
 - `CRON_INTERNAL_SECRET` - server-only shared secret used to authenticate internal cron requests with an HMAC signature.
+- `EVENTS_WEBHOOK_SECRET` - server-only shared secret used to authenticate internal event webhooks.
+- `EVENTS_WEBHOOK_AUTH_HEADER` - optional custom secret header name for event webhooks. Defaults to `x-aurove-webhook-secret`.
 
 ## Spectrum Nodes RPC
 
@@ -127,6 +129,44 @@ export default {
 ```
 
 If you need strict one-second invocation timing from Cloudflare itself, run that `fetch()` from a Durable Object alarm or another scheduler that can wake up once per second. The app-side cron logic still decides which registered handlers are due.
+
+## Internal Events
+
+The app exposes `POST /api/internal/events` for authenticated webhook traffic from Goldsky, a custom indexer, or any other sender that can include a shared secret.
+
+The endpoint accepts raw contract log envelopes with:
+
+- `chainId`
+- `contractAddress`
+- `blockNumber`
+- `blockHash`
+- `blockTimestamp`
+- `txHash`
+- `logIndex`
+- `transactionIndex`
+- `topics`
+- `data`
+- `removed`
+- `provider`
+
+Authentication supports either:
+
+- `Authorization: Bearer <secret>`
+- A configurable secret header, such as `x-aurove-webhook-secret`
+- `EVENTS_WEBHOOK_MAX_BODY_BYTES` limits request payload size and defaults to 2 MiB
+
+The event router resolves contracts from the generated registry in `contracts/registry.ts`, decodes the raw log with the contract ABI, and dispatches the decoded event to the handler registry in `lib/events/handlers.ts`.
+
+See [docs/internal-events.md](docs/internal-events.md) for the payload contract, Goldsky examples, and local development notes.
+
+For the fork-backed local Hardhat relay flow, run:
+
+```bash
+pnpm events:relay:hardhat
+```
+
+The relay reads local deployment ABIs, decodes matching logs, and forwards known contract events into the internal events endpoint.
+It emits only the raw log envelope and leaves ABI resolution, decoding, and handler dispatch to the backend.
 
 ## Wallet Authentication
 

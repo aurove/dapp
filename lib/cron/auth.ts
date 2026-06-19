@@ -2,26 +2,20 @@ import crypto from "node:crypto";
 
 import type { NextRequest } from "next/server";
 
+import {
+  getRequiredServerSecret,
+  timingSafeEqualHex,
+} from "@/lib/internal-auth";
+
 const CRON_HMAC_PREFIX = "v1=";
 const MAX_CLOCK_SKEW_SECONDS = 300;
 const TIMESTAMP_HEADER = "x-aurove-cron-timestamp";
 const SIGNATURE_HEADER = "x-aurove-cron-signature";
 
 function getCronInternalSecret(): string {
-  const value = process.env.CRON_INTERNAL_SECRET?.trim();
-  if (!value) {
-    throw new Error("CRON_INTERNAL_SECRET is not configured.");
-  }
-
-  if (value.length < 32) {
-    throw new Error("CRON_INTERNAL_SECRET must be at least 32 characters long.");
-  }
-
-  return value;
-}
-
-function toBuffer(value: string): Buffer {
-  return Buffer.from(value, "hex");
+  return getRequiredServerSecret("CRON_INTERNAL_SECRET", {
+    minLength: 32,
+  });
 }
 
 export function signCronRequest(input: {
@@ -98,18 +92,7 @@ export function verifyCronRequest(request: NextRequest, rawBody: string): {
     ? signatureRaw.slice(CRON_HMAC_PREFIX.length)
     : signatureRaw;
 
-  if (provided.length !== expected.length) {
-    return {
-      ok: false,
-      status: 401,
-      code: "CRON_AUTH_INVALID",
-      message: "Invalid cron signature.",
-    };
-  }
-
-  const providedBytes = toBuffer(provided);
-  const expectedBytes = toBuffer(expected);
-  if (providedBytes.length !== expectedBytes.length || !crypto.timingSafeEqual(providedBytes, expectedBytes)) {
+  if (!timingSafeEqualHex(provided, expected)) {
     return {
       ok: false,
       status: 401,

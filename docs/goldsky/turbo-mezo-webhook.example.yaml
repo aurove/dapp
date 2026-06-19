@@ -1,0 +1,59 @@
+name: aurove-mezo-webhook
+resource_size: s
+description: Turbo pipeline example that normalizes raw Mezo log rows into the internal webhook envelope.
+
+sources:
+  mezo_logs:
+    type: dataset
+    dataset_name: mezo.logs
+    version: 1.0.0
+    start_at: latest
+
+transforms:
+  normalized_contract_events:
+    type: script
+    from: mezo_logs
+    language: typescript
+    primary_key: txHash
+    script: |
+      function process(input) {
+        const topics =
+          input.topics ??
+          (input.topic0
+            ? [
+                input.topic0,
+                input.topic1,
+                input.topic2,
+                input.topic3,
+              ].filter(Boolean)
+            : []);
+
+        return {
+          chainId: input.chain_id ?? input.chainId ?? 0,
+          contractAddress: input.contract_address ?? input.contractAddress,
+          blockNumber: input.block_number ?? input.blockNumber ?? 0,
+          blockHash: input.block_hash ?? input.blockHash,
+          blockTimestamp: input.block_timestamp ?? input.blockTimestamp ?? 0,
+          txHash: input.tx_hash ?? input.transaction_hash ?? input.txHash,
+          logIndex: input.log_index ?? input.logIndex ?? 0,
+          transactionIndex: input.transaction_index ?? input.transactionIndex ?? null,
+          topics,
+          data: input.data ?? input.input ?? "0x",
+          removed: input.removed ?? false,
+          provider: input.provider ?? "goldsky-turbo",
+        };
+      }
+
+sinks:
+  aurove_events:
+    type: webhook
+    from: normalized_contract_events
+    url: https://<your-dapp-host>/api/internal/events
+    secret_name: AUROVE_EVENTS_WEBHOOK_AUTH
+    one_row_per_request: true
+    headers:
+      Content-Type: application/json
+
+# Configure AUROVE_EVENTS_WEBHOOK_AUTH as a Goldsky httpauth secret whose
+# header/value pair matches your dApp webhook auth settings.
+# If you want to use Authorization, store Authorization: Bearer <EVENTS_WEBHOOK_SECRET>.
