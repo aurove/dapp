@@ -7632,7 +7632,7 @@ const contracts = {
       ],
     },
     Marketplace: {
-      address: "0x99fC5A9b69C8d3c297F7Ea1d29c23032A7544369",
+      address: "0xFF70D6a6F6fd024773683d0E14a293E547211842",
       abi: [
         {
           inputs: [
@@ -8953,7 +8953,7 @@ const contracts = {
       ],
     },
     MarketplaceAdmin: {
-      address: "0x1d39f75E6b7489465fCBB16F9f20E9fEF9c64429",
+      address: "0xd6F3173149bc04270961Ad71DD2E8ebfF59334A0",
       abi: [
         {
           inputs: [{ internalType: "address", name: "defaultAdmin", type: "address" }],
@@ -11047,7 +11047,7 @@ const contracts = {
       ],
     },
     PaymentRouter: {
-      address: "0x733D38666C1173D59Fbf5B1Cf1FCC406Fd456696",
+      address: "0xc660D1f26a3A5A99BCC2D6523b3Ce1f2d5BB6DCA",
       abi: [
         {
           inputs: [
@@ -12059,7 +12059,7 @@ const contracts = {
       ],
     },
     VeNftListing: {
-      address: "0x2F17512F1EB91Da545a70b163c153f121BDBB317",
+      address: "0x013E71d9533f768bFFE264dedE6de1F0362855E2",
       abi: [
         {
           inputs: [
