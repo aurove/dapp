@@ -1,4 +1,13 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
+import {
+  baseAccount,
+  bitgetWallet,
+  injectedWallet,
+  metaMaskWallet,
+  rainbowWallet,
+  safeWallet,
+  walletConnectWallet,
+} from "@rainbow-me/rainbowkit/wallets";
 import type { Chain } from "viem";
 import { createConfig, http, type Config } from "wagmi";
 import { getRuntimeConfig } from "@/lib/config/env";
@@ -9,6 +18,17 @@ let wagmiConfig: Config | undefined;
 let wagmiConfigChainId: number | undefined;
 let serverWagmiConfig: Config | undefined;
 let serverWagmiConfigChainId: number | undefined;
+
+const walletList = [
+  {
+    groupName: "Recommended",
+    wallets: [injectedWallet, bitgetWallet, walletConnectWallet],
+  },
+  {
+    groupName: "Popular",
+    wallets: [safeWallet, rainbowWallet, baseAccount, metaMaskWallet],
+  },
+] satisfies Parameters<typeof getDefaultConfig>[0]["wallets"];
 
 function getChainRpcUrl(chain: Chain): string {
   return chain.rpcUrls.default.http[0] ?? "http://127.0.0.1:8545";
@@ -44,6 +64,7 @@ export function getWagmiConfig(activeChain: Chain): Config {
       appName: "Aurove",
       chains: supportedChains,
       multiInjectedProviderDiscovery: false,
+      wallets: walletList,
       projectId: runtime.walletConnectProjectId,
       transports: {
         ...Object.fromEntries(

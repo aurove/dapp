@@ -54,25 +54,18 @@ cp .env.example .env.local
 
 Supported variables:
 
-- `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` - required for wallet connections.
+- `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` - required for WalletConnect-based mobile wallet flows, including Bitget Wallet mobile. Create one at https://cloud.walletconnect.com and configure it in Vercel Project Settings -> Environment Variables for deployment.
+- `NEXT_PUBLIC_MEZO_TESTNET_RPC_HTTP` - direct Mezo testnet RPC endpoint used by the dApp. Defaults to `https://rpc.test.mezo.org`.
+- `NEXT_PUBLIC_MEZO_MAINNET_RPC_HTTP` - direct Mezo mainnet RPC endpoint used by the dApp. Defaults to `https://rpc.mezo.org`.
 - `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL. For local dev, use the URL printed by `supabase start` or `supabase status --output env`, then keep it in `.env.local`.
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` - client-safe Supabase publishable key.
 - `SUPABASE_SERVICE_ROLE_KEY` - server-only Supabase service role key used for privileged writes.
 - `DATABASE_URL` - direct Postgres connection string used by Drizzle ORM and Drizzle Kit. For local Supabase, this usually looks like `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
 - `NEXT_PUBLIC_TXFLOW_NETWORK` - optional network selector for transaction flow config. Common values are `testnet` and `mainnet`.
 - `NEXT_PUBLIC_APP_ENV` - local app environment selector used by the existing configuration.
-- `SPECTRUM_MEZO_TESTNET_RPC_HTTP` - server-only Spectrum Nodes Mezo testnet RPC endpoint used by the internal RPC proxy.
-- `SPECTRUM_RPC_SESSION_SECRET` - server secret for short-lived RPC session tokens (rotated every 10 minutes on the client).
-- `SPECTRUM_RPC_RPS_LIMIT` - server-side RPC proxy throttle in requests per second per client IP bucket (defaults to `10`).
 - `CRON_INTERNAL_SECRET` - server-only shared secret used to authenticate internal cron requests with an HMAC signature.
 - `EVENTS_WEBHOOK_SECRET` - server-only shared secret used to authenticate internal event webhooks.
 - `EVENTS_WEBHOOK_AUTH_HEADER` - optional custom secret header name for event webhooks. Defaults to `x-aurove-webhook-secret`.
-
-## Spectrum Nodes RPC
-
-For the Mezo testnet demo, set `NEXT_PUBLIC_APP_ENV=testnet` and configure `SPECTRUM_MEZO_TESTNET_RPC_HTTP` with the HTTPS endpoint created in the Spectrum Nodes dashboard. The browser uses `/api/rpc/mezo-testnet` as the wagmi RPC URL, and the server proxies requests to Spectrum after validating a short-lived session cookie issued by `/api/rpc/session`.
-
-See [docs/spectrum-rpc.md](docs/spectrum-rpc.md) for the architecture notes and hackathon submission details.
 
 ## Internal Cron
 

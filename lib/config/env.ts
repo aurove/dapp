@@ -15,10 +15,25 @@ export type RuntimeConfig = {
   };
 };
 
+function requireWalletConnectProjectId(): string {
+  const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+
+  if (!projectId) {
+    throw new Error(
+      [
+        "Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID.",
+        "",
+        "Bitget Wallet mobile connections require WalletConnect/Reown. Create a project ID at https://cloud.walletconnect.com and set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID in your deployment environment, such as Vercel Project Settings -> Environment Variables.",
+      ].join("\n"),
+    );
+  }
+
+  return projectId;
+}
+
 export function getRuntimeConfig(): RuntimeConfig {
   const environment = resolveAppEnvironment();
-  const walletConnectProjectId =
-    process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "1d704aa13ff6d856e2935a85987c34ec";
+  const walletConnectProjectId = requireWalletConnectProjectId();
   const passportEnabled =
     (process.env.NEXT_PUBLIC_PASSPORT_ENABLED || "false").toLowerCase() === "true";
   const passportEnvironment =

@@ -13,7 +13,11 @@ export function resolveAppEnvironment(): AppEnvironment {
 }
 
 export function getMezoTestnetRpcHttp(): string {
-  return process.env.NEXT_PUBLIC_MEZO_TESTNET_RPC_HTTP || "/api/rpc/mezo-testnet";
+  return process.env.NEXT_PUBLIC_MEZO_TESTNET_RPC_HTTP || "https://rpc.test.mezo.org";
+}
+
+export function getMezoMainnetRpcHttp(): string {
+  return process.env.NEXT_PUBLIC_MEZO_MAINNET_RPC_HTTP || "https://rpc.mezo.org";
 }
 
 // Local chain definitions avoid importing mezo chain exports from @mezo-org/passport,
@@ -50,7 +54,7 @@ export const mezoMainnetChain: Chain = defineChain({
   },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_MEZO_MAINNET_RPC_HTTP || "https://rpc.mezo.org"],
+      http: [getMezoMainnetRpcHttp()],
     },
   },
   blockExplorers: {

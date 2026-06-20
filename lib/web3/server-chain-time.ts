@@ -2,7 +2,7 @@ import "server-only";
 
 import { createPublicClient, http, type Chain } from "viem";
 
-import { mezoTestnetChain, supportedChains } from "@/lib/config/chains";
+import { supportedChains } from "@/lib/config/chains";
 import { logServerError } from "@/lib/server/http";
 
 type ServerPublicClient = ReturnType<typeof createPublicClient>;
@@ -14,13 +14,6 @@ function getChainById(chainId: number): Chain | null {
 }
 
 function getServerChainRpcUrl(chain: Chain): string | null {
-  if (chain.id === mezoTestnetChain.id) {
-    const spectrumRpcUrl = process.env.SPECTRUM_MEZO_TESTNET_RPC_HTTP?.trim();
-    if (spectrumRpcUrl) {
-      return spectrumRpcUrl;
-    }
-  }
-
   const url = chain.rpcUrls.default.http[0]?.trim();
   if (!url) {
     return null;

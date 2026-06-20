@@ -28,19 +28,19 @@ The internal contract accepts one raw log envelope per object:
 
 ```ts
 type RawContractEventInput = {
-  chainId: number
-  contractAddress: string
-  blockNumber: number
-  blockHash: string
-  blockTimestamp: number
-  txHash: string
-  logIndex: number
-  transactionIndex?: number | null
-  topics: string[]
-  data: string
-  removed?: boolean
-  provider?: string
-}
+  chainId: number;
+  contractAddress: string;
+  blockNumber: number;
+  blockHash: string;
+  blockTimestamp: number;
+  txHash: string;
+  logIndex: number;
+  transactionIndex?: number | null;
+  topics: string[];
+  data: string;
+  removed?: boolean;
+  provider?: string;
+};
 ```
 
 The endpoint also accepts batched payloads such as `RawContractEventInput[]` or wrapper objects with `events`, `logs`, `data`, `payload`, `records`, `items`, or `entries` arrays.
@@ -153,7 +153,9 @@ pnpm events:relay:hardhat
 The relay:
 
 - watches a local Hardhat JSON-RPC endpoint
-- auto-discovers non-veNFT deployment addresses from `packages/core/deployments/localhost` and `packages/marketplace/deployments/localhost`
+- resolves the deployment network from the connected RPC chain ID
+- auto-discovers non-veNFT deployment addresses from the matching `packages/core/deployments/<network>` and `packages/marketplace/deployments/<network>` folders
+- starts scanning from the `MezoVeNFTManager` deployment block in the core deployment folder for that chain
 - forwards raw contract log envelopes only
 - posts them to `/api/internal/events` using the same shared-secret auth model
 
@@ -167,9 +169,9 @@ Useful environment variables:
 - `EVENTS_WEBHOOK_MAX_BODY_BYTES` - optional request size limit for the API.
 - `EVENTS_RELAY_RPC_URL` - defaults to `http://127.0.0.1:8545`.
 - `EVENTS_RELAY_MAX_BLOCK_DISTANCE` - maximum number of blocks to scan per `eth_getLogs` call.
-- `EVENTS_RELAY_START_BLOCK` - defaults to `0` for local replay.
+- `EVENTS_RELAY_START_BLOCK` - emergency fallback only if the manager deployment block cannot be resolved.
 - `EVENTS_RELAY_POLL_INTERVAL_MS` - polling interval in milliseconds.
-- `EVENTS_RELAY_STATE_FILE` - optional checkpoint path; defaults to `.tmp/internal-events-relay-state.json` at the repo root.
+- `EVENTS_RELAY_STATE_FILE` - optional checkpoint path; defaults to `.tmp/internal-events-relay-state.json` at the repo root. The file stores per-chain block cursors and chain-specific data under a `chains[chainId]` map.
 
 Example raw payload emitted by the relay:
 
@@ -183,9 +185,7 @@ Example raw payload emitted by the relay:
   "txHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "logIndex": 0,
   "transactionIndex": 1,
-  "topics": [
-    "0x1111111111111111111111111111111111111111111111111111111111111111"
-  ],
+  "topics": ["0x1111111111111111111111111111111111111111111111111111111111111111"],
   "data": "0x",
   "provider": "hardhat-local-relay"
 }
