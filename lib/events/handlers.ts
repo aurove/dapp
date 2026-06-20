@@ -23,9 +23,6 @@ import { db } from "@/lib/db";
 import { getKnownMusdConfig } from "@/lib/config/musd";
 import { marketplacePriceObservations } from "@/lib/db/marketplace-schema";
 import { buildHandlerKey as buildHandlerKeyTyped } from "@/contracts/event-types";
-import {
-  resolveMarketplaceObservationQuote as resolveMarketplaceObservationQuoteFromRows,
-} from "./marketplace-observation.js";
 
 import { getRegisteredContract, getRegisteredContractAbi, registerRuntimeContract } from "./contracts";
 import type {
@@ -63,6 +60,7 @@ const DECIMALS_ABI = [
 ] as const;
 
 const PRICE_SCALE = 10n ** 18n;
+const MARKETPLACE_OBSERVATION_MAX_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 type AssetFractionAssetVariant = "veBTC" | "veMEZO";
 
@@ -644,7 +642,65 @@ async function resolveMarketplaceObservationQuote(input: {
       desc(marketplacePriceObservations.logIndex),
     );
 
-  return resolveMarketplaceObservationQuoteFromRows(rows) as MarketplaceObservationQuote | null;
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const newestRow = rows[0];
+  if (!newestRow) {
+    return null;
+  }
+
+  const newestTimestampMs = Date.parse(newestRow.blockTimestamp);
+  if (Number.isNaN(newestTimestampMs)) {
+    return null;
+  }
+
+  const windowStartTimestampMs = newestTimestampMs - MARKETPLACE_OBSERVATION_MAX_WINDOW_MS;
+  const windowRows = rows.filter((row) => {
+    const rowTimestampMs = Date.parse(row.blockTimestamp);
+    return !Number.isNaN(rowTimestampMs) && rowTimestampMs >= windowStartTimestampMs;
+  });
+
+  if (windowRows.length === 0) {
+    return null;
+  }
+
+  const oldestRow = windowRows[windowRows.length - 1];
+  if (!oldestRow) {
+    return null;
+  }
+
+  const observationCount = windowRows.length;
+  const oldestTimestampMs = Date.parse(oldestRow.blockTimestamp);
+  if (Number.isNaN(oldestTimestampMs)) {
+    return null;
+  }
+
+  const sumAmountFilled = windowRows.reduce((accumulator, row) => accumulator + BigInt(row.amountFilled), 0n);
+  const sumGrossTradeValue = windowRows.reduce((accumulator, row) => accumulator + BigInt(row.grossTradeValue), 0n);
+  const sumPricePerUnit = windowRows.reduce((accumulator, row) => accumulator + BigInt(row.pricePerUnit), 0n);
+
+  const method =
+    observationCount >= 2 && sumAmountFilled > 0n
+      ? "vwap"
+      : observationCount >= 2
+        ? "twap"
+        : "spot";
+
+  const pricePerUnit =
+    method === "vwap"
+      ? (sumGrossTradeValue * PRICE_SCALE) / sumAmountFilled
+      : sumPricePerUnit / BigInt(observationCount);
+
+  return {
+    method,
+    windowMs: newestTimestampMs - oldestTimestampMs,
+    observationCount,
+    pricePerUnit,
+    windowStart: new Date(oldestTimestampMs).toISOString(),
+    windowEnd: new Date(newestTimestampMs).toISOString(),
+  };
 }
 
 async function awardAcademyTaskPoints(
