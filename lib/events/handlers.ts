@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, lte } from "drizzle-orm";
 import { getAddress, http, createPublicClient, type Abi, type Address, type PublicClient } from "viem";
 
 import {
@@ -23,6 +23,9 @@ import { db } from "@/lib/db";
 import { getKnownMusdConfig } from "@/lib/config/musd";
 import { marketplacePriceObservations } from "@/lib/db/marketplace-schema";
 import { buildHandlerKey as buildHandlerKeyTyped } from "@/contracts/event-types";
+import {
+  resolveMarketplaceObservationQuote as resolveMarketplaceObservationQuoteFromRows,
+} from "./marketplace-observation.js";
 
 import { getRegisteredContract, getRegisteredContractAbi, registerRuntimeContract } from "./contracts";
 import type {
@@ -506,17 +509,6 @@ async function recordMarketplacePriceObservation(
   };
 }
 
-const MARKETPLACE_OBSERVATION_WINDOWS_MS = [
-  30 * 24 * 60 * 60 * 1000,
-  14 * 24 * 60 * 60 * 1000,
-  7 * 24 * 60 * 60 * 1000,
-  3 * 24 * 60 * 60 * 1000,
-  24 * 60 * 60 * 1000,
-  12 * 60 * 60 * 1000,
-  6 * 60 * 60 * 1000,
-  60 * 60 * 1000,
-] as const;
-
 type MarketplaceTradeRoute = "buy_from_listing" | "sell_to_bid" | "matched_orders";
 
 type MarketplaceObservationQuote = {
@@ -632,86 +624,27 @@ async function resolveMarketplaceObservationQuote(input: {
   paymentToken: Address;
   windowEndTimestamp: number;
 }): Promise<MarketplaceObservationQuote | null> {
-  const candidates: Array<MarketplaceObservationQuote & { reliabilityRank: number }> = [];
-  const windowEnd = new Date(input.windowEndTimestamp * 1000);
-
-  for (const windowMs of MARKETPLACE_OBSERVATION_WINDOWS_MS) {
-    const windowStart = new Date(windowEnd.getTime() - windowMs);
-    const rows = await db
-      .select()
-      .from(marketplacePriceObservations)
-      .where(
-        and(
-          eq(marketplacePriceObservations.chainId, input.chainId),
-          eq(marketplacePriceObservations.collection, input.collection),
-          eq(marketplacePriceObservations.paymentToken, input.paymentToken),
-          gte(marketplacePriceObservations.blockTimestamp, windowStart.toISOString()),
-          lte(marketplacePriceObservations.blockTimestamp, windowEnd.toISOString()),
+  const rows = await db
+    .select()
+    .from(marketplacePriceObservations)
+    .where(
+      and(
+        eq(marketplacePriceObservations.chainId, input.chainId),
+        eq(marketplacePriceObservations.collection, input.collection),
+        eq(marketplacePriceObservations.paymentToken, input.paymentToken),
+        lte(
+          marketplacePriceObservations.blockTimestamp,
+          new Date(input.windowEndTimestamp * 1000).toISOString(),
         ),
-      )
-      .orderBy(
-        desc(marketplacePriceObservations.blockTimestamp),
-        desc(marketplacePriceObservations.blockNumber),
-        desc(marketplacePriceObservations.logIndex),
-      );
+      ),
+    )
+    .orderBy(
+      desc(marketplacePriceObservations.blockTimestamp),
+      desc(marketplacePriceObservations.blockNumber),
+      desc(marketplacePriceObservations.logIndex),
+    );
 
-    if (rows.length === 0) {
-      continue;
-    }
-
-    const observationCount = rows.length;
-    const sumAmountFilled = rows.reduce((accumulator, row) => accumulator + BigInt(row.amountFilled), 0n);
-    const sumGrossTradeValue = rows.reduce((accumulator, row) => accumulator + BigInt(row.grossTradeValue), 0n);
-    const sumPricePerUnit = rows.reduce((accumulator, row) => accumulator + BigInt(row.pricePerUnit), 0n);
-
-    const method =
-      observationCount >= 2 && sumAmountFilled > 0n
-        ? "vwap"
-        : observationCount >= 2
-          ? "twap"
-          : "spot";
-
-    const pricePerUnit =
-      method === "vwap"
-        ? (sumGrossTradeValue * PRICE_SCALE) / sumAmountFilled
-        : sumPricePerUnit / BigInt(observationCount);
-
-    candidates.push({
-      method,
-      windowMs,
-      observationCount,
-      pricePerUnit,
-      windowStart: windowStart.toISOString(),
-      windowEnd: windowEnd.toISOString(),
-      reliabilityRank: method === "vwap" ? 2 : method === "twap" ? 1 : 0,
-    });
-  }
-
-  if (candidates.length === 0) {
-    return null;
-  }
-
-  candidates.sort((left, right) => {
-    if (right.reliabilityRank !== left.reliabilityRank) {
-      return right.reliabilityRank - left.reliabilityRank;
-    }
-
-    return right.windowMs - left.windowMs;
-  });
-
-  const best = candidates[0];
-  if (!best) {
-    return null;
-  }
-
-  return {
-    method: best.method,
-    windowMs: best.windowMs,
-    observationCount: best.observationCount,
-    pricePerUnit: best.pricePerUnit,
-    windowStart: best.windowStart,
-    windowEnd: best.windowEnd,
-  };
+  return resolveMarketplaceObservationQuoteFromRows(rows) as MarketplaceObservationQuote | null;
 }
 
 async function awardAcademyTaskPoints(
