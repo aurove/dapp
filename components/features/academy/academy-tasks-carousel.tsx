@@ -75,29 +75,29 @@ function CheckInTaskSlide({
   const isCoolingDownMode = authenticated && checkIn?.status === "cooldown";
   const nextEligibleAt = checkIn?.nextEligibleAt ?? null;
   const lastCheckInAt = checkIn?.lastCheckInAt ?? null;
-  const currentChainTimestampSeconds = chainTimestampNumber ?? null;
+  const chainTimestampSeconds = chainTimestampNumber ?? null;
   const cooldownSeconds = useMemo(() => {
-    if (!isCoolingDownMode || !nextEligibleAt || currentChainTimestampSeconds === null) {
+    if (!isCoolingDownMode || !nextEligibleAt || chainTimestampSeconds === null) {
       return checkIn?.secondsRemaining ?? 0;
     }
 
-    return computeChainSecondsRemaining(nextEligibleAt, currentChainTimestampSeconds);
-  }, [checkIn?.secondsRemaining, currentChainTimestampSeconds, isCoolingDownMode, nextEligibleAt]);
+    return computeChainSecondsRemaining(nextEligibleAt, chainTimestampSeconds);
+  }, [checkIn?.secondsRemaining, chainTimestampSeconds, isCoolingDownMode, nextEligibleAt]);
 
   const isCoolingDown = isCoolingDownMode && cooldownSeconds > 0;
   const ready = !isCoolingDown;
   const pointsLabel = formatPoints(checkIn?.pointsAwarded ?? 0);
   const cooldownElapsed = useMemo(() => {
-    if (!lastCheckInAt || !nextEligibleAt || currentChainTimestampSeconds === null) {
+    if (!lastCheckInAt || !nextEligibleAt || chainTimestampSeconds === null) {
       return 0;
     }
 
     return computeChainCooldownProgress({
       lastCheckInAt,
       nextEligibleAt,
-      currentChainTimestampSeconds,
+      chainTimestampSeconds,
     });
-  }, [currentChainTimestampSeconds, lastCheckInAt, nextEligibleAt]);
+  }, [chainTimestampSeconds, lastCheckInAt, nextEligibleAt]);
 
   if (isCheckInLoading) {
     return (

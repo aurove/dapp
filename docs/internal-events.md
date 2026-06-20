@@ -61,7 +61,7 @@ Handlers are registered against the decoded contract event, using the contract n
 - `Marketplace.ListingCreated`
 - `PaymentRouter.PaymentRouted`
 
-The `Marketplace.OrdersMatched` handler records a price observation from matched trades only, using the settlement payment token and the gross trade value from the event payload. This gives the backend a canonical execution-price history without relying on listing-side quotes or bid/ask midpoints.
+The `Marketplace.OrdersMatched` handler records a price observation from matched trades and, when the settlement is denominated in MUSD, awards Academy points to the maker and taker using the same referral split path as check-ins. The `AssetLedger.AssetFractionRewardsClaimed` handler values BTC and MEZO fraction reward claims from the most recent valid MUSD observation window and awards Academy points from that converted value.
 
 The backend does not trust relay-supplied handler names or decoded payloads. It decodes logs locally, then dispatches the result to the matching handler.
 Static handlers are auto-registered from the generated contract registry, and runtime contracts can register their own handlers with the same helper.

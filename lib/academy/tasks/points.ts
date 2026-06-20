@@ -18,6 +18,7 @@ import {
   ACADEMY_CHECK_IN_POINTS,
   ACADEMY_PROGRAM_SLUG,
 } from "../constants";
+import { chainTimestampToIso } from "../time";
 import {
   resolveAcademyReferralRecipients,
   splitAcademyReferralPoints,
@@ -77,10 +78,11 @@ type AcademyTaskAwardInput = {
   userId: string;
   chainId: number;
   idempotencyKey: string;
-  occurredAt: string;
-  pointsDelta: number;
+  chainTimestampSeconds: number;
+  pointsDelta: number | string | bigint;
   sourceReference: string;
   sourceDetails: JsonRecord;
+  sourceKind?: PointsLedgerEntry["sourceKind"];
 };
 
 type AcademyTaskAwardRecipient = {
@@ -95,6 +97,10 @@ type AcademyTaskAwardRecipient = {
 
 function formatSourceReference(baseReference: string, rewardType: AcademyTaskAwardRecipient["rewardType"]): string {
   return `${baseReference}:${rewardType}`;
+}
+
+function toJsonSafePointsValue(value: number | string | bigint): number | string {
+  return typeof value === "bigint" ? value.toString() : value;
 }
 
 function buildAcademyTaskAwardRecipients(
@@ -155,7 +161,7 @@ function buildAcademyTaskAwardRecipients(
 
 async function insertAcademyTaskAward(
   client: typeof db,
-  input: AcademyTaskAwardInput,
+  input: AcademyTaskAwardInput & { occurredAt: string; recordedAt: string },
   recipient: AcademyTaskAwardRecipient,
 ): Promise<PointsLedgerEntry | null> {
   const rows = await client
@@ -165,7 +171,7 @@ async function insertAcademyTaskAward(
       activityDefinitionId: input.activityDefinitionId,
       userId: recipient.userId,
       idempotencyKey: recipient.idempotencyKey,
-      sourceKind: "system",
+      sourceKind: input.sourceKind ?? "system",
       sourceReference: recipient.sourceReference,
       sourceDetails: {
         ...input.sourceDetails,
@@ -175,12 +181,12 @@ async function insertAcademyTaskAward(
         sourceReference: input.sourceReference,
         recipientUserId: recipient.userId,
         originalUserId: input.userId,
-        basePoints: input.pointsDelta,
+        basePoints: toJsonSafePointsValue(input.pointsDelta),
         pointsAwarded: recipient.pointsDelta,
       },
       pointsDelta: recipient.pointsDelta,
       occurredAt: input.occurredAt,
-      recordedAt: input.occurredAt,
+      recordedAt: input.recordedAt,
     })
     .onConflictDoNothing({ target: pointsLedgerEntries.idempotencyKey })
     .returning();
@@ -208,9 +214,9 @@ export function computeAcademyTaskNextEligibleAt(
 
 export function computeSecondsRemaining(
   nextEligibleAt: string,
-  currentChainTimestampSeconds: number,
+  chainTimestampSeconds: number,
 ): number {
-  return computeChainSecondsRemaining(nextEligibleAt, currentChainTimestampSeconds);
+  return computeChainSecondsRemaining(nextEligibleAt, chainTimestampSeconds);
 }
 
 export async function resolveActiveAcademyProgram(client: typeof db): Promise<PointsProgram | null> {
@@ -303,12 +309,14 @@ export async function recordAcademyTaskPoints(
     userId: string;
     chainId: number;
     idempotencyKey: string;
-    occurredAt: string;
-    pointsDelta: number;
+    chainTimestampSeconds: number;
+    pointsDelta: number | string | bigint;
     sourceReference: string;
     sourceDetails: JsonRecord;
+    sourceKind?: PointsLedgerEntry["sourceKind"];
   },
 ): Promise<PointsLedgerEntry> {
+  const occurredAt = chainTimestampToIso(input.chainTimestampSeconds);
   const referralChain = await resolveAcademyReferralRecipients(client, {
     userId: input.userId,
     chainId: input.chainId,
@@ -318,7 +326,15 @@ export async function recordAcademyTaskPoints(
   const recordedEntries: Array<PointsLedgerEntry | null> = [];
 
   for (const recipient of recipients) {
-    const entry = await insertAcademyTaskAward(client, input, recipient);
+    const entry = await insertAcademyTaskAward(
+      client,
+      {
+        ...input,
+        occurredAt,
+        recordedAt: occurredAt,
+      },
+      recipient,
+    );
     if (entry) {
       recordedEntries.push(entry);
     }

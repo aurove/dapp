@@ -53,7 +53,7 @@ CREATE TABLE "points_ledger_entries" (
 	"source_details" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"points_delta" bigint NOT NULL,
 	"occurred_at" timestamp with time zone NOT NULL,
-	"recorded_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"recorded_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "points_ledger_entries_idempotency_key_not_empty" CHECK (btrim("idempotency_key") <> ''),
 	CONSTRAINT "points_ledger_entries_points_delta_nonzero" CHECK ("points_delta" <> 0),
 	CONSTRAINT "points_ledger_entries_source_details_is_object" CHECK (jsonb_typeof("source_details") = 'object')

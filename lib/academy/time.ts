@@ -4,17 +4,17 @@ export function chainTimestampToIso(chainTimestampSeconds: number): string {
 
 export function computeChainSecondsRemaining(
   nextEligibleAt: string,
-  currentChainTimestampSeconds: number,
+  chainTimestampSeconds: number,
 ): number {
-  return Math.max(0, Math.ceil((Date.parse(nextEligibleAt) - currentChainTimestampSeconds * 1000) / 1000));
+  return Math.max(0, Math.ceil((Date.parse(nextEligibleAt) - chainTimestampSeconds * 1000) / 1000));
 }
 
 export function computeChainCooldownProgress(input: {
   lastCheckInAt: string | null;
   nextEligibleAt: string | null;
-  currentChainTimestampSeconds: number | null;
+  chainTimestampSeconds: number | null;
 }): number {
-  if (!input.lastCheckInAt || !input.nextEligibleAt || input.currentChainTimestampSeconds === null) {
+  if (!input.lastCheckInAt || !input.nextEligibleAt || input.chainTimestampSeconds === null) {
     return 0;
   }
 
@@ -23,6 +23,6 @@ export function computeChainCooldownProgress(input: {
     return 0;
   }
 
-  const remainingMs = Math.max(0, Date.parse(input.nextEligibleAt) - input.currentChainTimestampSeconds * 1000);
+  const remainingMs = Math.max(0, Date.parse(input.nextEligibleAt) - input.chainTimestampSeconds * 1000);
   return Math.min(100, Math.max(0, Math.round(((totalMs - remainingMs) / totalMs) * 100)));
 }

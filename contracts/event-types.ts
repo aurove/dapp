@@ -70,7 +70,7 @@ export type AnyDecodedContractEvent = {
 }[ContractName];
 
 export type ContractEventHandlerContext = {
-  now: Date;
+  chainTime: Date;
   fingerprint: string;
   eventIndex: number;
   eventCount: number;

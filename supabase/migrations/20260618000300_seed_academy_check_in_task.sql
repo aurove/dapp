@@ -16,7 +16,7 @@ select
   true,
   jsonb_build_object(
     'cooldownHours', 4,
-    'pointsAwarded', 2,
+    'pointsAwarded', 0.2,
     'taskType', 'academy_check_in'
   )
 from public.points_programs p

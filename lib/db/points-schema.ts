@@ -121,9 +121,7 @@ export const pointsLedgerEntries = pgTable(
     sourceDetails: jsonb("source_details").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
     pointsDelta: numeric("points_delta", { precision: 18, scale: 4, mode: "string" }).notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "string" }).notNull(),
-    recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "string" })
-      .notNull()
-      .defaultNow(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "string" }).notNull(),
   },
   (table) => [
     check("points_ledger_entries_idempotency_key_not_empty", sql`btrim(${table.idempotencyKey}) <> ''`),

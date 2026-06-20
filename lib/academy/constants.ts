@@ -1,7 +1,10 @@
 export const ACADEMY_PROGRAM_SLUG = "academy";
 export const ACADEMY_CHECK_IN_TASK_CODE = "check_in";
 export const ACADEMY_CHECK_IN_COOLDOWN_HOURS = 4;
-export const ACADEMY_CHECK_IN_POINTS = 2;
+export const ACADEMY_CHECK_IN_POINTS = 0.2;
+export const ACADEMY_MARKETPLACE_ORDER_MATCHED_MAKER_TASK_CODE = "marketplace_order_matched_maker";
+export const ACADEMY_MARKETPLACE_ORDER_MATCHED_TAKER_TASK_CODE = "marketplace_order_matched_taker";
+export const ACADEMY_ASSET_FRACTION_REWARDS_CLAIMED_TASK_CODE = "asset_fraction_rewards_claimed";
 export const DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE = 10;
 export const DEFAULT_ACADEMY_ACTIVITY_PAGE_SIZE = 8;
 export const ACADEMY_POINTS_PRECISION = 4;

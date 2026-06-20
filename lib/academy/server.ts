@@ -395,12 +395,12 @@ export type AcademyService = {
   getCheckIn(input: {
     userId: string;
     chainId: number;
-    currentChainTimestamp: number;
+    chainTimestampSeconds: number;
   }): Promise<AcademyCheckInState>;
   checkIn(input: {
     userId: string;
     chainId: number;
-    currentChainTimestamp: number;
+    chainTimestampSeconds: number;
   }): Promise<AcademyCheckInState>;
 };
 

@@ -9,7 +9,8 @@ import { verifyInternalEventsRequest } from "@/lib/events/auth";
 import { getRegisteredContract } from "@/lib/events/contracts";
 import { decodeContractEvent } from "@/lib/events/decode";
 import { dispatchDecodedContractEvent } from "@/lib/events/dispatch";
-import { listContractEventHandlers, normalizeInternalEvents } from "@/lib/events";
+import { normalizeInternalEvents } from "@/lib/events";
+import { countRegisteredContractEventHandlers } from "@/lib/events/handlers";
 import type { ContractEventProcessingResult } from "@/lib/events/types";
 
 export const runtime = "nodejs";
@@ -70,8 +71,9 @@ async function postInternalEvents(request: NextRequest) {
     );
   }
 
-  const checkedAt = new Date();
-  const registeredHandlers = listContractEventHandlers().length;
+  const requestReceivedAt = new Date();
+  let latestEventTimestampSeconds: number | null = null;
+  const registeredHandlers = countRegisteredContractEventHandlers();
   const results: ContractEventProcessingResult[] = [];
   const seenFingerprints = new Set<string>();
   let accepted = 0;
@@ -96,6 +98,10 @@ async function postInternalEvents(request: NextRequest) {
 
     accepted += 1;
     const raw = normalized.raw;
+    latestEventTimestampSeconds =
+      latestEventTimestampSeconds === null
+        ? raw.blockTimestamp
+        : Math.max(latestEventTimestampSeconds, raw.blockTimestamp);
 
     if (raw.removed) {
       skipped += 1;
@@ -168,7 +174,7 @@ async function postInternalEvents(request: NextRequest) {
 
     const dispatchResult = await dispatchDecodedContractEvent(
       {
-        now: checkedAt,
+        chainTime: new Date(decoded.blockTimestamp * 1000),
         fingerprint: decoded.fingerprint,
         eventIndex: index,
         eventCount: normalizedEvents.length,
@@ -203,7 +209,9 @@ async function postInternalEvents(request: NextRequest) {
   }
 
   const responseBody = {
-    checkedAt: checkedAt.toISOString(),
+    checkedAt: new Date(
+      (latestEventTimestampSeconds ?? Math.floor(requestReceivedAt.getTime() / 1000)) * 1000,
+    ).toISOString(),
     registeredHandlers,
     accepted,
     processed,

@@ -5,7 +5,7 @@ import type {
   ContractEventProcessingResult,
   AnyContractEvent,
 } from "./types";
-import { getContractEventHandler, registerContractEventHandlersForContract } from "./handlers";
+import { getContractEventHandler } from "./handlers";
 
 function isHandlerResultObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -15,11 +15,7 @@ export async function dispatchDecodedContractEvent(
   ctx: ContractEventHandlerContext,
   event: AnyContractEvent,
 ): Promise<ContractEventProcessingResult> {
-  let handler = getContractEventHandler(ctx.contract.contractName, event.eventName as string);
-  if (!handler) {
-    registerContractEventHandlersForContract(ctx.contract);
-    handler = getContractEventHandler(ctx.contract.contractName, event.eventName as string);
-  }
+  const handler = getContractEventHandler(ctx.contract.contractName, event.eventName as string);
   if (!handler) {
     return {
       status: "failed",

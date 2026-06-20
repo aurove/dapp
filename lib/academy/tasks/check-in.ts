@@ -1,10 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import {
-  chainTimestampToIso,
-  computeChainSecondsRemaining,
-} from "@/lib/academy/time";
+import { computeChainSecondsRemaining } from "@/lib/academy/time";
 
 import { ACADEMY_CHECK_IN_TASK_CODE } from "../constants";
 import type { AcademyCheckInState } from "../types";
@@ -77,7 +74,7 @@ async function resolveAcademyCheckInContext(
 function buildAcademyCheckInState(input: {
   task: AcademyCheckInTask;
   latestEntry: AcademyCheckInLedgerEntry;
-  currentChainTimestamp: number;
+  chainTimestampSeconds: number;
 }): AcademyCheckInState {
   if (input.latestEntry) {
     const nextEligibleAt = computeAcademyTaskNextEligibleAt(
@@ -86,7 +83,7 @@ function buildAcademyCheckInState(input: {
     );
     const secondsRemaining = computeChainSecondsRemaining(
       nextEligibleAt,
-      input.currentChainTimestamp,
+      input.chainTimestampSeconds,
     );
     if (secondsRemaining > 0) {
       return {
@@ -120,30 +117,29 @@ function buildAcademyCheckInState(input: {
 export async function getAcademyCheckInState(input: {
   userId: string;
   chainId: number;
-  currentChainTimestamp: number;
+  chainTimestampSeconds: number;
 }): Promise<AcademyCheckInState> {
   const context = await resolveAcademyCheckInContext(db, input);
-  return buildAcademyCheckInState({ ...context, currentChainTimestamp: input.currentChainTimestamp });
+  return buildAcademyCheckInState({ ...context, chainTimestampSeconds: input.chainTimestampSeconds });
 }
 
 export async function runAcademyCheckIn(input: {
   userId: string;
   chainId: number;
-  currentChainTimestamp: number;
+  chainTimestampSeconds: number;
 }): Promise<AcademyCheckInState> {
   return db.transaction(async (client) => {
     const context = await resolveAcademyCheckInContext(client, input);
     const { program, task, latestEntry } = context;
     const currentState = buildAcademyCheckInState({
       ...context,
-      currentChainTimestamp: input.currentChainTimestamp,
+      chainTimestampSeconds: input.chainTimestampSeconds,
     });
 
     if (currentState.status === "cooldown") {
       return currentState;
     }
 
-    const occurredAt = chainTimestampToIso(input.currentChainTimestamp);
     const idempotencyKey = buildCheckInIdempotencyKey({
       programSlug: program.slug,
       userId: input.userId,
@@ -158,7 +154,7 @@ export async function runAcademyCheckIn(input: {
       userId: input.userId,
       chainId: input.chainId,
       idempotencyKey,
-      occurredAt,
+      chainTimestampSeconds: input.chainTimestampSeconds,
       pointsDelta: task.config.pointsAwarded,
       sourceReference: `${program.slug}:${task.activityDefinition.code}`,
       sourceDetails: {
@@ -167,7 +163,7 @@ export async function runAcademyCheckIn(input: {
         pointsAwarded: task.config.pointsAwarded,
         lastCheckInAt: latestEntry?.occurredAt ?? null,
         chainId: input.chainId,
-        chainTimestamp: input.currentChainTimestamp,
+        chainTimestamp: input.chainTimestampSeconds,
       },
     });
 
@@ -180,7 +176,7 @@ export async function runAcademyCheckIn(input: {
       nextEligibleAt: computeAcademyTaskNextEligibleAt(entry.occurredAt, task.config.cooldownHours),
       secondsRemaining: computeChainSecondsRemaining(
         computeAcademyTaskNextEligibleAt(entry.occurredAt, task.config.cooldownHours),
-        input.currentChainTimestamp,
+        input.chainTimestampSeconds,
       ),
     };
   });
