@@ -7,6 +7,7 @@ import { ACADEMY_CHECK_IN_TASK_CODE } from "../constants";
 import type { AcademyCheckInState } from "../types";
 import {
   computeAcademyTaskNextEligibleAt,
+  getAcademySeasonState,
   recordAcademyTaskPoints,
   resolveActiveAcademyProgram,
   resolveAcademyTaskDefinition,
@@ -72,10 +73,31 @@ async function resolveAcademyCheckInContext(
 }
 
 function buildAcademyCheckInState(input: {
+  program: AcademyCheckInProgram;
   task: AcademyCheckInTask;
   latestEntry: AcademyCheckInLedgerEntry;
   chainTimestampSeconds: number;
 }): AcademyCheckInState {
+  const seasonState = getAcademySeasonState(input.program, input.chainTimestampSeconds);
+  const baseState = {
+    taskCode: "check_in" as const,
+    cooldownHours: input.task.config.cooldownHours,
+    pointsAwarded: input.task.config.pointsAwarded,
+    lastCheckInAt: input.latestEntry?.occurredAt ?? null,
+    seasonStartsAt: input.program.startsAt,
+    seasonEndsAt: input.program.endsAt,
+  };
+
+  if (seasonState.status === "inactive") {
+    return {
+      ...baseState,
+      status: "inactive",
+      inactiveReason: seasonState.inactiveReason ?? undefined,
+      nextEligibleAt: seasonState.nextEligibleAt,
+      secondsRemaining: seasonState.secondsRemaining,
+    };
+  }
+
   if (input.latestEntry) {
     const nextEligibleAt = computeAcademyTaskNextEligibleAt(
       input.latestEntry.occurredAt,
@@ -87,11 +109,8 @@ function buildAcademyCheckInState(input: {
     );
     if (secondsRemaining > 0) {
       return {
-        taskCode: ACADEMY_CHECK_IN_TASK_CODE,
+        ...baseState,
         status: "cooldown",
-        cooldownHours: input.task.config.cooldownHours,
-        pointsAwarded: input.task.config.pointsAwarded,
-        lastCheckInAt: input.latestEntry.occurredAt,
         nextEligibleAt,
         secondsRemaining,
       };
@@ -99,11 +118,8 @@ function buildAcademyCheckInState(input: {
   }
 
   return {
-    taskCode: ACADEMY_CHECK_IN_TASK_CODE,
+    ...baseState,
     status: "success",
-    cooldownHours: input.task.config.cooldownHours,
-    pointsAwarded: input.task.config.pointsAwarded,
-    lastCheckInAt: input.latestEntry?.occurredAt ?? null,
     nextEligibleAt: input.latestEntry
       ? computeAcademyTaskNextEligibleAt(
           input.latestEntry.occurredAt,
@@ -136,6 +152,10 @@ export async function runAcademyCheckIn(input: {
       chainTimestampSeconds: input.chainTimestampSeconds,
     });
 
+    if (currentState.status === "inactive") {
+      return currentState;
+    }
+
     if (currentState.status === "cooldown") {
       return currentState;
     }
@@ -149,7 +169,7 @@ export async function runAcademyCheckIn(input: {
     });
 
     const entry = await recordAcademyTaskPoints(client, {
-      programId: program.id,
+      program,
       activityDefinitionId: task.activityDefinition.id,
       userId: input.userId,
       chainId: input.chainId,
@@ -172,6 +192,8 @@ export async function runAcademyCheckIn(input: {
       status: "success",
       cooldownHours: task.config.cooldownHours,
       pointsAwarded: task.config.pointsAwarded,
+      seasonStartsAt: program.startsAt,
+      seasonEndsAt: program.endsAt,
       lastCheckInAt: entry.occurredAt,
       nextEligibleAt: computeAcademyTaskNextEligibleAt(entry.occurredAt, task.config.cooldownHours),
       secondsRemaining: computeChainSecondsRemaining(

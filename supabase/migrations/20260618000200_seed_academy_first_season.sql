@@ -15,8 +15,8 @@ values (
   'The inaugural Aurove Academy season.',
   'season',
   'active',
-  null,
-  null,
+  timestamp with time zone '2026-05-30T19:39:02Z',
+  timestamp with time zone '2026-09-11T23:59:59.999Z',
   null,
   '{}'::jsonb
 )

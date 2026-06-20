@@ -73,6 +73,8 @@ function CheckInTaskSlide({
   const { chainTimestampNumber } = useChainTime();
   const cooldownHours = checkIn?.cooldownHours ?? ACADEMY_CHECK_IN_COOLDOWN_HOURS;
   const isCoolingDownMode = authenticated && checkIn?.status === "cooldown";
+  const isSeasonInactive = authenticated && checkIn?.status === "inactive";
+  const inactiveReason = checkIn?.inactiveReason ?? null;
   const nextEligibleAt = checkIn?.nextEligibleAt ?? null;
   const lastCheckInAt = checkIn?.lastCheckInAt ?? null;
   const chainTimestampSeconds = chainTimestampNumber ?? null;
@@ -98,6 +100,25 @@ function CheckInTaskSlide({
       chainTimestampSeconds,
     });
   }, [chainTimestampSeconds, lastCheckInAt, nextEligibleAt]);
+  const seasonCopy = useMemo(() => {
+    if (!isSeasonInactive) {
+      return null;
+    }
+
+    if (inactiveReason === "season_not_started") {
+      return {
+        title: "Season not open yet",
+        description: `Road to Mainnet opens on ${formatTime(checkIn?.seasonStartsAt ?? null) ?? "the announced start date"}.`,
+        actionLabel: "Not yet available",
+      };
+    }
+
+    return {
+      title: "Season ended",
+      description: `This season closed on ${formatTime(checkIn?.seasonEndsAt ?? null) ?? "the announced end date"}.`,
+      actionLabel: "Season closed",
+    };
+  }, [checkIn?.seasonEndsAt, checkIn?.seasonStartsAt, inactiveReason, isSeasonInactive]);
 
   if (isCheckInLoading) {
     return (
@@ -211,6 +232,39 @@ function CheckInTaskSlide({
     );
   }
 
+  if (isSeasonInactive && seasonCopy) {
+    return (
+      <Card className="h-full border-white/10 bg-white/[0.03]">
+        <CardHeader className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-100">
+              <Target className="mr-1 h-3.5 w-3.5" />
+              Daily mission
+            </Badge>
+            <Badge className="border-white/10 bg-white/5 text-white/70">{cooldownHours}h cooldown</Badge>
+          </div>
+          <CardTitle className="text-2xl text-white">Check in and stack points</CardTitle>
+          <CardDescription>
+            Keep your Academy momentum going with a repeatable check-in every {cooldownHours} hours.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <div className="space-y-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-5">
+            <div className="flex items-center gap-2 text-white">
+              <BadgeCheck className="h-4 w-4 text-[#e6d2ad]" />
+              <p className="font-medium">{seasonCopy.title}</p>
+            </div>
+            <p className="text-sm leading-6 text-white/58">{seasonCopy.description}</p>
+            <Button type="button" variant="secondary" size="sm" className="w-full sm:w-auto" disabled>
+              {seasonCopy.actionLabel}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="h-full border-white/10 bg-white/[0.03]">
       <CardHeader className="space-y-2">
@@ -285,7 +339,7 @@ function CheckInTaskSlide({
           type="button"
           className="w-full gap-2"
           onClick={onCheckIn}
-          disabled={!ready || isCheckInSubmitting}
+          disabled={!ready || isCheckInSubmitting || isSeasonInactive}
         >
           {isCheckInSubmitting ? (
             <>

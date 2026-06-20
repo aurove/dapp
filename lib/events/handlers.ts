@@ -15,6 +15,7 @@ import {
 } from "@/lib/academy/referrals";
 import {
   recordAcademyTaskPoints,
+  isAcademyProgramActiveAt,
   resolveActiveAcademyProgram,
   resolveAcademyTaskDefinition,
 } from "@/lib/academy/tasks/points";
@@ -745,8 +746,16 @@ async function awardAcademyTaskPoints(
     };
   }
 
+  if (!isAcademyProgramActiveAt(program, input.chainTimestampSeconds)) {
+    return {
+      status: "skipped",
+      taskCode: input.taskCode,
+      reason: "academy_season_out_of_window",
+    };
+  }
+
   const entry = await recordAcademyTaskPoints(client, {
-    programId: program.id,
+    program,
     activityDefinitionId: task.activityDefinition.id,
     userId: input.userId,
     chainId: input.chainId,

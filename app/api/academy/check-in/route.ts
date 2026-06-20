@@ -6,7 +6,7 @@ import {
   createNoStoreJsonResponse,
   withNoStoreRouteErrorHandling,
 } from "@/lib/server/http";
-import { AcademyTaskNotFoundError } from "@/lib/academy/tasks/errors";
+import { AcademySeasonOutOfWindowError, AcademyTaskNotFoundError } from "@/lib/academy/tasks/errors";
 import { getAcademyContext } from "../_shared";
 import { getLatestChainTimestamp } from "@/lib/web3/server-chain-time";
 
@@ -40,7 +40,7 @@ async function getAcademyCheckIn(request: NextRequest) {
 
     return createNoStoreJsonResponse(checkIn);
   } catch (error) {
-    if (error instanceof AcademyTaskNotFoundError) {
+    if (error instanceof AcademyTaskNotFoundError || error instanceof AcademySeasonOutOfWindowError) {
       return createNoStoreErrorResponse(error.message, error.status, error.code);
     }
 
@@ -85,10 +85,13 @@ async function postAcademyCheckIn(request: NextRequest) {
         summary,
         checkIn,
       },
-      { status: checkIn.status === "cooldown" ? 429 : 200 },
+      {
+        status:
+          checkIn.status === "cooldown" ? 429 : checkIn.status === "inactive" ? 403 : 200,
+      },
     );
   } catch (error) {
-    if (error instanceof AcademyTaskNotFoundError) {
+    if (error instanceof AcademyTaskNotFoundError || error instanceof AcademySeasonOutOfWindowError) {
       return createNoStoreErrorResponse(error.message, error.status, error.code);
     }
 

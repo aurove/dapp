@@ -19,6 +19,7 @@ import {
   ACADEMY_PROGRAM_SLUG,
 } from "../constants";
 import { chainTimestampToIso } from "../time";
+import { AcademySeasonOutOfWindowError } from "./errors";
 import {
   resolveAcademyReferralRecipients,
   splitAcademyReferralPoints,
@@ -36,6 +37,8 @@ export type AcademyTaskDefinition = {
   activityDefinition: PointsActivityDefinition;
   config: AcademyTaskPointsConfig;
 };
+
+type AcademySeasonWindow = Pick<PointsProgram, "startsAt" | "endsAt">;
 
 function asRecord(value: unknown): JsonRecord {
   if (typeof value === "object" && value !== null && !Array.isArray(value)) {
@@ -72,8 +75,62 @@ function parseTaskMetadata(metadata: unknown): AcademyTaskPointsConfig {
   };
 }
 
+function parseTimestamp(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+export function isAcademyProgramActiveAt(
+  program: AcademySeasonWindow,
+  chainTimestampSeconds: number,
+): boolean {
+  const chainTimestampMs = chainTimestampSeconds * 1000;
+  const startsAtMs = parseTimestamp(program.startsAt);
+  if (startsAtMs !== null && chainTimestampMs < startsAtMs) {
+    return false;
+  }
+
+  const endsAtMs = parseTimestamp(program.endsAt);
+  if (endsAtMs !== null && chainTimestampMs > endsAtMs) {
+    return false;
+  }
+
+  return true;
+}
+
+function getAcademySeasonInactivityReason(
+  program: AcademySeasonWindow,
+  chainTimestampSeconds: number,
+): "season_not_started" | "season_ended" | null {
+  const chainTimestampMs = chainTimestampSeconds * 1000;
+  const startsAtMs = parseTimestamp(program.startsAt);
+  if (startsAtMs !== null && chainTimestampMs < startsAtMs) {
+    return "season_not_started";
+  }
+
+  const endsAtMs = parseTimestamp(program.endsAt);
+  if (endsAtMs !== null && chainTimestampMs > endsAtMs) {
+    return "season_ended";
+  }
+
+  return null;
+}
+
+function assertAcademyProgramActiveAt(
+  program: AcademySeasonWindow,
+  chainTimestampSeconds: number,
+): void {
+  if (!isAcademyProgramActiveAt(program, chainTimestampSeconds)) {
+    throw new AcademySeasonOutOfWindowError("Academy season is not currently active.");
+  }
+}
+
 type AcademyTaskAwardInput = {
-  programId: string;
+  program: PointsProgram;
   activityDefinitionId: string;
   userId: string;
   chainId: number;
@@ -167,7 +224,7 @@ async function insertAcademyTaskAward(
   const rows = await client
     .insert(pointsLedgerEntries)
     .values({
-      programId: input.programId,
+      programId: input.program.id,
       activityDefinitionId: input.activityDefinitionId,
       userId: recipient.userId,
       idempotencyKey: recipient.idempotencyKey,
@@ -304,7 +361,7 @@ export async function resolveAcademyTaskLedgerEntry(
 export async function recordAcademyTaskPoints(
   client: typeof db,
   input: {
-    programId: string;
+    program: PointsProgram;
     activityDefinitionId: string;
     userId: string;
     chainId: number;
@@ -316,6 +373,7 @@ export async function recordAcademyTaskPoints(
     sourceKind?: PointsLedgerEntry["sourceKind"];
   },
 ): Promise<PointsLedgerEntry> {
+  assertAcademyProgramActiveAt(input.program, input.chainTimestampSeconds);
   const occurredAt = chainTimestampToIso(input.chainTimestampSeconds);
   const referralChain = await resolveAcademyReferralRecipients(client, {
     userId: input.userId,
@@ -357,4 +415,43 @@ export async function recordAcademyTaskPoints(
   }
 
   return entry;
+}
+
+export function getAcademySeasonState(
+  program: AcademySeasonWindow,
+  chainTimestampSeconds: number,
+): {
+  status: "active" | "inactive";
+  inactiveReason: "season_not_started" | "season_ended" | null;
+  nextEligibleAt: string | null;
+  secondsRemaining: number;
+} {
+  const inactivityReason = getAcademySeasonInactivityReason(program, chainTimestampSeconds);
+  if (inactivityReason === "season_not_started") {
+    const nextEligibleAt = program.startsAt;
+    return {
+      status: "inactive",
+      inactiveReason: inactivityReason,
+      nextEligibleAt,
+      secondsRemaining: nextEligibleAt
+        ? Math.max(0, Math.ceil((Date.parse(nextEligibleAt) - chainTimestampSeconds * 1000) / 1000))
+        : 0,
+    };
+  }
+
+  if (inactivityReason === "season_ended") {
+    return {
+      status: "inactive",
+      inactiveReason: inactivityReason,
+      nextEligibleAt: null,
+      secondsRemaining: 0,
+    };
+  }
+
+  return {
+    status: "active",
+    inactiveReason: null,
+    nextEligibleAt: null,
+    secondsRemaining: 0,
+  };
 }

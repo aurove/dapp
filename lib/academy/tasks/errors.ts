@@ -8,6 +8,16 @@ export class AcademyTaskNotFoundError extends Error {
   }
 }
 
+export class AcademySeasonOutOfWindowError extends Error {
+  code = "ACADEMY_SEASON_OUT_OF_WINDOW";
+  status = 403;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "AcademySeasonOutOfWindowError";
+  }
+}
+
 export class AcademyActivityUserNotFoundError extends Error {
   code = "ACADEMY_ACTIVITY_USER_NOT_FOUND";
   status = 404;
