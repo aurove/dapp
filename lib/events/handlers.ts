@@ -1,7 +1,7 @@
 import "server-only";
 
 import { and, desc, eq, gte, lte } from "drizzle-orm";
-import { getAddress, http, createPublicClient, type Address, type PublicClient } from "viem";
+import { getAddress, http, createPublicClient, type Abi, type Address, type PublicClient } from "viem";
 
 import {
   ACADEMY_ASSET_FRACTION_REWARDS_CLAIMED_TASK_CODE,
@@ -9,22 +9,25 @@ import {
   ACADEMY_MARKETPLACE_ORDER_MATCHED_TAKER_TASK_CODE,
   ACADEMY_POINTS_SCALE,
 } from "@/lib/academy/constants";
-import { formatAcademyReferralPoints } from "@/lib/academy/referrals";
+import {
+  formatAcademyReferralPoints,
+  resolveAcademyUserByWalletAddress,
+} from "@/lib/academy/referrals";
 import {
   recordAcademyTaskPoints,
   resolveActiveAcademyProgram,
   resolveAcademyTaskDefinition,
 } from "@/lib/academy/tasks/points";
 import { db } from "@/lib/db";
+import { getKnownMusdConfig } from "@/lib/config/musd";
 import { marketplacePriceObservations } from "@/lib/db/marketplace-schema";
 import { buildHandlerKey as buildHandlerKeyTyped } from "@/contracts/event-types";
 
-import { getRegisteredContract } from "./contracts";
+import { getRegisteredContract, getRegisteredContractAbi, registerRuntimeContract } from "./contracts";
 import type {
   AnyContractEventHandler,
   ContractEventHandlerContext,
   ContractEventHandlerDefinition,
-  RegisteredContract,
 } from "./types";
 import type {
   ContractEventNameForContract,
@@ -57,8 +60,36 @@ const DECIMALS_ABI = [
 
 const PRICE_SCALE = 10n ** 18n;
 
+type AssetFractionAssetVariant = "veBTC" | "veMEZO";
+
+type AssetFractionMetadata = {
+  chainId: number;
+  fractionAddress: Address;
+  trancheId: bigint;
+  trancheNumber: number;
+  assetVariant: AssetFractionAssetVariant;
+  fractionName: string | null;
+  fractionSymbol: string | null;
+  veNFT: Address | null;
+  rewardAsset: Address | null;
+  trancheDuration: bigint | null;
+  source: "deployment_event" | "runtime_registry" | "static_registry" | "onchain";
+  deploymentBlock: number | null;
+};
+
+type ResolveAssetFractionMetadataResult =
+  | {
+      status: "resolved";
+      metadata: AssetFractionMetadata;
+    }
+  | {
+      status: "skipped";
+      reason: "fraction_metadata_missing" | "fraction_asset_variant_unknown";
+    };
+
 let marketplaceObservationClient: PublicClient | null = null;
 let marketplaceObservationRpcUrl: string | null = null;
+const assetFractionMetadataCache = new Map<string, AssetFractionMetadata>();
 
 function getMarketplaceObservationRpcUrl(): string {
   const configured =
@@ -98,6 +129,15 @@ function toAddressValue(value: unknown): Address {
   return getAddress(value);
 }
 
+function toOptionalStringValue(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
 async function readDecimals(address: Address): Promise<number> {
   try {
     const result = await getMarketplaceObservationClient().readContract({
@@ -110,6 +150,181 @@ async function readDecimals(address: Address): Promise<number> {
   } catch {
     return 18;
   }
+}
+
+function getAssetFractionCacheKey(chainId: number, fractionAddress: Address): string {
+  return `${chainId}:${getAddress(fractionAddress).toLowerCase()}`;
+}
+
+function getSharedAssetFractionAbi(): Abi | null {
+  return getRegisteredContractAbi("AssetFraction") as Abi | null;
+}
+
+function hasAbiFunction(abi: Abi, functionName: string): boolean {
+  return abi.some((entry) => entry.type === "function" && entry.name === functionName);
+}
+
+function decodeAssetFractionVariant(trancheId: bigint): AssetFractionAssetVariant | null {
+  const trancheNumber = trancheId & 0xffffn;
+  const variantPart = (trancheId >> 16n) & 0xffn;
+  const normalized = (variantPart << 16n) | trancheNumber;
+
+  if (
+    (variantPart !== 1n && variantPart !== 2n) ||
+    trancheNumber < 1n ||
+    trancheNumber > 208n ||
+    normalized !== trancheId
+  ) {
+    return null;
+  }
+
+  return variantPart === 1n ? "veBTC" : "veMEZO";
+}
+
+async function readFractionView<T>(input: {
+  address: Address;
+  abi: Abi;
+  functionName: string;
+  blockNumber?: number;
+}): Promise<T | null> {
+  if (!hasAbiFunction(input.abi, input.functionName)) {
+    return null;
+  }
+
+  try {
+    const result = await getMarketplaceObservationClient().readContract({
+      address: input.address,
+      abi: input.abi,
+      functionName: input.functionName as never,
+      blockNumber: input.blockNumber == null ? undefined : BigInt(input.blockNumber),
+    });
+
+    return result as T;
+  } catch {
+    return null;
+  }
+}
+
+function registerAssetFractionMetadata(metadata: AssetFractionMetadata): AssetFractionMetadata {
+  const normalized: AssetFractionMetadata = {
+    ...metadata,
+    fractionAddress: getAddress(metadata.fractionAddress),
+    fractionName: metadata.fractionName ?? null,
+    fractionSymbol: metadata.fractionSymbol ?? null,
+    veNFT: metadata.veNFT ? getAddress(metadata.veNFT) : null,
+    rewardAsset: metadata.rewardAsset ? getAddress(metadata.rewardAsset) : null,
+    deploymentBlock:
+      metadata.deploymentBlock != null && Number.isInteger(metadata.deploymentBlock)
+        ? metadata.deploymentBlock
+        : null,
+  };
+
+  assetFractionMetadataCache.set(
+    getAssetFractionCacheKey(normalized.chainId, normalized.fractionAddress),
+    normalized,
+  );
+
+  const assetFractionAbi = getSharedAssetFractionAbi();
+  if (assetFractionAbi) {
+    registerRuntimeContract({
+      chainId: normalized.chainId,
+      address: normalized.fractionAddress,
+      contractName: "AssetFraction",
+      abi: assetFractionAbi,
+      deploymentBlock: normalized.deploymentBlock,
+      source: "runtime",
+    });
+  }
+
+  return normalized;
+}
+
+export async function resolveAssetFractionMetadata(input: {
+  chainId: number;
+  fractionAddress: Address;
+  blockNumber?: number;
+}): Promise<ResolveAssetFractionMetadataResult> {
+  const cacheKey = getAssetFractionCacheKey(input.chainId, input.fractionAddress);
+  const cached = assetFractionMetadataCache.get(cacheKey);
+  if (cached) {
+    return { status: "resolved", metadata: cached };
+  }
+
+  const fractionContract = getRegisteredContract(input.chainId, input.fractionAddress);
+  const assetFractionAbi = getSharedAssetFractionAbi() ?? fractionContract?.abi ?? null;
+  if (!assetFractionAbi) {
+    return { status: "skipped", reason: "fraction_metadata_missing" };
+  }
+
+  const trancheIdResult = await readFractionView<bigint | number>({
+    address: input.fractionAddress,
+    abi: assetFractionAbi,
+    functionName: "trancheId",
+    blockNumber: input.blockNumber,
+  });
+  if (trancheIdResult == null) {
+    return { status: "skipped", reason: "fraction_metadata_missing" };
+  }
+
+  const trancheId = toBigIntValue(trancheIdResult);
+  const assetVariant = decodeAssetFractionVariant(trancheId);
+  if (!assetVariant) {
+    return { status: "skipped", reason: "fraction_asset_variant_unknown" };
+  }
+
+  const nameResult = await readFractionView<string>({
+    address: input.fractionAddress,
+    abi: assetFractionAbi,
+    functionName: "name",
+    blockNumber: input.blockNumber,
+  });
+  const symbolResult = await readFractionView<string>({
+    address: input.fractionAddress,
+    abi: assetFractionAbi,
+    functionName: "symbol",
+    blockNumber: input.blockNumber,
+  });
+  const veNFTResult = await readFractionView<Address>({
+    address: input.fractionAddress,
+    abi: assetFractionAbi,
+    functionName: "veNFT",
+    blockNumber: input.blockNumber,
+  });
+  const rewardAssetResult = await readFractionView<Address>({
+    address: input.fractionAddress,
+    abi: assetFractionAbi,
+    functionName: "rewardAsset",
+    blockNumber: input.blockNumber,
+  });
+  const trancheDurationResult = await readFractionView<bigint | number>({
+    address: input.fractionAddress,
+    abi: assetFractionAbi,
+    functionName: "trancheDuration",
+    blockNumber: input.blockNumber,
+  });
+
+  const metadata = registerAssetFractionMetadata({
+    chainId: input.chainId,
+    fractionAddress: input.fractionAddress,
+    trancheId,
+    trancheNumber: Number(trancheId & 0xffffn),
+    assetVariant,
+    fractionName: toOptionalStringValue(nameResult),
+    fractionSymbol: toOptionalStringValue(symbolResult),
+    veNFT: veNFTResult ?? null,
+    rewardAsset: rewardAssetResult ?? null,
+    trancheDuration:
+      trancheDurationResult == null ? null : toBigIntValue(trancheDurationResult),
+    source:
+      fractionContract?.contractName === "AssetFraction"
+        ? fractionContract.source === "static"
+          ? "static_registry"
+          : "runtime_registry"
+        : "onchain",
+    deploymentBlock: fractionContract?.deploymentBlock ?? null,
+  });
+
+  return { status: "resolved", metadata };
 }
 
 function scalePricePerUnit(input: {
@@ -134,6 +349,7 @@ function scalePricePerUnit(input: {
 async function recordMarketplacePriceObservation(
   ctx: ContractEventHandlerContext,
   event: DecodedContractEvent<"Marketplace", "OrdersMatched">,
+  musdConfig: ReturnType<typeof getKnownMusdConfig>,
 ) {
   const namedArgs = event.namedArgs as Record<string, unknown>;
   const collection = readOptionalAddressValue(namedArgs, "collection");
@@ -176,13 +392,40 @@ async function recordMarketplacePriceObservation(
     };
   }
 
+  if (!musdConfig || paymentToken !== musdConfig.address) {
+    const reason = "unsupported_payment_token";
+    ctx.logger.info(
+      JSON.stringify({
+        scope: "internal-events",
+        event: "marketplace.price_observation.skipped",
+        reason,
+        chainId: event.chainId,
+        paymentToken,
+        expectedMusd: musdConfig?.address ?? null,
+        txHash: event.txHash,
+        logIndex: event.logIndex,
+        fingerprint: event.fingerprint,
+      }),
+    );
+
+    return {
+      status: "skipped" as const,
+      reason,
+      chainId: event.chainId,
+      paymentToken,
+      expectedMusd: musdConfig?.address ?? null,
+      txHash: event.txHash,
+      logIndex: event.logIndex,
+      fingerprint: event.fingerprint,
+    };
+  }
+
   const assetDecimals = await readDecimals(collection);
-  const paymentTokenDecimals = await readDecimals(paymentToken);
   const pricePerUnit = scalePricePerUnit({
     amountFilled,
     grossTradeValue,
     assetDecimals,
-    paymentTokenDecimals,
+    paymentTokenDecimals: musdConfig.decimals,
   });
   const idempotencyKey = `${event.chainId}:${event.txHash.toLowerCase()}:${event.logIndex}`;
   const blockTimestamp = new Date(event.blockTimestamp * 1000).toISOString();
@@ -196,7 +439,7 @@ async function recordMarketplacePriceObservation(
       tokenId: tokenId.toString(),
       paymentToken,
       assetDecimals,
-      paymentTokenDecimals,
+      paymentTokenDecimals: musdConfig.decimals,
       amountFilled: amountFilled.toString(),
       grossTradeValue: grossTradeValue.toString(),
       assetFee: assetFee.toString(),
@@ -262,12 +505,6 @@ async function recordMarketplacePriceObservation(
   };
 }
 
-const KNOWN_MUSD_ADDRESS_BY_CHAIN: Record<number, string> = {
-  31337: "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
-  31611: "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
-  31612: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
-};
-
 const MARKETPLACE_OBSERVATION_WINDOWS_MS = [
   30 * 24 * 60 * 60 * 1000,
   14 * 24 * 60 * 60 * 1000,
@@ -312,11 +549,6 @@ type AcademyAwardRecordResult =
       reason: string;
     };
 
-function resolveKnownMusdAddress(chainId: number): Address | null {
-  const address = KNOWN_MUSD_ADDRESS_BY_CHAIN[chainId];
-  return address ? getAddress(address) : null;
-}
-
 function scalePointUnits(input: { amount: bigint; amountDecimals: number; multiplier: bigint }): bigint {
   if (input.amount === 0n) {
     return 0n;
@@ -348,6 +580,14 @@ function readOptionalAddressValue(args: Record<string, unknown>, key: string): A
   } catch {
     return null;
   }
+}
+
+function readOptionalStringValue(args: Record<string, unknown>, key: string): string | null {
+  if (!(key in args)) {
+    return null;
+  }
+
+  return toOptionalStringValue(args[key]);
 }
 
 function resolveMarketplaceTradeRole(
@@ -532,46 +772,107 @@ async function awardAcademyTaskPoints(
   };
 }
 
-async function readFractionRewardAsset(input: {
-  chainId: number;
-  fraction: Address;
-  fallbackContract: RegisteredContract;
-  blockNumber: number;
-}): Promise<Address> {
-  const fractionContract = getRegisteredContract(input.chainId, input.fraction);
-  const contractsToTry =
-    fractionContract && getAddress(fractionContract.address) !== getAddress(input.fallbackContract.address)
-      ? [fractionContract, input.fallbackContract]
-      : [fractionContract ?? input.fallbackContract];
+async function handleAssetFractionDeployed(
+  ctx: ContractEventHandlerContext,
+  event: DecodedContractEvent<"AssetLedger", "AssetFractionDeployed">,
+) {
+  const namedArgs = event.namedArgs as Record<string, unknown>;
+  const fractionAddress = readOptionalAddressValue(namedArgs, "assetFraction");
+  const trancheIdValue = readOptionalBigIntValue(namedArgs, "trancheId");
+  const fractionName = readOptionalStringValue(namedArgs, "fractionName");
 
-  let lastError: unknown = null;
-  for (const contract of contractsToTry) {
-    try {
-      const result = await getMarketplaceObservationClient().readContract({
-        address: contract.address as Address,
-        abi: contract.abi,
-        functionName: "rewardAsset",
-        blockNumber: BigInt(input.blockNumber),
-      });
+  if (!fractionAddress || trancheIdValue == null) {
+    const reason = "fraction_metadata_missing";
+    ctx.logger.info(
+      JSON.stringify({
+        scope: "internal-events",
+        event: "academy.asset_fraction_deployed.skipped",
+        reason,
+        fingerprint: event.fingerprint,
+        chainId: event.chainId,
+        txHash: event.txHash,
+        logIndex: event.logIndex,
+      }),
+    );
 
-      return toAddressValue(result);
-    } catch (error) {
-      lastError = error;
-    }
+    return {
+      status: "skipped" as const,
+      reason,
+      fingerprint: event.fingerprint,
+    };
   }
 
-  if (lastError instanceof Error) {
-    throw lastError;
+  const trancheId = trancheIdValue;
+  const assetVariant = decodeAssetFractionVariant(trancheId);
+  if (!assetVariant) {
+    const reason = "fraction_asset_variant_unknown";
+    ctx.logger.info(
+      JSON.stringify({
+        scope: "internal-events",
+        event: "academy.asset_fraction_deployed.skipped",
+        reason,
+        fingerprint: event.fingerprint,
+        chainId: event.chainId,
+        fractionAddress,
+        trancheId: trancheId.toString(),
+        txHash: event.txHash,
+        logIndex: event.logIndex,
+      }),
+    );
+
+    return {
+      status: "skipped" as const,
+      reason,
+      fingerprint: event.fingerprint,
+    };
   }
 
-  throw new Error("Unable to read reward asset.");
+  const metadata = registerAssetFractionMetadata({
+    chainId: event.chainId,
+    fractionAddress,
+    trancheId,
+    trancheNumber: Number(trancheId & 0xffffn),
+    assetVariant,
+    fractionName,
+    fractionSymbol: `av${assetVariant === "veBTC" ? "BTC" : "MEZO"}w${String(Number(trancheId & 0xffffn))}`,
+    veNFT: null,
+    rewardAsset: null,
+    trancheDuration: null,
+    source: "deployment_event",
+    deploymentBlock: event.blockNumber,
+  });
+
+  ctx.logger.info(
+    JSON.stringify({
+      scope: "internal-events",
+      event: "academy.asset_fraction_deployed.registered",
+      fingerprint: event.fingerprint,
+      chainId: event.chainId,
+      fractionAddress: metadata.fractionAddress,
+      trancheId: metadata.trancheId.toString(),
+      trancheNumber: metadata.trancheNumber,
+      assetVariant: metadata.assetVariant,
+      fractionName: metadata.fractionName,
+      txHash: event.txHash,
+      logIndex: event.logIndex,
+    }),
+  );
+
+  return {
+    status: "processed" as const,
+    fingerprint: event.fingerprint,
+    fractionAddress: metadata.fractionAddress,
+    trancheId: metadata.trancheId.toString(),
+    assetVariant: metadata.assetVariant,
+  };
 }
 
 async function handleMarketplaceOrdersMatched(
   ctx: ContractEventHandlerContext,
   event: DecodedContractEvent<"Marketplace", "OrdersMatched">,
 ) {
-  const observation = await recordMarketplacePriceObservation(ctx, event);
+  const musdConfig = getKnownMusdConfig(event.chainId);
+  const observation = await recordMarketplacePriceObservation(ctx, event, musdConfig);
   const namedArgs = event.namedArgs as Record<string, unknown>;
   const route = resolveMarketplaceTradeRole(namedArgs);
   const collection = readOptionalAddressValue(namedArgs, "collection");
@@ -580,7 +881,6 @@ async function handleMarketplaceOrdersMatched(
   const amount = readOptionalBigIntValue(namedArgs, "amountFilled") ?? readOptionalBigIntValue(namedArgs, "amount");
   const listingId = readOptionalBigIntValue(namedArgs, "listingId");
   const bidId = readOptionalBigIntValue(namedArgs, "bidId");
-  const knownMusdAddress = resolveKnownMusdAddress(event.chainId);
 
   if (
     !route ||
@@ -622,44 +922,33 @@ async function handleMarketplaceOrdersMatched(
     };
   }
 
-  if (!knownMusdAddress || paymentToken !== knownMusdAddress) {
-    const reason = "non_musd_settlement";
-    ctx.logger.info(
-      JSON.stringify({
-        scope: "internal-events",
-        event: "academy.marketplace_orders_matched.skipped",
-        reason,
-        fingerprint: event.fingerprint,
-        chainId: event.chainId,
-        paymentToken,
-        knownMusdAddress,
-        txHash: event.txHash,
-        logIndex: event.logIndex,
-      }),
-    );
-
+  if (observation.status === "skipped" && observation.reason === "unsupported_payment_token") {
     return {
       observation,
       pointsAwards: [
         {
           taskCode: ACADEMY_MARKETPLACE_ORDER_MATCHED_MAKER_TASK_CODE,
           status: "skipped" as const,
-          reason,
+          reason: "unsupported_payment_token",
         },
         {
           taskCode: ACADEMY_MARKETPLACE_ORDER_MATCHED_TAKER_TASK_CODE,
           status: "skipped" as const,
-          reason,
+          reason: "unsupported_payment_token",
         },
       ],
       fingerprint: event.fingerprint,
     };
   }
 
-  const paymentTokenDecimals = await readDecimals(paymentToken);
+  const [makerUser, takerUser] = await Promise.all([
+    resolveAcademyUserByWalletAddress(route.maker),
+    resolveAcademyUserByWalletAddress(route.taker),
+  ]);
+
   const totalPointsUnits = scalePointUnits({
     amount: grossTradeValue,
-    amountDecimals: paymentTokenDecimals,
+    amountDecimals: musdConfig?.decimals ?? 18,
     multiplier: 5n,
   });
   if (totalPointsUnits === 0n) {
@@ -746,46 +1035,94 @@ async function handleMarketplaceOrdersMatched(
     listingId: listingId.toString(),
     bidId: bidId.toString(),
     amount: amount.toString(),
-    grossTradeValue: grossTradeValue.toString(),
-    paymentToken,
-    paymentTokenDecimals,
-    pointsMultiplier: 5,
-    totalPointsUnits: totalPointsUnits.toString(),
+      grossTradeValue: grossTradeValue.toString(),
+      paymentToken,
+      paymentTokenDecimals: musdConfig?.decimals ?? 18,
+      pointsMultiplier: 5,
+      totalPointsUnits: totalPointsUnits.toString(),
     makerPointsUnits: halfPointsUnits.toString(),
     takerPointsUnits: halfPointsUnits.toString(),
     observation,
   };
 
   return db.transaction(async (client) => {
-    const makerAward = await awardAcademyTaskPoints(client, {
-      taskCode: ACADEMY_MARKETPLACE_ORDER_MATCHED_MAKER_TASK_CODE,
-      chainId: event.chainId,
-      userId: route.maker,
-      idempotencyKey: `${event.fingerprint}:marketplace:orders-matched:maker`,
-      chainTimestampSeconds: event.blockTimestamp,
-      pointsDelta: halfPoints,
-      sourceReference: `${sourceBaseReference}:maker`,
-      sourceDetails: {
-        ...sourceDetails,
-        role: "maker",
-      },
-      sourceKind: "contract_event",
-    });
+    const makerAward = makerUser
+      ? await awardAcademyTaskPoints(client, {
+          taskCode: ACADEMY_MARKETPLACE_ORDER_MATCHED_MAKER_TASK_CODE,
+          chainId: event.chainId,
+          userId: makerUser.id,
+          idempotencyKey: `${event.fingerprint}:marketplace:orders-matched:maker`,
+          chainTimestampSeconds: event.blockTimestamp,
+          pointsDelta: halfPoints,
+          sourceReference: `${sourceBaseReference}:maker`,
+          sourceDetails: {
+            ...sourceDetails,
+            role: "maker",
+            makerUserId: makerUser.id,
+            makerAddress: route.maker,
+          },
+          sourceKind: "contract_event",
+        })
+      : {
+          taskCode: ACADEMY_MARKETPLACE_ORDER_MATCHED_MAKER_TASK_CODE,
+          status: "skipped" as const,
+          reason: "academy_user_missing",
+        };
 
-    const takerAward = await awardAcademyTaskPoints(client, {
-      taskCode: ACADEMY_MARKETPLACE_ORDER_MATCHED_TAKER_TASK_CODE,
-      chainId: event.chainId,
-      userId: route.taker,
-      idempotencyKey: `${event.fingerprint}:marketplace:orders-matched:taker`,
-      chainTimestampSeconds: event.blockTimestamp,
-      pointsDelta: halfPoints,
-      sourceReference: `${sourceBaseReference}:taker`,
-      sourceDetails: {
-        ...sourceDetails,
-        role: "taker",
-      },
-      sourceKind: "contract_event",
-    });
+    if (!makerUser) {
+      ctx.logger.info(
+        JSON.stringify({
+          scope: "internal-events",
+          event: "academy.marketplace_orders_matched.skipped",
+          reason: "academy_user_missing",
+          missingRole: "maker",
+          fingerprint: event.fingerprint,
+          chainId: event.chainId,
+          makerAddress: route.maker,
+          txHash: event.txHash,
+          logIndex: event.logIndex,
+        }),
+      );
+    }
+
+    const takerAward = takerUser
+      ? await awardAcademyTaskPoints(client, {
+          taskCode: ACADEMY_MARKETPLACE_ORDER_MATCHED_TAKER_TASK_CODE,
+          chainId: event.chainId,
+          userId: takerUser.id,
+          idempotencyKey: `${event.fingerprint}:marketplace:orders-matched:taker`,
+          chainTimestampSeconds: event.blockTimestamp,
+          pointsDelta: halfPoints,
+          sourceReference: `${sourceBaseReference}:taker`,
+          sourceDetails: {
+            ...sourceDetails,
+            role: "taker",
+            takerUserId: takerUser.id,
+            takerAddress: route.taker,
+          },
+          sourceKind: "contract_event",
+        })
+      : {
+          taskCode: ACADEMY_MARKETPLACE_ORDER_MATCHED_TAKER_TASK_CODE,
+          status: "skipped" as const,
+          reason: "academy_user_missing",
+        };
+
+    if (!takerUser) {
+      ctx.logger.info(
+        JSON.stringify({
+          scope: "internal-events",
+          event: "academy.marketplace_orders_matched.skipped",
+          reason: "academy_user_missing",
+          missingRole: "taker",
+          fingerprint: event.fingerprint,
+          chainId: event.chainId,
+          takerAddress: route.taker,
+          txHash: event.txHash,
+          logIndex: event.logIndex,
+        }),
+      );
+    }
 
     return {
       observation,
@@ -832,40 +1169,14 @@ async function handleAssetFractionRewardsClaimed(
     };
   }
 
-  const fallbackContract = getRegisteredContract(event.chainId, event.contractAddress);
-  if (!fallbackContract) {
-    const reason = "unregistered_reward_contract";
+  const metadataResult = await resolveAssetFractionMetadata({
+    chainId: event.chainId,
+    fractionAddress: fraction,
+    blockNumber: event.blockNumber,
+  });
+  if (metadataResult.status === "skipped") {
+    const reason = metadataResult.reason;
     ctx.logger.info(
-      JSON.stringify({
-        scope: "internal-events",
-        event: "academy.asset_fraction_rewards_claimed.skipped",
-        reason,
-        fingerprint: event.fingerprint,
-        chainId: event.chainId,
-        contractAddress: event.contractAddress,
-        txHash: event.txHash,
-        logIndex: event.logIndex,
-      }),
-    );
-
-    return {
-      status: "skipped" as const,
-      reason,
-      fingerprint: event.fingerprint,
-    };
-  }
-
-  let rewardAsset: Address;
-  try {
-    rewardAsset = await readFractionRewardAsset({
-      chainId: event.chainId,
-      fraction,
-      fallbackContract,
-      blockNumber: event.blockNumber,
-    });
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : "unable_to_read_reward_asset";
-    ctx.logger.warn(
       JSON.stringify({
         scope: "internal-events",
         event: "academy.asset_fraction_rewards_claimed.skipped",
@@ -885,12 +1196,14 @@ async function handleAssetFractionRewardsClaimed(
     };
   }
 
-  const musdAddress = resolveKnownMusdAddress(event.chainId);
-  const rewardAssetDecimals = await readDecimals(rewardAsset);
-  const musdDecimals = musdAddress ? await readDecimals(musdAddress) : 18;
+  const metadata = metadataResult.metadata;
+  const musdConfig = getKnownMusdConfig(event.chainId);
+  const rewardAsset = metadata.rewardAsset;
+  const rewardAssetDecimals = rewardAsset ? await readDecimals(rewardAsset) : null;
+  const musdDecimals = musdConfig?.decimals ?? 18;
 
   let quote: MarketplaceObservationQuote | null = null;
-  if (musdAddress && rewardAsset === musdAddress) {
+  if (musdConfig && rewardAsset === musdConfig.address) {
     quote = {
       method: "direct",
       windowMs: 0,
@@ -899,17 +1212,37 @@ async function handleAssetFractionRewardsClaimed(
       windowStart: new Date(event.blockTimestamp * 1000).toISOString(),
       windowEnd: new Date(event.blockTimestamp * 1000).toISOString(),
     };
-  } else if (musdAddress) {
+  } else if (musdConfig && metadata.assetVariant) {
     quote = await resolveMarketplaceObservationQuote({
       chainId: event.chainId,
       collection: fraction,
-      paymentToken: musdAddress,
+      paymentToken: musdConfig.address,
       windowEndTimestamp: event.blockTimestamp,
     });
+  } else if (!metadata.assetVariant) {
+    const reason = "fraction_asset_variant_unknown";
+    ctx.logger.info(
+      JSON.stringify({
+        scope: "internal-events",
+        event: "academy.asset_fraction_rewards_claimed.skipped",
+        reason,
+        fingerprint: event.fingerprint,
+        chainId: event.chainId,
+        fraction,
+        txHash: event.txHash,
+        logIndex: event.logIndex,
+      }),
+    );
+
+    return {
+      status: "skipped" as const,
+      reason,
+      fingerprint: event.fingerprint,
+    };
   }
 
   if (!quote) {
-    const reason = "no_valid_price_observation";
+    const reason = "price_observation_missing";
     ctx.logger.info(
       JSON.stringify({
         scope: "internal-events",
@@ -919,6 +1252,7 @@ async function handleAssetFractionRewardsClaimed(
         chainId: event.chainId,
         fraction,
         rewardAsset,
+        assetVariant: metadata.assetVariant,
         txHash: event.txHash,
         logIndex: event.logIndex,
       }),
@@ -973,6 +1307,11 @@ async function handleAssetFractionRewardsClaimed(
     account,
     recipient,
     fraction,
+    fractionName: metadata.fractionName,
+    fractionSymbol: metadata.fractionSymbol,
+    trancheId: metadata.trancheId.toString(),
+    trancheNumber: metadata.trancheNumber,
+    assetVariant: metadata.assetVariant,
     rewardAsset,
     rewardAssetDecimals,
     rewardAmount: amount.toString(),
@@ -1006,6 +1345,8 @@ async function handleAssetFractionRewardsClaimed(
       fingerprint: event.fingerprint,
       fraction,
       rewardAsset,
+      trancheId: metadata.trancheId.toString(),
+      assetVariant: metadata.assetVariant,
       rewardAmount: amount.toString(),
       rewardValueMUsdUnits: rewardValueMUsdUnits.toString(),
       pointsDelta,
@@ -1022,6 +1363,14 @@ registerContractEventHandler({
   contractName: "Marketplace",
   eventName: "OrdersMatched",
   run: handleMarketplaceOrdersMatched,
+});
+
+registerContractEventHandler({
+  key: buildHandlerKeyTyped("AssetLedger", "AssetFractionDeployed"),
+  description: "Register dynamically deployed asset fractions in the runtime contract registry.",
+  contractName: "AssetLedger",
+  eventName: "AssetFractionDeployed",
+  run: handleAssetFractionDeployed,
 });
 
 registerContractEventHandler({

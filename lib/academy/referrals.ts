@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { normalizeWalletAddress } from "@/lib/auth/utils";
 import {
   academyReferralCodes,
   academyReferralRelationships,
@@ -142,8 +143,21 @@ export function clearAcademyReferralPendingCookieOptions() {
   };
 }
 
-async function resolveAcademyUserById(userId: string): Promise<ProgramUser | null> {
+export async function resolveAcademyUserById(userId: string): Promise<ProgramUser | null> {
   const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function resolveAcademyUserByWalletAddress(
+  walletAddress: string,
+): Promise<ProgramUser | null> {
+  const normalizedWalletAddress = normalizeWalletAddress(walletAddress);
+  const rows = await db
+    .select()
+    .from(users)
+    .where(eq(users.walletAddressNormalized, normalizedWalletAddress))
+    .limit(1);
+
   return rows[0] ?? null;
 }
 

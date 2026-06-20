@@ -1,6 +1,7 @@
 import "server-only";
 
 import contractsRegistry from "@/contracts/registry";
+import type { ContractName } from "@/contracts/event-types";
 import type { ContractAbi } from "@/contracts/types";
 import { getAddress, isAddress } from "viem";
 
@@ -112,6 +113,19 @@ export function getRegisteredContract(chainId: number, address: string): Registe
 
   const key = makeContractKey(chainId, normalizedAddress);
   return runtimeContracts.get(key) ?? staticContracts.get(key) ?? null;
+}
+
+export function getRegisteredContractAbi(contractName: ContractName): ContractAbi | null {
+  for (const chainContracts of Object.values(contractsRegistry) as Array<
+    Record<ContractName, { abi?: ContractAbi }>
+  >) {
+    const contract = chainContracts[contractName];
+    if (contract?.abi) {
+      return contract.abi;
+    }
+  }
+
+  return null;
 }
 
 export function hasRegisteredContractAbi(chainId: number, address: string): boolean {
