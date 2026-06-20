@@ -79,6 +79,7 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   const inFlightRef = useRef(false);
+  const autoSignInAttemptedWalletKeyRef = useRef<string | null>(null);
   const suppressedWalletKeyRef = useRef<string | null>(null);
 
   const walletAddress = address ?? null;
@@ -148,6 +149,8 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    autoSignInAttemptedWalletKeyRef.current = walletKey;
+
     if (!options?.force && suppressedWalletKeyRef.current === walletKey) {
       try {
         await refreshSession({ notifyOnError: true });
@@ -194,6 +197,7 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
         suppressedWalletKeyRef.current = walletKey;
         notifyWalletAuthInfo("Signature cancelled", "Wallet sign-in was not completed.");
       } else {
+        suppressedWalletKeyRef.current = walletKey;
         notifyWalletAuthError("Wallet sign-in failed", getFriendlyError(error));
       }
     } finally {
@@ -206,6 +210,7 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
     try {
       await logoutWalletAuthSession();
       clearLocalAuthState();
+      autoSignInAttemptedWalletKeyRef.current = walletKey;
       suppressedWalletKeyRef.current = walletKey;
       inFlightRef.current = false;
       setIsAuthenticating(false);
@@ -224,6 +229,7 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
         clearLocalAuthState();
         inFlightRef.current = false;
         setIsAuthenticating(false);
+        autoSignInAttemptedWalletKeyRef.current = null;
         suppressedWalletKeyRef.current = null;
       });
       return;
@@ -245,6 +251,10 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (walletKey && autoSignInAttemptedWalletKeyRef.current === walletKey) {
+      return;
+    }
+
     void loginWithWallet().catch(() => {
       // loginWithWallet already surfaces failures through notifications.
     });
@@ -255,6 +265,7 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
     isConnected,
     isOnExpectedChain,
     loginWithWallet,
+    walletKey,
     walletAddress,
   ]);
 
