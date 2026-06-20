@@ -19,7 +19,7 @@ import {
   computeChainSecondsRemaining,
 } from "@/lib/academy/time";
 import type { AcademyCheckInState } from "@/lib/academy/types";
-import { formatPoints } from "@/lib/academy/utils";
+import { formatPoints, getAcademyTaskUserPoints } from "@/lib/academy/utils";
 import { useChainTime } from "@/lib/web3/use-chain-time";
 
 type AcademyTasksCarouselProps = {
@@ -88,7 +88,7 @@ function CheckInTaskSlide({
 
   const isCoolingDown = isCoolingDownMode && cooldownSeconds > 0;
   const ready = !isCoolingDown;
-  const pointsLabel = formatPoints(checkIn?.pointsAwarded ?? 0);
+  const pointsLabel = formatPoints(getAcademyTaskUserPoints(checkIn?.pointsAwarded ?? 0));
   const cooldownElapsed = useMemo(() => {
     if (!lastCheckInAt || !nextEligibleAt || chainTimestampSeconds === null) {
       return 0;
@@ -287,7 +287,7 @@ function CheckInTaskSlide({
         <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Reward</p>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Net reward</p>
               <p className="text-2xl font-semibold text-white">{pointsLabel} points</p>
               <p className="text-sm text-white/55">Per successful check-in.</p>
             </div>
