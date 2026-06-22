@@ -10,6 +10,7 @@ import { getRegisteredContract } from "@/lib/events/contracts";
 import { decodeContractEvent } from "@/lib/events/decode";
 import { dispatchDecodedContractEvent } from "@/lib/events/dispatch";
 import { normalizeInternalEvents } from "@/lib/events";
+import { stringifyJsonSafe } from "@/lib/events/json-safe";
 import { countRegisteredContractEventHandlers } from "@/lib/events/handlers";
 import type { ContractEventProcessingResult } from "@/lib/events/types";
 
@@ -25,7 +26,7 @@ const shouldLogInternalEvents = (() => {
 
 function logInternalEventError(event: string, details: Record<string, unknown>) {
   if (shouldLogInternalEvents) {
-    console.error(JSON.stringify({ scope: "internal-events", event, ...details }));
+    console.error(stringifyJsonSafe({ scope: "internal-events", event, ...details }));
   }
 }
 
@@ -221,14 +222,11 @@ async function postInternalEvents(request: NextRequest) {
   };
 
   if (accepted === 0) {
-    return createNoStoreJsonResponse(
-      {
-        ok: false,
-        error: "No valid internal events were accepted.",
-        ...responseBody,
-      },
-      { status: 400 },
-    );
+    return createNoStoreJsonResponse({
+      ok: false,
+      error: "No valid internal events were accepted.",
+      ...responseBody,
+    }, { status: 400 });
   }
 
   return createNoStoreJsonResponse({

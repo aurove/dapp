@@ -38,3 +38,7 @@ export function toJsonSafeValue(value: unknown): unknown {
 
   return String(value);
 }
+
+export function stringifyJsonSafe(value: unknown): string {
+  return JSON.stringify(toJsonSafeValue(value));
+}

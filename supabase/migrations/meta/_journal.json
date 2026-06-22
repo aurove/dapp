@@ -44,5 +44,26 @@
       "tag": "20260619150000_academy_event_points_tasks",
       "breakpoints": true
     },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782036000000,
+      "tag": "20260621180000_academy_points_precision_18",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782037800000,
+      "tag": "20260621183000_marketplace_price_observations_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782039600000,
+      "tag": "20260621190000_academy_asset_fraction_metadata",
+      "breakpoints": true
+    }
   ]
 }

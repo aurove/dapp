@@ -88,6 +88,52 @@ function rankTone(rank: number) {
   return "border-white/10 bg-white/5 text-white/80";
 }
 
+type LeaderboardRowProps = {
+  entry: AcademyLeaderboardEntry;
+  onOpen: (walletAddress: string) => void;
+  onPrefetch: (walletAddress: string) => void;
+};
+
+function LeaderboardRow({ entry, onOpen, onPrefetch }: LeaderboardRowProps) {
+  return (
+    <button
+      type="button"
+      aria-haspopup="dialog"
+      aria-label={`Open activity log for ${shortenWalletAddress(entry.walletAddress)}`}
+      onClick={() => onOpen(entry.walletAddress)}
+      onMouseEnter={() => onPrefetch(entry.walletAddress)}
+      onFocus={() => onPrefetch(entry.walletAddress)}
+      className={cn(
+        "flex w-full min-w-0 flex-col gap-2 rounded-2xl border p-3 text-left transition sm:flex-row sm:items-center sm:justify-between",
+        entry.isCurrentUser
+          ? "border-amber-300/30 bg-amber-300/[0.08] ring-1 ring-amber-300/20"
+          : "border-white/10 bg-white/[0.03]",
+        "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/40",
+      )}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-2xl border text-sm font-semibold", rankTone(entry.rank))}>
+          {entry.rank}
+        </div>
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <p className="min-w-0 truncate font-medium text-white" title={entry.walletAddress}>
+              {shortenWalletAddress(entry.walletAddress)}
+            </p>
+            {entry.isCurrentUser ? (
+              <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">You</Badge>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <div className="shrink-0 self-start text-left sm:self-auto sm:text-right">
+        <p className="text-base font-semibold text-white">{formatPoints(entry.totalPoints)}</p>
+        <p className="text-xs text-white/45">points</p>
+      </div>
+    </button>
+  );
+}
+
 function ReferralMetric({
   label,
   value,
@@ -188,52 +234,6 @@ export function AcademyDashboardView({
     } catch {
       setCopied(false);
     }
-  }
-
-  function LeaderboardRow({
-    entry,
-  }: {
-    entry: AcademyLeaderboardEntry;
-  }) {
-    return (
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        aria-label={`Open activity log for ${shortenWalletAddress(entry.walletAddress)}`}
-        onClick={() => onLeaderboardUserOpen(entry.walletAddress)}
-        onMouseEnter={() => onLeaderboardUserPrefetch(entry.walletAddress)}
-        onFocus={() => onLeaderboardUserPrefetch(entry.walletAddress)}
-        className={cn(
-          "flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition",
-          entry.isCurrentUser
-            ? "border-amber-300/30 bg-amber-300/[0.08] ring-1 ring-amber-300/20"
-            : "border-white/10 bg-white/[0.03]",
-          "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/40",
-        )}
-      >
-        <div className="flex min-w-0 items-center gap-3">
-          <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-2xl border text-sm font-semibold", rankTone(entry.rank))}>
-            {entry.rank}
-          </div>
-          <div className="min-w-0 space-y-0.5">
-            <div className="flex min-w-0 items-center gap-2">
-              <p className="min-w-0 truncate font-medium text-white" title={entry.walletAddress}>
-                {shortenWalletAddress(entry.walletAddress)}
-              </p>
-              {entry.isCurrentUser ? (
-                <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">
-                  You
-                </Badge>
-              ) : null}
-            </div>
-          </div>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="text-base font-semibold text-white">{formatPoints(entry.totalPoints)}</p>
-          <p className="text-xs text-white/45">points</p>
-        </div>
-      </button>
-    );
   }
 
   return (
@@ -359,7 +359,7 @@ export function AcademyDashboardView({
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.33fr)_minmax(0,0.67fr)]">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,0.33fr)_minmax(0,0.67fr)]">
         <AcademyTasksCarousel
           authenticated={isAuthenticated}
           checkIn={checkIn}
@@ -370,9 +370,9 @@ export function AcademyDashboardView({
           onRetryCheckIn={onRetryAll}
         />
 
-        <Card className="border-white/10">
+        <Card className="min-w-0 overflow-hidden border-white/10">
           <CardHeader className="space-y-2">
-            <CardTitle className="flex items-center gap-2 text-2xl">
+            <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl">
               <Users className="h-5 w-5 text-[#e6d2ad]" />
               Leaderboard
             </CardTitle>
@@ -380,7 +380,7 @@ export function AcademyDashboardView({
               Top Academy participants ranked by total points in the current season.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="min-w-0 space-y-3">
             {isLeaderboardLoading ? (
               <div className="space-y-3">
                 <Skeleton className="h-16 w-full rounded-2xl" />
@@ -397,17 +397,26 @@ export function AcademyDashboardView({
             ) : showLeaderboardContent ? (
               <>
                 {currentUserLeaderboardEntry ? (
-                  <div className="space-y-2 rounded-3xl border border-amber-300/20 bg-amber-300/[0.06] p-3">
+                  <div className="min-w-0 space-y-2 rounded-3xl border border-amber-300/20 bg-amber-300/[0.06] p-3">
                     <div className="flex items-center justify-between gap-2 px-1">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-amber-100/70">Your position</p>
                       <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">Pinned</Badge>
                     </div>
-                    <LeaderboardRow entry={currentUserLeaderboardEntry} />
+                    <LeaderboardRow
+                      entry={currentUserLeaderboardEntry}
+                      onOpen={onLeaderboardUserOpen}
+                      onPrefetch={onLeaderboardUserPrefetch}
+                    />
                   </div>
                 ) : null}
-                <div className="space-y-2">
+                <div className="min-w-0 space-y-2">
                   {visibleLeaderboardEntries.map((entry) => (
-                    <LeaderboardRow key={entry.userId} entry={entry} />
+                    <LeaderboardRow
+                      key={entry.userId}
+                      entry={entry}
+                      onOpen={onLeaderboardUserOpen}
+                      onPrefetch={onLeaderboardUserPrefetch}
+                    />
                   ))}
                 </div>
 
@@ -418,18 +427,18 @@ export function AcademyDashboardView({
                 ) : null}
 
                 {leaderboard ? (
-                  <div className="flex items-center justify-between gap-2 pt-1 text-sm">
+                  <div className="flex flex-col gap-2 pt-1 text-sm sm:flex-row sm:items-center sm:justify-between">
                     <Button
                       variant="secondary"
                       size="sm"
                       onClick={() => onLeaderboardPageChange(Math.max(1, leaderboardPage - 1))}
                       disabled={leaderboardPage <= 1}
-                      className="gap-1"
+                      className="w-full gap-1 sm:w-auto"
                     >
                       <ChevronLeft className="h-4 w-4" />
                       Prev
                     </Button>
-                    <p className="text-xs text-white/45">
+                    <p className="text-center text-xs text-white/45 sm:flex-1 sm:text-left">
                       Page {leaderboard.page} of {leaderboard.totalPages || 1}
                     </p>
                     <Button
@@ -439,7 +448,7 @@ export function AcademyDashboardView({
                         onLeaderboardPageChange(Math.min(leaderboard.totalPages || 1, leaderboardPage + 1))
                       }
                       disabled={leaderboardPage >= (leaderboard.totalPages || 1)}
-                      className="gap-1"
+                      className="w-full gap-1 sm:w-auto"
                     >
                       Next
                       <ChevronRight className="h-4 w-4" />

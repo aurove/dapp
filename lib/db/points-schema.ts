@@ -119,7 +119,7 @@ export const pointsLedgerEntries = pgTable(
     sourceKind: pointsSourceKindEnum("source_kind").notNull(),
     sourceReference: text("source_reference"),
     sourceDetails: jsonb("source_details").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
-    pointsDelta: numeric("points_delta", { precision: 18, scale: 4, mode: "string" }).notNull(),
+    pointsDelta: numeric("points_delta", { precision: 78, scale: 18, mode: "string" }).notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "string" }).notNull(),
     recordedAt: timestamp("recorded_at", { withTimezone: true, mode: "string" }).notNull(),
   },
@@ -152,15 +152,15 @@ export const pointsUserBalances = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    currentPoints: numeric("current_points", { precision: 18, scale: 4, mode: "string" })
+    currentPoints: numeric("current_points", { precision: 78, scale: 18, mode: "string" })
       .notNull()
-      .default("0.0000"),
-    lifetimeEarnedPoints: numeric("lifetime_earned_points", { precision: 18, scale: 4, mode: "string" })
+      .default("0.000000000000000000"),
+    lifetimeEarnedPoints: numeric("lifetime_earned_points", { precision: 78, scale: 18, mode: "string" })
       .notNull()
-      .default("0.0000"),
-    lifetimeSpentPoints: numeric("lifetime_spent_points", { precision: 18, scale: 4, mode: "string" })
+      .default("0.000000000000000000"),
+    lifetimeSpentPoints: numeric("lifetime_spent_points", { precision: 78, scale: 18, mode: "string" })
       .notNull()
-      .default("0.0000"),
+      .default("0.000000000000000000"),
     entryCount: bigint("entry_count", { mode: "bigint" }).notNull().default(sql`0`),
     firstActivityAt: timestamp("first_activity_at", { withTimezone: true, mode: "string" }),
     lastActivityAt: timestamp("last_activity_at", { withTimezone: true, mode: "string" }),

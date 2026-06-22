@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { createNoStoreErrorResponse, createNoStoreJsonResponse, withNoStoreRouteErrorHandling } from "@/lib/server/http";
 import { verifyCronRequest } from "@/lib/cron/auth";
+import { stringifyJsonSafe } from "@/lib/events/json-safe";
 import { cronHandlers } from "@/lib/cron/handlers";
 import {
   completeCronHandlerExecution,
@@ -19,7 +20,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function logCronEvent(event: string, details: Record<string, unknown>) {
-  console.info(JSON.stringify({ scope: "cron", event, ...details }));
+  console.info(stringifyJsonSafe({ scope: "cron", event, ...details }));
 }
 
 function formatError(error: unknown): string {
@@ -32,7 +33,7 @@ function formatError(error: unknown): string {
   }
 
   try {
-    return JSON.stringify(error);
+    return stringifyJsonSafe(error);
   } catch {
     return "Unknown cron handler error.";
   }

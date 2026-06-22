@@ -14,7 +14,6 @@ import {
 } from "@/lib/db/schema";
 
 import {
-  ACADEMY_POINTS_SCALE,
   ACADEMY_REFERRAL_CODE_LENGTH,
   ACADEMY_REFERRAL_DIRECT_PERCENT,
   ACADEMY_REFERRAL_GRAND_PERCENT,
@@ -22,6 +21,7 @@ import {
   ACADEMY_REFERRAL_PENDING_COOKIE_NAME,
   ACADEMY_TASK_USER_PERCENT,
 } from "./constants";
+import { formatAcademyReferralPoints, toAcademyReferralUnits } from "./units";
 import {
   AcademyReferralAlreadyBoundError,
   AcademyReferralError,
@@ -56,6 +56,8 @@ function asNumber(value: unknown, fallback = 0): number {
 export function isValidAcademyReferralId(refId: string): boolean {
   return /^[A-Za-z0-9_-]{1,8}$/.test(refId.trim());
 }
+
+export { formatAcademyReferralPoints, toAcademyReferralUnits };
 
 function normalizeReferralId(refId: string): string {
   return refId.trim();
@@ -92,14 +94,6 @@ function serializeReferralPendingCookie(input: { refId: string }): string {
   const params = new URLSearchParams();
   params.set("ref", normalizeReferralId(input.refId));
   return params.toString();
-}
-
-function formatAcademyReferralUnits(units: bigint): string {
-  const negative = units < 0n;
-  const absoluteUnits = negative ? -units : units;
-  const whole = absoluteUnits / BigInt(ACADEMY_POINTS_SCALE);
-  const fraction = absoluteUnits % BigInt(ACADEMY_POINTS_SCALE);
-  return `${negative ? "-" : ""}${whole.toString()}.${fraction.toString().padStart(4, "0")}`;
 }
 
 export function parseReferralPendingCookie(value: string | null): {
@@ -490,32 +484,17 @@ export function createClearedAcademyReferralPendingCookie(): ReturnType<
   };
 }
 
-export function toAcademyReferralUnits(value: number | string | bigint): bigint {
-  if (typeof value === "bigint") {
-    return value * BigInt(ACADEMY_POINTS_SCALE);
-  }
-
-  const raw = typeof value === "number" ? value.toFixed(4) : String(value).trim();
-  if (!raw) {
-    return 0n;
-  }
-
-  const negative = raw.startsWith("-");
-  const normalized = negative ? raw.slice(1) : raw;
-  const [wholePart = "0", fractionPart = ""] = normalized.split(".");
-  const paddedFraction = `${fractionPart}0000`.slice(0, 4);
-  const whole = BigInt(wholePart || "0");
-  const fraction = BigInt(paddedFraction);
-  const units = whole * BigInt(ACADEMY_POINTS_SCALE) + fraction;
-  return negative ? -units : units;
-}
-
-export function formatAcademyReferralPoints(value: number | string | bigint): string {
-  if (typeof value === "bigint") {
-    return formatAcademyReferralUnits(value);
-  }
-
-  return formatAcademyReferralUnits(toAcademyReferralUnits(value));
+export function splitAcademyReferralPointUnits(basePoints: number | string | bigint): {
+  userUnits: bigint;
+  directUnits: bigint;
+  grandUnits: bigint;
+} {
+  const baseUnits = toAcademyReferralUnits(basePoints);
+  return {
+    userUnits: (baseUnits * BigInt(ACADEMY_TASK_USER_PERCENT) + 50n) / 100n,
+    directUnits: (baseUnits * BigInt(ACADEMY_REFERRAL_DIRECT_PERCENT) + 50n) / 100n,
+    grandUnits: (baseUnits * BigInt(ACADEMY_REFERRAL_GRAND_PERCENT) + 50n) / 100n,
+  };
 }
 
 export function splitAcademyReferralPoints(basePoints: number | string | bigint): {
@@ -523,10 +502,7 @@ export function splitAcademyReferralPoints(basePoints: number | string | bigint)
   directReferralPoints: string | null;
   grandReferralPoints: string | null;
 } {
-  const baseUnits = toAcademyReferralUnits(basePoints);
-  const userUnits = (baseUnits * BigInt(ACADEMY_TASK_USER_PERCENT) + 50n) / 100n;
-  const directUnits = (baseUnits * BigInt(ACADEMY_REFERRAL_DIRECT_PERCENT) + 50n) / 100n;
-  const grandUnits = (baseUnits * BigInt(ACADEMY_REFERRAL_GRAND_PERCENT) + 50n) / 100n;
+  const { userUnits, directUnits, grandUnits } = splitAcademyReferralPointUnits(basePoints);
 
   return {
     userPoints: formatAcademyReferralPoints(userUnits),

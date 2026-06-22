@@ -1,4 +1,5 @@
 import { formatUnits, parseUnits, type Address } from "viem";
+import { formatRawDecimal } from "@/lib/formatting/decimal";
 
 const DEFAULT_DECIMALS = 18;
 
@@ -79,51 +80,6 @@ export function formatTokenAmount(value: number, maximumFractionDigits = 6): str
   return new Intl.NumberFormat("en-US", { maximumFractionDigits }).format(value);
 }
 
-const SUBSCRIPT_DIGITS: Record<string, string> = {
-  "0": "₀",
-  "1": "₁",
-  "2": "₂",
-  "3": "₃",
-  "4": "₄",
-  "5": "₅",
-  "6": "₆",
-  "7": "₇",
-  "8": "₈",
-  "9": "₉",
-};
-
-function toSubscript(value: number): string {
-  return value
-    .toString()
-    .split("")
-    .map((digit) => SUBSCRIPT_DIGITS[digit] ?? digit)
-    .join("");
-}
-
-function formatRawNumber(raw: string, significantDigits = 5) {
-  if (isNaN(Number(raw))) throw new Error(`${raw} is NaN`);
-
-  const [whole, fraction = ""] = raw.split(".");
-
-  let formatted: string;
-
-  if (!fraction) {
-    formatted = whole;
-  } else {
-    const leadingZeros = fraction.match(/^0*/)?.[0].length ?? 0;
-
-    // e.g. 0.000000000045566 -> 0.0₁₀45566
-    if (leadingZeros > 3) {
-      const significant = fraction.slice(leadingZeros).slice(0, significantDigits);
-      formatted = `0.0${toSubscript(leadingZeros)}${significant}`;
-    } else {
-      formatted = raw;
-    }
-  }
-
-  return formatted;
-}
-
 export function formatRawTokenAmount(
   value: bigint | null | undefined,
   decimals: number,
@@ -131,10 +87,10 @@ export function formatRawTokenAmount(
 ): string {
   if (value === null || value === undefined) return "-";
 
-  // Keep the source string canonical so `formatRawNumber` only sees plain decimals.
+  // Keep the source string canonical so `formatRawDecimal` only sees plain decimals.
   // Compact notation like `142.11K` cannot be parsed back into a number safely.
   const raw = formatUnits(value, decimals);
-  const formatted = formatRawNumber(raw);
+  const formatted = formatRawDecimal(raw);
 
   return symbol ? `${formatted} ${symbol}` : formatted;
 }
@@ -157,7 +113,7 @@ export function formatCompactRawTokenAmount(
   const formatted =
     Math.abs(numeric) > 0.0001
       ? formatCompactNumber(numeric, maximumFractionDigits)
-      : formatRawNumber(raw, maximumFractionDigits);
+      : formatRawDecimal(raw, maximumFractionDigits);
 
   return symbol ? `${formatted} ${symbol}` : formatted;
 }

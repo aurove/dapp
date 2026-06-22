@@ -19,7 +19,7 @@ import {
   computeChainSecondsRemaining,
 } from "@/lib/academy/time";
 import type { AcademyCheckInState } from "@/lib/academy/types";
-import { formatPoints, getAcademyTaskUserPoints } from "@/lib/academy/utils";
+import { getAcademyTaskUserPoints } from "@/lib/academy/utils";
 import { useChainTime } from "@/lib/web3/use-chain-time";
 
 type AcademyTasksCarouselProps = {
@@ -88,7 +88,7 @@ function CheckInTaskSlide({
 
   const isCoolingDown = isCoolingDownMode && cooldownSeconds > 0;
   const ready = !isCoolingDown;
-  const pointsLabel = formatPoints(getAcademyTaskUserPoints(checkIn?.pointsAwarded ?? 0));
+  const pointsLabel = getAcademyTaskUserPoints(checkIn?.pointsAwarded ?? 0);
   const cooldownElapsed = useMemo(() => {
     if (!lastCheckInAt || !nextEligibleAt || chainTimestampSeconds === null) {
       return 0;
@@ -403,14 +403,14 @@ export function AcademyTasksCarousel(props: AcademyTasksCarouselProps) {
   const totalSlides = slides.length;
 
   return (
-    <Card className="border-white/10">
-      <CardHeader className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2 text-2xl">
+    <Card className="min-w-0 border-white/10">
+      <CardHeader className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl">
             <Target className="h-5 w-5 text-[#e6d2ad]" />
             Tasks carousel
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-start sm:self-auto">
             <Button
               type="button"
               variant="secondary"
@@ -436,14 +436,14 @@ export function AcademyTasksCarousel(props: AcademyTasksCarouselProps) {
         <CardDescription>Swipe through the current Academy missions and guidance.</CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="min-w-0 space-y-4">
         <div className="overflow-hidden">
           <div
             className="flex transition-transform duration-500 ease-out"
             style={{ transform: `translateX(-${activeIndex * 100}%)` }}
           >
             {slides.map((slide, index) => (
-              <div key={index} className="w-full shrink-0">
+              <div key={index} className="min-w-0 w-full shrink-0">
                 {slide}
               </div>
             ))}

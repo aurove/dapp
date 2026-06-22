@@ -22,8 +22,8 @@ import { chainTimestampToIso } from "../time";
 import { AcademySeasonOutOfWindowError } from "./errors";
 import {
   resolveAcademyReferralRecipients,
-  splitAcademyReferralPoints,
-  toAcademyReferralUnits,
+  formatAcademyReferralPoints,
+  splitAcademyReferralPointUnits,
 } from "../referrals";
 
 type JsonRecord = Record<string, unknown>;
@@ -167,7 +167,7 @@ function buildAcademyTaskAwardRecipients(
     grandReferrerUserId: string | null;
   },
 ): AcademyTaskAwardRecipient[] {
-  const split = splitAcademyReferralPoints(input.pointsDelta);
+  const split = splitAcademyReferralPointUnits(input.pointsDelta);
 
   const recipients: AcademyTaskAwardRecipient[] = [
     {
@@ -175,7 +175,7 @@ function buildAcademyTaskAwardRecipients(
       rewardType: "task_award_user",
       referralLevel: "user",
       percentage: 90,
-      pointsDelta: split.userPoints,
+      pointsDelta: formatAcademyReferralPoints(split.userUnits),
       idempotencyKey: `${input.idempotencyKey}:user`,
       sourceReference: formatSourceReference(input.sourceReference, "task_award_user"),
     },
@@ -183,15 +183,14 @@ function buildAcademyTaskAwardRecipients(
 
   if (
     referralChain.directReferrerUserId &&
-    split.directReferralPoints &&
-    toAcademyReferralUnits(split.directReferralPoints) > 0n
+    split.directUnits > 0n
   ) {
     recipients.push({
       userId: referralChain.directReferrerUserId,
       rewardType: "task_award_referral_direct",
       referralLevel: "direct",
       percentage: 3,
-      pointsDelta: split.directReferralPoints,
+      pointsDelta: formatAcademyReferralPoints(split.directUnits),
       idempotencyKey: `${input.idempotencyKey}:ref:direct`,
       sourceReference: formatSourceReference(input.sourceReference, "task_award_referral_direct"),
     });
@@ -199,15 +198,14 @@ function buildAcademyTaskAwardRecipients(
 
   if (
     referralChain.grandReferrerUserId &&
-    split.grandReferralPoints &&
-    toAcademyReferralUnits(split.grandReferralPoints) > 0n
+    split.grandUnits > 0n
   ) {
     recipients.push({
       userId: referralChain.grandReferrerUserId,
       rewardType: "task_award_referral_grand",
       referralLevel: "grand",
       percentage: 7,
-      pointsDelta: split.grandReferralPoints,
+      pointsDelta: formatAcademyReferralPoints(split.grandUnits),
       idempotencyKey: `${input.idempotencyKey}:ref:grand`,
       sourceReference: formatSourceReference(input.sourceReference, "task_award_referral_grand"),
     });

@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { toJsonSafeValue } from "@/lib/events/json-safe";
+
 export function getClientKey(request: NextRequest): string {
   const forwardedFor = request.headers.get("x-forwarded-for");
   if (forwardedFor) {
@@ -16,7 +18,7 @@ export function getClientKey(request: NextRequest): string {
 }
 
 export function createNoStoreJsonResponse(body: unknown, init?: ResponseInit) {
-  return NextResponse.json(body, {
+  return NextResponse.json(toJsonSafeValue(body), {
     ...init,
     headers: {
       "cache-control": "no-store",

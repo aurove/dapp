@@ -156,6 +156,7 @@ The relay:
 - resolves the deployment network from the connected RPC chain ID
 - auto-discovers non-veNFT deployment addresses from the matching `packages/core/deployments/<network>` and `packages/marketplace/deployments/<network>` folders
 - starts scanning from the `MezoVeNFTManager` deployment block in the core deployment folder for that chain
+- caches each scanned block range on disk per chain plus watched-address set, so later runs can replay cached events without re-querying RPC for the same spans
 - forwards raw contract log envelopes only
 - posts them to `/api/internal/events` using the same shared-secret auth model
 
@@ -171,7 +172,7 @@ Useful environment variables:
 - `EVENTS_RELAY_MAX_BLOCK_DISTANCE` - maximum number of blocks to scan per `eth_getLogs` call.
 - `EVENTS_RELAY_START_BLOCK` - emergency fallback only if the manager deployment block cannot be resolved.
 - `EVENTS_RELAY_POLL_INTERVAL_MS` - polling interval in milliseconds.
-- `EVENTS_RELAY_STATE_FILE` - optional checkpoint path; defaults to `.tmp/internal-events-relay-state.json` at the repo root. The file stores per-chain block cursors and chain-specific data under a `chains[chainId]` map.
+- `EVENTS_RELAY_STATE_FILE` - optional checkpoint path; defaults to `.tmp/internal-events-relay-state.json` at the repo root. The file stores per-chain block cursors plus replayable event caches under a `chains[chainId]` map.
 
 Example raw payload emitted by the relay:
 
