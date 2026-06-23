@@ -12,6 +12,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
+import { FaXTwitter } from "react-icons/fa6";
 
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton, cn } from "@ui";
 import { formatPoints } from "@/lib/academy/utils";
@@ -255,14 +256,24 @@ export function AcademyDashboardView({
               <Sparkles className="mr-1 h-3.5 w-3.5" />
               Aurove Academy
             </Badge>
-            <div className="space-y-3">
-              <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-                Earn points as you grow with Aurove.
-              </h1>
-              <p className="max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
-                Complete on-chain and off-chain actions, build your Academy score, and stay ready for future campaigns across the Aurove ecosystem.
-              </p>
-            </div>
+          <div className="space-y-3">
+            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+              Earn points as you grow with Aurove.
+            </h1>
+            <p className="max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
+              Complete on-chain and off-chain actions, build your Academy score, and stay ready
+              for future campaigns across the Aurove ecosystem.{" "}
+              <a
+                href="https://x.com/aurove_xyz/status/2069109875112554548"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-amber-100 transition hover:text-amber-50"
+              >
+                <FaXTwitter className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Learn more</span>
+              </a>
+            </p>
+          </div>
           </div>
 
           <div className="flex">

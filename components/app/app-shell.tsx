@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo } from "react";
 import { BellRing, ShieldCheck } from "lucide-react";
@@ -26,9 +27,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-xl px-2 py-1 text-white"
+              className="inline-flex items-center rounded-xl pt-2 text-white"
             >
-              <span className="text-lg font-semibold tracking-tight">Aurove</span>
+              <span className="relative block h-6 w-[10rem] overflow-hidden sm:h-10 sm:w-[10.5rem]">
+                <Image
+                  src="/logo_mark.png"
+                  alt="Aurove"
+                  fill
+                  priority
+                  className="object-cover object-center"
+                />
+              </span>
             </Link>
             <div className="hidden lg:block">
               <AppNav variant="inline" />
