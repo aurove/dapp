@@ -23,7 +23,7 @@ const featureCards = [
   {
     icon: BadgeDollarSign,
     title: "Earn",
-    body: "Keep earning while you participate.\n\nHold Aurove Earn products to stay aligned with Mezo Earn rewards, Academy progress, and points-based participation over time.",
+    body: "Keep earning as you participate.\n\nAurove brings Mezo Earn yield, rewards, and incentives into one flow, compounds value over time, and keeps claims available when users want.",
   },
 ] as const;
 
@@ -104,14 +104,25 @@ export default function HomePage() {
           <div className="feature-grid">
             {featureCards.map((card) => {
               const Icon = card.icon;
+              const [lead, ...rest] = card.body.split("\n\n");
 
               return (
-                <article key={card.title} className="feature-card">
-                  <div className="feature-card__icon-wrap">
-                    <Icon className="feature-card__icon" aria-hidden="true" />
+                <article
+                  key={card.title}
+                  className="feature-card"
+                >
+                  <div className="feature-card__header">
+                    <div className="feature-card__icon-wrap">
+                      <Icon className="feature-card__icon" aria-hidden="true" />
+                    </div>
+                    <div className="feature-card__heading-copy">
+                      <h3 className="feature-card__title">{card.title}</h3>
+                      <p className="feature-card__lede">{lead}</p>
+                    </div>
                   </div>
-                  <h3 className="feature-card__title">{card.title}</h3>
-                  <p className="feature-card__body">{card.body}</p>
+                  {rest.length > 0 ? (
+                    <p className="feature-card__body">{rest.join("\n\n")}</p>
+                  ) : null}
                 </article>
               );
             })}
