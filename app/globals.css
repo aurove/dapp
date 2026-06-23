@@ -483,23 +483,12 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
 }
 
-.partner-card__label {
-  margin: 0;
-  font-size: 1.34rem;
-  font-weight: 500;
-  line-height: 1.02;
-  letter-spacing: -0.04em;
-}
-
-.partner-card__snf {
-  margin: 0;
-  font-size: clamp(2.4rem, 3.8vw, 4rem);
-  font-family: "Times New Roman", Times, serif;
-  font-weight: 400;
-  letter-spacing: 0.04em;
+.partner-card__snf-mark {
+  width: min(100%, 240px);
+  height: auto;
+  object-fit: contain;
 }
 
 .partner-card__mezo {

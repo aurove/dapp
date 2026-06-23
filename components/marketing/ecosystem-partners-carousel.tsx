@@ -12,10 +12,10 @@ type PartnerItem = {
 };
 
 const partnerItems: PartnerItem[] = [
-  // {
-  //   label: "Supernormal Foundation",
-  //   kind: "snf",
-  // },
+  {
+    label: "Supernormal Foundation",
+    kind: "snf",
+  },
   {
     label: "Mezo",
     kind: "mezo",
@@ -27,10 +27,13 @@ function PartnerCard({ partner }: { partner: PartnerItem }) {
     <article className="partner-card partner-card--carousel">
       {partner.kind === "snf" ? (
         <div className="partner-card__foundation">
-          <div>
-            <p className="partner-card__label">Supernormal</p>
-            <p className="partner-card__label">Foundation</p>
-          </div>
+          <Image
+            src="/snf_logo_mark.png"
+            alt="Supernormal Foundation"
+            width={671}
+            height={143}
+            className="partner-card__snf-mark"
+          />
         </div>
       ) : (
         <div className="partner-card__mezo">
