@@ -13,7 +13,7 @@ import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import { deriveTrancheId } from "@/components/features/trade/utils/tranche";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/trade/hooks/use-user-ve-nfts";
-import { type EarnProduct, type EarnVariant, useAprBasis, useEarnSnapshot } from "./use-earn-data";
+import { type EarnProduct, type EarnVariant, useApyBasis, useEarnSnapshot } from "./use-earn-data";
 import { EarnPositionCard } from "./earn-position-card";
 import { getContractConfig } from "@/contracts/client";
 
@@ -33,12 +33,12 @@ type ClaimableSummary = {
 };
 
 type CreatePositionMode = "erc20" | "venft";
-type TrancheAprEstimate = {
+type TrancheApyEstimate = {
   product: EarnProduct;
-  aprPercent: number;
+  apyPercent: number;
 };
 
-function formatAprPercent(value: number | null | undefined) {
+function formatApyPercent(value: number | null | undefined) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "Not estimated";
   if (value > 0 && value < 0.01) return "<0.01%";
   const fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
@@ -50,9 +50,9 @@ function formatAprPercent(value: number | null | undefined) {
   );
 }
 
-function estimateTrancheApr(product: EarnProduct): TrancheAprEstimate | null {
-  const totalSupplyRaw = product.aprTotalSupplyAtFundingRaw ?? 0n;
-  const rewardAmountRaw = product.aprRewardAmountRaw ?? 0n;
+function estimateTrancheApy(product: EarnProduct): TrancheApyEstimate | null {
+  const totalSupplyRaw = product.apyTotalSupplyAtFundingRaw ?? 0n;
+  const rewardAmountRaw = product.apyRewardAmountRaw ?? 0n;
   if (totalSupplyRaw <= 0n || rewardAmountRaw <= 0n) return null;
 
   const rewardDeposited = Number(formatUnits(rewardAmountRaw, product.rewardDecimals));
@@ -72,7 +72,7 @@ function estimateTrancheApr(product: EarnProduct): TrancheAprEstimate | null {
 
   return {
     product,
-    aprPercent: (rewardDeposited / totalSupply) * annualization * 100,
+    apyPercent: (rewardDeposited / totalSupply) * annualization * 100,
   };
 }
 
@@ -193,28 +193,28 @@ export function EarnPage() {
 
   const chainId = useChainId();
   const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
-  const aprQuery = useAprBasis({
+  const apyQuery = useApyBasis({
     enabled: true,
     products: products,
     chainId,
     assetFractionAbi,
   });
-  const aprBasisMap = useMemo(() => aprQuery.data ?? {}, [aprQuery.data]);
-  const bestAprEstimate = useMemo(() => {
+  const apyBasisMap = useMemo(() => apyQuery.data ?? {}, [apyQuery.data]);
+  const bestApyEstimate = useMemo(() => {
     return products
       .map((product) => {
-        const aprBasis = aprBasisMap[product.fractionAddress.toLowerCase()];
+        const apyBasis = apyBasisMap[product.fractionAddress.toLowerCase()];
 
-        return estimateTrancheApr({
+        return estimateTrancheApy({
           ...product,
-          aprRewardAmountRaw: aprBasis?.rewardAmountRaw ?? null,
-          aprTotalSupplyAtFundingRaw: aprBasis?.totalSupplyAtFundingRaw ?? null,
-          aprFundingBlockNumber: aprBasis?.fundingBlockNumber ?? null,
+          apyRewardAmountRaw: apyBasis?.rewardAmountRaw ?? null,
+          apyTotalSupplyAtFundingRaw: apyBasis?.totalSupplyAtFundingRaw ?? null,
+          apyFundingBlockNumber: apyBasis?.fundingBlockNumber ?? null,
         });
       })
-      .filter((estimate): estimate is TrancheAprEstimate => Boolean(estimate))
-      .sort((a, b) => b.aprPercent - a.aprPercent)[0];
-  }, [products, aprBasisMap]);
+      .filter((estimate): estimate is TrancheApyEstimate => Boolean(estimate))
+      .sort((a, b) => b.apyPercent - a.apyPercent)[0];
+  }, [products, apyBasisMap]);
 
   const createDisabledReason = !selectedToken?.underlyingAddress
     ? "Underlying token unavailable for this network."
@@ -342,10 +342,10 @@ export function EarnPage() {
             <HeroMetric label="Live products" value={liveProductCount.toString()} />
             <HeroMetric label="Your claim positions" value={userPositions.length.toString()} />
             <HeroMetric
-              label="APR source"
-              value={formatAprPercent(bestAprEstimate?.aprPercent)}
-              detail={bestAprEstimate?.product.symbol ?? "No funded tranches"}
-              subtle={!bestAprEstimate}
+              label="APY source"
+              value={formatApyPercent(bestApyEstimate?.apyPercent)}
+              detail={bestApyEstimate?.product.symbol ?? "No funded tranches"}
+              subtle={!bestApyEstimate}
             />
           </div>
         </div>
@@ -396,7 +396,7 @@ export function EarnPage() {
                   <EarnPositionCard
                     product={position}
                     chainTimestamp={chainTimestamp}
-                    aprBasisMap={aprBasisMap}
+                    apyBasisMap={apyBasisMap}
                     withdrawAmount={withdrawAmounts[position.id] ?? ""}
                     setWithdrawAmount={(value) =>
                       setWithdrawAmounts((prev) => ({ ...prev, [position.id]: value }))

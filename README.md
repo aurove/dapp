@@ -9,7 +9,7 @@ The app now also includes a production-grade wallet authentication flow backed b
 The app has three primary surfaces:
 
 - **Marketing site:** explains how Aurove simplifies Mezo Earn.
-- **Earn app:** create simple fungible Earn products from ERC20 deposits or existing veNFTs, inspect positions, claim rewards, and redeem during settlement windows.
+- **Earn app:** create simple fungible Earn products from ERC20 deposits or existing veNFTs, inspect positions, view APY estimates, claim rewards, and redeem during settlement windows.
 - **Trade app:** browse fraction markets, create listings, place bids, buy listings, match orders, and cancel user orders.
 - **Wallet auth:** sign a nonce, create a Supabase-backed user record, and establish an HTTP-only app session.
 

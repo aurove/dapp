@@ -8,7 +8,7 @@ import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import {
-  type EarnAprBasisMap,
+  type EarnApyBasisMap,
   type EarnProduct,
   type EarnVariant,
   useEarnProductDetails,
@@ -21,15 +21,15 @@ const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
 type PositionActionMode = "withdraw" | "refund";
 
-type TrancheAprEstimate = {
+type TrancheApyEstimate = {
   product: EarnProduct;
-  aprPercent: number;
+  apyPercent: number;
 };
 
 export function EarnPositionCard({
   product: initialProduct,
   chainTimestamp,
-  aprBasisMap,
+  apyBasisMap,
   withdrawAmount,
   setWithdrawAmount,
   onSuccess,
@@ -37,14 +37,14 @@ export function EarnPositionCard({
 }: {
   product: EarnProduct;
   chainTimestamp: bigint | null;
-  aprBasisMap?: EarnAprBasisMap | null;
+  apyBasisMap?: EarnApyBasisMap | null;
   withdrawAmount: string;
   setWithdrawAmount: (value: string) => void;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
   const { ref, inView } = useInView<HTMLDivElement>();
-  const { product, isLoading } = useEarnProductDetails(initialProduct, inView, aprBasisMap);
+  const { product, isLoading } = useEarnProductDetails(initialProduct, inView, apyBasisMap);
 
   return (
     <div ref={ref} className="min-h-[30rem]">
@@ -84,7 +84,7 @@ function PositionCardContent({
 }) {
   const copy = variantCopy(product.variant);
   const progress = epochProgressPercent(product, chainTimestamp);
-  const aprEstimate = estimateTrancheApr(product);
+  const apyEstimate = estimateTrancheApy(product);
   const parsedWithdraw = parseAmountRaw(withdrawAmount, product.decimals);
   const isSettlementWindowOpen = isTargetSettlementWindow(product, chainTimestamp);
   const isWithinEpochCooldown = isEpochCooldown(chainTimestamp);
@@ -197,11 +197,11 @@ function PositionCardContent({
             label="Total Balance"
             value={formatAmount(product.userBalanceRaw, product.decimals, product.symbol)}
           />
-          <InfoTile label="Tranche APR" value={formatAprPercent(aprEstimate?.aprPercent)} />
+          <InfoTile label="Tranche APY" value={formatApyPercent(apyEstimate?.apyPercent)} />
           <InfoTile
             label="Rewards Deposited"
             value={formatAmount(
-              product.aprRewardAmountRaw,
+              product.apyRewardAmountRaw,
               product.rewardDecimals,
               product.rewardSymbol,
             )}
@@ -420,7 +420,7 @@ function formatAmount(value: bigint | null | undefined, decimals = 18, symbol?: 
   return formatCompactRawTokenAmount(value, decimals, symbol ?? undefined);
 }
 
-function formatAprPercent(value: number | null | undefined) {
+function formatApyPercent(value: number | null | undefined) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "Not estimated";
   if (value > 0 && value < 0.01) return "<0.01%";
   const fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
@@ -432,9 +432,9 @@ function formatAprPercent(value: number | null | undefined) {
   );
 }
 
-function estimateTrancheApr(product: EarnProduct): TrancheAprEstimate | null {
-  const totalSupplyRaw = product.aprTotalSupplyAtFundingRaw ?? 0n;
-  const rewardAmountRaw = product.aprRewardAmountRaw ?? 0n;
+function estimateTrancheApy(product: EarnProduct): TrancheApyEstimate | null {
+  const totalSupplyRaw = product.apyTotalSupplyAtFundingRaw ?? 0n;
+  const rewardAmountRaw = product.apyRewardAmountRaw ?? 0n;
   if (totalSupplyRaw <= 0n || rewardAmountRaw <= 0n) return null;
 
   const rewardDeposited = Number(formatUnits(rewardAmountRaw, product.rewardDecimals));
@@ -454,7 +454,7 @@ function estimateTrancheApr(product: EarnProduct): TrancheAprEstimate | null {
 
   return {
     product,
-    aprPercent: (rewardDeposited / totalSupply) * annualization * 100,
+    apyPercent: (rewardDeposited / totalSupply) * annualization * 100,
   };
 }
 

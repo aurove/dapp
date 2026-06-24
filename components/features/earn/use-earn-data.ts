@@ -56,9 +56,9 @@ export type EarnProduct = {
   rewardSymbol: string | null;
   rewardDecimals: number;
   rewardReserveRaw: bigint | null;
-  aprRewardAmountRaw: bigint | null;
-  aprTotalSupplyAtFundingRaw: bigint | null;
-  aprFundingBlockNumber: bigint | null;
+  apyRewardAmountRaw: bigint | null;
+  apyTotalSupplyAtFundingRaw: bigint | null;
+  apyFundingBlockNumber: bigint | null;
   settledUnderlyingRaw: bigint | null;
   targetEpochEnd: bigint | null;
   trancheDuration: bigint | null;
@@ -67,7 +67,7 @@ export type EarnProduct = {
   refundablePositions: EarnRefundablePosition[];
 };
 
-export type EarnAprBasisMap = Record<
+export type EarnApyBasisMap = Record<
   string,
   {
     rewardAmountRaw: bigint;
@@ -109,7 +109,7 @@ type FundingScanCache = {
   inFlight?: Promise<void>;
 };
 
-const EARN_APR_QUERY_PREFIX = "earn-apr-basis";
+const EARN_APY_QUERY_PREFIX = "earn-apy-basis";
 const REWARDS_FUNDED_SCAN_CHUNK_SIZE = 10_000n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
@@ -178,9 +178,9 @@ function emptyProductCore(fraction: FractionCore, userBalanceRaw = 0n): EarnProd
     rewardSymbol: variant === "veBTC" ? "BTC" : "MEZO",
     rewardDecimals: 18,
     rewardReserveRaw: null,
-    aprRewardAmountRaw: null,
-    aprTotalSupplyAtFundingRaw: null,
-    aprFundingBlockNumber: null,
+    apyRewardAmountRaw: null,
+    apyTotalSupplyAtFundingRaw: null,
+    apyFundingBlockNumber: null,
     settledUnderlyingRaw: null,
     targetEpochEnd: null,
     trancheDuration: null,
@@ -190,13 +190,13 @@ function emptyProductCore(fraction: FractionCore, userBalanceRaw = 0n): EarnProd
   };
 }
 
-function earnAprBasisQueryKey(params: {
+function earnApyBasisQueryKey(params: {
   chainId: number;
   assetLedgerAddress: Address | null | undefined;
   productAddresses: Address[];
 }) {
   return [
-    EARN_APR_QUERY_PREFIX,
+    EARN_APY_QUERY_PREFIX,
     params.chainId,
     params.assetLedgerAddress?.toLowerCase() ?? null,
     [...new Set(params.productAddresses.map((address) => address.toLowerCase()))].sort(),
@@ -1134,7 +1134,7 @@ export function useEarnSnapshot() {
       veBtcTokenBalance.refresh(),
       veMezoTokenBalance.refresh(),
     ]);
-    void queryClient.invalidateQueries({ queryKey: [EARN_APR_QUERY_PREFIX] });
+    void queryClient.invalidateQueries({ queryKey: [EARN_APY_QUERY_PREFIX] });
   }
 
   return {
@@ -1156,7 +1156,7 @@ export function useEarnSnapshot() {
 export function useEarnProductDetails(
   product: EarnProduct,
   enabled: boolean,
-  aprBasisMapOverride?: EarnAprBasisMap | null,
+  apyBasisMapOverride?: EarnApyBasisMap | null,
 ) {
   const { address: userAddress } = useAccount();
   const connectedChainId = useChainId();
@@ -1172,16 +1172,16 @@ export function useEarnProductDetails(
 
   const snapshot = useEarnSnapshot();
 
-  const aprQuery = useAprBasis({
-    enabled: enabled && !aprBasisMapOverride,
+  const apyQuery = useApyBasis({
+    enabled: enabled && !apyBasisMapOverride,
     products: [product],
     chainId,
     assetFractionAbi,
   });
 
-  const aprBasisMap = useMemo<EarnAprBasisMap>(
-    () => aprBasisMapOverride ?? aprQuery.data ?? {},
-    [aprBasisMapOverride, aprQuery.data],
+  const apyBasisMap = useMemo<EarnApyBasisMap>(
+    () => apyBasisMapOverride ?? apyQuery.data ?? {},
+    [apyBasisMapOverride, apyQuery.data],
   );
 
   const detailsContracts = useMemo(() => {
@@ -1311,44 +1311,44 @@ export function useEarnProductDetails(
           entry.trancheId === product.trancheId,
       ) ?? product;
 
-    const aprBasis = aprBasisMap[baseProduct.fractionAddress.toLowerCase()];
+    const apyBasis = apyBasisMap[baseProduct.fractionAddress.toLowerCase()];
 
     return {
       ...baseProduct,
-      aprRewardAmountRaw: aprBasis?.rewardAmountRaw ?? null,
-      aprTotalSupplyAtFundingRaw: aprBasis?.totalSupplyAtFundingRaw ?? null,
-      aprFundingBlockNumber: aprBasis?.fundingBlockNumber ?? null,
+      apyRewardAmountRaw: apyBasis?.rewardAmountRaw ?? null,
+      apyTotalSupplyAtFundingRaw: apyBasis?.totalSupplyAtFundingRaw ?? null,
+      apyFundingBlockNumber: apyBasis?.fundingBlockNumber ?? null,
       refundablePositions,
     };
-  }, [aprBasisMap, product, refundablePositions, snapshot.products]);
+  }, [apyBasisMap, product, refundablePositions, snapshot.products]);
 
   function refresh() {
     snapshot.refresh();
     void detailsReads.refetch();
     void positionReads.refetch();
-    void queryClient.invalidateQueries({ queryKey: [EARN_APR_QUERY_PREFIX] });
+    void queryClient.invalidateQueries({ queryKey: [EARN_APY_QUERY_PREFIX] });
   }
 
   return {
     product: hydratedProduct,
     isLoading:
-      snapshot.isLoading || detailsReads.isLoading || positionReads.isLoading || aprQuery.isLoading,
+      snapshot.isLoading || detailsReads.isLoading || positionReads.isLoading || apyQuery.isLoading,
     isFetching:
       snapshot.isFetching ||
       detailsReads.isFetching ||
       positionReads.isFetching ||
-      aprQuery.isFetching,
+      apyQuery.isFetching,
     error:
       snapshot.error ||
       (detailsReads.error as Error | null) ||
       (positionReads.error as Error | null) ||
-      (aprQuery.error as Error | null) ||
+      (apyQuery.error as Error | null) ||
       null,
     refresh,
   };
 }
 
-async function fetchAprBasisMap(params: {
+async function fetchApyBasisMap(params: {
   products: EarnProduct[];
   chainId: number;
   publicClient: PublicClient;
@@ -1371,7 +1371,7 @@ async function fetchAprBasisMap(params: {
     addresses,
   });
 
-  const result: EarnAprBasisMap = {};
+  const result: EarnApyBasisMap = {};
 
   await Promise.all(
     validProducts.map(async (product) => {
@@ -1407,7 +1407,7 @@ async function fetchAprBasisMap(params: {
   return result;
 }
 
-export function useAprBasis(params: {
+export function useApyBasis(params: {
   enabled: boolean;
   products: EarnProduct[];
   chainId: number;
@@ -1417,7 +1417,7 @@ export function useAprBasis(params: {
   const publicClient = usePublicClient();
   const assetLedger = getContractConfig(chainId, "AssetLedger");
 
-  const queryKey = earnAprBasisQueryKey({
+  const queryKey = earnApyBasisQueryKey({
     chainId,
     assetLedgerAddress: assetLedger?.address,
     productAddresses: products.map((product) => product.fractionAddress),
@@ -1433,7 +1433,7 @@ export function useAprBasis(params: {
         return {};
       }
 
-      return fetchAprBasisMap({
+      return fetchApyBasisMap({
         products,
         chainId,
         publicClient,
