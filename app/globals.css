@@ -87,7 +87,7 @@ a {
 
 .landing-hero {
   position: relative;
-  min-height: 760px;
+  min-height: clamp(680px, 95vh, 920px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -700,7 +700,7 @@ a {
   }
 
   .landing-hero {
-    min-height: auto;
+    min-height: clamp(620px, 95vh, 860px);
     padding-block: 72px 54px;
   }
 
