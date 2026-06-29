@@ -87,7 +87,7 @@ a {
 
 .landing-hero {
   position: relative;
-  min-height: clamp(680px, 95vh, 920px);
+  min-height: clamp(720px, 95vh, 920px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -156,10 +156,29 @@ a {
 .landing-hero__content {
   position: relative;
   z-index: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid;
   align-items: center;
-  text-align: center;
+  gap: 52px;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 460px);
+}
+
+.landing-hero__copy {
+  min-width: 0;
+  justify-self: start;
+  text-align: left;
+}
+
+.landing-hero__swap {
+  width: 100%;
+  justify-self: end;
+}
+
+.landing-hero__copy .hero-divider {
+  margin-inline: 0;
+}
+
+.landing-hero__copy .hero-actions {
+  justify-content: flex-start;
 }
 
 .hero-logo-mark {
@@ -234,6 +253,10 @@ a {
   flex-wrap: wrap;
   justify-content: center;
   gap: 18px;
+}
+
+.hero-action--swap {
+  display: none;
 }
 
 .btn {
@@ -396,36 +419,6 @@ a {
   font-size: 1.02rem;
   line-height: 1.7;
   white-space: pre-line;
-}
-
-.landing-section--swap {
-  padding-block: 70px 76px;
-}
-
-.landing-swap {
-  display: grid;
-  align-items: center;
-  gap: 34px;
-  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 460px);
-}
-
-.landing-swap__copy {
-  max-width: 560px;
-}
-
-.landing-swap__kicker,
-.landing-swap__title,
-.landing-swap__copy-text {
-  margin-inline: 0;
-  text-align: left;
-}
-
-.landing-swap__title {
-  max-width: 12ch;
-}
-
-.landing-swap__copy-text {
-  max-width: 540px;
 }
 
 .landing-swap__card {
@@ -891,19 +884,38 @@ a {
     grid-template-columns: 1fr;
   }
 
-  .landing-swap {
+  .landing-hero__content {
     grid-template-columns: 1fr;
+    gap: 34px;
   }
 
-  .landing-swap__copy {
-    max-width: 760px;
-  }
-
-  .landing-swap__kicker,
-  .landing-swap__title,
-  .landing-swap__copy-text {
-    margin-inline: auto;
+  .landing-hero__copy {
+    justify-self: center;
     text-align: center;
+  }
+
+  .landing-hero__copy .hero-logo-mark,
+  .landing-hero__copy .hero-title,
+  .landing-hero__copy .hero-copy {
+    margin-inline: auto;
+  }
+
+  .landing-hero__copy .hero-divider {
+    margin-inline: auto;
+  }
+
+  .landing-hero__copy .hero-actions {
+    justify-content: center;
+  }
+
+  .landing-hero__swap {
+    justify-self: center;
+    max-width: 520px;
+    margin-inline: auto;
+  }
+
+  .hero-action--swap {
+    display: inline-flex;
   }
 
   .landing-footer__inner {
@@ -954,14 +966,6 @@ a {
 
   .hero-actions--academy .btn {
     width: 100%;
-  }
-
-  .landing-section--swap {
-    padding-block: 56px 62px;
-  }
-
-  .landing-swap {
-    gap: 26px;
   }
 
   .landing-swap__card {
