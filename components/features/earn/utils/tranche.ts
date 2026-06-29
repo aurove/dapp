@@ -35,12 +35,10 @@ export function deriveTrancheNumberFromLock(
   if (isPermanent) return null;
 
   const remaining = lockEnd > timestamp ? lockEnd - timestamp : 0n;
-  const trancheNumber =
-    remaining === 0n ? 0n : ((remaining - 1n) / WEEK_SECONDS) + 1n;
+  const trancheNumber = remaining === 0n ? 0n : ((remaining - 1n) / WEEK_SECONDS) + 1n;
   const variantMax = BigInt(MAX_TRANCHE_BY_VARIANT[variant]);
 
   if (trancheNumber === 0n) return MAX_TRANCHE_BY_VARIANT[variant];
-
   if (trancheNumber < BigInt(TRANCHE_MIN)) return TRANCHE_MIN;
   if (trancheNumber > variantMax) return MAX_TRANCHE_BY_VARIANT[variant];
 
@@ -63,7 +61,6 @@ export function deriveFractionSymbol(
   variant: CanonicalAssetVariant,
   trancheNumber: number,
 ): string {
-  // Match AssetTokenNaming.deriveTokenSymbol: av{BTC|MEZO}w{trancheNumber}
   return `av${variant === "veBTC" ? "BTC" : "MEZO"}w${trancheNumber}`;
 }
 

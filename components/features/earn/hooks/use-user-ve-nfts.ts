@@ -1,29 +1,24 @@
 "use client";
 
 import { useMemo } from "react";
-import { type Abi, type Address } from "viem";
+import { formatUnits, type Abi, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { detailReadQueryOptions, staticReadQueryOptions } from "@/lib/web3/read-query-options";
-import type { TradeVeAssetType } from "../types";
-import {
-  formatCompactTokenAmount,
-  formatLockEndLabel,
-  parseReadError,
-  toBigInt,
-} from "../utils/read-parsers";
 
 const MAX_TOKENS_PER_COLLECTION = 50;
 
+type EarnVeAssetType = "veBTC" | "veMEZO";
+
 type VeTokenCandidate = {
-  assetType: TradeVeAssetType;
+  assetType: EarnVeAssetType;
   contractAddress: Address;
   abi: Abi;
 };
 
 export type UserVeNft = {
-  assetType: TradeVeAssetType;
+  assetType: EarnVeAssetType;
   symbol: string;
   contractAddress: Address;
   tokenId: bigint;
@@ -37,7 +32,7 @@ export type UserVeNft = {
 };
 
 export type UserVeNftCollection = {
-  assetType: TradeVeAssetType;
+  assetType: EarnVeAssetType;
   symbol: string;
   contractAddress: Address;
   balance: bigint;
@@ -53,6 +48,63 @@ type UseUserVeNftsResult = {
   error: Error | null;
   refresh: () => void;
 };
+
+function toBigInt(value: unknown): bigint {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return BigInt(Math.trunc(value));
+  if (typeof value === "string") {
+    try {
+      return BigInt(value);
+    } catch {
+      return 0n;
+    }
+  }
+  return 0n;
+}
+
+function parseReadError(value: unknown, fallbackMessage: string): Error | null {
+  if (!value) return null;
+  if (value instanceof Error) return value;
+  if (typeof value === "object" && value !== null && "message" in value) {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string") {
+      return new Error(message);
+    }
+  }
+  return new Error(fallbackMessage);
+}
+
+function formatCompactAmount(amount: bigint, decimals = 18): string {
+  const full = formatUnits(amount, decimals);
+  const [whole, fraction = ""] = full.split(".");
+  const cleanFraction = fraction.replace(/0+$/, "").slice(0, 6);
+  return cleanFraction.length > 0 ? `${whole}.${cleanFraction}` : whole;
+}
+
+function formatCompactTokenAmount(amount: bigint, decimals = 18): string {
+  const parsed = Number.parseFloat(formatCompactAmount(amount, decimals));
+  if (!Number.isFinite(parsed)) {
+    return formatUnits(amount, decimals);
+  }
+
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(parsed);
+}
+
+function formatLockEndLabel(lockEnd: bigint, isPermanent: boolean): string {
+  if (isPermanent) return "Permanent lock";
+  if (lockEnd <= 0n) return "No lock end";
+
+  const millis = Number(lockEnd) * 1000;
+  if (!Number.isFinite(millis) || millis <= 0) {
+    return "Unknown lock end";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  }).format(new Date(millis));
+}
 
 function formatCount(balance: bigint): string {
   return `${new Intl.NumberFormat("en-US").format(Number(balance))} veNFT${balance === 1n ? "" : "s"}`;

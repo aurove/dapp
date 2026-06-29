@@ -114,7 +114,7 @@ function PositionCardContent({
     selectedRefundPosition.lockedAmountRaw <= product.userAvailableBalanceRaw;
   const canSubmit = isActionWindowOpen && !isWithinEpochCooldown && (canWithdraw || canRefund);
   const actionLabel = effectiveActionMode === "withdraw" ? "Withdraw underlying" : "Refund veNFT";
-  const actionUnavailableLabel = isExpired ? "Await settlement window" : "Await refund window";
+  const actionUnavailableLabel = isExpired ? "Await claim window" : "Await refund window";
   const actionSteps = (account: Address): TxStep[] => {
     if (effectiveActionMode === "withdraw") {
       return [
@@ -219,8 +219,8 @@ function PositionCardContent({
                 : isActionWindowOpen
                   ? isExpired
                     ? "Tranche expired"
-                    : "Settlement window open"
-                  : "Waiting for settlement window"}
+                    : "Claim window open"
+                  : "Waiting for claim window"}
             </span>
           </div>
           {isExpired ? (

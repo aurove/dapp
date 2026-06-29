@@ -4,7 +4,7 @@ import { Badge, Card, CardContent, CardHeader, CardTitle, buttonVariants } from 
 
 const highlights = [
   { label: "Earn", value: "Simple fungible products" },
-  { label: "Markets", value: "Tradable position units" },
+  { label: "Swap", value: "Liquid position routes" },
   { label: "Routing", value: "Rewards made legible" },
 ] as const;
 
@@ -15,11 +15,11 @@ const flow = [
   },
   {
     title: "Simple Fungible Earn Product",
-    body: "Turn that position into transferable ERC1155 units users can understand and trade.",
+    body: "Turn that position into transferable ERC1155 units users can understand and swap.",
   },
   {
-    title: "Use, Trade, or Redeem",
-    body: "Manage rewards, route incentives, trade exposure, and redeem through clear product flows.",
+    title: "Use, Swap, or Redeem",
+    body: "Manage rewards, route incentives, swap exposure, and redeem through clear product flows.",
   },
 ] as const;
 
@@ -34,7 +34,7 @@ export function HeroSection() {
           </h1>
           <p className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-[var(--muted)]">
             Aurove is the liquid ve-yield layer for Mezo Earn. It turns gauges, lock durations,
-            boosts, rewards, and incentive routing into Earn products users can understand, trade,
+            boosts, rewards, and incentive routing into Earn products users can understand, swap,
             and use.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">

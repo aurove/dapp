@@ -17,7 +17,7 @@ import {
   sameAddress,
 } from "@/lib/web3/value-parsers";
 import { findLatestEventLogByChunks, type CachedEventLog } from "@/lib/web3/event-cache";
-import { decodeTrancheId } from "@/components/features/trade/utils/tranche";
+import { decodeTrancheId } from "@/components/features/earn/utils/tranche";
 
 export type EarnVariant = "veBTC" | "veMEZO";
 

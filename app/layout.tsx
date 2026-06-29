@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Aurove | Liquid ve-Yield Layer for Mezo Earn",
     description:
-      "Aurove turns veBTC and veMEZO positions into liquid, tradable Mezo Earn products.",
+      "Aurove turns veBTC and veMEZO positions into liquid, swappable Mezo Earn products.",
     type: "website",
     siteName: "Aurove",
     url: "/",
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Aurove | Liquid ve-Yield Layer for Mezo Earn",
     description:
-      "Aurove turns veBTC and veMEZO positions into liquid, tradable Mezo Earn products.",
+      "Aurove turns veBTC and veMEZO positions into liquid, swappable Mezo Earn products.",
   },
 };
 

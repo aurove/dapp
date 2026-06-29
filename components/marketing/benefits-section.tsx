@@ -3,9 +3,9 @@ import { SectionHeading } from "@/components/site/section-heading";
 
 const benefits = [
   "Turn lock duration, boost, gauge, and reward details into legible Earn product balances.",
-  "Trade Mezo Earn exposure through fungible units instead of bespoke veNFT handling.",
+  "Swap Mezo Earn exposure through fungible units instead of bespoke veNFT handling.",
   "Use reward and incentive routing through a coherent product surface.",
-  "Keep settlement and redemption mechanics explicit for reduced operational friction.",
+  "Keep liquidity and redemption mechanics explicit for reduced operational friction.",
 ] as const;
 
 export function BenefitsSection() {
@@ -14,7 +14,7 @@ export function BenefitsSection() {
       <SectionHeading
         badge="Earn Product Outcomes"
         title="Built to make complex Mezo Earn positions usable."
-        description="Aurove connects liquidity, settlement, rewards, boosts, and incentive routing inside simple fungible Earn products."
+        description="Aurove connects liquidity, rewards, boosts, and incentive routing inside simple fungible Earn products."
       />
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">

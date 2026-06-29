@@ -11,8 +11,8 @@ import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
-import { deriveTrancheId } from "@/components/features/trade/utils/tranche";
-import { useUserVeNFTs, type UserVeNft } from "@/components/features/trade/hooks/use-user-ve-nfts";
+import { deriveTrancheId } from "@/components/features/earn/utils/tranche";
+import { useUserVeNFTs, type UserVeNft } from "@/components/features/earn/hooks/use-user-ve-nfts";
 import { type EarnProduct, type EarnVariant, useApyBasis, useEarnSnapshot } from "./use-earn-data";
 import { EarnPositionCard } from "./earn-position-card";
 import { getContractConfig } from "@/contracts/client";
@@ -333,7 +333,7 @@ export function EarnPage() {
               <p className="text-base leading-7 text-white/68 md:text-lg">
                 Aurove turns complex veBTC / veMEZO positions, gauges, lock durations, boosts,
                 rewards, and incentive routing into simple fungible Earn products users can
-                understand, trade, and use.
+                understand, swap, and use.
               </p>
             </div>
           </div>
@@ -373,7 +373,7 @@ export function EarnPage() {
               <h2 className="text-xl font-semibold text-white">Your Fraction Positions</h2>
               <p className="mt-1 text-sm text-white/55">
                 Swipe through wallet-held fraction positions, track target epoch progress, and
-                redeem underlying when a settlement window opens.
+                redeem underlying when the product window opens.
               </p>
             </div>
             <Button variant="secondary" size="sm" onClick={refresh} disabled={isFetching}>
@@ -899,14 +899,14 @@ function EmptyPositions() {
         <Wallet className="mx-auto h-8 w-8 text-white/40" />
         <h3 className="mt-3 text-lg font-semibold text-white">No fungible Earn products yet</h3>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-white/58">
-          Create a position from supported BTC or MEZO assets, or buy Earn units on the{" "}
+          Create a position from supported BTC or MEZO assets, or preview liquidity on the{" "}
           <Link
-            href={appRoutes.find((route) => route.label === "Markets")?.href ?? "/trade"}
+            href={appRoutes.find((route) => route.label === "Swap")?.href ?? "/swap"}
             className="font-medium text-[var(--accent-soft)] underline-offset-4 hover:underline"
           >
-            Markets page
+            Swap page
           </Link>{" "}
-          when markets are available.
+          while swap routing is being prepared.
         </p>
       </div>
     </div>

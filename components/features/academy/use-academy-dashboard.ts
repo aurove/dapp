@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -63,35 +63,20 @@ export function useAcademyDashboard(
     },
   });
 
-  const currentUserLeaderboardEntry = useMemo(() => {
-    if (!summaryQuery.data?.authenticated || !summaryQuery.data.rank) {
-      return null;
-    }
-
-    if (initialCurrentUserLeaderboardEntry) {
-      return initialCurrentUserLeaderboardEntry;
-    }
-
-    if (!user) {
-      return null;
-    }
-
-    return {
-      userId: user.id,
-      rank: summaryQuery.data.rank,
-      walletAddress: walletAddress ?? user.walletAddress,
-      totalPoints: summaryQuery.data.totalPoints,
-      entryCount: 0,
-      isCurrentUser: true,
-    };
-  }, [
-    initialCurrentUserLeaderboardEntry,
-    summaryQuery.data?.authenticated,
-    summaryQuery.data?.rank,
-    summaryQuery.data?.totalPoints,
-    user,
-    walletAddress,
-  ]);
+  const currentUserLeaderboardEntry =
+    !summaryQuery.data?.authenticated || !summaryQuery.data.rank
+      ? null
+      : initialCurrentUserLeaderboardEntry ??
+        (user
+          ? {
+              userId: user.id,
+              rank: summaryQuery.data.rank,
+              walletAddress: walletAddress ?? user.walletAddress,
+              totalPoints: summaryQuery.data.totalPoints,
+              entryCount: 0,
+              isCurrentUser: true,
+            }
+          : null);
 
   return {
     isAuthenticated,

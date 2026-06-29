@@ -1,5 +1,5 @@
-import { TradePage } from "@/components/app/trade-page";
+import { redirect } from "next/navigation";
 
-export default function AppTradePage() {
-  return <TradePage />;
+export default function RedirectToSwapPage() {
+  redirect("/swap");
 }

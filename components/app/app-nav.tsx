@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Award, BarChart3, CandlestickChart } from "lucide-react";
+import { ArrowLeftRight, Award, BarChart3 } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "@ui";
 
@@ -14,7 +14,7 @@ type AppRoute = {
 
 export const appRoutes: AppRoute[] = [
   { href: "/earn", label: "Products", icon: BarChart3 },
-  { href: "/trade", label: "Markets", icon: CandlestickChart },
+  { href: "/swap", label: "Swap", icon: ArrowLeftRight },
   { href: "/academy", label: "Academy", icon: Award },
 ];
 

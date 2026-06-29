@@ -11,11 +11,11 @@ const steps = [
     body: "Aurove represents position ownership through product units that are easier to understand, hold, transfer, and price.",
   },
   {
-    title: "Trade or Manage Exposure",
-    body: "List, bid, buy, and sell fungible Earn units across a cleaner secondary market path.",
+    title: "Swap or Manage Exposure",
+    body: "Preview routes between veNFT positions, ERC1155 fractions, and ERC20 liquidity tokens.",
   },
   {
-    title: "Use, Settle, or Redeem",
+    title: "Use, Swap, or Redeem",
     body: "Claim rewards, follow routing, and move into redemption flows aligned with product duration.",
   },
 ] as const;

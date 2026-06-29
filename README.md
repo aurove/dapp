@@ -1,6 +1,6 @@
 # Aurove dApp
 
-The Aurove dApp is the user-facing web app for creating, managing, and trading simple fungible Earn products from Mezo veNFT positions. It is built with Next.js, React, wagmi, RainbowKit, Tailwind CSS, and the local shared UI source in `components/ui/`.
+The Aurove dApp is the user-facing web app for creating, managing, and swapping simple fungible Earn products from Mezo veNFT positions. It is built with Next.js, React, wagmi, RainbowKit, Tailwind CSS, and the local shared UI source in `components/ui/`.
 
 The app now also includes a production-grade wallet authentication flow backed by Supabase and a Drizzle-owned app database schema. Wallet connection is only the first step; the user must sign a server-issued challenge before the app creates a secure session.
 
@@ -10,23 +10,21 @@ The app has three primary surfaces:
 
 - **Marketing site:** explains how Aurove simplifies Mezo Earn.
 - **Earn app:** create simple fungible Earn products from ERC20 deposits or existing veNFTs, inspect positions, view APY estimates, claim rewards, and redeem during settlement windows.
-- **Trade app:** browse fraction markets, create listings, place bids, buy listings, match orders, and cancel user orders.
+- **Swap app:** preview mocked swap routes across veNFT positions, ERC1155 fractions, and ERC20 wrapper tokens.
 - **Wallet auth:** sign a nonce, create a Supabase-backed user record, and establish an HTTP-only app session.
 
 ![Earn View](../demo/earn-page.png)
 _Earn View_
 
-![Trade View](../demo/trade-page.png)
-_Trade View_
-
-![Market Order View](../demo/market-order.png)
-_Market Order View_
+![Swap View](../demo/swap-page.png)
+_Swap View_
 
 ## Routes
 
 - `/` - landing page and product overview.
 - `/earn` - Earn dashboard for creating and managing Aurove positions.
-- `/trade` - secondary market for ERC1155 fraction tranches.
+- `/swap` - mocked DeFi-style swap interface for veNFT, ERC1155, and ERC20 assets.
+- `/trade` - redirects to `/swap`.
 
 ## Project Structure
 
@@ -34,7 +32,7 @@ _Market Order View_
 - `components/marketing/` - landing page sections.
 - `components/app/` - authenticated app shell and navigation.
 - `components/features/earn/` - Earn product data hooks and transaction flows.
-- `components/features/trade/` - marketplace views, dialogs, hooks, and order helpers.
+- `components/features/swap/` - mocked swap interface, asset data, and route previews.
 - `contracts/` - generated contract registry and typing used by transaction flows.
 - `lib/tx-flow/` - reusable multi-step transaction execution utilities.
 - `lib/providers/` - wagmi, RainbowKit, and query providers.
@@ -197,16 +195,15 @@ pnpm --filter @aurove/dapp dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Trade MUSD Markets
+## Swap Routes
 
-`/trade` defaults to MUSD quote markets:
+`/swap` renders a mocked DeFi-style swap surface for:
 
-- `fveBTC-W1 / MUSD`
-- `fveBTC-W4 / MUSD`
-- `fveMEZO-W52 / MUSD`
-- `fveMEZO-W208 / MUSD`
+- veNFT positions representing Mezo Earn exposure
+- ERC1155 fraction or tranche-like assets
+- ERC20 wrapper and quote tokens
 
-The UI reads live listings and bids from `Marketplace`, uses `PaymentRouter.MUSD` as the default quote token, and enables buy/sell actions through the existing marketplace and payment approval flows.
+Routing, output estimates, liquidity, and price impact are local mock values while live swap integrations are being prepared. `/trade` is retained only as a compatibility redirect to `/swap`.
 
 ## Build
 

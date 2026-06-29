@@ -7,8 +7,8 @@ const cards = [
     body: "Convert veBTC / veMEZO positions, lock durations, boosts, and rewards into product units that are easier to compare and hold.",
   },
   {
-    title: "Tradable Exposure",
-    body: "Enable secondary market activity around fungible Earn products so ownership transitions are cleaner than bespoke lock transfers.",
+    title: "Swappable Exposure",
+    body: "Enable liquidity around fungible Earn products so ownership transitions are cleaner than bespoke lock transfers.",
   },
   {
     title: "Usable Reward Routing",
@@ -22,7 +22,7 @@ export function OverviewSection() {
       <SectionHeading
         badge="Why Aurove"
         title="Mezo Earn stays powerful. Its products become simple to use."
-        description="Aurove simplifies complex veBTC / veMEZO positions into fungible Earn products users can understand, trade, and use without awkward manual veNFT handling."
+        description="Aurove simplifies complex veBTC / veMEZO positions into fungible Earn products users can understand, swap, and use without awkward manual veNFT handling."
       />
 
       <div className="mt-8 grid gap-4 md:grid-cols-3">
