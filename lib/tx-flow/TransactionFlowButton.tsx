@@ -13,7 +13,7 @@ import { bindStepResultsStore, executePreparedWriteStep } from "./execute";
 import { getParsedError } from "./getParsedError";
 import type { TxFlowBuilder, TxIconState, TxStep, TxStepResult } from "./types";
 
-type Props = Omit<ComponentPropsWithoutRef<typeof Button>, "children" | "onClick"> & {
+type Props = Omit<ComponentPropsWithoutRef<typeof Button>, "children" | "onClick" | "onError"> & {
   steps: TxStep[] | TxFlowBuilder;
   children: ReactNode;
   icon?: ReactNode;

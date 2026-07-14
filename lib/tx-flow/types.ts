@@ -140,7 +140,7 @@ export type TxRunnableStep = {
   run: (ctx: TxFlowRuntimeContext) => Promise<"skip" | Omit<TxStepResult, "key" | "label">>;
 };
 
-export type TxStep = TxRunnableStep | TxPreparedWriteStep;
+export type TxStep = TxRunnableStep | TxPreparedWriteStep<any, any>;
 
 export type TxFlowBuilder = (ctx: { account: `0x${string}`; chainId: number }) => TxStep[];
 

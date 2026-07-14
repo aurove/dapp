@@ -1,25 +1,27 @@
 "use client";
 
 import { useMemo } from "react";
-import { formatUnits, type Abi, type Address } from "viem";
+import { formatUnits, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
-import { getContractConfig } from "@/contracts/client";
-import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
+import { getActiveChain } from "@/lib/config/chains";
 import { detailReadQueryOptions, staticReadQueryOptions } from "@/lib/web3/read-query-options";
+import { getEarnProtocolRuntime, getEarnVariantConfig, veNftCollectionAbi } from "../protocol";
+import {
+  EARN_VARIANTS,
+  type EarnVariant,
+  getVariantAssetSymbol,
+} from "../utils/tranche";
 
 const MAX_TOKENS_PER_COLLECTION = 50;
 
-type EarnVeAssetType = "veBTC" | "veMEZO";
-
 type VeTokenCandidate = {
-  assetType: EarnVeAssetType;
+  variant: EarnVariant;
   contractAddress: Address;
-  abi: Abi;
+  assetSymbol: "BTC" | "MEZO";
 };
 
 export type UserVeNft = {
-  assetType: EarnVeAssetType;
-  symbol: string;
+  variant: EarnVariant;
   contractAddress: Address;
   tokenId: bigint;
   lockAmountRaw: bigint;
@@ -27,16 +29,16 @@ export type UserVeNft = {
   lockEnd: bigint;
   lockEndLabel: string;
   isPermanent: boolean;
-  availableFractionCapacityRaw: bigint;
-  availableFractionCapacityFormatted: string;
 };
 
 export type UserVeNftCollection = {
-  assetType: EarnVeAssetType;
-  symbol: string;
+  variant: EarnVariant;
+  assetSymbol: "BTC" | "MEZO";
   contractAddress: Address;
-  balance: bigint;
+  balanceRaw: bigint;
   balanceFormatted: string;
+  displayedCount: number;
+  hiddenCount: number;
   veNfts: UserVeNft[];
 };
 
@@ -81,22 +83,13 @@ function formatCompactAmount(amount: bigint, decimals = 18): string {
   return cleanFraction.length > 0 ? `${whole}.${cleanFraction}` : whole;
 }
 
-function formatCompactTokenAmount(amount: bigint, decimals = 18): string {
-  const parsed = Number.parseFloat(formatCompactAmount(amount, decimals));
-  if (!Number.isFinite(parsed)) {
-    return formatUnits(amount, decimals);
-  }
-
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(parsed);
-}
-
 function formatLockEndLabel(lockEnd: bigint, isPermanent: boolean): string {
-  if (isPermanent) return "Permanent lock";
-  if (lockEnd <= 0n) return "No lock end";
+  if (isPermanent) return "Permanent";
+  if (lockEnd <= 0n) return "No end";
 
   const millis = Number(lockEnd) * 1000;
   if (!Number.isFinite(millis) || millis <= 0) {
-    return "Unknown lock end";
+    return "Unknown";
   }
 
   return new Intl.DateTimeFormat("en-US", {
@@ -104,10 +97,6 @@ function formatLockEndLabel(lockEnd: bigint, isPermanent: boolean): string {
     month: "short",
     day: "2-digit",
   }).format(new Date(millis));
-}
-
-function formatCount(balance: bigint): string {
-  return `${new Intl.NumberFormat("en-US").format(Number(balance))} veNFT${balance === 1n ? "" : "s"}`;
 }
 
 function parseLockedBalance(value: unknown): { amount: bigint; end: bigint; isPermanent: boolean } {
@@ -137,63 +126,36 @@ function parseLockedBalance(value: unknown): { amount: bigint; end: bigint; isPe
 
 export function useUserVeNFTs(): UseUserVeNftsResult {
   const { address: userAddress, isConnected } = useAccount();
-  const txFlowChainId = useChainId();
-  const activeChain = getActiveChain(resolveAppEnvironment());
-  const chainId = txFlowChainId ?? activeChain.id;
-
-  const veBtc = getContractConfig(chainId, "VeBTC");
-  const veMezo = getContractConfig(chainId, "VeMEZO");
+  const connectedChainId = useChainId();
+  const activeChain = getActiveChain();
+  const chainId = connectedChainId ?? activeChain.id;
+  const runtime = useMemo(() => getEarnProtocolRuntime(chainId), [chainId]);
 
   const candidates = useMemo<VeTokenCandidate[]>(() => {
-    const items: VeTokenCandidate[] = [];
+    return EARN_VARIANTS.flatMap((variant) => {
+      const config = getEarnVariantConfig(variant, runtime);
+      if (!config.collectionAddress) return [];
 
-    if (veBtc?.address && veBtc.abi) {
-      items.push({
-        assetType: "veBTC",
-        contractAddress: veBtc.address as Address,
-        abi: veBtc.abi as Abi,
-      });
-    }
-
-    if (veMezo?.address && veMezo.abi) {
-      items.push({
-        assetType: "veMEZO",
-        contractAddress: veMezo.address as Address,
-        abi: veMezo.abi as Abi,
-      });
-    }
-
-    return items;
-  }, [veBtc, veMezo]);
+      return [
+        {
+          variant,
+          contractAddress: config.collectionAddress,
+          assetSymbol: getVariantAssetSymbol(variant),
+        },
+      ];
+    });
+  }, [runtime]);
 
   const summaryContracts = useMemo(() => {
     if (!userAddress) return [];
 
-    const contracts: Array<{
-      address: Address;
-      abi: Abi;
-      functionName: string;
-      args?: readonly unknown[];
-      chainId: number;
-    }> = [];
-
-    for (const candidate of candidates) {
-      contracts.push({
-        address: candidate.contractAddress,
-        abi: candidate.abi,
-        functionName: "symbol",
-        chainId,
-      });
-      contracts.push({
-        address: candidate.contractAddress,
-        abi: candidate.abi,
-        functionName: "balanceOf",
-        args: [userAddress],
-        chainId,
-      });
-    }
-
-    return contracts;
+    return candidates.map((candidate) => ({
+      address: candidate.contractAddress,
+      abi: veNftCollectionAbi,
+      functionName: "balanceOf" as const,
+      args: [userAddress] as const,
+      chainId,
+    }));
   }, [candidates, chainId, userAddress]);
 
   const canReadSummaries = Boolean(userAddress && candidates.length > 0);
@@ -209,48 +171,32 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
   const ownedSummaries = useMemo(() => {
     return candidates
       .map((candidate, index) => {
-        const symbolResult = summaryReads.data?.[index * 2]?.result;
-        const balanceResult = summaryReads.data?.[index * 2 + 1]?.result;
+        const balanceResult = summaryReads.data?.[index]?.result;
         const rawBalance = typeof balanceResult === "bigint" ? balanceResult : 0n;
-        const boundedBalance =
-          rawBalance > BigInt(MAX_TOKENS_PER_COLLECTION)
-            ? BigInt(MAX_TOKENS_PER_COLLECTION)
-            : rawBalance;
+        const displayedCount = Math.min(Number(rawBalance), MAX_TOKENS_PER_COLLECTION);
 
         return {
           ...candidate,
-          symbol: typeof symbolResult === "string" ? symbolResult : candidate.assetType,
           rawBalance,
-          balance: boundedBalance,
+          displayedCount,
+          hiddenCount: Math.max(0, Number(rawBalance) - displayedCount),
         };
       })
-      .filter((item) => item.balance > 0n);
+      .filter((item) => item.rawBalance > 0n);
   }, [candidates, summaryReads.data]);
 
   const tokenIdContracts = useMemo(() => {
     if (!userAddress) return [];
 
-    const contracts: Array<{
-      address: Address;
-      abi: Abi;
-      functionName: string;
-      args?: readonly unknown[];
-      chainId: number;
-    }> = [];
-
-    for (const token of ownedSummaries) {
-      for (let index = 0; index < Number(token.balance); index += 1) {
-        contracts.push({
-          address: token.contractAddress,
-          abi: token.abi,
-          functionName: "ownerToNFTokenIdList",
-          args: [userAddress, BigInt(index)],
-          chainId,
-        });
-      }
-    }
-
-    return contracts;
+    return ownedSummaries.flatMap((token) =>
+      Array.from({ length: token.displayedCount }, (_, index) => ({
+        address: token.contractAddress,
+        abi: veNftCollectionAbi,
+        functionName: "ownerToNFTokenIdList" as const,
+        args: [userAddress, BigInt(index)] as const,
+        chainId,
+      })),
+    );
   }, [chainId, ownedSummaries, userAddress]);
 
   const canReadTokenIds = Boolean(userAddress && ownedSummaries.length > 0);
@@ -259,126 +205,107 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
     contracts: tokenIdContracts,
     query: {
       enabled: canReadTokenIds,
-      ...detailReadQueryOptions,
+      ...staticReadQueryOptions,
     },
   });
 
-  const tokenIdsByCollection = useMemo(() => {
-    let cursor = 0;
-
-    return ownedSummaries.map((summary) => {
-      const tokenIds: bigint[] = [];
-
-      for (let index = 0; index < Number(summary.balance); index += 1) {
-        const result = tokenIdReads.data?.[cursor]?.result;
-        cursor += 1;
-        if (typeof result === "bigint") {
-          tokenIds.push(result);
-        }
-      }
-
-      return {
-        summary,
-        tokenIds,
-      };
-    });
-  }, [ownedSummaries, tokenIdReads.data]);
-
-  const lockContracts = useMemo(() => {
+  const lockedContracts = useMemo(() => {
     const contracts: Array<{
       address: Address;
-      abi: Abi;
-      functionName: string;
-      args?: readonly unknown[];
+      abi: typeof veNftCollectionAbi;
+      functionName: "locked";
+      args: readonly [bigint];
       chainId: number;
     }> = [];
 
-    for (const collection of tokenIdsByCollection) {
-      for (const tokenId of collection.tokenIds) {
+    const tokenIdResults = tokenIdReads.data ?? [];
+    let cursor = 0;
+
+    for (const collection of ownedSummaries) {
+      for (let index = 0; index < collection.displayedCount; index += 1) {
+        const tokenId = toBigInt(tokenIdResults[cursor]?.result);
+        cursor += 1;
+        if (tokenId === 0n) continue;
+
         contracts.push({
-          address: collection.summary.contractAddress,
-          abi: collection.summary.abi,
+          address: collection.contractAddress,
+          abi: veNftCollectionAbi,
           functionName: "locked",
-          args: [tokenId],
+          args: [tokenId] as const,
           chainId,
         });
       }
     }
 
     return contracts;
-  }, [chainId, tokenIdsByCollection]);
+  }, [chainId, ownedSummaries, tokenIdReads.data]);
 
-  const lockReads = useReadContracts({
+  const lockedReads = useReadContracts({
     allowFailure: true,
-    contracts: lockContracts,
+    contracts: lockedContracts,
     query: {
-      enabled: lockContracts.length > 0,
-      ...staticReadQueryOptions,
+      enabled: lockedContracts.length > 0,
+      ...detailReadQueryOptions,
     },
   });
 
   const veCollections = useMemo<UserVeNftCollection[]>(() => {
-    let lockCursor = 0;
+    const tokenIdResults = tokenIdReads.data ?? [];
+    const lockedResults = lockedReads.data ?? [];
+    let tokenCursor = 0;
+    let lockedCursor = 0;
 
-    return tokenIdsByCollection.map(({ summary, tokenIds }) => {
-      const veNfts: UserVeNft[] = tokenIds.map((tokenId) => {
-        const lockResult = lockReads.data?.[lockCursor]?.result;
-        lockCursor += 1;
+    return ownedSummaries.map((collection) => {
+      const veNfts: UserVeNft[] = [];
 
-        const locked = parseLockedBalance(lockResult);
-        const lockAmount = locked.amount > 0n ? locked.amount : 0n;
-        const capacity = lockAmount;
+      for (let index = 0; index < collection.displayedCount; index += 1) {
+        const tokenId = toBigInt(tokenIdResults[tokenCursor]?.result);
+        tokenCursor += 1;
+        if (tokenId === 0n) continue;
 
-        return {
-          assetType: summary.assetType,
-          symbol: summary.symbol,
-          contractAddress: summary.contractAddress,
+        const locked = parseLockedBalance(lockedResults[lockedCursor]?.result);
+        lockedCursor += 1;
+
+        veNfts.push({
+          variant: collection.variant,
+          contractAddress: collection.contractAddress,
           tokenId,
-          lockAmountRaw: lockAmount,
-          lockAmountFormatted: formatCompactTokenAmount(lockAmount, 18),
+          lockAmountRaw: locked.amount,
+          lockAmountFormatted: formatCompactAmount(locked.amount),
           lockEnd: locked.end,
           lockEndLabel: formatLockEndLabel(locked.end, locked.isPermanent),
           isPermanent: locked.isPermanent,
-          availableFractionCapacityRaw: capacity,
-          availableFractionCapacityFormatted: formatCompactTokenAmount(capacity, 18),
-        };
-      });
+        });
+      }
 
       return {
-        assetType: summary.assetType,
-        symbol: summary.symbol,
-        contractAddress: summary.contractAddress,
-        balance: summary.rawBalance,
-        balanceFormatted: formatCount(summary.rawBalance),
+        variant: collection.variant,
+        assetSymbol: collection.assetSymbol,
+        contractAddress: collection.contractAddress,
+        balanceRaw: collection.rawBalance,
+        balanceFormatted: formatCompactAmount(collection.rawBalance),
+        displayedCount: collection.displayedCount,
+        hiddenCount: collection.hiddenCount,
         veNfts,
       };
     });
-  }, [lockReads.data, tokenIdsByCollection]);
+  }, [lockedReads.data, ownedSummaries, tokenIdReads.data]);
 
   const error =
-    parseReadError(summaryReads.error, "Unable to load veNFT positions.") ||
-    parseReadError(tokenIdReads.error, "Unable to load veNFT positions.") ||
-    parseReadError(lockReads.error, "Unable to load veNFT positions.") ||
-    summaryReads.data?.find((item) => item.status === "failure")?.error ||
-    tokenIdReads.data?.find((item) => item.status === "failure")?.error ||
-    lockReads.data?.find((item) => item.status === "failure")?.error ||
-    null;
-
-  function refresh() {
-    void summaryReads.refetch();
-    void tokenIdReads.refetch();
-    void lockReads.refetch();
-  }
+    parseReadError(summaryReads.error, "Failed to read veNFT balances.") ||
+    parseReadError(tokenIdReads.error, "Failed to read veNFT token ids.") ||
+    parseReadError(lockedReads.error, "Failed to read veNFT lock data.");
 
   return {
     veCollections,
     isConnected,
-    isLoading:
-      (canReadSummaries && summaryReads.isPending) ||
-      (canReadTokenIds && tokenIdReads.isPending) ||
-      (lockContracts.length > 0 && lockReads.isPending),
-    isFetching: summaryReads.isFetching || tokenIdReads.isFetching || lockReads.isFetching,
+    isLoading: summaryReads.isPending || tokenIdReads.isPending || lockedReads.isPending,
+    isFetching: summaryReads.isFetching || tokenIdReads.isFetching || lockedReads.isFetching,
     error,
-    refresh,
+    refresh: () => {
+      void summaryReads.refetch();
+      void tokenIdReads.refetch();
+      void lockedReads.refetch();
+    },
   };
 }

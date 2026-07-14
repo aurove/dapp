@@ -147,6 +147,8 @@ Authentication supports either:
 - `EVENTS_WEBHOOK_MAX_BODY_BYTES` limits request payload size and defaults to 2 MiB
 
 The event router resolves contracts from the generated registry in `contracts/registry.ts`, decodes the raw log with the contract ABI, and dispatches the decoded event to the handler registry in `lib/events/handlers.ts`.
+The current dApp keeps that handler registry empty, so the endpoint accepts and decodes logs
+without coupling the app to marketplace-specific or asset-fraction processing.
 
 See [docs/internal-events.md](docs/internal-events.md) for the payload contract, Goldsky examples, and local development notes.
 

@@ -18,13 +18,13 @@ export async function dispatchDecodedContractEvent(
   const handler = getContractEventHandler(ctx.contract.contractName, event.eventName as string);
   if (!handler) {
     return {
-      status: "failed",
+      status: "skipped",
       fingerprint: event.fingerprint,
       chainId: event.chainId,
       contractAddress: event.contractAddress,
       contractName: ctx.contract.contractName,
       eventName: event.eventName,
-      reason: "Unknown contract event handler.",
+      reason: "No contract event handler is registered.",
     };
   }
 

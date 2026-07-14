@@ -13,7 +13,7 @@ type AppRoute = {
 };
 
 export const appRoutes: AppRoute[] = [
-  { href: "/earn", label: "Products", icon: BarChart3 },
+  { href: "/earn", label: "Earn", icon: BarChart3 },
   { href: "/swap", label: "Swap", icon: ArrowLeftRight },
   { href: "/academy", label: "Academy", icon: Award },
 ];

@@ -93,12 +93,148 @@ function formatKnownCustomError(errorName: string, args: readonly unknown[]): st
   switch (errorName) {
     case "ZeroAddress":
       return "A required contract or wallet address is missing.";
+    case "ZeroAsset":
+      return "The wrapped asset address is missing.";
     case "InvalidAmount":
+    case "ZeroAmount":
       return "Enter an amount greater than zero.";
-    case "InsufficientFractionBalance":
-      return "Insufficient fraction balance for this action.";
-    case "FractionTransferNotApproved":
-      return "Fraction transfers are not approved for this action.";
+    case "ZeroReceiver":
+      return "Choose a valid recipient address.";
+    case "ZeroToken":
+      return "The wrapper token is not configured.";
+    case "ZeroTokenId":
+      return "Choose at least one veNFT token id.";
+    case "ZeroAssetLedger":
+      return "The configured asset ledger is missing.";
+    case "ZeroVault":
+      return "The configured vault is missing.";
+    case "ZeroRewardSink":
+      return "No reward sink is configured for this tranche.";
+    case "ZeroId20Factory":
+      return "The ID20 factory address is missing.";
+    case "InvalidRecipient":
+      return "Choose a valid reward recipient.";
+    case "InvalidRecipientData":
+      return "Recipient data must be empty or encoded as an address.";
+    case "InsufficientRewardReserve":
+      return `The reward reserve is temporarily short by ${formatRawUnits(args[1])}.`;
+    case "NoRewardsToClaim":
+    case "NoRewardsClaimed":
+      return "No rewards are currently available to claim.";
+    case "UnsupportedAsset":
+      return "That asset is not supported by this wrapper.";
+    case "UnsupportedId":
+      return "That token id is not supported by this wrapper.";
+    case "UnsupportedBatch":
+      return "Batch transfers are not supported for this action.";
+    case "InvalidTrancheId":
+      return "That tranche id is not supported.";
+    case "UnsupportedTrancheVariant":
+      return "That tranche variant is not supported.";
+    case "InvalidEpochs":
+      return "That lock duration is not supported.";
+    case "TrancheNotRegistered":
+      return "No manager or reward sink is registered for this tranche.";
+    case "InvalidRewardTrancheId":
+      return "That reward sink is linked to a different tranche.";
+    case "InvalidRewardCollection":
+      return "That reward collection is not supported.";
+    case "InvalidRewardSyncCaller":
+      return "Only the configured ledger can sync reward funding.";
+    case "RewardSinkAlreadyLinked":
+      return "That reward sink is already linked to a manager.";
+    case "UnauthorizedVault":
+      return "Only the vault can link this manager.";
+    case "UnauthorizedOperator":
+      return "Only the ledger can transfer this veNFT into custody.";
+    case "UnauthorizedLedger":
+      return "Only the configured ledger can release this inventory.";
+    case "UnsupportedVeNft":
+      return "That veNFT collection is not supported by the vault.";
+    case "InvalidCustodyData":
+      return "The selected veNFT inventory does not match the requested redeem.";
+    case "DuplicateCustody":
+      return "That veNFT is already tracked for this tranche.";
+    case "InvalidRedeemAmount":
+      return "Enter a valid redeem amount.";
+    case "RedemptionOutsideSettlementWindow":
+      return "Redeem is only available during the settlement window.";
+    case "InsufficientRedeemableBalance":
+      return `Not enough redeemable tranche units for ${formatRawUnits(args[2])}.`;
+    case "RedeemLockOverflow":
+      return "The redeem lock overflowed.";
+    case "RedeemLockEpochMismatch":
+      return "Those tranche units are locked by a different settlement epoch.";
+    case "InvalidVariantForTranche":
+      return "That action cannot be used for this tranche.";
+    case "InsufficientRedeemInventory":
+      return "The tranche vault does not have enough inventory to satisfy this redeem.";
+    case "LockedVaultAlreadySet":
+      return "The locked vault has already been configured.";
+    case "RewardFeeTooHigh":
+      return "The reward fee is too high.";
+    case "FeeConfigProposalTooLate":
+      return "That fee proposal was submitted too close to epoch end.";
+    case "FeeConfigExecutionTooEarly":
+      return "That fee configuration cannot be executed yet.";
+    case "NoPendingFeeConfig":
+      return "There is no pending fee configuration to execute.";
+    case "RewardBatchTransfersNotSupported":
+      return "Batch reward transfers are not supported.";
+    case "InvalidManagedVeNft":
+      return "That veNFT does not match the configured collection.";
+    case "InvalidManagedTokenId":
+      return "That managed token id is invalid.";
+    case "InvalidManagedTokenType":
+      return "That managed veNFT type is not supported.";
+    case "ManagedVeNftNotEmpty":
+      return "The managed veNFT must be empty before deposit.";
+    case "ManagedTokenNotSet":
+      return "The managed token has not been configured yet.";
+    case "ManagedTokenAlreadySet":
+      return "The managed token is already configured.";
+    case "InvalidLedgerCaller":
+      return "Only the ledger can call this manager.";
+    case "UnauthorizedLedgerOwner":
+      return "Only the ledger owner can perform this action.";
+    case "UnauthorizedVoteMaintainer":
+      return "You are not allowed to forward votes for this manager.";
+    case "UnauthorizedSwapMaintainer":
+      return "You are not allowed to withdraw manager-held tokens.";
+    case "VoterNotAllowed":
+      return "That voter contract is not allowlisted.";
+    case "InvalidWrapper":
+      return "That wrapper address is not registered.";
+    case "AlreadyActive":
+      return "This account is already active in the gauge.";
+    case "NotInitialized":
+      return "Activate the wrapper before claiming rewards.";
+    case "NoRewards":
+      return "No rewards are currently available.";
+    case "NoWeight":
+      return "No reward weight is currently available.";
+    case "InsufficientSettleableCredit":
+      return "No settleable credit is currently available.";
+    case "UnsettledCredit":
+      return "Settle outstanding credit before this action.";
+    case "RewardAmountMismatch":
+      return "The harvested reward amount did not match the gauge notification.";
+    case "ERC20InsufficientAllowance":
+      return "Insufficient ERC20 allowance for this action.";
+    case "ERC20InsufficientBalance":
+      return "Insufficient ERC20 balance for this action.";
+    case "ERC20InvalidApprover":
+      return "That ERC20 approver address is invalid.";
+    case "ERC20InvalidReceiver":
+      return "Choose a valid ERC20 receiver.";
+    case "ERC20InvalidSender":
+      return "That ERC20 sender address is invalid.";
+    case "ERC20InvalidSpender":
+      return "That ERC20 spender address is invalid.";
+    case "SafeERC20FailedOperation":
+      return "The ERC20 transfer failed.";
+    case "ArithmeticOverflow":
+      return "The calculation overflowed. Try a smaller amount.";
     case "InsufficientPaymentAllowance":
       return `Insufficient payment allowance. Approved ${formatRawUnits(
         args[2],
@@ -111,8 +247,6 @@ function formatKnownCustomError(errorName: string, args: readonly unknown[]): st
       return `Insufficient native payment sent. Sent ${formatRawUnits(
         args[0],
       )}, required ${formatRawUnits(args[1])}.`;
-    case "ArithmeticOverflow":
-      return "The calculation overflowed. Try a smaller amount.";
     default:
       return undefined;
   }

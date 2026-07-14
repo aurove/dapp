@@ -55,16 +55,12 @@ Lookup is always `chainId + contractAddress`, and decoding uses the ABI from the
 
 Event routing is code-defined in `lib/events/handlers.ts`.
 
-Handlers are registered against the decoded contract event, using the contract name plus event name convention:
-
-- `Marketplace.OrdersMatched`
-- `Marketplace.ListingCreated`
-- `PaymentRouter.PaymentRouted`
-
-The `Marketplace.OrdersMatched` handler records a price observation from matched trades and, when the settlement is denominated in MUSD, awards Academy points to the maker and taker using the same referral split path as check-ins. The `AssetLedger.AssetFractionRewardsClaimed` handler values BTC and MEZO fraction reward claims from the most recent valid MUSD observation window and awards Academy points from that converted value.
-
-The backend does not trust relay-supplied handler names or decoded payloads. It decodes logs locally, then dispatches the result to the matching handler.
-Static handlers are auto-registered from the generated contract registry, and runtime contracts can register their own handlers with the same helper.
+The dApp currently keeps that registry empty, so the webhook endpoint can accept and decode
+events without coupling the app to any marketplace-specific or asset-fraction processing.
+The backend still does not trust relay-supplied handler names or decoded payloads. It decodes
+logs locally, then dispatches the result to the matching handler when one exists.
+Runtime contracts can register their own handlers with the same helper if the app needs them
+later.
 
 ## Goldsky Turbo Webhooks
 
@@ -137,7 +133,7 @@ curl -X POST http://localhost:3000/api/internal/events \
 ## Local Development
 
 - Run the dApp locally with the existing Next.js dev server.
-- Start the local contract stack with `pnpm deploy:local` or `pnpm --filter @aurove/core node` plus `pnpm --filter @aurove/core deploy:localhost`. This flow uses the forked Mezo snapshot configured by `FORK_RPC_URL` and `FORK_BLOCK_NUMBER`, and it reuses the veBTC and veMEZO contracts already deployed there.
+- Start the local contract stack with `pnpm deploy:local` or `pnpm --filter @aurove/core node` plus `pnpm --filter @aurove/core deploy:localhost`. This flow uses the mainnet forked Mezo snapshot configured by `FORK_RPC_URL` and `FORK_BLOCK_NUMBER` at block `10314237`, and it reuses the veBTC and veMEZO contracts already deployed there.
 - Point any local relay or webhook sender at `http://localhost:3000/api/internal/events`.
 - Use the same raw log envelope whether the sender is Goldsky, a custom indexer, or a local Hardhat watcher.
 - For public Mezo data, use the Goldsky Turbo examples above and swap the source / contract addresses for the network you want to index.
@@ -154,7 +150,7 @@ The relay:
 
 - watches a local Hardhat JSON-RPC endpoint
 - resolves the deployment network from the connected RPC chain ID
-- auto-discovers non-veNFT deployment addresses from the matching `packages/core/deployments/<network>` and `packages/marketplace/deployments/<network>` folders
+- auto-discovers deployment addresses from the matching network deployment folders it is configured to scan
 - starts scanning from the `MezoVeNFTManager` deployment block in the core deployment folder for that chain
 - caches each scanned block range on disk per chain plus watched-address set, so later runs can replay cached events without re-querying RPC for the same spans
 - forwards raw contract log envelopes only
@@ -193,5 +189,3 @@ Example raw payload emitted by the relay:
 ```
 
 The endpoint intentionally does not add database-backed ingestion tracking. Handlers should be retry-safe and implement any idempotency they require using the `chainId:txHash:logIndex` fingerprint.
-
-For marketplace execution prices, the handler already enforces that idempotency key when inserting into `marketplace_price_observations`, so duplicate `OrdersMatched` deliveries will not create duplicate price rows.

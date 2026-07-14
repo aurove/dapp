@@ -52,26 +52,15 @@ export async function watchTokenAsset({
     throw new Error("MetaMask or a compatible wallet extension was not found.");
   }
 
-  const params: WatchAssetRequest =
-  // Let's do only in form of ERC20 for view purposes
-    // tokenId !== undefined
-    //   ? {
-    //       type: "ERC1155",
-    //       options: {
-    //         address,
-    //         tokenId: tokenId.toString(),
-    //       },
-    //     }
-    //   :
-    {
-      type: "ERC20",
-      options: {
-        address,
-        symbol,
-        decimals,
-        image,
-      },
-    };
+  const params: WatchAssetRequest = {
+    type: "ERC20",
+    options: {
+      address,
+      symbol,
+      decimals,
+      image,
+    },
+  };
 
   const accepted = await ethereum.request({
     method: "wallet_watchAsset",

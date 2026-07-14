@@ -24,7 +24,7 @@ export function AddTokenToWalletButton({
   decimals = 18,
   tokenId,
   className,
-  label = "Add to MetaMask",
+  label = "Add to wallet",
   size = "sm",
   variant = "outline",
 }: AddTokenToWalletButtonProps) {
@@ -44,8 +44,8 @@ export function AddTokenToWalletButton({
 
       setStatus("done");
       notify.success(
-        `${symbol} added to MetaMask`,
-        "The fraction token is now available in your wallet.",
+        `${symbol} added to wallet`,
+        "The token is now available in your wallet.",
       );
     } catch (error) {
       setStatus("idle");
