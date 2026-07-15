@@ -11,6 +11,8 @@ export type EarnProtocolAddresses = {
   id20FactoryAddress: Address | null;
   veBtcAddress: Address | null;
   veMezoAddress: Address | null;
+  auroveId20Address: Address | null;
+  mezoAuroveId20Address: Address | null;
 };
 
 export type EarnProtocolRuntime = {
@@ -38,6 +40,10 @@ export function getAuroveId20Abi(chainId: number): Abi | null {
   return getContractAbi(chainId, "avBTCmId20") as Abi | null;
 }
 
+export function getMezoAuroveId20Abi(chainId: number): Abi | null {
+  return getContractAbi(chainId, "avMEZOmId20") as Abi | null;
+}
+
 export function getId20FactoryAbi(chainId: number): Abi | null {
   return getContractAbi(chainId, "Id20Factory") as Abi | null;
 }
@@ -57,6 +63,8 @@ export function getEarnProtocolAddresses(chainId: number): EarnProtocolAddresses
     id20FactoryAddress: getContractAddress(chainId, "Id20Factory"),
     veBtcAddress: getContractAddress(chainId, "VeBTC"),
     veMezoAddress: getContractAddress(chainId, "VeMEZO"),
+    auroveId20Address: getContractAddress(chainId, "avBTCmId20"),
+    mezoAuroveId20Address: getContractAddress(chainId, "avMEZOmId20"),
   };
 }
 
@@ -76,6 +84,9 @@ export function getEarnProtocolConfig(chainId: number) {
     id20Factory: getContractConfig(chainId, "Id20Factory"),
     rewardSink: getContractConfig(chainId, "avBTCmSink"),
     auroveId20: getContractConfig(chainId, "avBTCmId20"),
+    mezoRewardSink: getContractConfig(chainId, "avMEZOmSink"),
+    mezoAuroveId20: getContractConfig(chainId, "avMEZOmId20"),
+    mezoId20Gauge: getContractConfig(chainId, "avMEZOmGauge"),
     id20Gauge: getContractConfig(chainId, "avBTCmGauge"),
     erc721ApprovalAbi: erc721Abi,
   };

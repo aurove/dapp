@@ -1,10 +1,15 @@
 "use client";
 
 import { useMemo } from "react";
-import { erc20Abi, type Address } from "viem";
-import { useReadContracts } from "wagmi";
-import { detailReadQueryOptions } from "@/lib/web3/read-query-options";
-import { getKnownMezoTokenConfig } from "./known-mezo-tokens";
+import type { Address } from "viem";
+import { useChainId } from "wagmi";
+
+import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
+import {
+  type AurovePortfolioTokenSymbol,
+  useAurovePortfolio,
+} from "@/lib/web3/use-aurove-portfolio";
+import { getKnownMezoTokenConfig, getKnownMezoTokenConfigs } from "./known-mezo-tokens";
 
 type UseKnownMezoTokenBalanceParams = {
   ownerAddress?: Address;
@@ -14,6 +19,27 @@ type UseKnownMezoTokenBalanceParams = {
   chainId?: number;
 };
 
+function resolveKnownTokenSymbol(
+  chainId: number,
+  tokenAddress?: Address | null,
+  tokenSymbol?: string,
+): AurovePortfolioTokenSymbol | null {
+  if (tokenSymbol) {
+    const knownToken = getKnownMezoTokenConfig(chainId, tokenSymbol);
+    if (knownToken) {
+      return knownToken.symbol as AurovePortfolioTokenSymbol;
+    }
+  }
+
+  if (!tokenAddress) return null;
+
+  const normalizedAddress = tokenAddress.toLowerCase();
+  const knownToken = getKnownMezoTokenConfigs(chainId).find(
+    (item) => item.address.toLowerCase() === normalizedAddress,
+  );
+  return (knownToken?.symbol as AurovePortfolioTokenSymbol | undefined) ?? null;
+}
+
 export function useKnownMezoTokenBalance({
   ownerAddress,
   tokenAddress,
@@ -21,75 +47,41 @@ export function useKnownMezoTokenBalance({
   spenderAddress,
   chainId,
 }: UseKnownMezoTokenBalanceParams) {
-  const activeChainId = chainId ?? 0;
-  const readAddress = useMemo(() => {
-    if (tokenSymbol) {
-      const knownToken = getKnownMezoTokenConfig(activeChainId, tokenSymbol);
-      if (knownToken) {
-        return knownToken.address;
-      }
-    }
+  const connectedChainId = useChainId();
+  const activeChain = getActiveChain(resolveAppEnvironment());
+  const resolvedChainId = chainId ?? connectedChainId ?? activeChain.id;
+  const resolvedSymbol = useMemo(
+    () => resolveKnownTokenSymbol(resolvedChainId, tokenAddress, tokenSymbol),
+    [resolvedChainId, tokenAddress, tokenSymbol],
+  );
 
-    return tokenAddress ?? null;
-  }, [activeChainId, tokenAddress, tokenSymbol]);
-
-  type TokenRead = {
-    address: Address;
-    abi: typeof erc20Abi;
-    functionName: "balanceOf" | "allowance";
-    args: readonly [Address] | readonly [Address, Address];
-    chainId: number;
-  };
-
-  const contracts = useMemo<TokenRead[]>(() => {
-    if (!ownerAddress || !readAddress) return [];
-
-    const reads: TokenRead[] = [
-      {
-        address: readAddress,
-        abi: erc20Abi,
-        functionName: "balanceOf",
-        args: [ownerAddress] as const,
-        chainId: activeChainId,
-      },
-    ];
-
-    if (spenderAddress) {
-      reads.push({
-        address: readAddress,
-        abi: erc20Abi,
-        functionName: "allowance",
-        args: [ownerAddress, spenderAddress] as const,
-        chainId: activeChainId,
-      });
-    }
-
-    return reads;
-  }, [activeChainId, ownerAddress, readAddress, spenderAddress]);
-
-  const reads = useReadContracts({
-    allowFailure: true,
-    contracts,
-    query: {
-      enabled: contracts.length > 0,
-      ...detailReadQueryOptions,
-    },
+  const portfolioQuery = useAurovePortfolio({
+    ownerAddress,
+    chainId: resolvedChainId,
+    enabled: Boolean(ownerAddress && resolvedSymbol),
   });
 
-  const balanceRaw = (reads.data?.[0]?.result as bigint | undefined) ?? 0n;
-  const allowanceRaw =
-    spenderAddress && reads.data?.[1]
-      ? ((reads.data[1].result as bigint | undefined) ?? 0n)
-      : 0n;
+  if (resolvedSymbol) {
+    const tokenSnapshot = portfolioQuery.portfolio.tokens[resolvedSymbol];
+
+    return {
+      balanceRaw: tokenSnapshot.balanceRaw,
+      allowanceRaw: tokenSnapshot.allowanceRaw,
+      isChecking: portfolioQuery.isLoading || portfolioQuery.isFetching,
+      error: portfolioQuery.error,
+      refresh: portfolioQuery.refresh,
+      readAddress: tokenSnapshot.address,
+    };
+  }
 
   return {
-    balanceRaw,
-    allowanceRaw,
-    isChecking: reads.isPending || reads.isFetching,
-    error: (reads.error as Error | null) ?? null,
+    balanceRaw: 0n,
+    allowanceRaw: 0n,
+    isChecking: false,
+    error: null,
     refresh: () => {
-      void reads.refetch();
+      void portfolioQuery.refresh();
     },
-    readAddress,
+    readAddress: spenderAddress ?? tokenAddress ?? null,
   };
 }

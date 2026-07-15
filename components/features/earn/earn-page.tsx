@@ -17,7 +17,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { erc20Abi, erc721Abi, formatUnits, type Abi, type Address } from "viem";
-import { useChainId } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
+import { useQueryClient } from "@tanstack/react-query";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
 import { appRoutes } from "@/components/app/app-nav";
 import { getEarnProtocolConfig, getRewardSinkAbi } from "@/contracts/earn";
@@ -25,6 +26,7 @@ import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
+import { setAurovePortfolioCache } from "@/lib/web3/use-aurove-portfolio";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/earn/hooks/use-user-ve-nfts";
 import { type EarnProduct, type EarnVariant, useApyBasis, useEarnSnapshot } from "./use-earn-data";
 import { EarnPositionCard } from "./earn-position-card";
@@ -75,6 +77,7 @@ function getTokenIconPath(variant: EarnVariant) {
 
 export function EarnPage() {
   const { chainTimestamp } = useChainTime();
+  const { address: accountAddress } = useAccount();
   const {
     assetLedger,
     products,
@@ -92,6 +95,7 @@ export function EarnPage() {
     error: veNftsError,
     refresh: refreshVeNfts,
   } = useUserVeNFTs();
+  const queryClient = useQueryClient();
 
   const [variant, setVariant] = useState<EarnVariant>("veBTC");
   const [createMode, setCreateMode] = useState<CreatePositionMode>("erc20");
@@ -162,6 +166,54 @@ export function EarnPage() {
     assetFractionAbi,
   });
   const apyBasisMap = useMemo(() => apyQuery.data ?? {}, [apyQuery.data]);
+
+  function patchCreatePortfolioState() {
+    if (!accountAddress) return;
+
+    if (createMode === "erc20" && selectedToken && parsedCreateAmount) {
+      const tokenSymbol = variant === "veBTC" ? "BTC" : "MEZO";
+      const amount = parsedCreateAmount;
+
+      setAurovePortfolioCache(queryClient, { chainId, account: accountAddress }, (current) => {
+        const token = current.tokens[tokenSymbol];
+        return {
+          ...current,
+          tokens: {
+            ...current.tokens,
+            [tokenSymbol]: {
+              ...token,
+              balanceRaw: token.balanceRaw > amount ? token.balanceRaw - amount : 0n,
+              allowanceRaw: token.allowanceRaw > amount ? token.allowanceRaw - amount : 0n,
+            },
+          },
+        };
+      });
+    }
+
+    if (createMode === "venft" && selectedVeNft) {
+      const assetType = selectedVeNft.assetType;
+      const tokenId = selectedVeNft.tokenId;
+
+      setAurovePortfolioCache(queryClient, { chainId, account: accountAddress }, (current) => {
+        const collection = current.veCollections[assetType];
+        const nextPositions = collection.positions.filter((position) => position.tokenId !== tokenId);
+        const nextTokenIds = collection.tokenIds.filter((value) => value !== tokenId);
+
+        return {
+          ...current,
+          veCollections: {
+            ...current.veCollections,
+            [assetType]: {
+              ...collection,
+              balanceRaw: collection.balanceRaw > 0n ? collection.balanceRaw - 1n : 0n,
+              tokenIds: nextTokenIds,
+              positions: nextPositions,
+            },
+          },
+        };
+      });
+    }
+  }
 
   const createDisabledReason = !selectedToken?.underlyingAddress
     ? "This token is not available on this network."
@@ -247,11 +299,13 @@ export function EarnPage() {
     ];
   };
 
-  const handleSuccess = (message: string) => {
+  const handleSuccess = (message: string, options?: { skipRefresh?: boolean }) => {
     setSuccessMessage(message);
     setErrorMessage(null);
-    refresh();
-    refreshVeNfts();
+    if (!options?.skipRefresh) {
+      refresh();
+      refreshVeNfts();
+    }
   };
 
   const handleError = (message: string) => {
@@ -383,6 +437,7 @@ export function EarnPage() {
               if (createMode === "venft") {
                 setSelectedVeNftKey("");
               }
+              patchCreatePortfolioState();
               handleSuccess(
                 createMode === "erc20"
                   ? `Your ${createEpochs}-epoch ${variant === "veBTC" ? "BTC" : "MEZO"} position is live.`
