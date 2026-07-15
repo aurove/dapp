@@ -28,11 +28,8 @@ import { useUserVeNFTs, type UserVeNft } from "@/components/features/earn/hooks/
 import { type EarnProduct, type EarnVariant, useApyBasis, useEarnSnapshot } from "./use-earn-data";
 import { EarnPositionCard } from "./earn-position-card";
 import { getContractConfig } from "@/contracts/client";
+import { MAX_EPOCHS_BY_VARIANT, symbolOf } from "./utils/tranche";
 
-const FIXED_CREATE_EPOCHS: Record<EarnVariant, number> = {
-  veBTC: 4,
-  veMEZO: 208,
-};
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
 type ClaimableSummary = {
@@ -105,15 +102,15 @@ function txError(handler: (message: string) => void) {
 function variantCopy(variant: EarnVariant) {
   return variant === "veBTC"
     ? {
-        headline: "BTC-backed fungible Earn products",
-        asset: "BTC",
-        tone: "border-amber-300/25 bg-amber-300/10 text-amber-100",
-      }
+      headline: "BTC-backed fungible Earn products",
+      asset: "BTC",
+      tone: "border-amber-300/25 bg-amber-300/10 text-amber-100",
+    }
     : {
-        headline: "MEZO-backed fungible Earn products",
-        asset: "MEZO",
-        tone: "border-sky-300/25 bg-sky-300/10 text-sky-100",
-      };
+      headline: "MEZO-backed fungible Earn products",
+      asset: "MEZO",
+      tone: "border-sky-300/25 bg-sky-300/10 text-sky-100",
+    };
 }
 
 function getTokenIconPath(variant: EarnVariant) {
@@ -150,7 +147,7 @@ export function EarnPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const selectedToken = tokens[variant];
   const parsedCreateAmount = selectedToken ? parseAmountRaw(amount, selectedToken.decimals) : null;
-  const createEpochs = FIXED_CREATE_EPOCHS[variant];
+  const createEpochs = MAX_EPOCHS_BY_VARIANT[variant];
   const availableVeNfts = useMemo(
     () => veCollections.flatMap((collection) => collection.veNfts),
     [veCollections],
@@ -263,16 +260,16 @@ export function EarnPage() {
     }
 
     steps.push(
-        makeContractWriteStep({
-          key: "deposit-erc20",
-          label: "Create liquid lock",
-          displayLabelBtn: true,
-          contractName: "Ledger",
-          variables: {
-            functionName: "depositErc20",
-            args: [variant === "veBTC" ? 1 : 2, BigInt(createEpochs), parsedCreateAmount, account],
-          },
-        }) as unknown as TxStep,
+      makeContractWriteStep({
+        key: "deposit-erc20",
+        label: "Create liquid lock",
+        displayLabelBtn: true,
+        contractName: "Ledger",
+        variables: {
+          functionName: "depositErc20",
+          args: [variant === "veBTC" ? 1 : 2, BigInt(createEpochs), parsedCreateAmount, account],
+        },
+      }) as unknown as TxStep,
     );
 
     return steps;
@@ -423,6 +420,7 @@ export function EarnPage() {
             createMode={createMode}
             setCreateMode={setCreateMode}
             variant={variant}
+            createEpochs={createEpochs}
             setVariant={setVariant}
             amount={amount}
             setAmount={setAmount}
@@ -621,6 +619,7 @@ function CreatePositionCard({
   createMode,
   setCreateMode,
   variant,
+  createEpochs,
   setVariant,
   amount,
   setAmount,
@@ -640,6 +639,7 @@ function CreatePositionCard({
   createMode: CreatePositionMode;
   setCreateMode: (mode: CreatePositionMode) => void;
   variant: EarnVariant;
+  createEpochs: number;
   setVariant: (variant: EarnVariant) => void;
   amount: string;
   setAmount: (amount: string) => void;
@@ -668,11 +668,11 @@ function CreatePositionCard({
   const isBalanceIssue = Boolean(
     disabledReason?.toLowerCase().includes("insufficient wallet balance"),
   );
-  const receiveSymbol = selectedToken?.symbol ?? copy.asset;
+  const receiveSymbol = symbolOf(variant, createEpochs);
   const receiveAmount = formatCompactRawTokenAmount(
     parsedAmount ?? 0n,
     selectedToken?.decimals ?? 18,
-    receiveSymbol,
+    "",
   );
   const ctaLabel =
     createMode === "erc20"
@@ -810,7 +810,7 @@ function CreatePositionCard({
                 className={cn(
                   "h-14 rounded-2xl px-4 text-2xl font-semibold tracking-tight",
                   isBalanceIssue &&
-                    "border-red-500/60 bg-red-500/[0.05] focus-visible:ring-red-400/70",
+                  "border-red-500/60 bg-red-500/[0.05] focus-visible:ring-red-400/70",
                 )}
               />
               <div className="space-y-2 pt-1">
@@ -905,7 +905,7 @@ function CreatePositionCard({
               </div>
             </div>
             <div className="text-right">
-              <p className="text-lg font-semibold text-white">{receiveAmount}</p>
+              <p className="text-base font-semibold text-white">{receiveAmount}</p>
             </div>
           </div>
         </div>
