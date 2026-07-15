@@ -25,11 +25,21 @@ type ParsedErrorLike = {
 
 type HexLike = `0x${string}`;
 
+type KnownCustomErrorSelector = {
+  selector: HexLike;
+  errorName: string;
+};
+
 type AbiErrorFragment = {
   type: "error";
   name: string;
   inputs?: readonly { type: string; name?: string }[];
 };
+
+const KNOWN_CUSTOM_ERROR_SELECTORS: readonly KnownCustomErrorSelector[] = [
+  { selector: "0x5a780bad", errorName: "DistributeWindow" },
+  { selector: "0xcade311f", errorName: "AlreadyVotedOrDeposited" },
+];
 
 const KNOWN_ERROR_ABIS = (() => {
   const seen = new Set<string>();
@@ -247,6 +257,10 @@ function formatKnownCustomError(errorName: string, args: readonly unknown[]): st
       return `Insufficient native payment sent. Sent ${formatRawUnits(
         args[0],
       )}, required ${formatRawUnits(args[1])}.`;
+    case "DistributeWindow":
+      return "Deposits are blocked during the distribution window.";
+    case "AlreadyVotedOrDeposited":
+      return "This veNFT has already voted or been deposited in the current epoch.";
     default:
       return undefined;
   }
@@ -313,6 +327,19 @@ function extractRevertData(error: unknown, depth = 0): HexLike | undefined {
   return undefined;
 }
 
+function decodeKnownSelectorError(errorData: HexLike): string | undefined {
+  const selector = errorData.slice(0, 10).toLowerCase() as HexLike;
+  const knownError = KNOWN_CUSTOM_ERROR_SELECTORS.find(
+    (entry) => entry.selector.toLowerCase() === selector,
+  );
+
+  if (!knownError) {
+    return undefined;
+  }
+
+  return formatKnownCustomError(knownError.errorName, []);
+}
+
 function decodeCustomErrorFallback(errorData: HexLike): string | undefined {
   for (const abi of KNOWN_ERROR_ABIS) {
     try {
@@ -323,7 +350,7 @@ function decodeCustomErrorFallback(errorData: HexLike): string | undefined {
     }
   }
 
-  return undefined;
+  return decodeKnownSelectorError(errorData);
 }
 
 export const getParsedError = (error: unknown): string => {
