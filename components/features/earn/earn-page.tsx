@@ -671,11 +671,10 @@ function CreatePositionCard({
     disabledReason?.toLowerCase().includes("insufficient wallet balance"),
   );
   const receiveSymbol = symbolOf(variant, createEpochs);
-  const receiveAmount = formatCompactRawTokenAmount(
-    parsedAmount ?? 0n,
-    selectedToken?.decimals ?? 18,
-    "",
-  );
+ const receiveAmountRaw =
+    createMode === "venft" && selectedVeNft ? selectedVeNft.lockAmountRaw : parsedAmount ?? 0n;
+  const receiveAmountDecimals = createMode === "venft" ? 18 : selectedToken?.decimals ?? 18;
+  const receiveAmount = formatCompactRawTokenAmount(receiveAmountRaw, receiveAmountDecimals, "");
   const ctaLabel =
     createMode === "erc20"
       ? isAmountEntered
