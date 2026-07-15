@@ -8,34 +8,31 @@ import { NotificationsToaster } from "@/lib/notifications";
 export const metadata: Metadata = {
   metadataBase: new URL("https://aurove.xyz"),
   title: {
-    default: "Aurove | Liquid ve-Yield Layer for Mezo Earn",
+    default: "Aurove | Mezo Earn made easier",
     template: "%s | Aurove",
   },
-  description:
-    "Aurove is the liquid ve-yield layer for Mezo Earn.",
+  description: "Aurove makes Mezo Earn positions easier to use.",
   applicationName: "Aurove",
   keywords: [
     "BTC",
     "veBTC",
     "veMEZO",
     "Mezo Earn",
-    "liquid locks",
-    "yield routing",
-    "optimised yields",
+    "liquid asset",
+    "swap",
+    "redeem",
   ],
   openGraph: {
-    title: "Aurove | Liquid ve-Yield Layer for Mezo Earn",
-    description:
-      "Aurove turns veBTC and veMEZO positions into liquid, swappable Mezo Earn products.",
+    title: "Aurove | Mezo Earn made easier",
+    description: "Aurove turns BTC, MEZO, or a Mezo Earn position into a liquid asset you can use more easily.",
     type: "website",
     siteName: "Aurove",
     url: "/",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Aurove | Liquid ve-Yield Layer for Mezo Earn",
-    description:
-      "Aurove turns veBTC and veMEZO positions into liquid, swappable Mezo Earn products.",
+    title: "Aurove | Mezo Earn made easier",
+    description: "Aurove turns BTC, MEZO, or a Mezo Earn position into a liquid asset you can use more easily.",
   },
 };
 

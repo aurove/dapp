@@ -3,16 +3,16 @@ import { SectionHeading } from "@/components/site/section-heading";
 
 const cards = [
   {
-    title: "Understandable Earn Products",
-    body: "Convert veBTC / veMEZO positions, lock durations, boosts, and rewards into product units that are easier to compare and hold.",
+    title: "Deposit what you have",
+    body: "Put BTC, MEZO, or an existing Mezo Earn position into Aurove without needing to understand the protocol details.",
   },
   {
-    title: "Swappable Exposure",
-    body: "Enable liquidity around fungible Earn products so ownership transitions are cleaner than bespoke lock transfers.",
+    title: "Get a liquid asset",
+    body: "Receive an Aurove asset that is easier to hold, move, and use than a locked position.",
   },
   {
-    title: "Usable Reward Routing",
-    body: "Bring gauges, rewards, boosts, and incentive routing into product flows built for predictable position handling.",
+    title: "Swap or redeem later",
+    body: "Keep the option to trade your position or redeem it when you want more flexibility.",
   },
 ] as const;
 
@@ -21,8 +21,8 @@ export function OverviewSection() {
     <section id="overview" className="mt-20">
       <SectionHeading
         badge="Why Aurove"
-        title="Mezo Earn stays powerful. Its products become simple to use."
-        description="Aurove simplifies complex veBTC / veMEZO positions into fungible Earn products users can understand, swap, and use without awkward manual veNFT handling."
+        title="Mezo Earn stays powerful. Aurove makes it easier to use."
+        description="Aurove turns BTC, MEZO, or an existing Mezo Earn position into a liquid asset you can understand, hold, swap, or redeem."
       />
 
       <div className="mt-8 grid gap-4 md:grid-cols-3">
