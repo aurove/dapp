@@ -204,7 +204,7 @@ export function EarnPage() {
     steps.push(
       makeContractWriteStep({
         key: "deposit-erc20",
-        label: "Create liquid lock",
+        label: "Create a liquid position",
         displayLabelBtn: true,
         contractName: "Ledger",
         variables: {
@@ -317,10 +317,10 @@ export function EarnPage() {
 
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold text-white">Your Fraction Positions</h2>
+              <h2 className="text-xl font-semibold text-white">Your Liquid Positions</h2>
               <p className="mt-1 text-sm text-white/55">
-                Swipe through wallet-held fraction positions, track target epoch progress, and
-                redeem underlying when the product window opens.
+                View the liquid positions in your wallet, track what they are earning, and redeem
+                them when the redemption window opens.
               </p>
             </div>
             <Button variant="secondary" size="sm" onClick={refresh} disabled={isFetching}>
@@ -624,7 +624,7 @@ function CreatePositionCard({
   const ctaLabel =
     createMode === "erc20"
       ? isAmountEntered
-        ? "Create liquid lock"
+        ? "Create a liquid position"
         : "Continue"
       : "Deposit position";
 
@@ -892,16 +892,16 @@ function EmptyPositions() {
       <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(230,210,173,0.42),transparent)]" />
       <div className="relative mx-auto max-w-3xl rounded-2xl border border-dashed border-white/14 bg-[#070b10]/58 px-6 py-9 shadow-[inset_0_1px_20px_rgba(255,255,255,0.025)] backdrop-blur-sm">
         <Wallet className="mx-auto h-8 w-8 text-white/40" />
-        <h3 className="mt-3 text-lg font-semibold text-white">No fungible Earn products yet</h3>
+        <h3 className="mt-3 text-lg font-semibold text-white">No liquid positions yet</h3>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-white/58">
-          Create a position from supported BTC or MEZO assets, or preview liquidity on the{" "}
+          Deposit BTC, MEZO, or an existing Mezo Earn position to create a liquid position that
+          keeps earning.{" "}
           <Link
             href={appRoutes.find((route) => route.label === "Swap")?.href ?? "/swap"}
-            className="font-medium text-[var(--accent-soft)] underline-offset-4 hover:underline"
+            className="relative z-10 inline-block font-medium !text-[var(--accent-soft)] underline-offset-4 hover:underline"
           >
-            Swap page
-          </Link>{" "}
-          while swap routing is being prepared.
+            Explore swaps
+          </Link>
         </p>
       </div>
     </div>

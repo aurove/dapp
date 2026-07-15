@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { formatUnits, type Address } from "viem";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
-import { AddTokenToWalletButton } from "@/components/shared/add-token-to-wallet-button";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
@@ -83,57 +82,44 @@ function PositionCardContent({
   isLoading: boolean;
 }) {
   const copy = variantCopy(product.variant);
-  const progress = epochProgressPercent(product, chainTimestamp);
   const apyEstimate = estimateTrancheApy(product);
   const parsedWithdraw = parseAmountRaw(withdrawAmount, product.decimals);
   const isSettlementWindowOpen = isTargetSettlementWindow(product, chainTimestamp);
   const isWithinEpochCooldown = isEpochCooldown(chainTimestamp);
   const isExpired = isTrancheExpired(product, chainTimestamp);
-  const [actionModeState, setActionMode] = useState<PositionActionMode>(
-    isExpired ? "withdraw" : "refund",
+  const [selectedRedemptionKeys, setSelectedRedemptionKeys] = useState<string[]>([]);
+  useEffect(() => {
+    const availableKeys = new Set(product.refundablePositions.map((position) => position.key));
+    setSelectedRedemptionKeys((current) => {
+      const next = current.filter((key) => availableKeys.has(key));
+      if (next.length > 0) return next;
+      const fallback = product.refundablePositions[0]?.key;
+      return fallback ? [fallback] : [];
+    });
+  }, [product.refundablePositions]);
+  const selectedRedemptionPositions = product.refundablePositions.filter((position) =>
+    selectedRedemptionKeys.includes(position.key),
   );
-  const [selectedRefundKeyState, setSelectedRefundKey] = useState("");
-  const selectedRefundKey = product.refundablePositions.some(
-    (position) => position.key === selectedRefundKeyState,
-  )
-    ? selectedRefundKeyState
-    : (product.refundablePositions[0]?.key ?? "");
-  const selectedRefundPosition =
-    product.refundablePositions.find((position) => position.key === selectedRefundKey) ?? null;
+  const selectedRedemptionTotalRaw = selectedRedemptionPositions.reduce(
+    (total, position) => total + position.lockedAmountRaw,
+    0n,
+  );
   const isActionWindowOpen = isSettlementWindowOpen && product.targetEpochEnd !== null;
-  const effectiveActionMode: PositionActionMode = isExpired ? actionModeState : "refund";
-  const canWithdraw =
-    effectiveActionMode === "withdraw" &&
-    isExpired &&
-    parsedWithdraw !== null &&
-    parsedWithdraw <= product.userAvailableBalanceRaw &&
-    parsedWithdraw > 0n;
-  const canRefund =
-    effectiveActionMode === "refund" &&
-    selectedRefundPosition !== null &&
-    selectedRefundPosition.lockedAmountRaw <= product.userAvailableBalanceRaw;
-  const canSubmit = isActionWindowOpen && !isWithinEpochCooldown && (canWithdraw || canRefund);
-  const actionLabel = effectiveActionMode === "withdraw" ? "Withdraw underlying" : "Refund veNFT";
-  const actionUnavailableLabel = isExpired ? "Await claim window" : "Await refund window";
+  const actionControlId = `redeem-amount-${product.id}`;
+  const redemptionAmountRaw =
+    product.variant === "veMEZO" ? selectedRedemptionTotalRaw : parsedWithdraw ?? 0n;
+  const canSubmit =
+    isActionWindowOpen &&
+    !isWithinEpochCooldown &&
+    selectedRedemptionPositions.length > 0 &&
+    redemptionAmountRaw > 0n &&
+    redemptionAmountRaw <= product.userAvailableBalanceRaw;
+  const actionLabel = "Redeem";
+  const actionUnavailableLabel = isExpired ? "Await claim window" : "Await redemption window";
   const actionSteps = (account: Address): TxStep[] => {
-    if (effectiveActionMode === "withdraw") {
-      return [
-        makeContractWriteStep({
-          key: "withdraw",
-          label: actionLabel,
-          displayLabelBtn: true,
-          contractName: "Ledger",
-          variables: {
-            functionName: "redeem",
-            args: [product.trancheId, parsedWithdraw ?? 0n, account, []],
-          },
-        }) as unknown as TxStep,
-      ];
-    }
-
     return [
       makeContractWriteStep({
-        key: "refund",
+        key: "redeem",
         label: actionLabel,
         displayLabelBtn: true,
         contractName: "Ledger",
@@ -141,9 +127,9 @@ function PositionCardContent({
           functionName: "redeem",
           args: [
             product.trancheId,
-            selectedRefundPosition?.lockedAmountRaw ?? 0n,
+            redemptionAmountRaw,
             account,
-            selectedRefundPosition ? [selectedRefundPosition.tokenId] : [],
+            selectedRedemptionPositions.map((position) => position.tokenId),
           ],
         },
       }) as unknown as TxStep,
@@ -159,34 +145,9 @@ function PositionCardContent({
             <CardTitle className="mt-3 text-lg">{product.symbol}</CardTitle>
             <CardDescription>{product.name}</CardDescription>
           </div>
-          <AddTokenToWalletButton
-            address={product.fractionAddress}
-            symbol={product.symbol}
-            decimals={product.decimals}
-            tokenId={product.trancheId}
-            className="shrink-0"
-          />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading ? <Skeleton className="h-2 w-24 rounded-full" /> : null}
-        <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.025] p-3">
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="font-medium text-white">Target epoch progress</span>
-            <span className="text-white/45">{progress}%</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-[var(--accent)] transition-[width]"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-3 text-xs text-white/45">
-            <span>{formatDuration(product.trancheDuration, product.trancheNumber)}</span>
-            <span>{formatDate(product.targetEpochEnd)}</span>
-          </div>
-        </div>
-
         <div className="grid grid-cols-2 gap-3">
           <InfoTile
             label="Available Balance"
@@ -207,10 +168,10 @@ function PositionCardContent({
           />
         </div>
 
-        <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.025] p-3">
+        <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.025] p-3">
           <div className="flex items-center justify-between gap-3">
-            <label htmlFor={`withdraw-${product.id}`} className="text-sm font-medium text-white">
-              {actionLabel}
+            <label htmlFor={actionControlId} className="text-sm font-medium text-white">
+              Redemption amount
             </label>
             <span className="text-xs text-white/45">
               {isWithinEpochCooldown
@@ -218,82 +179,102 @@ function PositionCardContent({
                 : isActionWindowOpen
                   ? isExpired
                     ? "Tranche expired"
-                    : "Claim window open"
-                  : "Waiting for claim window"}
+                    : "Redemption window open"
+                  : "Waiting for redemption window"}
             </span>
           </div>
-          {isExpired ? (
-            <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/10 bg-[#080c12]/60 p-1">
-              {[
-                { value: "withdraw", label: "Withdraw" },
-                { value: "refund", label: "Refund" },
-              ].map((option) => (
-                <label
-                  key={option.value}
-                  className={cn(
-                    "flex cursor-pointer items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white/60 transition",
-                    actionModeState === option.value && "bg-white/10 text-white shadow-inner",
-                  )}
-                >
-                  <input
-                    type="radio"
-                    className="sr-only"
-                    name={`position-action-${product.id}`}
-                    value={option.value}
-                    checked={actionModeState === option.value}
-                    onChange={() => setActionMode(option.value as PositionActionMode)}
-                  />
-                  {option.label}
-                </label>
-              ))}
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-white">Select veNFTs to redeem</span>
+              <span className="text-xs text-white/45">
+                Selected{" "}
+                {formatAmount(selectedRedemptionTotalRaw, product.decimals, product.symbol)}
+              </span>
             </div>
-          ) : null}
-          {effectiveActionMode === "withdraw" ? (
-            <div className="flex gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {product.refundablePositions.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white/45 sm:col-span-2">
+                  No redeemable veNFTs available.
+                </div>
+              ) : (
+                product.refundablePositions.map((position) => {
+                  const checked = selectedRedemptionKeys.includes(position.key);
+
+                  return (
+                    <label
+                      key={position.key}
+                      className={cn(
+                        "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 text-sm transition",
+                        checked
+                          ? "border-[var(--accent)]/50 bg-[rgba(196,160,106,0.08)] text-white"
+                          : "border-white/10 bg-[#080c12]/60 text-white/70 hover:border-white/20",
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                        checked={checked}
+                        disabled={!isActionWindowOpen || isWithinEpochCooldown}
+                        onChange={(event) => {
+                          const next = event.target.checked
+                            ? [...selectedRedemptionKeys, position.key]
+                            : selectedRedemptionKeys.filter((key) => key !== position.key);
+                          setSelectedRedemptionKeys(next);
+                        }}
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium text-white">#{position.tokenId.toString()}</p>
+                        <p className="text-xs text-white/45">
+                          {formatAmount(position.lockedAmountRaw, product.decimals, copy.asset)}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {product.variant === "veMEZO" ? (
+            <div className="space-y-2">
               <Input
-                id={`withdraw-${product.id}`}
+                id={actionControlId}
                 inputMode="decimal"
                 placeholder="0.00"
-                value={withdrawAmount}
-                onChange={(event) => setWithdrawAmount(event.target.value)}
-                disabled={!isActionWindowOpen || isWithinEpochCooldown}
+                value={formatUnits(selectedRedemptionTotalRaw, product.decimals)}
+                disabled
               />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  setWithdrawAmount(formatUnits(product.userAvailableBalanceRaw, product.decimals))
-                }
-                disabled={!isActionWindowOpen || isWithinEpochCooldown}
-              >
-                Max
-              </Button>
+              <p className="text-xs text-white/45">
+                MEZO redemption uses the selected veNFTs only. The amount updates from the selected
+                tokens automatically.
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
-              <select
-                id={`refund-${product.id}`}
-                value={selectedRefundKey}
-                onChange={(event) => setSelectedRefundKey(event.target.value)}
-                disabled={
-                  !isActionWindowOpen ||
-                  isWithinEpochCooldown ||
-                  product.refundablePositions.length === 0
-                }
-                className="h-11 w-full rounded-lg border border-white/10 bg-[#101820] px-3 text-sm text-white outline-none transition focus:border-[var(--accent)] disabled:opacity-50"
-              >
-                {product.refundablePositions.length === 0 ? (
-                  <option value="">No refundable veNFTs</option>
-                ) : null}
-                {product.refundablePositions.map((position) => (
-                  <option key={position.key} value={position.key}>
-                    #{position.tokenId.toString()} -{" "}
-                    {formatAmount(position.lockedAmountRaw, product.decimals, copy.asset)}
-                  </option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <Input
+                  id={actionControlId}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={withdrawAmount}
+                  onChange={(event) => setWithdrawAmount(event.target.value)}
+                  disabled={!isActionWindowOpen || isWithinEpochCooldown}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setWithdrawAmount(formatUnits(product.userAvailableBalanceRaw, product.decimals))
+                  }
+                  disabled={!isActionWindowOpen || isWithinEpochCooldown}
+                >
+                  Max
+                </Button>
+              </div>
               <p className="text-xs text-white/45">
-                Refund burns the exact locked amount and returns the selected managed veNFT.
+                BTC redemption can use any selected veNFTs as inventory. Enter the exact amount to
+                redeem.
               </p>
             </div>
           )}
@@ -305,9 +286,7 @@ function PositionCardContent({
             onComplete={() => {
               setWithdrawAmount("");
               onSuccess(
-                effectiveActionMode === "withdraw"
-                  ? `${product.symbol} underlying withdrawn.`
-                  : `${product.symbol} veNFT refunded.`,
+                `${product.symbol} redeemed.`,
               );
             }}
             onError={txError(onError)}
@@ -320,8 +299,8 @@ function PositionCardContent({
           </TransactionFlowButton>
           {isWithinEpochCooldown ? (
             <p className="text-xs text-amber-100/80">
-              Withdraw/refund actions are paused for 2 hours after epoch rollover so backend claims
-              can settle first.
+              Redemption actions are paused for 2 hours after epoch rollover so backend claims can
+              settle first.
             </p>
           ) : null}
         </div>
@@ -342,13 +321,6 @@ function PositionCardShell({ product }: { product: EarnProduct }) {
             <CardTitle className="mt-3 text-lg">{product.symbol}</CardTitle>
             <CardDescription>{product.name}</CardDescription>
           </div>
-          <AddTokenToWalletButton
-            address={product.fractionAddress}
-            symbol={product.symbol}
-            decimals={product.decimals}
-            tokenId={product.trancheId}
-            className="shrink-0"
-          />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -400,21 +372,6 @@ function InfoTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatDate(timestamp: bigint | null) {
-  if (!timestamp || timestamp === 0n) return "Unavailable";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(Number(timestamp) * 1000));
-}
-
-function formatDuration(seconds: bigint | null, fallbackWeeks: number) {
-  if (!seconds || seconds === 0n) return `${fallbackWeeks} weeks`;
-  const weeks = Number(seconds / (7n * 24n * 60n * 60n));
-  return `${weeks} weeks`;
-}
-
 function formatAmount(value: bigint | null | undefined, decimals = 18, symbol?: string | null) {
   return formatCompactRawTokenAmount(value, decimals, symbol ?? undefined);
 }
@@ -455,23 +412,6 @@ function estimateTrancheApy(product: EarnProduct): TrancheApyEstimate | null {
     product,
     apyPercent: (rewardDeposited / totalSupply) * annualization * 100,
   };
-}
-
-function epochProgressPercent(product: EarnProduct, blockchainNow: bigint | null): number {
-  if (blockchainNow === null || !product.trancheDuration) return 0;
-  if (product.refundablePositions.length === 0) return 100;
-
-  const maxUnlock = (max: bigint, pos: EarnProduct["refundablePositions"][number]) =>
-    pos.unlockTime ? (pos.unlockTime > max ? pos.unlockTime : max) : max;
-  const start = product.refundablePositions.reduce(maxUnlock, 0n) - product.trancheDuration;
-
-  return Math.max(
-    0,
-    Math.min(
-      100,
-      Math.round(Number((blockchainNow - start) * 100n) / Number(product.trancheDuration)),
-    ),
-  );
 }
 
 function isTargetSettlementWindow(product: EarnProduct, blockchainNow: bigint | null): boolean {
