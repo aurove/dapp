@@ -16,10 +16,11 @@ import {
   Sparkles,
   Wallet,
 } from "lucide-react";
-import { erc20Abi, erc721Abi, formatUnits, type Address } from "viem";
+import { erc20Abi, erc721Abi, formatUnits, type Abi, type Address } from "viem";
 import { useChainId } from "wagmi";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
 import { appRoutes } from "@/components/app/app-nav";
+import { getEarnProtocolConfig, getRewardSinkAbi } from "@/contracts/earn";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { useChainTime } from "@/lib/web3/use-chain-time";
@@ -27,7 +28,6 @@ import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-pa
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/earn/hooks/use-user-ve-nfts";
 import { type EarnProduct, type EarnVariant, useApyBasis, useEarnSnapshot } from "./use-earn-data";
 import { EarnPositionCard } from "./earn-position-card";
-import { getContractConfig } from "@/contracts/client";
 import { MAX_EPOCHS_BY_VARIANT, symbolOf } from "./utils/tranche";
 
 type ClaimableSummary = {
@@ -152,7 +152,9 @@ export function EarnPage() {
   }, [products]);
 
   const chainId = useChainId();
-  const assetFractionAbi = getContractConfig(chainId, "Ledger")?.abi;
+  const earnContracts = useMemo(() => getEarnProtocolConfig(chainId), [chainId]);
+  const assetFractionAbi = earnContracts.ledger?.abi;
+  const rewardSinkAbi = getRewardSinkAbi(chainId);
   const apyQuery = useApyBasis({
     enabled: true,
     products: products,
@@ -308,7 +310,7 @@ export function EarnPage() {
         <section className="order-2 min-w-0 space-y-4 lg:order-1">
           <ClaimablesPanel
             summaries={claimableSummaries}
-            assetLedger={assetLedger}
+            rewardSinkAbi={rewardSinkAbi}
             onSuccess={(message) => handleSuccess(message)}
             onError={handleError}
           />
@@ -446,12 +448,12 @@ function StatusPanel({
 
 function ClaimablesPanel({
   summaries,
-  assetLedger,
+  rewardSinkAbi,
   onSuccess,
   onError,
 }: {
   summaries: ClaimableSummary[];
-  assetLedger: ReturnType<typeof useEarnSnapshot>["assetLedger"];
+  rewardSinkAbi: Abi | null;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
@@ -494,7 +496,7 @@ function ClaimablesPanel({
                 </p>
                 <ClaimableTokenButton
                   summary={summary}
-                  assetLedger={assetLedger}
+                  rewardSinkAbi={rewardSinkAbi}
                   onSuccess={onSuccess}
                   onError={onError}
                 />
@@ -509,40 +511,45 @@ function ClaimablesPanel({
 
 function ClaimableTokenButton({
   summary,
-  assetLedger,
+  rewardSinkAbi,
   onSuccess,
   onError,
 }: {
   summary: ClaimableSummary;
-  assetLedger: ReturnType<typeof useEarnSnapshot>["assetLedger"];
+  rewardSinkAbi: Abi | null;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
-  const trancheIds = useMemo(
-    () => [...new Set(summary.products.map((product) => product.trancheId))],
+  const rewardSinkAddresses = useMemo(
+    () =>
+      [...new Set(summary.products.map((product) => product.rewardSinkAddress).filter(Boolean))]
+        .filter((address): address is Address => Boolean(address)),
     [summary.products],
   );
 
-  const isDisabled = !assetLedger?.address || !assetLedger.abi || summary.products.length === 0;
+  const isDisabled = rewardSinkAddresses.length === 0;
 
   return (
     <TransactionFlowButton
       className="w-full"
       size="sm"
       variant="secondary"
-      disabled={isDisabled}
-      steps={() => [
-        makeContractWriteStep({
-          key: `claim-${summary.key}`,
-          label: `Claim ${summary.symbol}`,
-          displayLabelBtn: true,
-          contractName: "Ledger",
-          variables: {
-            functionName: "claimRebases",
-            args: [trancheIds],
-          },
-        }) as unknown as TxStep,
-      ]}
+      disabled={isDisabled || !rewardSinkAbi}
+      steps={() =>
+        rewardSinkAddresses.map((rewardSinkAddress, index) =>
+          makeAddressWriteStep({
+            key: `claim-${summary.key}-${rewardSinkAddress}`,
+            label: `Claim ${summary.symbol}`,
+            displayLabelBtn: index === 0,
+            address: rewardSinkAddress,
+            abi: rewardSinkAbi as Abi,
+            variables: {
+              functionName: "claimRewards",
+              args: [],
+            },
+          }) as unknown as TxStep,
+        )
+      }
       onComplete={() => {
         onSuccess(
           `${summary.symbol} rewards claimed from ${summary.trancheCount} tranche${summary.trancheCount === 1 ? "" : "s"}.`,

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseAbiItem, type Abi, type Address, type PublicClient } from "viem";
 import { useAccount, useChainId, usePublicClient, useReadContracts } from "wagmi";
-import { getContractConfig } from "@/contracts/client";
+import { getEarnProtocolConfig, getRewardSinkAbi } from "@/contracts/earn";
 import { useKnownMezoTokenBalance } from "@/components/shared/use-known-mezo-token-balance";
 import { useErc20MetadataMap } from "@/lib/web3/use-erc20-metadata";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
@@ -65,6 +65,7 @@ export type EarnProduct = {
   apyTotalSupplyAtFundingRaw: bigint | null;
   apyFundingBlockNumber: bigint | null;
   settledUnderlyingRaw: bigint | null;
+  rewardSinkAddress: Address | null;
   targetEpochEnd: bigint | null;
   trancheDuration: bigint | null;
   trancheLengthEpochs: bigint | null;
@@ -132,7 +133,7 @@ const totalSupplyAtBlockCache = new Map<string, Promise<bigint | null>>();
 
 const TRANCHE_META_READS = 2;
 const PRODUCT_STATIC_READS = 9;
-const PRODUCT_ACCOUNT_READS = 3;
+const PRODUCT_POSITION_READS = 2;
 const POSITION_READS = 2;
 
 function getFundingScanCache(chainId: number): FundingScanCache {
@@ -186,6 +187,7 @@ function emptyProductCore(fraction: FractionCore, userBalanceRaw = 0n): EarnProd
     apyTotalSupplyAtFundingRaw: null,
     apyFundingBlockNumber: null,
     settledUnderlyingRaw: null,
+    rewardSinkAddress: null,
     targetEpochEnd: null,
     trancheDuration: null,
     trancheLengthEpochs: decoded?.trancheNumber ? BigInt(decoded.trancheNumber) : null,
@@ -487,11 +489,13 @@ export function useEarnSnapshot() {
   const queryClient = useQueryClient();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = connectedChainId ?? activeChain.id;
-
-  const assetLedger = getContractConfig(chainId, "Ledger");
-  const assetFractionAbi = getContractConfig(chainId, "Ledger")?.abi;
-  const veBtc = getContractConfig(chainId, "VeBTC");
-  const veMezo = getContractConfig(chainId, "VeMEZO");
+  const earnContracts = useMemo(() => getEarnProtocolConfig(chainId), [chainId]);
+  const rewardSinkAbi = useMemo(() => getRewardSinkAbi(chainId), [chainId]);
+  const assetLedger = earnContracts.ledger;
+  const assetFractionAbi = earnContracts.ledger?.abi;
+  const vault = earnContracts.vault;
+  const veBtc = earnContracts.veBtc;
+  const veMezo = earnContracts.veMezo;
 
   const supportedVeNfts = useMemo(
     () =>
@@ -670,6 +674,53 @@ export function useEarnSnapshot() {
     [fractionCore, veBtc?.address, veMezo?.address],
   );
 
+  const rewardSinkContracts = useMemo(() => {
+    if (!vault?.address || !vault.abi || productsFromFractions.length === 0) return [];
+
+    return productsFromFractions.map((product) => ({
+      address: vault.address,
+      abi: vault.abi,
+      functionName: "rewardSinkOfTranche",
+      args: [product.trancheId],
+      chainId,
+    }));
+  }, [chainId, productsFromFractions, vault]);
+
+  const rewardSinkReads = useReadContracts({
+    allowFailure: true,
+    contracts: rewardSinkContracts,
+    query: {
+      enabled: rewardSinkContracts.length > 0,
+      ...staticReadQueryOptions,
+    },
+  });
+
+  const rewardSinkAddresses = useMemo(
+    () => (rewardSinkReads.data ?? []).map((entry) => readAddress(entry.result)),
+    [rewardSinkReads.data],
+  );
+
+  const claimableRewardsContracts = useMemo(() => {
+    if (!userAddress || rewardSinkAddresses.length === 0 || !rewardSinkAbi) return [];
+
+    return rewardSinkAddresses.map((rewardSinkAddress) => ({
+      address: rewardSinkAddress ?? ZERO_ADDRESS,
+      abi: rewardSinkAbi,
+      functionName: "claimableRewards",
+      args: [userAddress],
+      chainId,
+    }));
+  }, [chainId, rewardSinkAbi, rewardSinkAddresses, userAddress]);
+
+  const claimableRewardsReads = useReadContracts({
+    allowFailure: true,
+    contracts: claimableRewardsContracts,
+    query: {
+      enabled: claimableRewardsContracts.length > 0,
+      ...detailReadQueryOptions,
+    },
+  });
+
   const productStaticContracts = useMemo(() => {
     if (!canReadLedger || productsFromFractions.length === 0 || !assetFractionAbi) return [];
 
@@ -749,14 +800,7 @@ export function useEarnSnapshot() {
       {
         address: product.fractionAddress,
         abi: assetFractionAbi,
-        functionName: "claimableRewards",
-        args: [userAddress],
-        chainId,
-      },
-      {
-        address: product.fractionAddress,
-        abi: assetFractionAbi,
-        functionName: "availableBalanceOf",
+        functionName: "redeemableBalanceOf",
         args: [userAddress],
         chainId,
       },
@@ -873,7 +917,7 @@ export function useEarnSnapshot() {
   const products = useMemo<EarnProduct[]>(() => {
     return productsFromFractions.map((product, index) => {
       const staticCursor = index * PRODUCT_STATIC_READS;
-      const accountCursor = index * PRODUCT_ACCOUNT_READS;
+      const accountCursor = index * PRODUCT_POSITION_READS;
 
       const totalSupply = readBigint(readResult<unknown>(productStaticReads.data, staticCursor));
       const isTargetSettlementWindow = readBoolean(
@@ -901,11 +945,12 @@ export function useEarnSnapshot() {
         readNumber(readResult<unknown>(productStaticReads.data, staticCursor + 8)) ?? 18;
 
       const claimableRewardsRaw =
-        readBigint(readResult<unknown>(productAccountReads.data, accountCursor)) ?? 0n;
+        readBigint(readResult<unknown>(claimableRewardsReads.data, index)) ?? 0n;
       const userAvailableBalanceRaw =
-        readBigint(readResult<unknown>(productAccountReads.data, accountCursor + 1)) ?? 0n;
+        readBigint(readResult<unknown>(productAccountReads.data, accountCursor)) ?? 0n;
       const userBalanceRaw =
-        readBigint(readResult<unknown>(productAccountReads.data, accountCursor + 2)) ?? 0n;
+        readBigint(readResult<unknown>(productAccountReads.data, accountCursor + 1)) ?? 0n;
+      const rewardSinkAddress = rewardSinkAddresses[index] ?? null;
 
       const rewardMeta = rewardAsset
         ? rewardTokenMeta.metadataByAddress[rewardAsset.toLowerCase()]
@@ -923,6 +968,7 @@ export function useEarnSnapshot() {
         rewardDecimals: rewardMeta?.decimals ?? 18,
         rewardReserveRaw,
         settledUnderlyingRaw,
+        rewardSinkAddress,
         decimals,
         claimableRewardsRaw,
         userAvailableBalanceRaw,
@@ -931,9 +977,11 @@ export function useEarnSnapshot() {
       };
     });
   }, [
+    claimableRewardsReads.data,
     productAccountReads.data,
     productStaticReads.data,
     productsFromFractions,
+    rewardSinkAddresses,
     rewardTokenMeta.metadataByAddress,
   ]);
 
@@ -1026,11 +1074,10 @@ export function useEarnProductDetails(
   const queryClient = useQueryClient();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = connectedChainId ?? activeChain.id;
-  const assetFractionAbi = getContractConfig(chainId, "Ledger")?.abi as Abi | undefined;
-  const veNftAbi = getContractConfig(
-    chainId,
-    product.variant === "veBTC" ? "VeBTC" : "VeMEZO",
-  )?.abi;
+  const earnContracts = useMemo(() => getEarnProtocolConfig(chainId), [chainId]);
+  const assetFractionAbi = earnContracts.ledger?.abi as Abi | undefined;
+  const veNftAbi =
+    (product.variant === "veBTC" ? earnContracts.veBtc : earnContracts.veMezo)?.abi;
 
   const snapshot = useEarnSnapshot();
 
@@ -1214,8 +1261,7 @@ async function fetchApyBasisMap(params: {
   publicClient: PublicClient;
 }) {
   const { products, chainId, publicClient } = params;
-
-  const assetLedger = getContractConfig(chainId, "Ledger");
+  const assetLedger = getEarnProtocolConfig(chainId).ledger;
   const assetFractionAbi = assetLedger?.abi;
 
   const validProducts = products.filter((product) => product.fractionAddress !== ZERO_ADDRESS);
@@ -1275,7 +1321,7 @@ export function useApyBasis(params: {
 }) {
   const { enabled, products, chainId, assetFractionAbi } = params;
   const publicClient = usePublicClient();
-  const assetLedger = getContractConfig(chainId, "Ledger");
+  const assetLedger = getEarnProtocolConfig(chainId).ledger;
 
   const queryKey = earnApyBasisQueryKey({
     chainId,

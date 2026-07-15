@@ -1,7 +1,7 @@
 import type { ContractFunctionName, TransactionReceipt } from "viem";
 import type { WriteAbiStateMutability } from "@/contracts/types";
 import type { ContractAbi, WriteContractVariables } from "@/contracts/types";
-import type { RegistryContractConfig, RegistryContractName } from "@/contracts/client";
+import type { RegistryContractConfig, RegistryContractName } from "@/contracts/shared";
 import contracts from "@/contracts/registry";
 import type { usePublicClient, useWriteContract } from "wagmi";
 import type { Address } from "viem";

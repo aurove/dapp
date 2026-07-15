@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { formatUnits, type Abi, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
-import { getContractConfig } from "@/contracts/client";
+import { getEarnProtocolConfig } from "@/contracts/earn";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { detailReadQueryOptions, staticReadQueryOptions } from "@/lib/web3/read-query-options";
 import { useErc20MetadataMap } from "@/lib/web3/use-erc20-metadata";
@@ -141,9 +141,9 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
   const txFlowChainId = useChainId();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = txFlowChainId ?? activeChain.id;
-
-  const veBtc = getContractConfig(chainId, "VeBTC");
-  const veMezo = getContractConfig(chainId, "VeMEZO");
+  const earnContracts = useMemo(() => getEarnProtocolConfig(chainId), [chainId]);
+  const veBtc = earnContracts.veBtc;
+  const veMezo = earnContracts.veMezo;
 
   const candidates = useMemo<VeTokenCandidate[]>(() => {
     const items: VeTokenCandidate[] = [];

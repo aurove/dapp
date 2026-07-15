@@ -1,8 +1,11 @@
+import type { Abi, Address } from "viem";
+
 import registry from "./registry";
 import type { GenericContract } from "./types";
 
 type Registry = typeof registry;
 type ChainContracts = Registry[keyof Registry];
+
 export type RegistryContractName = keyof ChainContracts;
 export type RegistryChainId = keyof Registry & number;
 export type RegistryContractConfig<TName extends RegistryContractName> = ChainContracts[TName] &
@@ -28,4 +31,28 @@ export function getContractConfig<TName extends RegistryContractName>(
 
   const fallback = registry[DEFAULT_CHAIN_ID as keyof Registry] as ChainContracts | undefined;
   return (fallback?.[name] as RegistryContractConfig<TName> | undefined) ?? null;
+}
+
+export function getContractAbi<TName extends RegistryContractName>(
+  chainId: number,
+  name: TName,
+): Abi | null {
+  return getContractConfig(chainId, name)?.abi ?? null;
+}
+
+export function getContractAddress<TName extends RegistryContractName>(
+  chainId: number,
+  name: TName,
+): Address | null {
+  return getContractConfig(chainId, name)?.address ?? null;
+}
+
+export function getContractDeploymentBlock<TName extends RegistryContractName>(
+  chainId: number,
+  name: TName,
+): number | null {
+  const deploymentBlock = getContractConfig(chainId, name)?.deploymentBlock;
+  return typeof deploymentBlock === "number" && Number.isInteger(deploymentBlock)
+    ? deploymentBlock
+    : null;
 }
