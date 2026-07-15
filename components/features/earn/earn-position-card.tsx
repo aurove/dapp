@@ -18,8 +18,6 @@ const EPOCH_ROLLOVER_COOLDOWN_SECONDS = 2n * 60n * 60n;
 const SETTLEMENT_DURATION_SECONDS = 12n * 60n * 60n;
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
-type PositionActionMode = "withdraw" | "refund";
-
 type TrancheApyEstimate = {
   product: EarnProduct;
   apyPercent: number;
@@ -43,7 +41,7 @@ export function EarnPositionCard({
   onError: (message: string) => void;
 }) {
   const { ref, inView } = useInView<HTMLDivElement>();
-  const { product, isLoading } = useEarnProductDetails(initialProduct, inView, apyBasisMap);
+  const { product } = useEarnProductDetails(initialProduct, inView, apyBasisMap);
 
   return (
     <div ref={ref} className="min-h-[30rem]">
@@ -55,7 +53,6 @@ export function EarnPositionCard({
           setWithdrawAmount={setWithdrawAmount}
           onSuccess={onSuccess}
           onError={onError}
-          isLoading={isLoading}
         />
       ) : (
         <PositionCardShell product={initialProduct} />
@@ -71,7 +68,6 @@ function PositionCardContent({
   setWithdrawAmount,
   onSuccess,
   onError,
-  isLoading,
 }: {
   product: EarnProduct;
   chainTimestamp: bigint | null;
@@ -79,7 +75,6 @@ function PositionCardContent({
   setWithdrawAmount: (value: string) => void;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
-  isLoading: boolean;
 }) {
   const copy = variantCopy(product.variant);
   const apyEstimate = estimateTrancheApy(product);
@@ -168,116 +163,131 @@ function PositionCardContent({
           />
         </div>
 
-        <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.025] p-3">
-          <div className="flex items-center justify-between gap-3">
-            <label htmlFor={actionControlId} className="text-sm font-medium text-white">
-              Redemption amount
-            </label>
-            <span className="text-xs text-white/45">
-              {isWithinEpochCooldown
-                ? "Paused for first 2 hours of epoch rollover"
-                : isActionWindowOpen
-                  ? isExpired
-                    ? "Tranche expired"
-                    : "Redemption window open"
-                  : "Waiting for redemption window"}
-            </span>
-          </div>
-
-          <div className="space-y-2">
+        <details className="group rounded-xl border border-white/10 bg-white/[0.025] p-3">
+          <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium text-white">Select veNFTs to redeem</span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white">Redemption</p>
+                <p className="text-xs text-white/45">
+                  {isWithinEpochCooldown
+                    ? "Paused for first 2 hours of epoch rollover"
+                    : isActionWindowOpen
+                      ? isExpired
+                        ? "Tranche expired"
+                        : "Redemption window open"
+                      : "Waiting for redemption window"}
+                </p>
+              </div>
+              <span
+                aria-hidden="true"
+                className="text-white/45 transition group-open:rotate-45 group-open:text-white"
+              >
+                +
+              </span>
+            </div>
+          </summary>
+
+          <div className="pt-3">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor={actionControlId} className="text-sm font-medium text-white">
+                Redemption amount
+              </label>
               <span className="text-xs text-white/45">
                 Selected{" "}
                 {formatAmount(selectedRedemptionTotalRaw, product.decimals, product.symbol)}
               </span>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {product.refundablePositions.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white/45 sm:col-span-2">
-                  No redeemable veNFTs available.
-                </div>
-              ) : (
-                product.refundablePositions.map((position) => {
-                  const checked = selectedRedemptionKeys.includes(position.key);
 
-                  return (
-                    <label
-                      key={position.key}
-                      className={cn(
-                        "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 text-sm transition",
-                        checked
-                          ? "border-[var(--accent)]/50 bg-[rgba(196,160,106,0.08)] text-white"
-                          : "border-white/10 bg-[#080c12]/60 text-white/70 hover:border-white/20",
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        className="mt-1 h-4 w-4 accent-[var(--accent)]"
-                        checked={checked}
-                        disabled={!isActionWindowOpen || isWithinEpochCooldown}
-                        onChange={(event) => {
-                          const next = event.target.checked
-                            ? [...selectedRedemptionKeys, position.key]
-                            : selectedRedemptionKeys.filter((key) => key !== position.key);
-                          setSelectedRedemptionKeys(next);
-                        }}
-                      />
-                      <div className="min-w-0">
-                        <p className="font-medium text-white">#{position.tokenId.toString()}</p>
-                        <p className="text-xs text-white/45">
-                          {formatAmount(position.lockedAmountRaw, product.decimals, copy.asset)}
-                        </p>
-                      </div>
-                    </label>
-                  );
-                })
-              )}
-            </div>
-          </div>
+            <div className="space-y-2 pt-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-white">Select veNFTs to redeem</span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {product.refundablePositions.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white/45 sm:col-span-2">
+                    No redeemable veNFTs available.
+                  </div>
+                ) : (
+                  product.refundablePositions.map((position) => {
+                    const checked = selectedRedemptionKeys.includes(position.key);
 
-          {product.variant === "veMEZO" ? (
-            <div className="space-y-2">
-              <Input
-                id={actionControlId}
-                inputMode="decimal"
-                placeholder="0.00"
-                value={formatUnits(selectedRedemptionTotalRaw, product.decimals)}
-                disabled
-              />
-              <p className="text-xs text-white/45">
-                MEZO redemption uses the selected veNFTs only. The amount updates from the selected
-                tokens automatically.
-              </p>
+                    return (
+                      <label
+                        key={position.key}
+                        className={cn(
+                          "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 text-sm transition",
+                          checked
+                            ? "border-[var(--accent)]/50 bg-[rgba(196,160,106,0.08)] text-white"
+                            : "border-white/10 bg-[#080c12]/60 text-white/70 hover:border-white/20",
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                          checked={checked}
+                          disabled={!isActionWindowOpen || isWithinEpochCooldown}
+                          onChange={(event) => {
+                            const next = event.target.checked
+                              ? [...selectedRedemptionKeys, position.key]
+                              : selectedRedemptionKeys.filter((key) => key !== position.key);
+                            setSelectedRedemptionKeys(next);
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <p className="font-medium text-white">#{position.tokenId.toString()}</p>
+                          <p className="text-xs text-white/45">
+                            {formatAmount(position.lockedAmountRaw, product.decimals, copy.asset)}
+                          </p>
+                        </div>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex gap-2">
+
+            {product.variant === "veMEZO" ? (
+              <div className="space-y-2 pt-3">
                 <Input
                   id={actionControlId}
                   inputMode="decimal"
                   placeholder="0.00"
-                  value={withdrawAmount}
-                  onChange={(event) => setWithdrawAmount(event.target.value)}
-                  disabled={!isActionWindowOpen || isWithinEpochCooldown}
+                  value={formatUnits(selectedRedemptionTotalRaw, product.decimals)}
+                  disabled
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    setWithdrawAmount(formatUnits(product.userAvailableBalanceRaw, product.decimals))
-                  }
-                  disabled={!isActionWindowOpen || isWithinEpochCooldown}
-                >
-                  Max
-                </Button>
+                <p className="text-xs text-white/45">
+                  MEZO redemption uses the selected veNFTs only. The amount updates from the selected
+                  tokens automatically.
+                </p>
               </div>
-              <p className="text-xs text-white/45">
-                BTC redemption can use any selected veNFTs as inventory. Enter the exact amount to
-                redeem.
-              </p>
-            </div>
-          )}
+            ) : (
+              <div className="space-y-2 pt-3">
+                <div className="flex gap-2">
+                  <Input
+                    id={actionControlId}
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={withdrawAmount}
+                    onChange={(event) => setWithdrawAmount(event.target.value)}
+                    disabled={!isActionWindowOpen || isWithinEpochCooldown}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      setWithdrawAmount(formatUnits(product.userAvailableBalanceRaw, product.decimals))
+                    }
+                    disabled={!isActionWindowOpen || isWithinEpochCooldown}
+                  >
+                    Max
+                  </Button>
+                </div>
+                <p className="text-xs text-white/45">
+                  BTC redemption can use any selected veNFTs as inventory. Enter the exact amount to
+                  redeem.
+                </p>
+              </div>
+            )}
           <TransactionFlowButton
             className="w-full"
             variant="secondary"
@@ -303,7 +313,8 @@ function PositionCardContent({
               settle first.
             </p>
           ) : null}
-        </div>
+          </div>
+        </details>
       </CardContent>
     </Card>
   );
