@@ -98,7 +98,7 @@ export function EarnPage() {
   const queryClient = useQueryClient();
 
   const [variant, setVariant] = useState<EarnVariant>("veBTC");
-  const [createMode, setCreateMode] = useState<CreatePositionMode>("erc20");
+  const [createMode, setCreateMode] = useState<CreatePositionMode>("venft");
   const [amount, setAmount] = useState("");
   const [selectedVeNftKey, setSelectedVeNftKey] = useState("");
   const [withdrawAmounts, setWithdrawAmounts] = useState<Record<string, string>>({});
@@ -732,8 +732,8 @@ function CreatePositionCard({
 
         <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5">
           {[
-            { value: "erc20", label: "Lock tokens", icon: LockKeyhole },
             { value: "venft", label: "Deposit position", icon: Layers3 },
+            { value: "erc20", label: "Lock tokens", icon: LockKeyhole },
           ].map((option) => {
             const Icon = option.icon;
 

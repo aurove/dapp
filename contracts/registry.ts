@@ -3400,6 +3400,11 @@ const contracts = {
         },
         { inputs: [], name: "ERC1967NonPayable", type: "error" },
         { inputs: [], name: "FailedCall", type: "error" },
+        {
+          inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+          name: "GrantBackedVeNft",
+          type: "error",
+        },
         { inputs: [], name: "InsufficientRedeemInventory", type: "error" },
         { inputs: [], name: "InvalidCustodyData", type: "error" },
         {
