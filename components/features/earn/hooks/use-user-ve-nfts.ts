@@ -6,6 +6,7 @@ import { useAccount, useChainId, useReadContracts } from "wagmi";
 import { getContractConfig } from "@/contracts/client";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { detailReadQueryOptions, staticReadQueryOptions } from "@/lib/web3/read-query-options";
+import { useErc20MetadataMap } from "@/lib/web3/use-erc20-metadata";
 
 const MAX_TOKENS_PER_COLLECTION = 50;
 
@@ -166,40 +167,28 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
     return items;
   }, [veBtc, veMezo]);
 
-  const summaryContracts = useMemo(() => {
+  const veTokenMeta = useErc20MetadataMap({
+    chainId,
+    addresses: candidates.map((candidate) => candidate.contractAddress),
+    enabled: candidates.length > 0,
+  });
+
+  const balanceContracts = useMemo(() => {
     if (!userAddress) return [];
 
-    const contracts: Array<{
-      address: Address;
-      abi: Abi;
-      functionName: string;
-      args?: readonly unknown[];
-      chainId: number;
-    }> = [];
-
-    for (const candidate of candidates) {
-      contracts.push({
-        address: candidate.contractAddress,
-        abi: candidate.abi,
-        functionName: "symbol",
-        chainId,
-      });
-      contracts.push({
-        address: candidate.contractAddress,
-        abi: candidate.abi,
-        functionName: "balanceOf",
-        args: [userAddress],
-        chainId,
-      });
-    }
-
-    return contracts;
+    return candidates.map((candidate) => ({
+      address: candidate.contractAddress,
+      abi: candidate.abi,
+      functionName: "balanceOf" as const,
+      args: [userAddress] as const,
+      chainId,
+    }));
   }, [candidates, chainId, userAddress]);
 
-  const canReadSummaries = Boolean(userAddress && candidates.length > 0);
-  const summaryReads = useReadContracts({
+  const canReadSummaries = Boolean(userAddress && balanceContracts.length > 0);
+  const balanceReads = useReadContracts({
     allowFailure: true,
-    contracts: summaryContracts,
+    contracts: balanceContracts,
     query: {
       enabled: canReadSummaries,
       ...detailReadQueryOptions,
@@ -209,23 +198,23 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
   const ownedSummaries = useMemo(() => {
     return candidates
       .map((candidate, index) => {
-        const symbolResult = summaryReads.data?.[index * 2]?.result;
-        const balanceResult = summaryReads.data?.[index * 2 + 1]?.result;
+        const balanceResult = balanceReads.data?.[index]?.result;
         const rawBalance = typeof balanceResult === "bigint" ? balanceResult : 0n;
         const boundedBalance =
           rawBalance > BigInt(MAX_TOKENS_PER_COLLECTION)
             ? BigInt(MAX_TOKENS_PER_COLLECTION)
             : rawBalance;
+        const symbol = veTokenMeta.metadataByAddress[candidate.contractAddress.toLowerCase()]?.symbol;
 
         return {
           ...candidate,
-          symbol: typeof symbolResult === "string" ? symbolResult : candidate.assetType,
+          symbol: symbol ?? candidate.assetType,
           rawBalance,
           balance: boundedBalance,
         };
       })
       .filter((item) => item.balance > 0n);
-  }, [candidates, summaryReads.data]);
+  }, [balanceReads.data, candidates, veTokenMeta.metadataByAddress]);
 
   const tokenIdContracts = useMemo(() => {
     if (!userAddress) return [];
@@ -356,16 +345,17 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
   }, [lockReads.data, tokenIdsByCollection]);
 
   const error =
-    parseReadError(summaryReads.error, "Unable to load veNFT positions.") ||
+    parseReadError(balanceReads.error, "Unable to load veNFT positions.") ||
     parseReadError(tokenIdReads.error, "Unable to load veNFT positions.") ||
     parseReadError(lockReads.error, "Unable to load veNFT positions.") ||
-    summaryReads.data?.find((item) => item.status === "failure")?.error ||
+    balanceReads.data?.find((item) => item.status === "failure")?.error ||
     tokenIdReads.data?.find((item) => item.status === "failure")?.error ||
     lockReads.data?.find((item) => item.status === "failure")?.error ||
     null;
 
   function refresh() {
-    void summaryReads.refetch();
+    void veTokenMeta.refresh();
+    void balanceReads.refetch();
     void tokenIdReads.refetch();
     void lockReads.refetch();
   }
@@ -374,10 +364,10 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
     veCollections,
     isConnected,
     isLoading:
-      (canReadSummaries && summaryReads.isPending) ||
+      (canReadSummaries && balanceReads.isPending) ||
       (canReadTokenIds && tokenIdReads.isPending) ||
       (lockContracts.length > 0 && lockReads.isPending),
-    isFetching: summaryReads.isFetching || tokenIdReads.isFetching || lockReads.isFetching,
+    isFetching: balanceReads.isFetching || tokenIdReads.isFetching || lockReads.isFetching || veTokenMeta.isFetching,
     error,
     refresh,
   };
