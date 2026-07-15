@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import { formatUnits, type Address } from "viem";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
@@ -14,8 +14,8 @@ import {
 } from "./use-earn-data";
 
 const WEEK_SECONDS = 7n * 24n * 60n * 60n;
-const EPOCH_ROLLOVER_COOLDOWN_SECONDS = 2n * 60n * 60n;
-const SETTLEMENT_DURATION_SECONDS = 12n * 60n * 60n;
+const SETTLEMENT_WINDOW_START_SECONDS = 10n * 60n * 60n;
+const SETTLEMENT_WINDOW_DURATION_SECONDS = 6n * 60n * 60n;
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
 type TrancheApyEstimate = {
@@ -80,20 +80,18 @@ function PositionCardContent({
   const apyEstimate = estimateTrancheApy(product);
   const parsedWithdraw = parseAmountRaw(withdrawAmount, product.decimals);
   const isSettlementWindowOpen = isTargetSettlementWindow(product, chainTimestamp);
-  const isWithinEpochCooldown = isEpochCooldown(chainTimestamp);
   const isExpired = isTrancheExpired(product, chainTimestamp);
   const [selectedRedemptionKeys, setSelectedRedemptionKeys] = useState<string[]>([]);
-  useEffect(() => {
+  const selectedRedemptionKeysResolved = useMemo(() => {
     const availableKeys = new Set(product.refundablePositions.map((position) => position.key));
-    setSelectedRedemptionKeys((current) => {
-      const next = current.filter((key) => availableKeys.has(key));
-      if (next.length > 0) return next;
-      const fallback = product.refundablePositions[0]?.key;
-      return fallback ? [fallback] : [];
-    });
-  }, [product.refundablePositions]);
+    const next = selectedRedemptionKeys.filter((key) => availableKeys.has(key));
+    if (next.length > 0) return next;
+
+    const fallback = product.refundablePositions[0]?.key;
+    return fallback ? [fallback] : [];
+  }, [product.refundablePositions, selectedRedemptionKeys]);
   const selectedRedemptionPositions = product.refundablePositions.filter((position) =>
-    selectedRedemptionKeys.includes(position.key),
+    selectedRedemptionKeysResolved.includes(position.key),
   );
   const selectedRedemptionTotalRaw = selectedRedemptionPositions.reduce(
     (total, position) => total + position.lockedAmountRaw,
@@ -105,7 +103,6 @@ function PositionCardContent({
     product.variant === "veMEZO" ? selectedRedemptionTotalRaw : parsedWithdraw ?? 0n;
   const canSubmit =
     isActionWindowOpen &&
-    !isWithinEpochCooldown &&
     selectedRedemptionPositions.length > 0 &&
     redemptionAmountRaw > 0n &&
     redemptionAmountRaw <= product.userAvailableBalanceRaw;
@@ -169,13 +166,11 @@ function PositionCardContent({
               <div className="min-w-0">
                 <p className="text-sm font-medium text-white">Redemption</p>
                 <p className="text-xs text-white/45">
-                  {isWithinEpochCooldown
-                    ? "Paused for first 2 hours of epoch rollover"
-                    : isActionWindowOpen
-                      ? isExpired
-                        ? "Tranche expired"
-                        : "Redemption window open"
-                      : "Waiting for redemption window"}
+                  {isActionWindowOpen
+                    ? isExpired
+                      ? "Tranche expired"
+                      : "Redemption window open"
+                    : "Waiting for weekly settlement window"}
                 </p>
               </div>
               <span
@@ -209,14 +204,14 @@ function PositionCardContent({
                   </div>
                 ) : (
                   product.refundablePositions.map((position) => {
-                    const checked = selectedRedemptionKeys.includes(position.key);
+                    const selected = selectedRedemptionKeysResolved.includes(position.key);
 
                     return (
                       <label
                         key={position.key}
                         className={cn(
                           "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 text-sm transition",
-                          checked
+                          selected
                             ? "border-[var(--accent)]/50 bg-[rgba(196,160,106,0.08)] text-white"
                             : "border-white/10 bg-[#080c12]/60 text-white/70 hover:border-white/20",
                         )}
@@ -224,8 +219,8 @@ function PositionCardContent({
                         <input
                           type="checkbox"
                           className="mt-1 h-4 w-4 accent-[var(--accent)]"
-                          checked={checked}
-                          disabled={!isActionWindowOpen || isWithinEpochCooldown}
+                          checked={selected}
+                          disabled={!isActionWindowOpen}
                           onChange={(event) => {
                             const next = event.target.checked
                               ? [...selectedRedemptionKeys, position.key]
@@ -269,7 +264,7 @@ function PositionCardContent({
                     placeholder="0.00"
                     value={withdrawAmount}
                     onChange={(event) => setWithdrawAmount(event.target.value)}
-                    disabled={!isActionWindowOpen || isWithinEpochCooldown}
+                    disabled={!isActionWindowOpen}
                   />
                   <Button
                     type="button"
@@ -277,7 +272,7 @@ function PositionCardContent({
                     onClick={() =>
                       setWithdrawAmount(formatUnits(product.userAvailableBalanceRaw, product.decimals))
                     }
-                    disabled={!isActionWindowOpen || isWithinEpochCooldown}
+                    disabled={!isActionWindowOpen}
                   >
                     Max
                   </Button>
@@ -301,16 +296,12 @@ function PositionCardContent({
             }}
             onError={txError(onError)}
           >
-            {isWithinEpochCooldown
-              ? "Temporarily paused"
-              : isActionWindowOpen
-                ? actionLabel
-                : actionUnavailableLabel}
+            {isActionWindowOpen ? actionLabel : actionUnavailableLabel}
           </TransactionFlowButton>
-          {isWithinEpochCooldown ? (
+          {!isSettlementWindowOpen ? (
             <p className="text-xs text-amber-100/80">
-              Redemption actions are paused for 2 hours after epoch rollover so backend claims can
-              settle first.
+              Redemptions are only available during the weekly settlement window, which opens 10
+              hours into each epoch and lasts 6 hours.
             </p>
           ) : null}
           </div>
@@ -428,14 +419,10 @@ function estimateTrancheApy(product: EarnProduct): TrancheApyEstimate | null {
 function isTargetSettlementWindow(product: EarnProduct, blockchainNow: bigint | null): boolean {
   if (blockchainNow === null) return product.isTargetSettlementWindow;
   const epochStart = (blockchainNow / WEEK_SECONDS) * WEEK_SECONDS;
-  return blockchainNow <= epochStart + SETTLEMENT_DURATION_SECONDS;
-}
-
-function isEpochCooldown(blockchainNow: bigint | null): boolean {
-  if (blockchainNow === null) return false;
-  const epochStart = (blockchainNow / WEEK_SECONDS) * WEEK_SECONDS;
+  const epochElapsed = blockchainNow - epochStart;
   return (
-    blockchainNow >= epochStart && blockchainNow < epochStart + EPOCH_ROLLOVER_COOLDOWN_SECONDS
+    epochElapsed >= SETTLEMENT_WINDOW_START_SECONDS &&
+    epochElapsed < SETTLEMENT_WINDOW_START_SECONDS + SETTLEMENT_WINDOW_DURATION_SECONDS
   );
 }
 
