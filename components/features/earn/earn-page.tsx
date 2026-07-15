@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
+import { useMemo, useState, type SyntheticEvent } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -122,52 +122,6 @@ export function EarnPage() {
       ) ?? null,
     [availableVeNftsForVariant, selectedVeNftKey],
   );
-
-  useEffect(() => {
-    console.debug("[EarnPage] resolved UI state", {
-      variant,
-      createMode,
-      amount,
-      selectedToken: selectedToken
-        ? {
-            symbol: selectedToken.symbol,
-            underlyingAddress: selectedToken.underlyingAddress,
-            balanceRaw: selectedToken.balanceRaw,
-            allowanceRaw: selectedToken.allowanceRaw,
-            decimals: selectedToken.decimals,
-          }
-        : null,
-      selectedVeNft: selectedVeNft
-        ? {
-            contractAddress: selectedVeNft.contractAddress,
-            tokenId: selectedVeNft.tokenId,
-            lockAmountRaw: selectedVeNft.lockAmountRaw,
-            lockAmountFormatted: selectedVeNft.lockAmountFormatted,
-            lockEndLabel: selectedVeNft.lockEndLabel,
-          }
-        : null,
-      readError: error,
-      veNftsError,
-      errorMessage,
-    });
-
-    if (error) {
-      console.error("[EarnPage] read error", error);
-    }
-
-    if (veNftsError) {
-      console.error("[EarnPage] veNFT read error", veNftsError);
-    }
-  }, [
-    amount,
-    createMode,
-    error,
-    errorMessage,
-    selectedToken,
-    selectedVeNft,
-    veNftsError,
-    variant,
-  ]);
 
   const claimableSummaries = useMemo<ClaimableSummary[]>(() => {
     const summaries = new Map<string, ClaimableSummary>();
@@ -717,12 +671,9 @@ function CreatePositionCard({
     disabledReason?.toLowerCase().includes("insufficient wallet balance"),
   );
   const receiveSymbol = symbolOf(variant, createEpochs);
-  const receiveAmountRaw =
-    createMode === "venft" && selectedVeNft ? selectedVeNft.lockAmountRaw : parsedAmount ?? 0n;
-  const receiveAmountDecimals = createMode === "venft" ? 18 : selectedToken?.decimals ?? 18;
   const receiveAmount = formatCompactRawTokenAmount(
-    receiveAmountRaw,
-    receiveAmountDecimals,
+    parsedAmount ?? 0n,
+    selectedToken?.decimals ?? 18,
     "",
   );
   const ctaLabel =
@@ -747,51 +698,6 @@ function CreatePositionCard({
   };
 
   const selectedVeNftOptions = availableVeNfts.filter((veNft) => veNft.assetType === variant);
-
-  useEffect(() => {
-    console.debug("[CreatePositionCard] props and derived state", {
-      createMode,
-      variant,
-      amount,
-      selectedToken: selectedToken
-        ? {
-            symbol: selectedToken.symbol,
-            underlyingAddress: selectedToken.underlyingAddress,
-            balanceRaw: selectedToken.balanceRaw,
-            allowanceRaw: selectedToken.allowanceRaw,
-            decimals: selectedToken.decimals,
-          }
-        : null,
-      selectedVeNft: selectedVeNft
-        ? {
-            contractAddress: selectedVeNft.contractAddress,
-            tokenId: selectedVeNft.tokenId,
-            lockAmountRaw: selectedVeNft.lockAmountRaw,
-            lockAmountFormatted: selectedVeNft.lockAmountFormatted,
-          }
-        : null,
-      parsedAmount,
-      receiveAmountRaw,
-      receiveAmountDecimals,
-      disabledReason,
-      veNftsError,
-    });
-
-    if (veNftsError) {
-      console.error("[CreatePositionCard] veNFT error", veNftsError);
-    }
-  }, [
-    amount,
-    createMode,
-    disabledReason,
-    parsedAmount,
-    receiveAmountDecimals,
-    receiveAmountRaw,
-    selectedToken,
-    selectedVeNft,
-    variant,
-    veNftsError,
-  ]);
 
   return (
     <Card className="relative overflow-hidden border border-white/12 bg-[linear-gradient(160deg,rgba(19,24,33,0.98),rgba(10,13,18,0.98))] shadow-[0_24px_80px_rgba(0,0,0,0.4)]">

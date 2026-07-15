@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseAbiItem, type Abi, type Address, type PublicClient } from "viem";
 import { useAccount, useChainId, usePublicClient, useReadContracts } from "wagmi";
@@ -945,62 +945,6 @@ export function useEarnSnapshot() {
     (veBtcTokenBalance.error as Error | null) ||
     (veMezoTokenBalance.error as Error | null) ||
     null;
-
-  useEffect(() => {
-    console.debug("[useEarnSnapshot] resolved data", {
-      chainId,
-      userAddress,
-      assetLedger: assetLedger?.address ?? null,
-      veBtcUnderlyingAddress,
-      veMezoUnderlyingAddress,
-      isLoading,
-      isFetching,
-      tokenBalances: {
-        veBTC: {
-          balanceRaw: veBtcTokenBalance.balanceRaw,
-          allowanceRaw: veBtcTokenBalance.allowanceRaw,
-          isChecking: veBtcTokenBalance.isChecking,
-          readAddress: veBtcTokenBalance.readAddress,
-        },
-        veMEZO: {
-          balanceRaw: veMezoTokenBalance.balanceRaw,
-          allowanceRaw: veMezoTokenBalance.allowanceRaw,
-          isChecking: veMezoTokenBalance.isChecking,
-          readAddress: veMezoTokenBalance.readAddress,
-        },
-      },
-      tokens: snapshot.tokens,
-    });
-
-    if (error) {
-      console.error("[useEarnSnapshot] resolved error", {
-        chainId,
-        userAddress,
-        assetLedger: assetLedger?.address ?? null,
-        veBtcUnderlyingAddress,
-        veMezoUnderlyingAddress,
-        error,
-      });
-    }
-  }, [
-    assetLedger?.address,
-    chainId,
-    error,
-    isFetching,
-    isLoading,
-    snapshot.tokens,
-    userAddress,
-    veBtcTokenBalance.allowanceRaw,
-    veBtcTokenBalance.balanceRaw,
-    veBtcTokenBalance.isChecking,
-    veBtcTokenBalance.readAddress,
-    veBtcUnderlyingAddress,
-    veMezoTokenBalance.allowanceRaw,
-    veMezoTokenBalance.balanceRaw,
-    veMezoTokenBalance.isChecking,
-    veMezoTokenBalance.readAddress,
-    veMezoUnderlyingAddress,
-  ]);
 
   function refresh() {
     void Promise.all([
