@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { Address } from "viem";
 import { useChainId } from "wagmi";
 
@@ -60,10 +60,86 @@ export function useKnownMezoTokenBalance({
     chainId: resolvedChainId,
     enabled: Boolean(ownerAddress && resolvedSymbol),
   });
+  const tokenSnapshot = resolvedSymbol ? portfolioQuery.portfolio.tokens[resolvedSymbol] : null;
 
-  if (resolvedSymbol) {
-    const tokenSnapshot = portfolioQuery.portfolio.tokens[resolvedSymbol];
+  useEffect(() => {
+    if (!resolvedSymbol) {
+      console.debug("[useKnownMezoTokenBalance] unresolved token symbol", {
+        ownerAddress,
+        chainId: resolvedChainId,
+        tokenAddress,
+        tokenSymbol,
+        spenderAddress,
+        isEnabled: Boolean(ownerAddress && resolvedSymbol),
+      });
+      return;
+    }
 
+    console.debug("[useKnownMezoTokenBalance] resolved request", {
+      ownerAddress,
+      chainId: resolvedChainId,
+      tokenAddress,
+      tokenSymbol,
+      spenderAddress,
+      resolvedSymbol,
+      isEnabled: Boolean(ownerAddress && resolvedSymbol),
+      isLoading: portfolioQuery.isLoading,
+      isFetching: portfolioQuery.isFetching,
+      error: portfolioQuery.error,
+    });
+
+    if (portfolioQuery.error) {
+      console.error("[useKnownMezoTokenBalance] portfolio query error", {
+        ownerAddress,
+        chainId: resolvedChainId,
+        tokenAddress,
+        tokenSymbol,
+        spenderAddress,
+        resolvedSymbol,
+        error: portfolioQuery.error,
+      });
+    }
+  }, [
+    ownerAddress,
+    portfolioQuery.error,
+    portfolioQuery.isFetching,
+    portfolioQuery.isLoading,
+    resolvedChainId,
+    resolvedSymbol,
+    spenderAddress,
+    tokenAddress,
+    tokenSymbol,
+  ]);
+
+  useEffect(() => {
+    if (!tokenSnapshot || !resolvedSymbol) return;
+
+    const snapshot = tokenSnapshot;
+
+    console.debug("[useKnownMezoTokenBalance] token snapshot", {
+      ownerAddress,
+      chainId: resolvedChainId,
+      tokenAddress,
+      tokenSymbol,
+      spenderAddress,
+      resolvedSymbol,
+      balanceRaw: snapshot.balanceRaw,
+      allowanceRaw: snapshot.allowanceRaw,
+      readAddress: snapshot.address,
+    });
+  }, [
+    ownerAddress,
+    resolvedChainId,
+    resolvedSymbol,
+    spenderAddress,
+    tokenAddress,
+    tokenSnapshot?.address,
+    tokenSnapshot?.allowanceRaw,
+    tokenSnapshot?.balanceRaw,
+    tokenSymbol,
+  ]);
+
+  if (resolvedSymbol && tokenSnapshot) {
     return {
       balanceRaw: tokenSnapshot.balanceRaw,
       allowanceRaw: tokenSnapshot.allowanceRaw,

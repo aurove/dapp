@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { erc20Abi, type Abi, type Address } from "viem";
 import { useAccount, useChainId, usePublicClient } from "wagmi";
@@ -145,6 +145,53 @@ function buildAurovePortfolioQueryKey(params: {
   return [AUROVE_PORTFOLIO_QUERY_PREFIX, params.chainId, normalizeAddress(params.account)] as const;
 }
 
+function summarizePortfolioSnapshot(snapshot: AurovePortfolioSnapshot) {
+  return {
+    chainId: snapshot.chainId,
+    account: snapshot.account,
+    tokens: {
+      BTC: {
+        address: snapshot.tokens.BTC.address,
+        balanceRaw: snapshot.tokens.BTC.balanceRaw,
+        allowanceRaw: snapshot.tokens.BTC.allowanceRaw,
+      },
+      MEZO: {
+        address: snapshot.tokens.MEZO.address,
+        balanceRaw: snapshot.tokens.MEZO.balanceRaw,
+        allowanceRaw: snapshot.tokens.MEZO.allowanceRaw,
+      },
+    },
+    veCollections: {
+      veBTC: {
+        address: snapshot.veCollections.veBTC.address,
+        balanceRaw: snapshot.veCollections.veBTC.balanceRaw,
+        tokenIds: snapshot.veCollections.veBTC.tokenIds,
+        positions: snapshot.veCollections.veBTC.positions.map((position) => ({
+          tokenId: position.tokenId,
+          lockAmountRaw: position.lockAmountRaw,
+          lockEnd: position.lockEnd,
+          isPermanent: position.isPermanent,
+        })),
+      },
+      veMEZO: {
+        address: snapshot.veCollections.veMEZO.address,
+        balanceRaw: snapshot.veCollections.veMEZO.balanceRaw,
+        tokenIds: snapshot.veCollections.veMEZO.tokenIds,
+        positions: snapshot.veCollections.veMEZO.positions.map((position) => ({
+          tokenId: position.tokenId,
+          lockAmountRaw: position.lockAmountRaw,
+          lockEnd: position.lockEnd,
+          isPermanent: position.isPermanent,
+        })),
+      },
+    },
+    wrappers: {
+      avBTCm: snapshot.wrappers.avBTCm,
+      avMEZOm: snapshot.wrappers.avMEZOm,
+    },
+  };
+}
+
 async function readAurovePortfolioSnapshot(params: {
   publicClient: NonNullable<ReturnType<typeof usePublicClient>>;
   chainId: number;
@@ -191,6 +238,36 @@ async function readAurovePortfolioSnapshot(params: {
 
   function pushPrimaryRead(read: Omit<(typeof primaryReads)[number], "kind">, kind: PrimaryReadKind) {
     primaryReads.push({ ...read, kind });
+  }
+
+  async function safeMulticall(contracts: Array<{ address: Address; abi: Abi; functionName: string; args?: readonly unknown[] }>) {
+    if (contracts.length === 0) return [] as MulticallResult[];
+
+    try {
+      const results = (await publicClient.multicall({ allowFailure: true, contracts })) as MulticallResult[];
+      const failures = results.filter((result) => result.status === "failure");
+
+      if (failures.length > 0) {
+        console.error("[useAurovePortfolio] multicall partial failure", {
+          chainId,
+          account,
+          failureCount: failures.length,
+          totalCount: contracts.length,
+          firstError: failures[0]?.error,
+          firstContract: contracts[0],
+        });
+      }
+
+      return results;
+    } catch (error) {
+      console.error("[useAurovePortfolio] multicall threw", {
+        chainId,
+        account,
+        contractCount: contracts.length,
+        error,
+      });
+      return contracts.map(() => ({ status: "failure", error: new Error("multicall failed") })) as MulticallResult[];
+    }
   }
 
   if (btcToken?.address) {
@@ -299,9 +376,7 @@ async function readAurovePortfolioSnapshot(params: {
     );
   }
 
-  const primaryResults = (primaryReads.length > 0
-    ? await publicClient.multicall({ allowFailure: true, contracts: primaryReads })
-    : []) as MulticallResult[];
+  const primaryResults = await safeMulticall(primaryReads);
 
   primaryReads.forEach((read, index) => {
     const value = getMulticallResult<bigint>(primaryResults[index]) ?? 0n;
@@ -369,17 +444,14 @@ async function readAurovePortfolioSnapshot(params: {
     }
   }
 
-  const veTokenIdReads = (veTokenRequests.length > 0
-    ? await publicClient.multicall({
-        allowFailure: true,
-        contracts: veTokenRequests.map((request) => ({
-          address: request.contractAddress,
-          abi: request.abi,
-          functionName: "ownerToNFTokenIdList",
-          args: [account, request.tokenIndex],
-        })),
-      })
-    : []) as MulticallResult[];
+  const veTokenIdReads = await safeMulticall(
+    veTokenRequests.map((request) => ({
+      address: request.contractAddress,
+      abi: request.abi,
+      functionName: "ownerToNFTokenIdList",
+      args: [account, request.tokenIndex],
+    })),
+  );
 
   const veTokenIdsByCollection: Record<AurovePortfolioVeAssetType, bigint[]> = {
     veBTC: [],
@@ -422,17 +494,14 @@ async function readAurovePortfolioSnapshot(params: {
     }
   });
 
-  const veLockReads = (veLockRequests.length > 0
-    ? await publicClient.multicall({
-        allowFailure: true,
-        contracts: veLockRequests.map((request) => ({
-          address: request.contractAddress,
-          abi: request.abi,
-          functionName: "locked",
-          args: [request.tokenId],
-        })),
-      })
-    : []) as MulticallResult[];
+  const veLockReads = await safeMulticall(
+    veLockRequests.map((request) => ({
+      address: request.contractAddress,
+      abi: request.abi,
+      functionName: "locked",
+      args: [request.tokenId],
+    })),
+  );
 
   const veLockCursor: Record<AurovePortfolioVeAssetType, number> = {
     veBTC: 0,
@@ -469,34 +538,30 @@ async function readAurovePortfolioSnapshot(params: {
   });
 
   if (ledgerAddress && ledgerAbi && snapshot.wrappers.avBTCm.trancheId !== null) {
-    const [balanceRead] = (await publicClient.multicall({
-      allowFailure: true,
-      contracts: [
-        {
-          address: ledgerAddress,
-          abi: ledgerAbi,
-          functionName: "balanceOf",
-          args: [account, snapshot.wrappers.avBTCm.trancheId],
-        },
-      ],
-    })) as MulticallResult[];
+    const [balanceRead] = await safeMulticall([
+      {
+        address: ledgerAddress,
+        abi: ledgerAbi,
+        functionName: "balanceOf",
+        args: [account, snapshot.wrappers.avBTCm.trancheId],
+      },
+    ]);
     snapshot.wrappers.avBTCm.erc1155BalanceRaw = getMulticallResult<bigint>(balanceRead) ?? 0n;
   }
 
   if (ledgerAddress && ledgerAbi && snapshot.wrappers.avMEZOm.trancheId !== null) {
-    const [balanceRead] = (await publicClient.multicall({
-      allowFailure: true,
-      contracts: [
-        {
-          address: ledgerAddress,
-          abi: ledgerAbi,
-          functionName: "balanceOf",
-          args: [account, snapshot.wrappers.avMEZOm.trancheId],
-        },
-      ],
-    })) as MulticallResult[];
+    const [balanceRead] = await safeMulticall([
+      {
+        address: ledgerAddress,
+        abi: ledgerAbi,
+        functionName: "balanceOf",
+        args: [account, snapshot.wrappers.avMEZOm.trancheId],
+      },
+    ]);
     snapshot.wrappers.avMEZOm.erc1155BalanceRaw = getMulticallResult<bigint>(balanceRead) ?? 0n;
   }
+
+  console.debug("[useAurovePortfolio] loaded snapshot", summarizePortfolioSnapshot(snapshot));
 
   return snapshot;
 }
@@ -611,6 +676,49 @@ export function useAurovePortfolio(params?: UseAurovePortfolioParams) {
   });
 
   const portfolio = portfolioQuery.data ?? buildEmptyPortfolio(chainId, account ?? ZERO_ADDRESS);
+
+  useEffect(() => {
+    if (!account) {
+      console.debug("[useAurovePortfolio] waiting for wallet", {
+        chainId,
+        enabled: params?.enabled ?? true,
+        hasPublicClient: Boolean(publicClient),
+        queryKey,
+      });
+      return;
+    }
+
+    console.debug("[useAurovePortfolio] query state", {
+      chainId,
+      account,
+      enabled: params?.enabled ?? true,
+      hasPublicClient: Boolean(publicClient),
+      isLoading: portfolioQuery.isLoading,
+      isFetching: portfolioQuery.isFetching,
+      hasError: Boolean(portfolioQuery.error),
+      queryKey,
+      snapshot: summarizePortfolioSnapshot(portfolio),
+    });
+
+    if (portfolioQuery.error) {
+      console.error("[useAurovePortfolio] query error", {
+        chainId,
+        account,
+        queryKey,
+        error: portfolioQuery.error,
+      });
+    }
+  }, [
+    account,
+    chainId,
+    portfolio,
+    portfolioQuery.error,
+    portfolioQuery.isFetching,
+    portfolioQuery.isLoading,
+    publicClient,
+    queryKey,
+    params?.enabled,
+  ]);
 
   return {
     portfolio,
