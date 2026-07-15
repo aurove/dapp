@@ -192,7 +192,7 @@ export function EarnPage() {
   }, [products]);
 
   const chainId = useChainId();
-  const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
+  const assetFractionAbi = getContractConfig(chainId, "Ledger")?.abi;
   const apyQuery = useApyBasis({
     enabled: true,
     products: products,
@@ -255,17 +255,17 @@ export function EarnPage() {
     }
 
     steps.push(
-      makeContractWriteStep({
-        key: "deposit-erc20",
-        label: "Create liquid lock",
-        displayLabelBtn: true,
-        contractName: "AssetLedger",
-        variables: {
-          functionName: "depositErc20",
-          args: [selectedToken.veNftAddress, BigInt(trancheWeeks), parsedCreateAmount, account],
-        },
-      }) as unknown as TxStep,
-    );
+        makeContractWriteStep({
+          key: "deposit-erc20",
+          label: "Create liquid lock",
+          displayLabelBtn: true,
+          contractName: "Ledger",
+          variables: {
+            functionName: "depositErc20",
+            args: [variant === "veBTC" ? 1 : 2, BigInt(trancheWeeks), parsedCreateAmount, account],
+          },
+        }) as unknown as TxStep,
+      );
 
     return steps;
   };
@@ -291,10 +291,10 @@ export function EarnPage() {
         key: "deposit-venft",
         label: "Deposit veNFT",
         displayLabelBtn: true,
-        contractName: "AssetLedger",
+        contractName: "Ledger",
         variables: {
           functionName: "depositVeNft",
-          args: [selectedVeNft.contractAddress, selectedVeNft.tokenId, account],
+          args: [variant === "veBTC" ? 1 : 2, BigInt(trancheWeeks), selectedVeNft.tokenId, account],
         },
       }) as unknown as TxStep,
     ];
@@ -593,10 +593,10 @@ function ClaimableTokenButton({
           key: `claim-${summary.key}`,
           label: `Claim ${summary.symbol}`,
           displayLabelBtn: true,
-          contractName: "AssetLedger",
+          contractName: "Ledger",
           variables: {
-            functionName: "claimRewards",
-            args: [trancheIds, connectedAccount],
+            functionName: "claimRebases",
+            args: [trancheIds],
           },
         }) as unknown as TxStep,
       ]}

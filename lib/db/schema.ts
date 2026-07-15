@@ -3,4 +3,3 @@ export * from "./academy-asset-fraction-schema";
 export * from "./referral-schema";
 export * from "./points-schema";
 export * from "./cron-schema";
-export * from "./marketplace-schema";

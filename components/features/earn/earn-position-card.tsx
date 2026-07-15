@@ -122,10 +122,10 @@ function PositionCardContent({
           key: "withdraw",
           label: actionLabel,
           displayLabelBtn: true,
-          contractName: "AssetLedger",
+          contractName: "Ledger",
           variables: {
-            functionName: "withdraw",
-            args: [product.trancheId, parsedWithdraw ?? 0n, account],
+            functionName: "redeem",
+            args: [product.trancheId, parsedWithdraw ?? 0n, account, []],
           },
         }) as unknown as TxStep,
       ];
@@ -136,15 +136,14 @@ function PositionCardContent({
         key: "refund",
         label: actionLabel,
         displayLabelBtn: true,
-        contractName: "AssetLedger",
+        contractName: "Ledger",
         variables: {
-          functionName: "refund",
+          functionName: "redeem",
           args: [
             product.trancheId,
-            selectedRefundPosition?.veNft ?? "0x0000000000000000000000000000000000000000",
-            selectedRefundPosition?.tokenId ?? 0n,
             selectedRefundPosition?.lockedAmountRaw ?? 0n,
             account,
+            selectedRefundPosition ? [selectedRefundPosition.tokenId] : [],
           ],
         },
       }) as unknown as TxStep,

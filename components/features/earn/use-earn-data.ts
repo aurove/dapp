@@ -537,8 +537,8 @@ export function useEarnSnapshot() {
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = connectedChainId ?? activeChain.id;
 
-  const assetLedger = getContractConfig(chainId, "AssetLedger");
-  const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
+  const assetLedger = getContractConfig(chainId, "Ledger");
+  const assetFractionAbi = getContractConfig(chainId, "Ledger")?.abi;
   const veBtc = getContractConfig(chainId, "VeBTC");
   const veMezo = getContractConfig(chainId, "VeMEZO");
 
@@ -1163,8 +1163,7 @@ export function useEarnProductDetails(
   const queryClient = useQueryClient();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = connectedChainId ?? activeChain.id;
-  const veNftManager = getContractConfig(chainId, "MezoVeNFTManager");
-  const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
+  const assetFractionAbi = getContractConfig(chainId, "Ledger")?.abi as Abi | undefined;
   const veNftAbi = getContractConfig(
     chainId,
     product.variant === "veBTC" ? "VeBTC" : "VeMEZO",
@@ -1187,7 +1186,7 @@ export function useEarnProductDetails(
   const detailsContracts = useMemo(() => {
     const veNftAddress = product.veNFT;
 
-    if (!enabled || !userAddress || !veNftManager?.address || !veNftManager.abi || !veNftAddress) {
+    if (!enabled || !userAddress || !veNftAddress || !veNftAbi) {
       return [] as Array<{
         address: Address;
         abi: Abi;
@@ -1199,14 +1198,14 @@ export function useEarnProductDetails(
 
     return [
       {
-        address: veNftManager.address,
-        abi: veNftManager.abi,
+        address: veNftAddress,
+        abi: veNftAbi,
         functionName: "getHeldTokenIds",
         args: [product.fractionAddress, veNftAddress],
         chainId,
       },
     ];
-  }, [chainId, enabled, product.fractionAddress, product.veNFT, userAddress, veNftManager]);
+  }, [chainId, enabled, product.fractionAddress, product.veNFT, userAddress, veNftAbi]);
 
   const detailsReads = useReadContracts({
     allowFailure: true,
@@ -1229,8 +1228,6 @@ export function useEarnProductDetails(
       !enabled ||
       !veNftAddress ||
       !veNftAbi ||
-      !veNftManager?.address ||
-      !veNftManager.abi ||
       heldTokenIds.length === 0
     ) {
       return [] as Array<{
@@ -1244,8 +1241,8 @@ export function useEarnProductDetails(
 
     return heldTokenIds.flatMap((tokenId) => [
       {
-        address: veNftManager.address,
-        abi: veNftManager.abi,
+        address: veNftAddress,
+        abi: veNftAbi,
         functionName: "getPosition",
         args: [veNftAddress, tokenId],
         chainId,
@@ -1258,7 +1255,7 @@ export function useEarnProductDetails(
         chainId,
       },
     ]);
-  }, [chainId, enabled, heldTokenIds, product.veNFT, veNftAbi, veNftManager]);
+  }, [chainId, enabled, heldTokenIds, product.veNFT, veNftAbi]);
 
   const positionReads = useReadContracts({
     allowFailure: true,
@@ -1355,8 +1352,8 @@ async function fetchApyBasisMap(params: {
 }) {
   const { products, chainId, publicClient } = params;
 
-  const assetLedger = getContractConfig(chainId, "AssetLedger");
-  const assetFractionAbi = getContractConfig(chainId, "AssetFraction")?.abi;
+  const assetLedger = getContractConfig(chainId, "Ledger");
+  const assetFractionAbi = assetLedger?.abi;
 
   const validProducts = products.filter((product) => product.fractionAddress !== ZERO_ADDRESS);
   if (validProducts.length === 0 || !assetLedger?.address || !assetFractionAbi) return {};
@@ -1415,7 +1412,7 @@ export function useApyBasis(params: {
 }) {
   const { enabled, products, chainId, assetFractionAbi } = params;
   const publicClient = usePublicClient();
-  const assetLedger = getContractConfig(chainId, "AssetLedger");
+  const assetLedger = getContractConfig(chainId, "Ledger");
 
   const queryKey = earnApyBasisQueryKey({
     chainId,
