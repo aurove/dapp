@@ -30,8 +30,6 @@ import { EarnPositionCard } from "./earn-position-card";
 import { getContractConfig } from "@/contracts/client";
 import { MAX_EPOCHS_BY_VARIANT, symbolOf } from "./utils/tranche";
 
-const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
-
 type ClaimableSummary = {
   key: string;
   amountRaw: bigint;
@@ -42,48 +40,6 @@ type ClaimableSummary = {
 };
 
 type CreatePositionMode = "erc20" | "venft";
-type TrancheApyEstimate = {
-  product: EarnProduct;
-  apyPercent: number;
-};
-
-function formatApyPercent(value: number | null | undefined) {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "Not estimated";
-  if (value > 0 && value < 0.01) return "<0.01%";
-  const fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
-  return (
-    new Intl.NumberFormat("en-US", {
-      maximumFractionDigits: fractionDigits,
-      minimumFractionDigits: fractionDigits,
-    }).format(value) + "%"
-  );
-}
-
-function estimateTrancheApy(product: EarnProduct): TrancheApyEstimate | null {
-  const totalSupplyRaw = product.apyTotalSupplyAtFundingRaw ?? 0n;
-  const rewardAmountRaw = product.apyRewardAmountRaw ?? 0n;
-  if (totalSupplyRaw <= 0n || rewardAmountRaw <= 0n) return null;
-
-  const rewardDeposited = Number(formatUnits(rewardAmountRaw, product.rewardDecimals));
-  const totalSupply = Number(formatUnits(totalSupplyRaw, 18));
-  if (!Number.isFinite(rewardDeposited) || !Number.isFinite(totalSupply) || totalSupply <= 0) {
-    return null;
-  }
-
-  const durationSeconds =
-    product.trancheDuration && product.trancheDuration > 0n
-      ? Number(product.trancheDuration)
-      : null;
-  const annualization =
-    durationSeconds && Number.isFinite(durationSeconds) && durationSeconds > 0
-      ? SECONDS_PER_YEAR / durationSeconds
-      : 1;
-
-  return {
-    product,
-    apyPercent: (rewardDeposited / totalSupply) * annualization * 100,
-  };
-}
 
 function amountFromBalancePercent(balance: bigint, percent: number, decimals: number): string {
   if (balance <= 0n || percent <= 0) return "";
@@ -122,7 +78,6 @@ export function EarnPage() {
   const {
     assetLedger,
     products,
-    liveProductCount,
     userPositions,
     tokens,
     isLoading,
@@ -205,21 +160,6 @@ export function EarnPage() {
     assetFractionAbi,
   });
   const apyBasisMap = useMemo(() => apyQuery.data ?? {}, [apyQuery.data]);
-  const bestApyEstimate = useMemo(() => {
-    return products
-      .map((product) => {
-        const apyBasis = apyBasisMap[product.fractionAddress.toLowerCase()];
-
-        return estimateTrancheApy({
-          ...product,
-          apyRewardAmountRaw: apyBasis?.rewardAmountRaw ?? null,
-          apyTotalSupplyAtFundingRaw: apyBasis?.totalSupplyAtFundingRaw ?? null,
-          apyFundingBlockNumber: apyBasis?.fundingBlockNumber ?? null,
-        });
-      })
-      .filter((estimate): estimate is TrancheApyEstimate => Boolean(estimate))
-      .sort((a, b) => b.apyPercent - a.apyPercent)[0];
-  }, [products, apyBasisMap]);
 
   const createDisabledReason = !selectedToken?.underlyingAddress
     ? "This token is not available on this network."
@@ -325,32 +265,32 @@ export function EarnPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">
                 <Sparkles className="mr-1 h-3.5 w-3.5" />
-                Mezo Earn, simplified
+                MEZO EARN, MADE LIQUID
               </Badge>
               <Badge className="border-white/15 bg-white/[0.04] text-white/70">
-                Fungible Earn products
+                LIQUID EARNING ASSETS
               </Badge>
             </div>
             <div className="max-w-3xl space-y-3">
               <h1 className="text-balance text-3xl font-semibold tracking-tight text-white md:text-5xl">
-                Mezo Earn, simplified into fungible yield products.
+                Turn Mezo Earn positions into liquid assets you can use.
               </h1>
               <p className="text-base leading-7 text-white/68 md:text-lg">
-                Aurove turns complex veBTC / veMEZO positions, gauges, lock durations, boosts,
-                rewards, and incentive routing into simple fungible Earn products users can
-                understand, swap, and use.
+                Deposit BTC, MEZO, or an existing locked Mezo Earn position and receive a liquid Aurove
+                asset. Keep earning from the underlying position while gaining the flexibility to swap
+                when you need liquidty.
               </p>
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <HeroMetric label="Live products" value={liveProductCount.toString()} />
-            <HeroMetric label="Your claim positions" value={userPositions.length.toString()} />
+            <HeroMetric label="AVAILABLE ASSETS" value="0" />
+            <HeroMetric label="YOUR POSITIONS" value="0" />
             <HeroMetric
-              label="APY source"
-              value={formatApyPercent(bestApyEstimate?.apyPercent)}
-              detail={bestApyEstimate?.product.symbol ?? "No funded tranches"}
-              subtle={!bestApyEstimate}
+              label="ESTIMATED YIELD"
+              value="Not available yet"
+              detail="Yield data will appear when an Aurove asset is live."
+              subtle
             />
           </div>
         </div>
