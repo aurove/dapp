@@ -20,6 +20,21 @@ export function getMezoMainnetRpcHttp(): string {
   return process.env.NEXT_PUBLIC_MEZO_MAINNET_RPC_HTTP || "https://rpc.mezo.org";
 }
 
+const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
+
+function withMulticall(chain: Chain): Chain {
+  return defineChain({
+    ...chain,
+    contracts: {
+      ...chain.contracts,
+      multicall3: {
+        address: MULTICALL3_ADDRESS,
+        blockCreated: 0,
+      },
+    },
+  });
+}
+
 // Local chain definitions avoid importing mezo chain exports from @mezo-org/passport,
 // which currently fail under our Turbopack build due to upstream export mismatch.
 export const mezoTestnetChain: Chain = defineChain({
@@ -42,6 +57,12 @@ export const mezoTestnetChain: Chain = defineChain({
     },
   },
   testnet: true,
+  contracts: {
+    multicall3: {
+      address: MULTICALL3_ADDRESS,
+      blockCreated: 0,
+    },
+  },
 });
 
 export const mezoMainnetChain: Chain = defineChain({
@@ -64,12 +85,18 @@ export const mezoMainnetChain: Chain = defineChain({
     },
   },
   testnet: false,
+  contracts: {
+    multicall3: {
+      address: MULTICALL3_ADDRESS,
+      blockCreated: 0,
+    },
+  },
 });
 
 export function getActiveChain(environment = resolveAppEnvironment()): Chain {
   if (environment === "testnet") return mezoTestnetChain;
   if (environment === "mainnet") return mezoMainnetChain;
-  return hardhat;
+  return withMulticall(hardhat);
 }
 
-export const supportedChains = [hardhat, mezoTestnetChain, mezoMainnetChain] as const;
+export const supportedChains = [withMulticall(hardhat), mezoTestnetChain, mezoMainnetChain] as const;

@@ -3,20 +3,20 @@ import { SectionHeading } from "@/components/site/section-heading";
 
 const steps = [
   {
-    title: "Onboard veBTC / veMEZO Exposure",
-    body: "Start from a position with lock duration, gauge, boost, reward, and routing context.",
+    title: "Deposit BTC, MEZO, or a position",
+    body: "Start with the asset or Mezo Earn position you already hold.",
   },
   {
-    title: "Receive Fungible Earn Products",
-    body: "Aurove represents position ownership through product units that are easier to understand, hold, transfer, and price.",
+    title: "Receive a liquid Aurove asset",
+    body: "Aurove gives you a simpler asset you can hold and move more easily.",
   },
   {
-    title: "Swap or Manage Exposure",
-    body: "Preview routes between veNFT positions, ERC1155 fractions, and ERC20 liquidity tokens.",
+    title: "Keep earning in the background",
+    body: "Your Aurove asset stays connected to Mezo Earn rewards while you hold it.",
   },
   {
-    title: "Use, Swap, or Redeem",
-    body: "Claim rewards, follow routing, and move into redemption flows aligned with product duration.",
+    title: "Swap or redeem when needed",
+    body: "Move back out when you want liquidity or want to exit your position.",
   },
 ] as const;
 
@@ -25,8 +25,8 @@ export function HowItWorksSection() {
     <section id="how-it-works" className="mt-20">
       <SectionHeading
         badge="How It Works"
-        title="A clear flow from Mezo Earn complexity to usable products."
-        description="Aurove turns complex veBTC / veMEZO positions, gauges, lock durations, boosts, rewards, and incentive routing into simple fungible Earn products."
+        title="A simple flow from deposit to flexibility."
+        description="Aurove turns a Mezo Earn position into a liquid asset you can keep using, swap, or redeem later."
       />
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">

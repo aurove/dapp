@@ -1,806 +1,90 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowRightLeft, Coins, RefreshCw, Sparkles, Wallet } from "lucide-react";
-import { erc20Abi, formatUnits, type Address } from "viem";
-import { useAccount, useReadContracts } from "wagmi";
+import Link from "next/link";
+import Image from "next/image";
+import { useMemo, useState, type SyntheticEvent } from "react";
 import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Input,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  cn,
-} from "@ui";
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Coins,
+  Info,
+  Layers3,
+  LockKeyhole,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Wallet,
+} from "lucide-react";
+import { erc20Abi, erc721Abi, formatUnits, type Address } from "viem";
+import { useChainId } from "wagmi";
+import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
+import { appRoutes } from "@/components/app/app-nav";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
-import { staticReadQueryOptions } from "@/lib/web3/read-query-options";
 import { useChainTime } from "@/lib/web3/use-chain-time";
-import {
-  formatCompactRawTokenAmount,
-  parseAmountRaw,
-  readAddress,
-  readBigint,
-  readBoolean,
-  readNumber,
-} from "@/lib/web3/value-parsers";
-import { useEarnSnapshot, type EarnSnapshot } from "./use-earn-data";
+import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
+import { useUserVeNFTs, type UserVeNft } from "@/components/features/earn/hooks/use-user-ve-nfts";
+import { type EarnProduct, type EarnVariant, useApyBasis, useEarnSnapshot } from "./use-earn-data";
 import { EarnPositionCard } from "./earn-position-card";
-import { getEarnVariantConfig, type EarnVariantConfig, veNftCollectionAbi } from "./protocol";
-import {
-  EARN_VARIANTS,
-  getVariantAssetSymbol,
-  type EarnVariant,
-} from "./utils/tranche";
-import { useUserVeNFTs, type UserVeNftCollection } from "./hooks/use-user-ve-nfts";
+import { getContractConfig } from "@/contracts/client";
+import { MAX_EPOCHS_BY_VARIANT, symbolOf } from "./utils/tranche";
+
+type ClaimableSummary = {
+  key: string;
+  amountRaw: bigint;
+  symbol: string;
+  decimals: number;
+  trancheCount: number;
+  products: EarnProduct[];
+};
 
 type CreatePositionMode = "erc20" | "venft";
 
-function shortAddress(address: Address | null | undefined): string {
-  if (!address) return "Unavailable";
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+function amountFromBalancePercent(balance: bigint, percent: number, decimals: number): string {
+  if (balance <= 0n || percent <= 0) return "";
+  const boundedPercent = Math.min(100, Math.max(0, Math.round(percent)));
+  return formatUnits((balance * BigInt(boundedPercent)) / 100n, decimals);
 }
 
-function formatDateLabel(epochSeconds: bigint): string {
-  if (epochSeconds <= 0n) return "Unknown";
-
-  const millis = Number(epochSeconds) * 1000;
-  if (!Number.isFinite(millis) || millis <= 0) return "Unknown";
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "2-digit",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(millis));
-}
-
-function formatSettlementStatus(
-  chainTimestamp: bigint | null,
-  settlementWindow: EarnSnapshot["settlementWindow"],
-): string {
-  if (!settlementWindow) return "Unavailable";
-
-  if (chainTimestamp === null) {
-    return `Opens ${formatDateLabel(settlementWindow.opensAt)} and closes ${formatDateLabel(
-      settlementWindow.closesAt,
-    )}`;
-  }
-
-  if (chainTimestamp < settlementWindow.opensAt) {
-    return `Opens ${formatDateLabel(settlementWindow.opensAt)}`;
-  }
-
-  if (chainTimestamp < settlementWindow.closesAt) {
-    return `Open until ${formatDateLabel(settlementWindow.closesAt)}`;
-  }
-
-  return `Closed since ${formatDateLabel(settlementWindow.closesAt)}`;
-}
-
-function toneClasses(variant: EarnVariant): string {
-  return variant === "veBTC"
-    ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
-    : "border-sky-300/25 bg-sky-300/10 text-sky-100";
-}
-
-function makeVeNftKey(contractAddress: Address, tokenId: bigint): string {
-  return `${contractAddress}-${tokenId.toString()}`;
-}
-
-function metricTone(variant: EarnVariant): string {
-  return variant === "veBTC"
-    ? "text-amber-100 border-amber-300/20 bg-amber-300/10"
-    : "text-sky-100 border-sky-300/20 bg-sky-300/10";
-}
-
-function Banner({
-  tone,
-  title,
-  children,
-}: {
-  tone: "success" | "error" | "info";
-  title: string;
-  children: string;
-}) {
-  const classes =
-    tone === "success"
-      ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-50"
-      : tone === "error"
-        ? "border-rose-300/25 bg-rose-300/10 text-rose-50"
-        : "border-white/10 bg-white/5 text-white/80";
-
-  return (
-    <div className={cn("rounded-2xl border px-4 py-3 text-sm", classes)}>
-      <p className="font-medium">{title}</p>
-      <p className="mt-1 text-white/75">{children}</p>
-    </div>
-  );
-}
-
-function MetricTile({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs uppercase tracking-[0.2em] text-white/40">{label}</p>
-        <div className="text-white/55">{icon}</div>
-      </div>
-      <p className="mt-2 break-words text-lg font-semibold text-white">{value}</p>
-    </div>
-  );
-}
-
-function IntroCard({
-  protocol,
-  chainTimestamp,
-  snapshot,
-  isConnected,
-  isRefreshing,
-  onRefresh,
-}: {
-  protocol: EarnSnapshot["protocol"];
-  chainTimestamp: bigint | null;
-  snapshot: EarnSnapshot;
-  isConnected: boolean;
-  isRefreshing: boolean;
-  onRefresh: () => void;
-}) {
-  const wrapperCount = snapshot.tranches.filter((tranche) => Boolean(tranche.wrapperAddress)).length;
-  const activeWrapperCount = snapshot.tranches.filter(
-    (tranche) => Boolean(tranche.wrapperAddress) && tranche.wrapperIsActive,
-  ).length;
-
-  return (
-    <Card className="overflow-hidden rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(8,12,18,0.98),rgba(5,8,12,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.35)]">
-      <CardHeader className="space-y-4 border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(181,143,95,0.16),transparent_35%),radial-gradient(circle_at_top_right,rgba(96,165,250,0.12),transparent_40%)]">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="border-white/10 bg-white/5 text-white/75">Current core</Badge>
-              <Badge className="border-white/10 bg-white/5 text-white/75">
-                {protocol.environment.toUpperCase()} chain {protocol.chainId}
-              </Badge>
-            </div>
-            <CardTitle className="flex items-center gap-3 text-3xl text-white">
-              <Sparkles className="h-6 w-6 text-[var(--accent)]" />
-              Earn on Aurove
-            </CardTitle>
-            <CardDescription className="max-w-2xl text-white/65">
-              Lock BTC or MEZO into managed tranches, receive ERC1155 tranche units, wrap them into
-              ID20, and claim rewards or redeem inventory directly from the current ledger, vault,
-              and gauge contracts.
-            </CardDescription>
-          </div>
-
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="shrink-0 gap-2"
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
-            Refresh
-          </Button>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricTile
-            label="Wallet"
-            value={isConnected ? "Connected" : "Connect wallet"}
-            icon={<Wallet className="h-4 w-4" />}
-          />
-          <MetricTile
-            label="Managed tranches"
-            value={snapshot.tranches.length.toString()}
-            icon={<ArrowRightLeft className="h-4 w-4" />}
-          />
-          <MetricTile
-            label="Wrappers deployed"
-            value={`${wrapperCount} total / ${activeWrapperCount} active`}
-            icon={<Coins className="h-4 w-4" />}
-          />
-          <MetricTile
-            label="Settlement"
-            value={formatSettlementStatus(chainTimestamp, snapshot.settlementWindow)}
-            icon={<Sparkles className="h-4 w-4" />}
-          />
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4 p-5">
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-white/40">Current epoch</p>
-            <p className="mt-2 text-lg font-semibold text-white">
-              {snapshot.currentEpoch !== null ? `Week ${snapshot.currentEpoch.toString()}` : "Waiting for chain time"}
-            </p>
-            <p className="mt-2 text-sm text-white/60">
-              Reward sink claims mint tranche units. ID20 rewards are harvested into the gauge
-              separately.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-white/40">Current flow</p>
-            <ol className="mt-3 space-y-2 text-sm text-white/70">
-              <li className="flex gap-3">
-                <span className="text-[var(--accent)]">1.</span>
-                Select BTC or MEZO.
-              </li>
-              <li className="flex gap-3">
-                <span className="text-[var(--accent)]">2.</span>
-                Lock ERC20 or deposit an existing veNFT.
-              </li>
-              <li className="flex gap-3">
-                <span className="text-[var(--accent)]">3.</span>
-                Receive tranche units, then wrap them into ID20 if you want a liquid ERC20 balance.
-              </li>
-              <li className="flex gap-3">
-                <span className="text-[var(--accent)]">4.</span>
-                Claim rewards, activate the gauge, or redeem during settlement.
-              </li>
-            </ol>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function DepositCard({
-  protocol,
-  selectedVariant,
-  setSelectedVariant,
-  selectedVariantConfig,
-  veCollections,
-  depositMode,
-  setDepositMode,
-  depositAmount,
-  setDepositAmount,
-  selectedVeNftKey,
-  setSelectedVeNftKey,
-  onRefresh,
-  onActionSuccess,
-  onActionError,
-}: {
-  protocol: EarnSnapshot["protocol"];
-  selectedVariant: EarnVariant;
-  setSelectedVariant: (variant: EarnVariant) => void;
-  selectedVariantConfig: EarnVariantConfig;
-  veCollections: UserVeNftCollection[];
-  depositMode: CreatePositionMode;
-  setDepositMode: (mode: CreatePositionMode) => void;
-  depositAmount: string;
-  setDepositAmount: (value: string) => void;
-  selectedVeNftKey: string;
-  setSelectedVeNftKey: (value: string) => void;
-  onRefresh: () => void;
-  onActionSuccess: (message: string) => void;
-  onActionError: (message: string) => void;
-}) {
-  const { address: userAddress } = useAccount();
-  const selectedCollection = veCollections.find((collection) => collection.variant === selectedVariant) ?? null;
-  const selectedVeNft = useMemo(() => {
-    const candidates = selectedCollection?.veNfts ?? [];
-    if (candidates.length === 0) return null;
-
-    const validSelection = selectedVeNftKey
-      ? candidates.find((candidate) => makeVeNftKey(candidate.contractAddress, candidate.tokenId) === selectedVeNftKey) ?? null
-      : null;
-
-    return validSelection ?? candidates[0] ?? null;
-  }, [selectedCollection?.veNfts, selectedVeNftKey]);
-
-  const collectionTokenReads = useReadContracts({
-    allowFailure: true,
-    contracts: selectedVariantConfig.collectionAddress
-      ? [
-          {
-            address: selectedVariantConfig.collectionAddress,
-            abi: veNftCollectionAbi,
-            functionName: "token" as const,
-            chainId: protocol.chainId,
-          },
-        ]
-      : [],
-    query: {
-      enabled: Boolean(selectedVariantConfig.collectionAddress),
-      ...staticReadQueryOptions,
-    },
-  });
-
-  const underlyingTokenAddress = readAddress(collectionTokenReads.data?.[0]?.result);
-
-  const underlyingTokenReads = useReadContracts({
-    allowFailure: true,
-    contracts:
-      userAddress && underlyingTokenAddress && protocol.addresses.ledgerAddress
-        ? [
-            {
-              address: underlyingTokenAddress,
-              abi: erc20Abi,
-              functionName: "balanceOf" as const,
-              args: [userAddress] as const,
-              chainId: protocol.chainId,
-            },
-            {
-              address: underlyingTokenAddress,
-              abi: erc20Abi,
-              functionName: "allowance" as const,
-              args: [userAddress, protocol.addresses.ledgerAddress] as const,
-              chainId: protocol.chainId,
-            },
-            {
-              address: underlyingTokenAddress,
-              abi: erc20Abi,
-              functionName: "decimals" as const,
-              chainId: protocol.chainId,
-            },
-            {
-              address: underlyingTokenAddress,
-              abi: erc20Abi,
-              functionName: "symbol" as const,
-              chainId: protocol.chainId,
-            },
-          ]
-        : [],
-    query: {
-      enabled: Boolean(userAddress && underlyingTokenAddress && protocol.addresses.ledgerAddress),
-      ...staticReadQueryOptions,
-    },
-  });
-
-  const underlyingBalanceRaw = readBigint(underlyingTokenReads.data?.[0]?.result) ?? 0n;
-  const underlyingAllowanceRaw = readBigint(underlyingTokenReads.data?.[1]?.result) ?? 0n;
-  const underlyingDecimals = readNumber(underlyingTokenReads.data?.[2]?.result) ?? 18;
-  const underlyingSymbol =
-    (typeof underlyingTokenReads.data?.[3]?.result === "string" && underlyingTokenReads.data?.[3]?.result) ||
-    getVariantAssetSymbol(selectedVariant);
-
-  const selectedVeNftApprovalReads = useReadContracts({
-    allowFailure: true,
-    contracts:
-      depositMode === "venft" &&
-      userAddress &&
-      selectedVeNft &&
-      protocol.addresses.ledgerAddress
-        ? [
-            {
-              address: selectedVeNft.contractAddress,
-              abi: veNftCollectionAbi,
-              functionName: "getApproved" as const,
-              args: [selectedVeNft.tokenId] as const,
-              chainId: protocol.chainId,
-            },
-            {
-              address: selectedVeNft.contractAddress,
-              abi: veNftCollectionAbi,
-              functionName: "isApprovedForAll" as const,
-              args: [userAddress, protocol.addresses.ledgerAddress] as const,
-              chainId: protocol.chainId,
-            },
-          ]
-        : [],
-    query: {
-      enabled: Boolean(
-        depositMode === "venft" &&
-          userAddress &&
-          selectedVeNft &&
-          protocol.addresses.ledgerAddress,
-      ),
-      ...staticReadQueryOptions,
-    },
-  });
-
-  const approvedAddress = readAddress(selectedVeNftApprovalReads.data?.[0]?.result);
-  const isApprovedForAll = readBoolean(selectedVeNftApprovalReads.data?.[1]?.result);
-
-  const depositAmountRaw = parseAmountRaw(depositAmount, underlyingDecimals);
-  const selectedVariantTrancheSymbol = selectedVariantConfig.trancheSymbol;
-  const selectedVariantAssetSymbol = selectedVariantConfig.assetSymbol;
-  const selectedVariantCollectionToken = selectedVariantConfig.collectionAddress ? shortAddress(selectedVariantConfig.collectionAddress) : "Unavailable";
-
-  useEffect(() => {
-    if (depositMode !== "venft") return;
-    const firstVeNft = selectedCollection?.veNfts[0];
-    const validSelected = selectedCollection?.veNfts.some(
-      (candidate) => makeVeNftKey(candidate.contractAddress, candidate.tokenId) === selectedVeNftKey,
-    );
-
-    if (!validSelected) {
-      setSelectedVeNftKey(firstVeNft ? makeVeNftKey(firstVeNft.contractAddress, firstVeNft.tokenId) : "");
+function txError(handler: (message: string) => void) {
+  return (err: string | SyntheticEvent<HTMLButtonElement>) => {
+    if (typeof err === "string") {
+      handler(err);
     }
-  }, [depositMode, selectedCollection?.veNfts, selectedVeNftKey, setSelectedVeNftKey]);
-
-  const needsUnderlyingApproval =
-    depositMode === "erc20" &&
-    depositAmountRaw !== null &&
-    depositAmountRaw > 0n &&
-    underlyingAllowanceRaw < depositAmountRaw;
-
-  const needsVeNftApproval =
-    depositMode === "venft" &&
-    Boolean(selectedVeNft) &&
-    Boolean(protocol.addresses.ledgerAddress) &&
-    !isApprovedForAll &&
-    approvedAddress?.toLowerCase() !== protocol.addresses.ledgerAddress?.toLowerCase();
-
-  const depositSteps = ({ account }: { account: Address; chainId: number }): TxStep[] => {
-    if (depositMode === "erc20") {
-      if (!protocol.addresses.ledgerAddress || !selectedVariantConfig.collectionAddress || !underlyingTokenAddress) {
-        throw new Error("ERC20 deposit inputs are incomplete.");
-      }
-      if (!depositAmountRaw || depositAmountRaw <= 0n) {
-        throw new Error("Enter a valid deposit amount.");
-      }
-
-      const steps: TxStep[] = [];
-      if (needsUnderlyingApproval) {
-        steps.push(
-          makeAddressWriteStep({
-            key: `approve-underlying-${selectedVariantConfig.trancheId}`,
-            label: `Approve ${underlyingSymbol}`,
-            displayLabelBtn: true,
-            address: underlyingTokenAddress,
-            abi: erc20Abi,
-            variables: {
-              functionName: "approve",
-              args: [protocol.addresses.ledgerAddress, depositAmountRaw] as const,
-            },
-          }) as TxStep,
-        );
-      }
-
-      steps.push(
-        makeContractWriteStep({
-          key: `deposit-erc20-${selectedVariantConfig.trancheId}`,
-          label: `Deposit ${underlyingSymbol}`,
-          displayLabelBtn: true,
-          contractName: "Ledger",
-          variables: {
-            functionName: "depositErc20",
-            args: [selectedVariant === "veBTC" ? 1n : 2n, BigInt(selectedVariantConfig.managedEpochs), depositAmountRaw, account] as const,
-          },
-        }) as TxStep,
-      );
-
-      return steps;
-    }
-
-    if (!selectedVeNft || !protocol.addresses.ledgerAddress) {
-      throw new Error("veNFT deposit inputs are incomplete.");
-    }
-
-    const steps: TxStep[] = [];
-    if (needsVeNftApproval) {
-      steps.push(
-        makeAddressWriteStep({
-          key: `approve-venft-${selectedVariantConfig.trancheId}`,
-          label: "Approve veNFT",
-          displayLabelBtn: true,
-          address: selectedVeNft.contractAddress,
-          abi: veNftCollectionAbi,
-          variables: {
-            functionName: "approve",
-            args: [protocol.addresses.ledgerAddress, selectedVeNft.tokenId] as const,
-          },
-        }) as TxStep,
-      );
-    }
-
-    steps.push(
-      makeContractWriteStep({
-        key: `deposit-venft-${selectedVariantConfig.trancheId}`,
-        label: "Deposit veNFT",
-        displayLabelBtn: true,
-        contractName: "Ledger",
-        variables: {
-          functionName: "depositVeNft",
-          args: [selectedVariant === "veBTC" ? 1n : 2n, BigInt(selectedVariantConfig.managedEpochs), selectedVeNft.tokenId, account] as const,
-        },
-      }) as TxStep,
-    );
-
-    return steps;
   };
+}
 
-  const erc20DisabledReason = !protocol.addresses.ledgerAddress
-    ? "The ledger address is unavailable on this network."
-    : !underlyingTokenAddress
-      ? "Unable to resolve the underlying token for this tranche."
-      : !depositAmountRaw
-        ? "Enter an amount to lock."
-        : depositAmountRaw > underlyingBalanceRaw
-          ? "Insufficient wallet balance."
-          : null;
+function variantCopy(variant: EarnVariant) {
+  return variant === "veBTC"
+    ? {
+      headline: "BTC-backed fungible Earn products",
+      asset: "BTC",
+      tone: "border-amber-300/25 bg-amber-300/10 text-amber-100",
+    }
+    : {
+      headline: "MEZO-backed fungible Earn products",
+      asset: "MEZO",
+      tone: "border-sky-300/25 bg-sky-300/10 text-sky-100",
+    };
+}
 
-  const veNftDisabledReason = !protocol.addresses.ledgerAddress
-    ? "The ledger address is unavailable on this network."
-    : !selectedVeNft
-      ? "Choose a veNFT to deposit."
-      : null;
-
-  const receiptPreview =
-    depositMode === "erc20" && depositAmountRaw
-      ? formatCompactRawTokenAmount(depositAmountRaw, underlyingDecimals, selectedVariantTrancheSymbol)
-      : depositMode === "venft" && selectedVeNft
-        ? `${selectedVeNft.lockAmountFormatted} ${selectedVariantTrancheSymbol}`
-        : `Receive ${selectedVariantTrancheSymbol} tranche units`;
-
-  const receiptAssetLabel =
-    depositMode === "erc20"
-      ? `${selectedVariantAssetSymbol} locked`
-      : `${selectedVariantAssetSymbol} veNFT deposited`;
-
-  return (
-    <Card className="overflow-hidden rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(7,10,15,0.98),rgba(4,7,10,0.98))] shadow-[0_28px_80px_rgba(0,0,0,0.3)]">
-      <CardHeader className="space-y-4 border-b border-white/10 bg-white/[0.02]">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className={toneClasses(selectedVariant)}>
-              {selectedVariantConfig.variant}
-            </Badge>
-            <Badge className="border-white/10 bg-white/5 text-white/70">
-              Managed {selectedVariantConfig.managedEpochs}-week tranche
-            </Badge>
-          </div>
-          <CardTitle className="text-2xl text-white">
-            Open {selectedVariantConfig.trancheSymbol}
-          </CardTitle>
-          <CardDescription className="max-w-2xl text-white/60">
-            Lock {underlyingSymbol} or deposit a supported veNFT. You receive{" "}
-            {selectedVariantConfig.trancheSymbol} tranche units, which can later be wrapped into a
-            liquid ERC20 or redeemed during settlement.
-          </CardDescription>
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          {EARN_VARIANTS.map((variant) => {
-            const config = getEarnVariantConfig(variant, protocol);
-            const isSelected = selectedVariant === variant;
-            return (
-              <Button
-                key={variant}
-                type="button"
-                variant={isSelected ? "secondary" : "outline"}
-                className={cn(
-                  "justify-start gap-2",
-                  isSelected && metricTone(variant),
-                  !isSelected && "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/5",
-                )}
-                onClick={() => setSelectedVariant(variant)}
-              >
-                <span className={cn("h-2.5 w-2.5 rounded-full", variant === "veBTC" ? "bg-amber-300" : "bg-sky-300")} />
-                <span>{config.trancheSymbol}</span>
-                <span className="ml-auto text-xs text-white/45">{getVariantAssetSymbol(variant)}</span>
-              </Button>
-            );
-          })}
-        </div>
-
-        <Tabs value={depositMode} onValueChange={(value) => setDepositMode(value as CreatePositionMode)}>
-          <TabsList className="w-full justify-start">
-            <TabsTrigger value="erc20">Lock ERC20</TabsTrigger>
-            <TabsTrigger value="venft">Deposit veNFT</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="erc20">
-            <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-white">Underlying token</p>
-                  <p className="text-xs text-white/50">
-                    Contract {selectedVariantCollectionToken} /{" "}
-                    {underlyingTokenAddress ? shortAddress(underlyingTokenAddress) : "loading..."}
-                  </p>
-                </div>
-                <Badge className="border-white/10 bg-white/5 text-white/70">
-                  Receives {selectedVariantTrancheSymbol}
-                </Badge>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <label htmlFor={`deposit-erc20-${selectedVariantConfig.trancheId}`} className="text-sm font-medium text-white">
-                      Deposit amount
-                    </label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-white/60 hover:bg-white/5 hover:text-white"
-                      onClick={() => setDepositAmount(formatUnits(underlyingBalanceRaw, underlyingDecimals))}
-                      disabled={underlyingBalanceRaw <= 0n}
-                    >
-                      Max
-                    </Button>
-                  </div>
-                  <Input
-                    id={`deposit-erc20-${selectedVariantConfig.trancheId}`}
-                    inputMode="decimal"
-                    placeholder={`0.00 ${underlyingSymbol}`}
-                    value={depositAmount}
-                    onChange={(event) => setDepositAmount(event.target.value)}
-                    disabled={!underlyingTokenAddress}
-                  />
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-white/50">
-                    <span>
-                      Balance {formatCompactRawTokenAmount(underlyingBalanceRaw, underlyingDecimals, underlyingSymbol)}
-                    </span>
-                    <span>Allowance {formatCompactRawTokenAmount(underlyingAllowanceRaw, underlyingDecimals, underlyingSymbol)}</span>
-                    <span>Approvals are requested automatically when needed.</span>
-                  </div>
-                </div>
-
-                <TransactionFlowButton
-                  className="w-full justify-center md:w-auto"
-                  size="sm"
-                  variant="secondary"
-                  disabled={Boolean(erc20DisabledReason)}
-                  icon={<Wallet className="h-3.5 w-3.5" />}
-                  steps={depositSteps}
-                  onComplete={() => {
-                    onActionSuccess(
-                      `Locked ${depositAmount || "selected"} ${underlyingSymbol} into ${selectedVariantTrancheSymbol}.`,
-                    );
-                    setDepositAmount("");
-                    onRefresh();
-                  }}
-                  onError={onActionError}
-                >
-                  Deposit {underlyingSymbol}
-                </TransactionFlowButton>
-              </div>
-
-              <div className="rounded-xl border border-white/10 bg-[#070b10]/70 p-3">
-                <p className="text-xs uppercase tracking-[0.2em] text-white/40">Receipt</p>
-                <p className="mt-2 text-lg font-semibold text-white">{receiptPreview}</p>
-                <p className="mt-1 text-sm text-white/55">
-                  {receiptAssetLabel}. You can wrap the resulting tranche units into the liquid ID20
-                  wrapper later.
-                </p>
-              </div>
-
-              {erc20DisabledReason ? (
-                <p className="text-xs text-amber-100/80">{erc20DisabledReason}</p>
-              ) : null}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="venft">
-            <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-white">Supported veNFTs</p>
-                  <p className="text-xs text-white/50">
-                    {selectedCollection?.veNfts.length ?? 0} visible veNFT
-                    {selectedCollection && selectedCollection.hiddenCount > 0
-                      ? `, +${selectedCollection.hiddenCount} hidden`
-                      : ""}
-                  </p>
-                </div>
-                <Badge className="border-white/10 bg-white/5 text-white/70">
-                  Receives {selectedVariantTrancheSymbol}
-                </Badge>
-              </div>
-
-              {selectedCollection && selectedCollection.veNfts.length > 0 ? (
-                <>
-                  <div className="space-y-2">
-                    <label htmlFor={`deposit-venft-${selectedVariantConfig.trancheId}`} className="text-sm font-medium text-white">
-                      Choose veNFT
-                    </label>
-                    <select
-                      id={`deposit-venft-${selectedVariantConfig.trancheId}`}
-                      className="w-full rounded-xl border border-white/10 bg-[#070b10]/80 px-3 py-2 text-sm text-white outline-none transition focus:border-[var(--accent)]"
-                      value={selectedVeNft ? makeVeNftKey(selectedVeNft.contractAddress, selectedVeNft.tokenId) : ""}
-                      onChange={(event) => setSelectedVeNftKey(event.target.value)}
-                    >
-                      {selectedCollection.veNfts.map((veNft) => {
-                        const key = makeVeNftKey(veNft.contractAddress, veNft.tokenId);
-                        return (
-                          <option key={key} value={key}>
-                            #{veNft.tokenId.toString()} - {veNft.lockAmountFormatted} {selectedVariantAssetSymbol}
-                            {" "}
-                            until {veNft.lockEndLabel}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-
-                  {selectedVeNft ? (
-                    <div className="rounded-xl border border-white/10 bg-[#070b10]/70 p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.2em] text-white/40">Selected veNFT</p>
-                          <p className="mt-2 text-lg font-semibold text-white">
-                            #{selectedVeNft.tokenId.toString()} - {selectedVeNft.lockAmountFormatted}{" "}
-                            {selectedVariantAssetSymbol}
-                          </p>
-                          <p className="mt-1 text-sm text-white/55">
-                            Locks until {selectedVeNft.lockEndLabel}.
-                          </p>
-                        </div>
-                        <Badge className="border-white/10 bg-white/5 text-white/70">
-                          Receives {selectedVariantTrancheSymbol}
-                        </Badge>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                    <div className="space-y-1 text-xs text-white/50">
-                      <p>
-                        Approval status:{" "}
-                        {needsVeNftApproval
-                          ? "Approve this veNFT for the ledger before depositing."
-                          : "Ready to deposit."}
-                      </p>
-                      <p>
-                        The tranche units are minted at a 1:1 rate against the locked veNFT amount.
-                      </p>
-                    </div>
-
-                    <TransactionFlowButton
-                      className="w-full justify-center md:w-auto"
-                      size="sm"
-                      variant="secondary"
-                      disabled={Boolean(veNftDisabledReason)}
-                      icon={<Sparkles className="h-3.5 w-3.5" />}
-                      steps={depositSteps}
-                      onComplete={() => {
-                        onActionSuccess(
-                          `Deposited ${selectedVeNft?.tokenId.toString() ?? "selected"} into ${selectedVariantTrancheSymbol}.`,
-                        );
-                        setDepositAmount("");
-                        onRefresh();
-                      }}
-                      onError={onActionError}
-                    >
-                      Deposit veNFT
-                    </TransactionFlowButton>
-                  </div>
-
-                  {veNftDisabledReason ? (
-                    <p className="text-xs text-amber-100/80">{veNftDisabledReason}</p>
-                  ) : null}
-                </>
-              ) : (
-                <div className="rounded-xl border border-dashed border-white/10 bg-[#070b10]/60 p-4 text-sm text-white/55">
-                  No supported veNFTs were found for this variant in your wallet.
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </CardHeader>
-    </Card>
-  );
+function getTokenIconPath(variant: EarnVariant) {
+  return variant === "veBTC" ? "/tokens/BTC.png" : "/tokens/MEZO.png";
 }
 
 export function EarnPage() {
   const { chainTimestamp } = useChainTime();
-  const { address: userAddress, isConnected } = useAccount();
-  const snapshot = useEarnSnapshot();
+  const {
+    assetLedger,
+    products,
+    userPositions,
+    tokens,
+    isLoading,
+    isFetching,
+    error,
+    refresh,
+  } = useEarnSnapshot();
   const {
     veCollections,
     isLoading: veNftsLoading,
@@ -809,27 +93,163 @@ export function EarnPage() {
     refresh: refreshVeNfts,
   } = useUserVeNFTs();
 
-  const [selectedVariant, setSelectedVariant] = useState<EarnVariant>("veBTC");
-  const [depositMode, setDepositMode] = useState<CreatePositionMode>("erc20");
-  const [depositAmount, setDepositAmount] = useState("");
+  const [variant, setVariant] = useState<EarnVariant>("veBTC");
+  const [createMode, setCreateMode] = useState<CreatePositionMode>("erc20");
+  const [amount, setAmount] = useState("");
   const [selectedVeNftKey, setSelectedVeNftKey] = useState("");
+  const [withdrawAmounts, setWithdrawAmounts] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const selectedToken = tokens[variant];
+  const parsedCreateAmount = selectedToken ? parseAmountRaw(amount, selectedToken.decimals) : null;
+  const createEpochs = MAX_EPOCHS_BY_VARIANT[variant];
+  const availableVeNfts = useMemo(
+    () => veCollections.flatMap((collection) => collection.veNfts),
+    [veCollections],
+  );
+  const availableVeNftsForVariant = useMemo(
+    () => availableVeNfts.filter((veNft) => veNft.assetType === variant),
+    [availableVeNfts, variant],
+  );
+  const selectedVeNft = useMemo(
+    () =>
+      availableVeNftsForVariant.find(
+        (veNft) => `${veNft.contractAddress}-${veNft.tokenId.toString()}` === selectedVeNftKey,
+      ) ?? null,
+    [availableVeNftsForVariant, selectedVeNftKey],
+  );
 
-  const selectedVariantConfig =
-    snapshot.variantConfigs.find((variantConfig) => variantConfig.variant === selectedVariant) ??
-    getEarnVariantConfig(selectedVariant, snapshot.protocol);
+  const claimableSummaries = useMemo<ClaimableSummary[]>(() => {
+    const summaries = new Map<string, ClaimableSummary>();
 
-  const refreshing = snapshot.isFetching || veNftsFetching;
+    products.forEach((product) => {
+      if (product.claimableRewardsRaw <= 0n) {
+        return;
+      }
 
-  const handleRefreshAll = () => {
-    snapshot.refresh();
-    refreshVeNfts();
+      const symbol = product.rewardSymbol ?? "Reward";
+      const key = product.rewardAsset?.toLowerCase() ?? `${symbol}-${product.rewardDecimals}`;
+      const existing = summaries.get(key);
+
+      if (existing) {
+        existing.amountRaw += product.claimableRewardsRaw;
+        existing.trancheCount += 1;
+        existing.products.push(product);
+        return;
+      }
+
+      summaries.set(key, {
+        key,
+        amountRaw: product.claimableRewardsRaw,
+        symbol,
+        decimals: product.rewardDecimals,
+        trancheCount: 1,
+        products: [product],
+      });
+    });
+
+    return [...summaries.values()].sort((a, b) => a.symbol.localeCompare(b.symbol));
+  }, [products]);
+
+  const chainId = useChainId();
+  const assetFractionAbi = getContractConfig(chainId, "Ledger")?.abi;
+  const apyQuery = useApyBasis({
+    enabled: true,
+    products: products,
+    chainId,
+    assetFractionAbi,
+  });
+  const apyBasisMap = useMemo(() => apyQuery.data ?? {}, [apyQuery.data]);
+
+  const createDisabledReason = !selectedToken?.underlyingAddress
+    ? "This token is not available on this network."
+    : !parsedCreateAmount
+      ? "Enter an amount to continue."
+      : parsedCreateAmount > selectedToken.balanceRaw
+        ? "Not enough balance for this amount."
+        : null;
+
+  const depositVeNftDisabledReason = !assetLedger?.address
+    ? "Position deposits are unavailable on this network."
+    : availableVeNftsForVariant.length === 0
+      ? `No ${variant} positions were found in your wallet.`
+      : !selectedVeNft
+        ? "Select a position to continue."
+        : null;
+
+  const createSteps = (account: Address): TxStep[] => {
+    if (!assetLedger?.address || !selectedToken?.underlyingAddress || !parsedCreateAmount) {
+      throw new Error("Create position inputs are incomplete.");
+    }
+
+    const steps: TxStep[] = [];
+    if (selectedToken.allowanceRaw < parsedCreateAmount) {
+      steps.push(
+        makeAddressWriteStep({
+          key: "approve-underlying",
+          label: `Approve ${selectedToken.symbol}`,
+          displayLabelBtn: true,
+          address: selectedToken.underlyingAddress,
+          abi: erc20Abi,
+          variables: {
+            functionName: "approve",
+            args: [assetLedger.address, parsedCreateAmount],
+          },
+        }) as unknown as TxStep,
+      );
+    }
+
+    steps.push(
+      makeContractWriteStep({
+        key: "deposit-erc20",
+        label: "Create liquid lock",
+        displayLabelBtn: true,
+        contractName: "Ledger",
+        variables: {
+          functionName: "depositErc20",
+          args: [variant === "veBTC" ? 1 : 2, BigInt(createEpochs), parsedCreateAmount, account],
+        },
+      }) as unknown as TxStep,
+    );
+
+    return steps;
+  };
+
+  const depositVeNftSteps = (account: Address): TxStep[] => {
+    if (!assetLedger?.address || !selectedVeNft) {
+      throw new Error("veNFT deposit inputs are incomplete.");
+    }
+
+    return [
+      makeAddressWriteStep({
+        key: "approve-venft",
+        label: "Approve veNFT",
+        displayLabelBtn: true,
+        address: selectedVeNft.contractAddress,
+        abi: erc721Abi,
+        variables: {
+          functionName: "setApprovalForAll",
+          args: [assetLedger.address, true],
+        },
+      }) as unknown as TxStep,
+      makeContractWriteStep({
+        key: "deposit-venft",
+        label: "Deposit position",
+        displayLabelBtn: true,
+        contractName: "Ledger",
+        variables: {
+          functionName: "depositVeNft",
+          args: [variant === "veBTC" ? 1 : 2, BigInt(createEpochs), selectedVeNft.tokenId, account],
+        },
+      }) as unknown as TxStep,
+    ];
   };
 
   const handleSuccess = (message: string) => {
     setSuccessMessage(message);
     setErrorMessage(null);
+    refresh();
+    refreshVeNfts();
   };
 
   const handleError = (message: string) => {
@@ -837,133 +257,667 @@ export function EarnPage() {
     setSuccessMessage(null);
   };
 
-  useEffect(() => {
-    if (!successMessage && !errorMessage) return;
-
-    const timeout = window.setTimeout(() => {
-      setSuccessMessage(null);
-      setErrorMessage(null);
-    }, 8000);
-
-    return () => window.clearTimeout(timeout);
-  }, [errorMessage, successMessage]);
-
-  useEffect(() => {
-    const selectedCollection = veCollections.find((collection) => collection.variant === selectedVariant);
-    if (!selectedCollection || selectedCollection.veNfts.length === 0) {
-      setSelectedVeNftKey("");
-      return;
-    }
-
-    const keyIsValid = selectedCollection.veNfts.some(
-      (veNft) => makeVeNftKey(veNft.contractAddress, veNft.tokenId) === selectedVeNftKey,
-    );
-    if (!keyIsValid) {
-      const first = selectedCollection.veNfts[0];
-      setSelectedVeNftKey(makeVeNftKey(first.contractAddress, first.tokenId));
-    }
-  }, [selectedVariant, selectedVeNftKey, veCollections]);
-
   return (
-    <div className="space-y-8">
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-        <IntroCard
-          protocol={snapshot.protocol}
-          chainTimestamp={chainTimestamp}
-          snapshot={snapshot}
-          isConnected={isConnected}
-          isRefreshing={refreshing}
-          onRefresh={handleRefreshAll}
-        />
-
-        <DepositCard
-          protocol={snapshot.protocol}
-          selectedVariant={selectedVariant}
-          setSelectedVariant={setSelectedVariant}
-          selectedVariantConfig={selectedVariantConfig}
-          veCollections={veCollections}
-          depositMode={depositMode}
-          setDepositMode={setDepositMode}
-          depositAmount={depositAmount}
-          setDepositAmount={setDepositAmount}
-          selectedVeNftKey={selectedVeNftKey}
-          setSelectedVeNftKey={setSelectedVeNftKey}
-          onRefresh={handleRefreshAll}
-          onActionSuccess={handleSuccess}
-          onActionError={handleError}
-        />
-      </section>
-
-      {snapshot.error ? (
-        <Banner tone="error" title="Protocol read error">
-          {snapshot.error.message}
-        </Banner>
-      ) : null}
-
-      {veNftsError ? (
-        <Banner tone="error" title="veNFT read error">
-          {veNftsError.message}
-        </Banner>
-      ) : null}
-
-      {successMessage ? (
-        <Banner tone="success" title="Transaction complete">
-          {successMessage}
-        </Banner>
-      ) : null}
-
-      {errorMessage ? (
-        <Banner tone="error" title="Transaction failed">
-          {errorMessage}
-        </Banner>
-      ) : null}
-
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <Badge className="border-white/10 bg-white/5 text-white/70">Managed positions</Badge>
-            <h2 className="mt-3 text-2xl font-semibold text-white">Your tranches</h2>
-            <p className="mt-1 max-w-2xl text-sm text-white/60">
-              Each card reflects the live ledger balance, redeemable status, wrapper state, and
-              the reward sinks attached to that tranche.
-            </p>
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-2xl border border-white/12 bg-[linear-gradient(135deg,rgba(22,29,36,0.98),rgba(9,13,18,0.94))] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] md:p-7">
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">
+                <Sparkles className="mr-1 h-3.5 w-3.5" />
+                MEZO EARN, MADE LIQUID
+              </Badge>
+              <Badge className="border-white/15 bg-white/[0.04] text-white/70">
+                LIQUID EARNING ASSETS
+              </Badge>
+            </div>
+            <div className="max-w-3xl space-y-3">
+              <h1 className="text-balance text-3xl font-semibold tracking-tight text-white md:text-5xl">
+                Turn Mezo Earn positions into liquid assets you can use.
+              </h1>
+              <p className="text-base leading-7 text-white/68 md:text-lg">
+                Deposit BTC, MEZO, or an existing locked Mezo Earn position and receive a liquid Aurove
+                asset. Keep earning from the underlying position while gaining the flexibility to swap
+                when you need liquidty.
+              </p>
+            </div>
           </div>
 
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleRefreshAll}
-            disabled={refreshing}
-            className="gap-2"
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
-            Refresh positions
-          </Button>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          {snapshot.tranches.map((tranche) => (
-            <EarnPositionCard
-              key={tranche.trancheId.toString()}
-              tranche={tranche}
-              chainId={snapshot.protocol.chainId}
-              chainTimestamp={chainTimestamp}
-              settlementWindow={snapshot.settlementWindow}
-              isSettlementWindowOpen={snapshot.isSettlementWindowOpen}
-              onRefresh={handleRefreshAll}
-              onActionSuccess={handleSuccess}
-              onActionError={handleError}
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <HeroMetric label="AVAILABLE ASSETS" value="0" />
+            <HeroMetric label="YOUR POSITIONS" value="0" />
+            <HeroMetric
+              label="ESTIMATED YIELD"
+              value="Not available yet"
+              detail="Yield data will appear when an Aurove asset is live."
+              subtle
             />
-          ))}
+          </div>
         </div>
       </section>
 
-      {snapshot.isLoading || veNftsLoading ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
-          Loading the current Earn snapshot and wallet positions...
-        </div>
+      {successMessage ? (
+        <StatusPanel tone="success" title="Transaction complete" message={successMessage} />
       ) : null}
+      {errorMessage ? (
+        <StatusPanel tone="error" title="Transaction failed" message={errorMessage} />
+      ) : null}
+      {error ? <StatusPanel tone="error" title="Read error" message={error.message} /> : null}
+
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="order-2 min-w-0 space-y-4 lg:order-1">
+          <ClaimablesPanel
+            summaries={claimableSummaries}
+            assetLedger={assetLedger}
+            onSuccess={(message) => handleSuccess(message)}
+            onError={handleError}
+          />
+
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-white">Your Fraction Positions</h2>
+              <p className="mt-1 text-sm text-white/55">
+                Swipe through wallet-held fraction positions, track target epoch progress, and
+                redeem underlying when the product window opens.
+              </p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={refresh} disabled={isFetching}>
+              <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+              Refresh
+            </Button>
+          </div>
+
+          {isLoading ? (
+            <ProductSkeleton />
+          ) : userPositions.length === 0 ? (
+            <EmptyPositions />
+          ) : (
+            <div className="flex w-full min-w-0 max-w-full snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain py-1 pr-1">
+              {userPositions.map((position) => (
+                <div
+                  key={position.id}
+                  className="w-[min(100%,22rem)] flex-none snap-start sm:w-96 lg:w-[28rem]"
+                >
+                  <EarnPositionCard
+                    product={position}
+                    chainTimestamp={chainTimestamp}
+                    apyBasisMap={apyBasisMap}
+                    withdrawAmount={withdrawAmounts[position.id] ?? ""}
+                    setWithdrawAmount={(value) =>
+                      setWithdrawAmounts((prev) => ({ ...prev, [position.id]: value }))
+                    }
+                    onSuccess={(message) => handleSuccess(message)}
+                    onError={handleError}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <aside className="order-1 min-w-0 space-y-4 lg:order-2">
+          <CreatePositionCard
+            createMode={createMode}
+            setCreateMode={setCreateMode}
+            variant={variant}
+            createEpochs={createEpochs}
+            setVariant={setVariant}
+            amount={amount}
+            setAmount={setAmount}
+            selectedVeNftKey={selectedVeNftKey}
+            setSelectedVeNftKey={setSelectedVeNftKey}
+            availableVeNfts={availableVeNftsForVariant}
+            selectedVeNft={selectedVeNft}
+            veNftsLoading={veNftsLoading}
+            veNftsFetching={veNftsFetching}
+            veNftsError={veNftsError}
+            selectedToken={selectedToken}
+            disabledReason={
+              createMode === "erc20" ? createDisabledReason : depositVeNftDisabledReason
+            }
+            createSteps={createMode === "erc20" ? createSteps : depositVeNftSteps}
+            onSuccess={() => {
+              setAmount("");
+              if (createMode === "venft") {
+                setSelectedVeNftKey("");
+              }
+              handleSuccess(
+                createMode === "erc20"
+                  ? `Your ${createEpochs}-epoch ${variant === "veBTC" ? "BTC" : "MEZO"} position is live.`
+                  : `Your ${createEpochs}-epoch position is live.`,
+              );
+            }}
+            onError={handleError}
+          />
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function HeroMetric({
+  label,
+  value,
+  detail,
+  subtle,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  subtle?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-white/12 bg-white/[0.035] p-4">
+      <p className="text-xs font-medium uppercase text-white/45">{label}</p>
+      <p className={cn("mt-2 text-2xl font-semibold", subtle ? "text-white/70" : "text-white")}>
+        {value}
+      </p>
+      {detail ? <p className="mt-1 text-xs text-white/45">{detail}</p> : null}
+    </div>
+  );
+}
+
+function StatusPanel({
+  tone,
+  title,
+  message,
+}: {
+  tone: "success" | "error";
+  title: string;
+  message: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-3 rounded-xl border p-4 text-sm",
+        tone === "success"
+          ? "border-emerald-300/25 bg-emerald-500/10 text-emerald-100"
+          : "border-red-300/25 bg-red-500/10 text-red-100",
+      )}
+    >
+      <CheckCircle2 className="mt-0.5 h-4 w-4" />
+      <div>
+        <p className="font-semibold">{title}</p>
+        <p className="mt-1 opacity-80">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+function ClaimablesPanel({
+  summaries,
+  assetLedger,
+  onSuccess,
+  onError,
+}: {
+  summaries: ClaimableSummary[];
+  assetLedger: ReturnType<typeof useEarnSnapshot>["assetLedger"];
+  onSuccess: (message: string) => void;
+  onError: (message: string) => void;
+}) {
+  const totalTranches = summaries.reduce((t, c) => c.products.length + t, 0);
+
+  return (
+    <Card className="rounded-xl">
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Coins className="h-5 w-5 text-[var(--accent)]" />
+              Claimables
+            </CardTitle>
+            <CardDescription>Aggregated rewards across all held veNFT positions.</CardDescription>
+          </div>
+          <Badge className="border-white/15 bg-white/[0.04] text-white/70">
+            {totalTranches} claimable tranche{totalTranches === 1 ? "" : "s"}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {summaries.length === 0 ? (
+          <div className="rounded-xl border border-white/10 bg-white/[0.025] p-4 text-sm text-white/55">
+            No claimable rewards found across your fraction tranches.
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {summaries.map((summary) => (
+              <div
+                key={summary.key}
+                className="space-y-4 rounded-xl border border-white/10 bg-white/[0.025] p-4"
+              >
+                <p className="text-xs text-white/42">
+                  {summary.trancheCount} of {totalTranches} claimable tranche
+                  {summary.trancheCount === 1 ? "" : "s"}
+                </p>
+                <p className="mt-2 break-words text-xl font-semibold text-white">
+                  {formatCompactRawTokenAmount(summary.amountRaw, summary.decimals, summary.symbol)}
+                </p>
+                <ClaimableTokenButton
+                  summary={summary}
+                  assetLedger={assetLedger}
+                  onSuccess={onSuccess}
+                  onError={onError}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ClaimableTokenButton({
+  summary,
+  assetLedger,
+  onSuccess,
+  onError,
+}: {
+  summary: ClaimableSummary;
+  assetLedger: ReturnType<typeof useEarnSnapshot>["assetLedger"];
+  onSuccess: (message: string) => void;
+  onError: (message: string) => void;
+}) {
+  const trancheIds = useMemo(
+    () => [...new Set(summary.products.map((product) => product.trancheId))],
+    [summary.products],
+  );
+
+  const isDisabled = !assetLedger?.address || !assetLedger.abi || summary.products.length === 0;
+
+  return (
+    <TransactionFlowButton
+      className="w-full"
+      size="sm"
+      variant="secondary"
+      disabled={isDisabled}
+      steps={() => [
+        makeContractWriteStep({
+          key: `claim-${summary.key}`,
+          label: `Claim ${summary.symbol}`,
+          displayLabelBtn: true,
+          contractName: "Ledger",
+          variables: {
+            functionName: "claimRebases",
+            args: [trancheIds],
+          },
+        }) as unknown as TxStep,
+      ]}
+      onComplete={() => {
+        onSuccess(
+          `${summary.symbol} rewards claimed from ${summary.trancheCount} tranche${summary.trancheCount === 1 ? "" : "s"}.`,
+        );
+      }}
+      onError={txError(onError)}
+    >
+      {`Claim ${summary.symbol}`}
+    </TransactionFlowButton>
+  );
+}
+
+function CreatePositionCard({
+  createMode,
+  setCreateMode,
+  variant,
+  createEpochs,
+  setVariant,
+  amount,
+  setAmount,
+  selectedVeNftKey,
+  setSelectedVeNftKey,
+  availableVeNfts,
+  selectedVeNft,
+  veNftsLoading,
+  veNftsFetching,
+  veNftsError,
+  selectedToken,
+  disabledReason,
+  createSteps,
+  onSuccess,
+  onError,
+}: {
+  createMode: CreatePositionMode;
+  setCreateMode: (mode: CreatePositionMode) => void;
+  variant: EarnVariant;
+  createEpochs: number;
+  setVariant: (variant: EarnVariant) => void;
+  amount: string;
+  setAmount: (amount: string) => void;
+  selectedVeNftKey: string;
+  setSelectedVeNftKey: (value: string) => void;
+  availableVeNfts: UserVeNft[];
+  selectedVeNft: UserVeNft | null;
+  veNftsLoading: boolean;
+  veNftsFetching: boolean;
+  veNftsError: Error | null;
+  selectedToken: ReturnType<typeof useEarnSnapshot>["tokens"][EarnVariant];
+  disabledReason: string | null;
+  createSteps: (account: Address) => TxStep[];
+  onSuccess: () => void;
+  onError: (message: string) => void;
+}) {
+  const copy = variantCopy(variant);
+  const cardDescription =
+    "Lock BTC or MEZO to receive a liquid asset that keeps earning. If you already have a Mezo Earn position, you can deposit that instead.";
+  const parsedAmount = selectedToken ? parseAmountRaw(amount, selectedToken.decimals) : null;
+  const balancePercent =
+    selectedToken?.balanceRaw && selectedToken.balanceRaw > 0n && parsedAmount
+      ? Math.min(100, Number((parsedAmount * 100n) / selectedToken.balanceRaw))
+      : 0;
+  const isAmountEntered = Boolean(parsedAmount && parsedAmount > 0n);
+  const isBalanceIssue = Boolean(
+    disabledReason?.toLowerCase().includes("insufficient wallet balance"),
+  );
+  const receiveSymbol = symbolOf(variant, createEpochs);
+  const receiveAmount = formatCompactRawTokenAmount(
+    parsedAmount ?? 0n,
+    selectedToken?.decimals ?? 18,
+    "",
+  );
+  const ctaLabel =
+    createMode === "erc20"
+      ? isAmountEntered
+        ? "Create liquid lock"
+        : "Continue"
+      : "Deposit position";
+
+  const handleVariantChange = (nextVariant: EarnVariant) => {
+    setVariant(nextVariant);
+  };
+
+  const handleBalancePercentChange = (percent: number) => {
+    setAmount(
+      amountFromBalancePercent(
+        selectedToken?.balanceRaw ?? 0n,
+        percent,
+        selectedToken?.decimals ?? 18,
+      ),
+    );
+  };
+
+  const selectedVeNftOptions = availableVeNfts.filter((veNft) => veNft.assetType === variant);
+
+  return (
+    <Card className="relative overflow-hidden border border-white/12 bg-[linear-gradient(160deg,rgba(19,24,33,0.98),rgba(10,13,18,0.98))] shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(196,160,106,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(96,128,194,0.12),transparent_32%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(234,209,165,0.36),transparent)]"
+      />
+
+      <CardHeader className="relative space-y-4 border-b border-white/10 p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--accent)]/35 bg-[linear-gradient(160deg,rgba(196,160,106,0.16),rgba(196,160,106,0.05))] text-[var(--accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+              <LockKeyhole className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <CardTitle className="text-xl sm:text-[1.35rem]">Create Position</CardTitle>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            title={cardDescription}
+            aria-label={cardDescription}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.03] text-white/55 transition hover:border-[var(--accent)]/40 hover:bg-white/[0.06] hover:text-white"
+          >
+            <Info className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5">
+          {[
+            { value: "erc20", label: "Lock tokens", icon: LockKeyhole },
+            { value: "venft", label: "Deposit position", icon: Layers3 },
+          ].map((option) => {
+            const Icon = option.icon;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setCreateMode(option.value as CreatePositionMode)}
+                aria-pressed={createMode === option.value}
+                className={cn(
+                  "flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium transition",
+                  createMode === option.value
+                    ? "border-[var(--accent)]/60 bg-[linear-gradient(180deg,rgba(196,160,106,0.16),rgba(196,160,106,0.08))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                    : "border-transparent bg-transparent text-white/68 hover:border-white/10 hover:bg-white/[0.03]",
+                )}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                <span>{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </CardHeader>
+
+      <CardContent className="relative space-y-5 p-5 sm:p-6">
+        <div className="grid grid-cols-2 gap-2">
+          {(["veBTC", "veMEZO"] as EarnVariant[]).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => handleVariantChange(option)}
+              className={cn(
+                "flex h-12 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold transition",
+                variant === option
+                  ? "border-[var(--accent)]/70 bg-[linear-gradient(180deg,rgba(196,160,106,0.18),rgba(196,160,106,0.06))] text-white shadow-[0_0_0_1px_rgba(196,160,106,0.12)]"
+                  : "border-white/10 bg-white/[0.02] text-white/72 hover:border-white/15 hover:bg-white/[0.05]",
+              )}
+            >
+              <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full">
+                <Image
+                  src={getTokenIconPath(option)}
+                  alt=""
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 object-contain"
+                />
+              </span>
+              <span>{option === "veBTC" ? "BTC" : "MEZO"}</span>
+            </button>
+          ))}
+        </div>
+
+        {createMode === "erc20" ? (
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <label htmlFor="earn-amount" className="font-medium text-white">
+                  Amount
+                </label>
+                <span className="text-white/45">
+                  Balance{" "}
+                  {formatCompactRawTokenAmount(
+                    selectedToken?.balanceRaw ?? 0n,
+                    selectedToken?.decimals ?? 18,
+                    selectedToken?.symbol,
+                  )}
+                </span>
+              </div>
+              <Input
+                id="earn-amount"
+                inputMode="decimal"
+                placeholder={`0.00 ${selectedToken?.symbol ?? copy.asset}`}
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                className={cn(
+                  "h-14 rounded-2xl px-4 text-2xl font-semibold tracking-tight",
+                  isBalanceIssue &&
+                  "border-red-500/60 bg-red-500/[0.05] focus-visible:ring-red-400/70",
+                )}
+              />
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between text-xs text-white/45">
+                  <span>Use balance</span>
+                  <span>{balancePercent}%</span>
+                </div>
+                <input
+                  aria-label="Percentage of wallet balance"
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={balancePercent}
+                  onChange={(event) => handleBalancePercentChange(Number(event.target.value))}
+                  className="w-full accent-[#d9b06c]"
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <label htmlFor="earn-venft" className="font-medium text-white">
+                Existing position
+              </label>
+              <span className="text-white/45">
+                {veNftsLoading || veNftsFetching
+                  ? "Loading..."
+                  : `${selectedVeNftOptions.length} available`}
+              </span>
+            </div>
+            <select
+              id="earn-venft"
+              value={selectedVeNftKey}
+              onChange={(event) => setSelectedVeNftKey(event.target.value)}
+              className="h-12 w-full rounded-2xl border border-white/10 bg-[#10161e] px-3 text-sm text-white outline-none transition focus:border-[var(--accent)]"
+            >
+              <option value="">Select position</option>
+              {selectedVeNftOptions.map((veNft) => {
+                const key = `${veNft.contractAddress}-${veNft.tokenId.toString()}`;
+
+                return (
+                  <option key={key} value={key}>
+                    {veNft.assetType} #{veNft.tokenId.toString()} -{" "}
+                    {veNft.availableFractionCapacityFormatted}
+                  </option>
+                );
+              })}
+            </select>
+            {selectedVeNft ? (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-white/50">Lock amount</span>
+                  <span className="font-medium text-white">
+                    {selectedVeNft.lockAmountFormatted} {copy.asset}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <span className="text-white/50">Lock end</span>
+                  <span className="font-medium text-white">{selectedVeNft.lockEndLabel}</span>
+                </div>
+              </div>
+            ) : null}
+            {veNftsError ? (
+              <p className="text-sm text-amber-100/80">Could not load existing positions.</p>
+            ) : null}
+          </div>
+        )}
+
+        <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="font-medium text-white">You will receive</span>
+            <span className="text-white/45">{receiveSymbol}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[var(--accent)]/35 bg-[rgba(196,160,106,0.08)]">
+                <Image
+                  src="/tokens/Aurove.png"
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 object-contain"
+                />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">{`Aurove ${copy.asset}`}</p>
+                <p className="text-xs text-white/45">
+                  1 {copy.asset} = 1 {receiveSymbol}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-base font-semibold text-white">{receiveAmount}</p>
+            </div>
+          </div>
+        </div>
+
+        <TransactionFlowButton
+          className="h-14 w-full justify-center rounded-2xl bg-[linear-gradient(180deg,#f1c46e,#d8a94f)] px-5 text-base font-semibold text-[#17130c] shadow-[0_16px_30px_rgba(216,169,79,0.22)] hover:bg-[linear-gradient(180deg,#f4ce84,#ddb45d)]"
+          size="lg"
+          icon={<ArrowRight className="h-4 w-4" aria-hidden="true" />}
+          renderStatusIcon={(state) => {
+            if (state === "pending") {
+              return <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />;
+            }
+            if (state === "success") {
+              return <CheckCircle2 className="h-4 w-4" aria-hidden="true" />;
+            }
+            if (state === "error") {
+              return <AlertTriangle className="h-4 w-4" aria-hidden="true" />;
+            }
+            return null;
+          }}
+          steps={({ account }) => createSteps(account)}
+          disabled={Boolean(disabledReason)}
+          onComplete={onSuccess}
+          onError={txError(onError)}
+        >
+          {ctaLabel}
+        </TransactionFlowButton>
+      </CardContent>
+    </Card>
+  );
+}
+
+function EmptyPositions() {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-white/12 bg-[linear-gradient(145deg,rgba(18,24,32,0.92)_0%,rgba(9,13,19,0.96)_52%,rgba(11,10,8,0.94)_100%)] p-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_60px_rgba(0,0,0,0.32)]">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(196,160,106,0.1),transparent_34%),linear-gradient(245deg,rgba(76,103,138,0.12),transparent_42%)]" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(230,210,173,0.42),transparent)]" />
+      <div className="relative mx-auto max-w-3xl rounded-2xl border border-dashed border-white/14 bg-[#070b10]/58 px-6 py-9 shadow-[inset_0_1px_20px_rgba(255,255,255,0.025)] backdrop-blur-sm">
+        <Wallet className="mx-auto h-8 w-8 text-white/40" />
+        <h3 className="mt-3 text-lg font-semibold text-white">No fungible Earn products yet</h3>
+        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-white/58">
+          Create a position from supported BTC or MEZO assets, or preview liquidity on the{" "}
+          <Link
+            href={appRoutes.find((route) => route.label === "Swap")?.href ?? "/swap"}
+            className="font-medium text-[var(--accent-soft)] underline-offset-4 hover:underline"
+          >
+            Swap page
+          </Link>{" "}
+          while swap routing is being prepared.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ProductSkeleton() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      {[0, 1].map((item) => (
+        <Card key={item} className="rounded-xl">
+          <CardHeader>
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-7 w-40" />
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3">
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

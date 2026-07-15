@@ -8,16 +8,6 @@ export type RuntimeConfig = {
     environment: "testnet" | "mainnet";
   };
   explorerBaseUrl: string | null;
-  trading: {
-    veBtcAddress: string | null;
-    veMezoAddress: string | null;
-    defaultPaymentTokenAddress: string | null;
-  };
-  protocol: {
-    ledgerAddress: string | null;
-    vaultAddress: string | null;
-    id20FactoryAddress: string | null;
-  };
 };
 
 function requireWalletConnectProjectId(): string {
@@ -52,15 +42,5 @@ export function getRuntimeConfig(): RuntimeConfig {
       environment: passportEnvironment,
     },
     explorerBaseUrl: process.env.NEXT_PUBLIC_EXPLORER_BASE_URL || null,
-    trading: {
-      veBtcAddress: process.env.NEXT_PUBLIC_VEBTC_ADDRESS || null,
-      veMezoAddress: process.env.NEXT_PUBLIC_VEMEZO_ADDRESS || null,
-      defaultPaymentTokenAddress: process.env.NEXT_PUBLIC_DEFAULT_PAYMENT_TOKEN_ADDRESS || null,
-    },
-    protocol: {
-      ledgerAddress: process.env.NEXT_PUBLIC_LEDGER_ADDRESS || null,
-      vaultAddress: process.env.NEXT_PUBLIC_VAULT_ADDRESS || null,
-      id20FactoryAddress: process.env.NEXT_PUBLIC_ID20_FACTORY_ADDRESS || null,
-    },
   };
 }

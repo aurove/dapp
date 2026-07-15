@@ -4,9 +4,9 @@ import { buttonVariants } from "@ui";
 import { XAccountLink } from "../app/x-account-link";
 
 const navItems = [
-  { label: "Overview", href: "#overview" },
+  { label: "Why Aurove", href: "#overview" },
   { label: "How It Works", href: "#how-it-works" },
-  { label: "Earn Products", href: "#earn-products" },
+  { label: "Benefits", href: "#earn-products" },
 ] as const;
 
 export function TopNav() {

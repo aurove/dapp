@@ -310,7 +310,7 @@ export function SwapPage() {
                 <Route className="h-4 w-4 text-[var(--accent-soft)]" aria-hidden="true" />
                 Route
               </CardTitle>
-              <CardDescription>Mock route only</CardDescription>
+              <CardDescription>veBTC / veMEZO </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-xl border border-white/10 bg-white/[0.025] p-4">

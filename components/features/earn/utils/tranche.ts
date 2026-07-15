@@ -1,58 +1,122 @@
-export type EarnVariant = "veBTC" | "veMEZO";
+export type CanonicalAssetVariant = "veBTC" | "veMEZO";
 
-export const EARN_VARIANTS = ["veBTC", "veMEZO"] as const satisfies readonly EarnVariant[];
-
-export const MANAGED_TRANCHE_EPOCHS: Record<EarnVariant, number> = {
+export const TRANCHE_MIN = 1;
+const WEEK_SECONDS = 7n * 24n * 60n * 60n;
+export const MAX_EPOCHS_BY_VARIANT: Record<CanonicalAssetVariant, number> = {
   veBTC: 4,
   veMEZO: 208,
 };
 
-const VARIANT_INDEX: Record<EarnVariant, number> = {
-  veBTC: 1,
-  veMEZO: 2,
-};
-
-export function getVariantAssetSymbol(variant: EarnVariant): "BTC" | "MEZO" {
-  return variant === "veBTC" ? "BTC" : "MEZO";
+function variantPart(variant: CanonicalAssetVariant): number {
+  return variant === "veBTC" ? 1 : 2;
 }
 
-export function getManagedTrancheId(variant: EarnVariant): bigint {
-  return BigInt((VARIANT_INDEX[variant] << 16) | MANAGED_TRANCHE_EPOCHS[variant]);
+export function isManagedEpochs(variant: CanonicalAssetVariant, trancheNumber: number): boolean {
+  return trancheNumber === MAX_EPOCHS_BY_VARIANT[variant];
 }
 
-export function decodeManagedTrancheId(
-  trancheId: bigint,
-): { variant: EarnVariant; epochs: number } | null {
-  const variant = Number((trancheId >> 16n) & 0xffn);
-  const epochs = Number(trancheId & 0xffffn);
+export function isValidEpochsForVariant(
+  variant: CanonicalAssetVariant,
+  trancheNumber: number,
+): boolean {
+  return (
+    Number.isInteger(trancheNumber) &&
+    trancheNumber >= TRANCHE_MIN &&
+    trancheNumber <= MAX_EPOCHS_BY_VARIANT[variant]
+  );
+}
 
-  if (variant !== 1 && variant !== 2) {
-    return null;
+export function deriveTrancheId(variant: CanonicalAssetVariant, trancheNumber: number): bigint {
+  if (!isValidEpochsForVariant(variant, trancheNumber)) {
+    throw new Error(
+      `Invalid tranche number ${trancheNumber}. Expected ${TRANCHE_MIN}-${MAX_EPOCHS_BY_VARIANT[variant]}.`,
+    );
   }
 
-  const resolvedVariant = variant === 1 ? "veBTC" : "veMEZO";
-  if (epochs !== MANAGED_TRANCHE_EPOCHS[resolvedVariant]) {
+  return BigInt((variantPart(variant) << 16) | trancheNumber);
+}
+
+export function deriveTrancheNumberFromLock(
+  variant: CanonicalAssetVariant,
+  lockEnd: bigint,
+  isPermanent: boolean,
+  timestamp: bigint,
+): number | null {
+  if (isPermanent) return null;
+
+  const remaining = lockEnd > timestamp ? lockEnd - timestamp : 0n;
+  const trancheNumber = remaining === 0n ? 0n : ((remaining - 1n) / WEEK_SECONDS) + 1n;
+  const variantMax = BigInt(MAX_EPOCHS_BY_VARIANT[variant]);
+
+  if (trancheNumber === 0n) return MAX_EPOCHS_BY_VARIANT[variant];
+  if (trancheNumber < BigInt(TRANCHE_MIN)) return TRANCHE_MIN;
+  if (trancheNumber > variantMax) return MAX_EPOCHS_BY_VARIANT[variant];
+
+  return Number(trancheNumber);
+}
+
+export function deriveTrancheIdFromLock(
+  variant: CanonicalAssetVariant,
+  lockEnd: bigint,
+  isPermanent: boolean,
+  timestamp: bigint,
+): bigint | null {
+  const trancheNumber = deriveTrancheNumberFromLock(variant, lockEnd, isPermanent, timestamp);
+  if (trancheNumber === null) return null;
+
+  return deriveTrancheId(variant, trancheNumber);
+}
+
+export function deriveFractionSymbol(
+  variant: CanonicalAssetVariant,
+  trancheNumber: number,
+): string {
+  return symbolOf(variant, trancheNumber);
+}
+
+export function nameOf(variant: CanonicalAssetVariant, trancheNumber: number): string {
+  const asset = variant === "veBTC" ? "BTC" : "MEZO";
+  if (isManagedEpochs(variant, trancheNumber)) {
+    return `Aurove ${asset} - Managed`;
+  }
+
+  return `Aurove ${asset} - ${trancheNumber} Week${trancheNumber > 1 ? "s" : ""}`;
+}
+
+export function symbolOf(variant: CanonicalAssetVariant, trancheNumber: number): string {
+  const asset = variant === "veBTC" ? "BTC" : "MEZO";
+  if (isManagedEpochs(variant, trancheNumber)) {
+    return `av${asset}m`;
+  }
+
+  return `av${asset}w${trancheNumber}`;
+}
+
+export function validateTrancheId(trancheId: bigint): void {
+  if (!decodeTrancheId(trancheId)) {
+    throw new Error(`Invalid tranche id ${trancheId.toString()}.`);
+  }
+}
+
+export function decodeTrancheId(
+  trancheId: bigint,
+): { variant: CanonicalAssetVariant; trancheNumber: number } | null {
+  const trancheNumber = Number(trancheId & 0xffffn);
+  const part = Number((trancheId >> 16n) & 0xffn);
+  const normalized = (BigInt(part) << 16n) | BigInt(trancheNumber);
+  const variant = part === 1 ? "veBTC" : part === 2 ? "veMEZO" : null;
+
+  if (!variant) return null;
+  if (
+    trancheNumber < TRANCHE_MIN ||
+    trancheNumber > MAX_EPOCHS_BY_VARIANT[variant] ||
+    normalized !== trancheId
+  ) {
     return null;
   }
 
   return {
-    variant: resolvedVariant,
-    epochs,
+    variant,
+    trancheNumber,
   };
-}
-
-export function isManagedTrancheId(trancheId: bigint): boolean {
-  return decodeManagedTrancheId(trancheId) !== null;
-}
-
-export function getManagedTrancheName(variant: EarnVariant): string {
-  return `Aurove ${getVariantAssetSymbol(variant)} - Managed`;
-}
-
-export function getManagedTrancheSymbol(variant: EarnVariant): string {
-  return `av${getVariantAssetSymbol(variant)}m`;
-}
-
-export function getManagedTrancheLabel(variant: EarnVariant): string {
-  return `${getVariantAssetSymbol(variant)} managed position`;
 }

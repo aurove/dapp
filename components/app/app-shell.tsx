@@ -51,10 +51,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-2 px-4 pb-3 md:px-6">
-          <Badge className="normal-case tracking-normal border-white/20 bg-white/5 text-xs text-white/70">
-            <ShieldCheck className="mr-1 h-3.5 w-3.5" />
-            Aurove protocol surface
-          </Badge>
           <Badge
             className={
               wrongNetwork
