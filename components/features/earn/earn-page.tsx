@@ -21,6 +21,7 @@ import { useAccount, useChainId } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
 import { appRoutes } from "@/components/app/app-nav";
+import { FeatureHeroSection, FeatureMetricCard, FeatureSplitGrid, FeatureStatusPanel } from "@/components/features/shared/page-shell";
 import { getEarnProtocolConfig, getRewardSinkAbi } from "@/contracts/earn";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
@@ -315,7 +316,7 @@ export function EarnPage() {
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-2xl border border-white/12 bg-[linear-gradient(135deg,rgba(22,29,36,0.98),rgba(9,13,18,0.94))] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] md:p-7">
+      <FeatureHeroSection>
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
@@ -340,9 +341,9 @@ export function EarnPage() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <HeroMetric label="AVAILABLE ASSETS" value="0" />
-            <HeroMetric label="YOUR POSITIONS" value="0" />
-            <HeroMetric
+            <FeatureMetricCard label="AVAILABLE ASSETS" value="0" />
+            <FeatureMetricCard label="YOUR POSITIONS" value="0" />
+            <FeatureMetricCard
               label="ESTIMATED YIELD"
               value="Not available yet"
               detail="Yield data will appear when an Aurove asset is live."
@@ -350,17 +351,17 @@ export function EarnPage() {
             />
           </div>
         </div>
-      </section>
+      </FeatureHeroSection>
 
       {successMessage ? (
-        <StatusPanel tone="success" title="Transaction complete" message={successMessage} />
+        <FeatureStatusPanel tone="success" title="Transaction complete" message={successMessage} />
       ) : null}
       {errorMessage ? (
-        <StatusPanel tone="error" title="Transaction failed" message={errorMessage} />
+        <FeatureStatusPanel tone="error" title="Transaction failed" message={errorMessage} />
       ) : null}
-      {error ? <StatusPanel tone="error" title="Read error" message={error.message} /> : null}
+      {error ? <FeatureStatusPanel tone="error" title="Read error" message={error.message} /> : null}
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
+      <FeatureSplitGrid>
         <section className="order-2 min-w-0 space-y-4 lg:order-1">
           <ClaimablesPanel
             summaries={claimableSummaries}
@@ -447,56 +448,7 @@ export function EarnPage() {
             onError={handleError}
           />
         </aside>
-      </div>
-    </div>
-  );
-}
-
-function HeroMetric({
-  label,
-  value,
-  detail,
-  subtle,
-}: {
-  label: string;
-  value: string;
-  detail?: string;
-  subtle?: boolean;
-}) {
-  return (
-    <div className="rounded-xl border border-white/12 bg-white/[0.035] p-4">
-      <p className="text-xs font-medium uppercase text-white/45">{label}</p>
-      <p className={cn("mt-2 text-2xl font-semibold", subtle ? "text-white/70" : "text-white")}>
-        {value}
-      </p>
-      {detail ? <p className="mt-1 text-xs text-white/45">{detail}</p> : null}
-    </div>
-  );
-}
-
-function StatusPanel({
-  tone,
-  title,
-  message,
-}: {
-  tone: "success" | "error";
-  title: string;
-  message: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-start gap-3 rounded-xl border p-4 text-sm",
-        tone === "success"
-          ? "border-emerald-300/25 bg-emerald-500/10 text-emerald-100"
-          : "border-red-300/25 bg-red-500/10 text-red-100",
-      )}
-    >
-      <CheckCircle2 className="mt-0.5 h-4 w-4" />
-      <div>
-        <p className="font-semibold">{title}</p>
-        <p className="mt-1 opacity-80">{message}</p>
-      </div>
+      </FeatureSplitGrid>
     </div>
   );
 }
