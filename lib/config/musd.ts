@@ -7,8 +7,8 @@ export type MusdConfig = {
   decimals: 18;
 };
 
-export const MUSD_MAINNET_ADDRESS = "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503" as const;
-export const MUSD_TESTNET_ADDRESS = "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186" as const;
+export const MUSD_MAINNET_ADDRESS = "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186" as const;
+export const MUSD_TESTNET_ADDRESS = "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503" as const;
 
 const MUSD_CONFIG_BY_CHAIN: Record<number, MusdConfig> = {
   31337: {

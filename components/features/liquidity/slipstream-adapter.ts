@@ -367,3 +367,106 @@ export function shortenAddress(address?: Address | null) {
 export function tickToSqrtPriceX96(tick: number) {
   return TickMath.getSqrtRatioAtTick(tick);
 }
+
+export function tickToSqrtPriceX96BigInt(tick: number) {
+  return BigInt(tickToSqrtPriceX96(tick).toString());
+}
+
+export const SLIPSTREAM_Q96 = 1n << 96n;
+
+export function mulDivFloor(a: bigint, b: bigint, denominator: bigint) {
+  if (denominator === 0n) return 0n;
+  return (a * b) / denominator;
+}
+
+export function getLiquidityForAmount0(params: {
+  amount0: bigint;
+  sqrtLowerX96: bigint;
+  sqrtUpperX96: bigint;
+}) {
+  const { amount0, sqrtLowerX96, sqrtUpperX96 } = params;
+  if (amount0 <= 0n || sqrtLowerX96 <= 0n || sqrtUpperX96 <= sqrtLowerX96) return 0n;
+  return mulDivFloor(mulDivFloor(amount0, sqrtLowerX96, 1n) * sqrtUpperX96, 1n, (sqrtUpperX96 - sqrtLowerX96) * SLIPSTREAM_Q96);
+}
+
+export function getLiquidityForAmount1(params: {
+  amount1: bigint;
+  sqrtLowerX96: bigint;
+  sqrtUpperX96: bigint;
+}) {
+  const { amount1, sqrtLowerX96, sqrtUpperX96 } = params;
+  if (amount1 <= 0n || sqrtUpperX96 <= sqrtLowerX96) return 0n;
+  return mulDivFloor(amount1, SLIPSTREAM_Q96, sqrtUpperX96 - sqrtLowerX96);
+}
+
+export function getLiquidityForAmount0WithinRange(params: {
+  amount0: bigint;
+  sqrtCurrentX96: bigint;
+  sqrtUpperX96: bigint;
+}) {
+  const { amount0, sqrtCurrentX96, sqrtUpperX96 } = params;
+  if (amount0 <= 0n || sqrtUpperX96 <= sqrtCurrentX96 || sqrtCurrentX96 <= 0n) return 0n;
+  return mulDivFloor(
+    amount0 * sqrtCurrentX96,
+    sqrtUpperX96,
+    (sqrtUpperX96 - sqrtCurrentX96) * SLIPSTREAM_Q96,
+  );
+}
+
+export function getLiquidityForAmount1WithinRange(params: {
+  amount1: bigint;
+  sqrtLowerX96: bigint;
+  sqrtCurrentX96: bigint;
+}) {
+  const { amount1, sqrtLowerX96, sqrtCurrentX96 } = params;
+  if (amount1 <= 0n || sqrtCurrentX96 <= sqrtLowerX96) return 0n;
+  return mulDivFloor(amount1, SLIPSTREAM_Q96, sqrtCurrentX96 - sqrtLowerX96);
+}
+
+export function getAmount0ForLiquidity(params: {
+  liquidity: bigint;
+  sqrtUpperX96: bigint;
+  sqrtCurrentX96: bigint;
+}) {
+  const { liquidity, sqrtUpperX96, sqrtCurrentX96 } = params;
+  if (liquidity <= 0n || sqrtCurrentX96 <= 0n) return 0n;
+  return mulDivFloor(
+    liquidity * (sqrtUpperX96 - sqrtCurrentX96) * SLIPSTREAM_Q96,
+    1n,
+    sqrtCurrentX96 * sqrtUpperX96,
+  );
+}
+
+export function getAmount1ForLiquidity(params: {
+  liquidity: bigint;
+  sqrtLowerX96: bigint;
+  sqrtCurrentX96: bigint;
+}) {
+  const { liquidity, sqrtLowerX96, sqrtCurrentX96 } = params;
+  if (liquidity <= 0n || sqrtCurrentX96 <= 0n) return 0n;
+  return mulDivFloor(liquidity, sqrtCurrentX96 - sqrtLowerX96, SLIPSTREAM_Q96);
+}
+
+export function getAmount0BelowRangeForLiquidity(params: {
+  liquidity: bigint;
+  sqrtLowerX96: bigint;
+  sqrtUpperX96: bigint;
+}) {
+  const { liquidity, sqrtLowerX96, sqrtUpperX96 } = params;
+  if (liquidity <= 0n || sqrtUpperX96 <= sqrtLowerX96) return 0n;
+  return mulDivFloor(
+    liquidity * (sqrtUpperX96 - sqrtLowerX96) * SLIPSTREAM_Q96,
+    1n,
+    sqrtLowerX96 * sqrtUpperX96,
+  );
+}
+
+export function getAmount1AboveRangeForLiquidity(params: {
+  liquidity: bigint;
+  sqrtLowerX96: bigint;
+  sqrtUpperX96: bigint;
+}) {
+  const { liquidity, sqrtLowerX96, sqrtUpperX96 } = params;
+  if (liquidity <= 0n || sqrtUpperX96 <= sqrtLowerX96) return 0n;
+  return mulDivFloor(liquidity, sqrtUpperX96 - sqrtLowerX96, SLIPSTREAM_Q96);
+}

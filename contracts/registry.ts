@@ -8,7 +8,7 @@ import { GenericContractsDeclaration } from "./types";
 const contracts = {
   31337: {
     AuroveZapRouter: {
-      address: "0x4C4a2f8c81640e47606d3fd77B353E87Ba015584",
+      address: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
       abi: [
         {
           inputs: [
@@ -752,8 +752,8 @@ const contracts = {
       ],
     },
     "avBTCm-avMEZOm": {
-      address: "0x539203953f82Eef4918031bBfCdCe5385fa445c2",
-      deploymentBlock: 10314319,
+      address: "0x67369b60B97fCf5AA7F646215115356Aca2484e9",
+      deploymentBlock: 10314252,
       abi: [
         {
           anonymous: false,
@@ -1304,7 +1304,7 @@ const contracts = {
       ],
     },
     avBTCmGauge: {
-      address: "0xBab4A70bB12E3Bd55E4d7d4d6B6A7bC09045017d",
+      address: "0xe4c278D321184BBFFB72e4e59e16a953b6863BEF",
       abi: [
         {
           inputs: [
@@ -1500,7 +1500,7 @@ const contracts = {
       ],
     },
     avBTCmId20: {
-      address: "0xB5d064b44960FdedA1072f983C3E8f1e123cE154",
+      address: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
       abi: [
         {
           inputs: [
@@ -1805,7 +1805,7 @@ const contracts = {
       ],
     },
     avBTCmManager: {
-      address: "0xfee30400811f3368d95448F41853c0E6FA82bbB6",
+      address: "0x440C0fCDC317D69606eabc35C0F676D1a8251Ee1",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         { inputs: [], name: "InvalidInitialization", type: "error" },
@@ -2164,7 +2164,7 @@ const contracts = {
       ],
     },
     avBTCmSink: {
-      address: "0xf6cB1Bc71F7ed659E64C8a56dA5759494480e333",
+      address: "0x9bd03768a7DCc129555dE410FF8E85528A4F88b5",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         {
@@ -2425,7 +2425,7 @@ const contracts = {
       ],
     },
     avMEZOmGauge: {
-      address: "0x9cF6511bEe5957A08188F53f6a177973Ed75a1e4",
+      address: "0xf80a256dD56D523F304be32435A492EF1D3F3Fe3",
       abi: [
         {
           inputs: [
@@ -2621,7 +2621,7 @@ const contracts = {
       ],
     },
     avMEZOmId20: {
-      address: "0xA43C8fA0cb6567312091fb14ebf4d0f65De4a6E4",
+      address: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
       abi: [
         {
           inputs: [
@@ -2926,7 +2926,7 @@ const contracts = {
       ],
     },
     avMEZOmManager: {
-      address: "0x53de34c18aE594AC4090FA6aB45eb3b9011648E4",
+      address: "0x0433d874a28147DB0b330C000fcC50C0f0BaF425",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         { inputs: [], name: "InvalidInitialization", type: "error" },
@@ -3285,7 +3285,7 @@ const contracts = {
       ],
     },
     avMEZOmSink: {
-      address: "0x2370AC5d3a3de259709297fe2F58715332e9bC1b",
+      address: "0x80E2E2367C5E9D070Ae2d6d50bF0cdF6360a7151",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         {
@@ -4580,7 +4580,7 @@ const contracts = {
       ],
     },
     Id20Factory: {
-      address: "0x04C89607413713Ec9775E14b954286519d836FEf",
+      address: "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
       abi: [
         {
           inputs: [{ internalType: "contract ILedger", name: "assetLedger_", type: "address" }],
@@ -4650,7 +4650,7 @@ const contracts = {
       ],
     },
     Ledger: {
-      address: "0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07",
+      address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
       abi: [
         {
           inputs: [
@@ -5366,8 +5366,8 @@ const contracts = {
       ],
     },
     "MUSD-avBTCm": {
-      address: "0x9221AEfF7c9140B767Af2ab44f7eB29D9f7AEA27",
-      deploymentBlock: 10314318,
+      address: "0x28885d38F8fD0c79BE0640974A60EB9510E81482",
+      deploymentBlock: 10314251,
       abi: [
         {
           anonymous: false,
@@ -6454,7 +6454,7 @@ const contracts = {
       ],
     },
     Vault: {
-      address: "0x1fA02b2d6A771842690194Cf62D91bdd92BfE28d",
+      address: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
       abi: [
         {
           inputs: [

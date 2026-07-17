@@ -35,6 +35,10 @@ import {
 type LiquidityRangeGraphProps = {
   chainId: number;
   poolKey: SlipstreamPoolKey;
+  onSelectionChange?: (selection: {
+    range: SlipstreamTickRange | null;
+    strategy: SlipstreamRangePreset;
+  }) => void;
 };
 
 type Size = {
@@ -105,7 +109,7 @@ function readTupleTick(value: unknown) {
   return { sqrtPriceX96: null, tick: null };
 }
 
-function usePoolState(chainId: number, poolKey: SlipstreamPoolKey) {
+export function useSlipstreamPoolState(chainId: number, poolKey: SlipstreamPoolKey) {
   const contract = getContractConfig(chainId, resolveSlipstreamPoolContractName(poolKey));
   const poolAddress = contract?.address ?? null;
 
@@ -230,8 +234,8 @@ function classForPreset(selected: boolean) {
     : "border-white/10 bg-white/[0.03] text-white/68 hover:border-white/15 hover:bg-white/[0.05] hover:text-white";
 }
 
-export function LiquidityRangeGraph({ chainId, poolKey }: LiquidityRangeGraphProps) {
-  const pool = usePoolState(chainId, poolKey);
+export function LiquidityRangeGraph({ chainId, poolKey, onSelectionChange }: LiquidityRangeGraphProps) {
+  const pool = useSlipstreamPoolState(chainId, poolKey);
   const { ref: chartRef, size } = useElementSize<HTMLDivElement>();
 
   const [strategy, setStrategy] = useState<SlipstreamRangePreset>("balanced");
@@ -527,6 +531,13 @@ export function LiquidityRangeGraph({ chainId, poolKey }: LiquidityRangeGraphPro
       ? formatPriceLabel({ pool, tick: currentTick })
       : null;
   const activeSelectedRange = renderedRange ?? visibleRange;
+
+  useEffect(() => {
+    onSelectionChange?.({
+      range: normalizedSelectedRange ?? selectedRange,
+      strategy: activeStrategy,
+    });
+  }, [activeStrategy, normalizedSelectedRange, onSelectionChange, selectedRange]);
 
   return (
     <div className="space-y-4 rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-5">
