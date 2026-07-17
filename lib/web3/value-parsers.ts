@@ -4,7 +4,7 @@ import { formatRawDecimal } from "@/lib/formatting/decimal";
 const DEFAULT_DECIMALS = 18;
 
 export function readResult<T>(
-  reads: Array<{ result?: unknown }> | undefined,
+  reads: ReadonlyArray<{ result?: unknown }> | undefined,
   index: number,
 ): T | undefined {
   return reads?.[index]?.result as T | undefined;

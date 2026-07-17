@@ -1,18 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowRightLeft, Info } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from "@ui";
 import { getContractConfig } from "@/contracts/shared";
 import { useChainId } from "wagmi";
+import { LiquidityRangeGraph } from "./liquidity-range-graph";
+import { resolveSlipstreamPoolContractName } from "./slipstream-adapter";
 
 type LiquidityPoolKey = "BTC" | "MEZO";
 
 type LiquidityPoolOption = {
   key: LiquidityPoolKey;
   label: string;
-  contractName: "avBTCmId20" | "avMEZOmId20";
   available: boolean;
 };
 
@@ -45,33 +46,28 @@ function TokenMarkStack({ symbol }: { symbol: LiquidityPoolKey }) {
 
 export function AddLiquidityCard() {
   const chainId = useChainId();
-  const [selectedPool, setSelectedPool] = useState<LiquidityPoolKey>("BTC");
+  const [selectedPoolState, setSelectedPoolState] = useState<LiquidityPoolKey>("BTC");
 
   const poolOptions = useMemo<LiquidityPoolOption[]>(
     () => [
       {
         key: "BTC",
         label: "BTC pool",
-        contractName: "avBTCmId20",
-        available: Boolean(getContractConfig(chainId, "avBTCmId20")?.address),
+        available: Boolean(getContractConfig(chainId, resolveSlipstreamPoolContractName("BTC"))?.address),
       },
       {
         key: "MEZO",
         label: "MEZO pool",
-        contractName: "avMEZOmId20",
-        available: Boolean(getContractConfig(chainId, "avMEZOmId20")?.address),
+        available: Boolean(getContractConfig(chainId, resolveSlipstreamPoolContractName("MEZO"))?.address),
       },
     ],
     [chainId],
   );
 
   const availablePools = poolOptions.filter((pool) => pool.available);
-  useEffect(() => {
-    if (availablePools.length === 0) return;
-    if (!availablePools.some((pool) => pool.key === selectedPool)) {
-      setSelectedPool(availablePools[0].key);
-    }
-  }, [availablePools, selectedPool]);
+  const selectedPool = availablePools.some((pool) => pool.key === selectedPoolState)
+    ? selectedPoolState
+    : availablePools[0]?.key ?? selectedPoolState;
 
   return (
     <Card className="relative overflow-hidden border border-white/12 bg-[linear-gradient(160deg,rgba(19,24,33,0.98),rgba(10,13,18,0.98))] shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
@@ -127,7 +123,7 @@ export function AddLiquidityCard() {
                 <button
                   key={pool.key}
                   type="button"
-                  onClick={() => setSelectedPool(pool.key)}
+                  onClick={() => setSelectedPoolState(pool.key)}
                   aria-pressed={selected}
                   disabled={!pool.available}
                   className={cn(
@@ -139,14 +135,31 @@ export function AddLiquidityCard() {
                   <TokenMarkStack symbol={pool.key} />
                   <div className="min-w-0 space-y-0.5">
                     <p className="text-base font-semibold text-white">{pool.key}</p>
-                    <p className="text-xs text-white/45">
-                      {pool.contractName === "avBTCmId20" ? "Locked BTC pool" : "Locked MEZO pool"}
-                    </p>
+                    <p className="text-xs text-white/45">{pool.label}</p>
                   </div>
                 </button>
               );
             })}
           </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <label className="font-medium text-white">Concentrated range</label>
+            <span className="text-white/45">Slipstream adapter</span>
+          </div>
+
+          {availablePools.length > 0 ? (
+            <LiquidityRangeGraph
+              key={selectedPool}
+              chainId={chainId}
+              poolKey={selectedPool}
+            />
+          ) : (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] px-5 py-8 text-sm text-white/45">
+              No pool is currently available on this network.
+            </div>
+          )}
         </div>
 
       </CardContent>

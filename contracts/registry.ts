@@ -8,13 +8,13 @@ import { GenericContractsDeclaration } from "./types";
 const contracts = {
   31337: {
     AuroveZapRouter: {
-      address: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+      address: "0x82e01223d51Eb87e16A03E24687EDF0F294da6f1",
       abi: [
         {
           inputs: [
             { internalType: "contract IId20Factory", name: "id20Factory_", type: "address" },
-            { internalType: "contract IERC721", name: "veMEZO_", type: "address" },
-            { internalType: "contract IERC721", name: "veBTC_", type: "address" },
+            { internalType: "contract IERC721", name: "veMezo_", type: "address" },
+            { internalType: "contract IERC721", name: "veBtc_", type: "address" },
             { internalType: "contract ICLSwapRouter", name: "clSwapRouter_", type: "address" },
             {
               internalType: "contract ICLNonfungiblePositionManager",
@@ -31,6 +31,11 @@ const contracts = {
           type: "error",
         },
         {
+          inputs: [{ internalType: "address", name: "asset", type: "address" }],
+          name: "IdenticalLiquidityAssets",
+          type: "error",
+        },
+        {
           inputs: [
             { internalType: "uint256", name: "amountOut", type: "uint256" },
             { internalType: "uint256", name: "amountOutMinimum", type: "uint256" },
@@ -39,8 +44,12 @@ const contracts = {
           type: "error",
         },
         {
-          inputs: [{ internalType: "uint256", name: "epochs", type: "uint256" }],
-          name: "InvalidEpochs",
+          inputs: [
+            { internalType: "address", name: "token", type: "address" },
+            { internalType: "uint8", name: "variant", type: "uint8" },
+            { internalType: "uint256", name: "epochs", type: "uint256" },
+          ],
+          name: "InvalidErc20LiquidityInput",
           type: "error",
         },
         {
@@ -51,8 +60,19 @@ const contracts = {
         { inputs: [], name: "InvalidPositionManager", type: "error" },
         { inputs: [], name: "InvalidRoute", type: "error" },
         {
-          inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
-          name: "InvalidTrancheId",
+          inputs: [
+            { internalType: "int24", name: "tickLower", type: "int24" },
+            { internalType: "int24", name: "tickUpper", type: "int24" },
+          ],
+          name: "InvalidTickRange",
+          type: "error",
+        },
+        {
+          inputs: [
+            { internalType: "int24", name: "tick", type: "int24" },
+            { internalType: "int24", name: "tickSpacing", type: "int24" },
+          ],
+          name: "InvalidTickSpacing",
           type: "error",
         },
         { inputs: [], name: "InvalidZapData", type: "error" },
@@ -69,11 +89,6 @@ const contracts = {
         { inputs: [], name: "ReentrancyGuardReentrantCall", type: "error" },
         {
           inputs: [{ internalType: "address", name: "token", type: "address" }],
-          name: "SafeERC20FailedOperation",
-          type: "error",
-        },
-        {
-          inputs: [{ internalType: "address", name: "token", type: "address" }],
           name: "UnexpectedVeNftToken",
           type: "error",
         },
@@ -84,8 +99,11 @@ const contracts = {
         },
         { inputs: [], name: "UnsupportedBatch", type: "error" },
         {
-          inputs: [{ internalType: "uint8", name: "variant", type: "uint8" }],
-          name: "UnsupportedTrancheVariant",
+          inputs: [
+            { internalType: "address", name: "assetA", type: "address" },
+            { internalType: "address", name: "assetB", type: "address" },
+          ],
+          name: "UnsupportedPool",
           type: "error",
         },
         { inputs: [], name: "ZeroAmount", type: "error" },
@@ -95,34 +113,415 @@ const contracts = {
         { inputs: [], name: "ZeroId20Factory", type: "error" },
         { inputs: [], name: "ZeroPositionManager", type: "error" },
         { inputs: [], name: "ZeroReceiver", type: "error" },
+        { inputs: [], name: "ZeroToken", type: "error" },
         { inputs: [], name: "ZeroTokenOut", type: "error" },
         { inputs: [], name: "ZeroVeBTC", type: "error" },
         { inputs: [], name: "ZeroVeMEZO", type: "error" },
         {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "caller", type: "address" },
+            { indexed: true, internalType: "address", name: "receiver", type: "address" },
+            { indexed: true, internalType: "uint256", name: "positionTokenId", type: "uint256" },
+            { indexed: false, internalType: "address", name: "assetA", type: "address" },
+            { indexed: false, internalType: "address", name: "assetB", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amountAUsed", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "amountBUsed", type: "uint256" },
+            { indexed: false, internalType: "uint128", name: "liquidity", type: "uint128" },
+          ],
+          name: "LiquidityAdded",
+          type: "event",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "int24", name: "tickLower", type: "int24" },
+                { internalType: "int24", name: "tickUpper", type: "int24" },
+                { internalType: "address", name: "receiver", type: "address" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "addLiquidity",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "int24", name: "tickLower", type: "int24" },
+                { internalType: "int24", name: "tickUpper", type: "int24" },
+                { internalType: "address", name: "receiver", type: "address" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "addLiquidity",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "int24", name: "tickLower", type: "int24" },
+                { internalType: "int24", name: "tickUpper", type: "int24" },
+                { internalType: "address", name: "receiver", type: "address" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "addLiquidity",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "int24", name: "tickLower", type: "int24" },
+                { internalType: "int24", name: "tickUpper", type: "int24" },
+                { internalType: "address", name: "receiver", type: "address" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "addLiquidity",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "int24", name: "tickLower", type: "int24" },
+                { internalType: "int24", name: "tickUpper", type: "int24" },
+                { internalType: "address", name: "receiver", type: "address" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "addLiquidity",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "int24", name: "tickLower", type: "int24" },
+                { internalType: "int24", name: "tickUpper", type: "int24" },
+                { internalType: "address", name: "receiver", type: "address" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "addLiquidity",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
           inputs: [],
           name: "auroveLedger",
           outputs: [{ internalType: "contract ILedger", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "btc",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "clFactory",
-          outputs: [{ internalType: "contract ICLFactory", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "clSwapRouter",
-          outputs: [{ internalType: "contract ICLSwapRouter", name: "", type: "address" }],
           stateMutability: "view",
           type: "function",
         },
@@ -135,17 +534,8 @@ const contracts = {
         },
         {
           inputs: [],
-          name: "mezo",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "nonfungiblePositionManager",
-          outputs: [
-            { internalType: "contract ICLNonfungiblePositionManager", name: "", type: "address" },
-          ],
+          name: "liquidityExecutor",
+          outputs: [{ internalType: "contract LiquidityExecutor", name: "", type: "address" }],
           stateMutability: "view",
           type: "function",
         },
@@ -184,23 +574,23 @@ const contracts = {
         },
         {
           inputs: [],
-          name: "veBTC",
-          outputs: [{ internalType: "contract IERC721", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "veMEZO",
-          outputs: [{ internalType: "contract IERC721", name: "", type: "address" }],
+          name: "swapExecutor",
+          outputs: [{ internalType: "contract SwapExecutor", name: "", type: "address" }],
           stateMutability: "view",
           type: "function",
         },
         {
           inputs: [
-            { internalType: "uint8", name: "variant", type: "uint8" },
-            { internalType: "uint256", name: "epochs", type: "uint256" },
-            { internalType: "uint256", name: "amount", type: "uint256" },
+            {
+              components: [
+                { internalType: "uint8", name: "variant", type: "uint8" },
+                { internalType: "uint256", name: "epochs", type: "uint256" },
+                { internalType: "uint256", name: "value", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.DepositInput",
+              name: "deposit",
+              type: "tuple",
+            },
             {
               components: [
                 { internalType: "address", name: "tokenOut", type: "address" },
@@ -222,9 +612,16 @@ const contracts = {
         },
         {
           inputs: [
-            { internalType: "uint8", name: "variant", type: "uint8" },
-            { internalType: "uint256", name: "epochs", type: "uint256" },
-            { internalType: "uint256", name: "amountInMaximum", type: "uint256" },
+            {
+              components: [
+                { internalType: "uint8", name: "variant", type: "uint8" },
+                { internalType: "uint256", name: "epochs", type: "uint256" },
+                { internalType: "uint256", name: "value", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.DepositInput",
+              name: "deposit",
+              type: "tuple",
+            },
             {
               components: [
                 { internalType: "address", name: "tokenOut", type: "address" },
@@ -292,8 +689,16 @@ const contracts = {
         },
         {
           inputs: [
-            { internalType: "uint8", name: "variant", type: "uint8" },
-            { internalType: "uint256", name: "tokenId", type: "uint256" },
+            {
+              components: [
+                { internalType: "uint8", name: "variant", type: "uint8" },
+                { internalType: "uint256", name: "epochs", type: "uint256" },
+                { internalType: "uint256", name: "value", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.DepositInput",
+              name: "deposit",
+              type: "tuple",
+            },
             {
               components: [
                 { internalType: "address", name: "tokenOut", type: "address" },
@@ -315,8 +720,16 @@ const contracts = {
         },
         {
           inputs: [
-            { internalType: "uint8", name: "variant", type: "uint8" },
-            { internalType: "uint256", name: "tokenId", type: "uint256" },
+            {
+              components: [
+                { internalType: "uint8", name: "variant", type: "uint8" },
+                { internalType: "uint256", name: "epochs", type: "uint256" },
+                { internalType: "uint256", name: "value", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.DepositInput",
+              name: "deposit",
+              type: "tuple",
+            },
             {
               components: [
                 { internalType: "address", name: "tokenOut", type: "address" },
@@ -339,8 +752,8 @@ const contracts = {
       ],
     },
     "avBTCm-avMEZOm": {
-      address: "0x67369b60B97fCf5AA7F646215115356Aca2484e9",
-      deploymentBlock: 10314252,
+      address: "0xCE469a9f9E1c3B69cA02430e2D5a12a51926A375",
+      deploymentBlock: 10314300,
       abi: [
         {
           anonymous: false,
@@ -891,7 +1304,7 @@ const contracts = {
       ],
     },
     avBTCmGauge: {
-      address: "0xe4c278D321184BBFFB72e4e59e16a953b6863BEF",
+      address: "0x44d7eE505b57762Ed8caDc465fEB3393b7c710d3",
       abi: [
         {
           inputs: [
@@ -1087,7 +1500,7 @@ const contracts = {
       ],
     },
     avBTCmId20: {
-      address: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
+      address: "0xb17646006b3057714eafF5329b8e95F654B03Ba4",
       abi: [
         {
           inputs: [
@@ -1392,7 +1805,7 @@ const contracts = {
       ],
     },
     avBTCmManager: {
-      address: "0x440C0fCDC317D69606eabc35C0F676D1a8251Ee1",
+      address: "0xF4c112d5434D3BCEB266F46451BaDd7EdB111d9E",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         { inputs: [], name: "InvalidInitialization", type: "error" },
@@ -1751,7 +2164,7 @@ const contracts = {
       ],
     },
     avBTCmSink: {
-      address: "0x9bd03768a7DCc129555dE410FF8E85528A4F88b5",
+      address: "0x55C9DCD6128e7d7e7e136d78e533C01F0cB2ef77",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         {
@@ -2012,7 +2425,7 @@ const contracts = {
       ],
     },
     avMEZOmGauge: {
-      address: "0xf80a256dD56D523F304be32435A492EF1D3F3Fe3",
+      address: "0xcB29e34127A958D7c52d9900d824673585788cE6",
       abi: [
         {
           inputs: [
@@ -2208,7 +2621,7 @@ const contracts = {
       ],
     },
     avMEZOmId20: {
-      address: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
+      address: "0x4fBd2B1681897666FCc9E953839f3F49cA16bf20",
       abi: [
         {
           inputs: [
@@ -2513,7 +2926,7 @@ const contracts = {
       ],
     },
     avMEZOmManager: {
-      address: "0x0433d874a28147DB0b330C000fcC50C0f0BaF425",
+      address: "0xFA0a624DF13f86ACa52b0381D9327b8D08305d0d",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         { inputs: [], name: "InvalidInitialization", type: "error" },
@@ -2872,7 +3285,7 @@ const contracts = {
       ],
     },
     avMEZOmSink: {
-      address: "0x80E2E2367C5E9D070Ae2d6d50bF0cdF6360a7151",
+      address: "0xb3531Fc867A483E8c2DfbECF9673a89eBe982cF6",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         {
@@ -3406,6 +3819,557 @@ const contracts = {
         },
       ],
     },
+    CLPool: {
+      address: "0x819cfadd7f5bc0854fa3b7f5749ea0410a943e5f",
+      abi: [
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "owner", type: "address" },
+            { indexed: true, internalType: "int24", name: "tickLower", type: "int24" },
+            { indexed: true, internalType: "int24", name: "tickUpper", type: "int24" },
+            { indexed: false, internalType: "uint128", name: "amount", type: "uint128" },
+            { indexed: false, internalType: "uint256", name: "amount0", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "amount1", type: "uint256" },
+          ],
+          name: "Burn",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "owner", type: "address" },
+            { indexed: false, internalType: "address", name: "recipient", type: "address" },
+            { indexed: true, internalType: "int24", name: "tickLower", type: "int24" },
+            { indexed: true, internalType: "int24", name: "tickUpper", type: "int24" },
+            { indexed: false, internalType: "uint128", name: "amount0", type: "uint128" },
+            { indexed: false, internalType: "uint128", name: "amount1", type: "uint128" },
+          ],
+          name: "Collect",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "recipient", type: "address" },
+            { indexed: false, internalType: "uint128", name: "amount0", type: "uint128" },
+            { indexed: false, internalType: "uint128", name: "amount1", type: "uint128" },
+          ],
+          name: "CollectFees",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "sender", type: "address" },
+            { indexed: true, internalType: "address", name: "recipient", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amount0", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "amount1", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "paid0", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "paid1", type: "uint256" },
+          ],
+          name: "Flash",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: false,
+              internalType: "uint16",
+              name: "observationCardinalityNextOld",
+              type: "uint16",
+            },
+            {
+              indexed: false,
+              internalType: "uint16",
+              name: "observationCardinalityNextNew",
+              type: "uint16",
+            },
+          ],
+          name: "IncreaseObservationCardinalityNext",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: false, internalType: "uint160", name: "sqrtPriceX96", type: "uint160" },
+            { indexed: false, internalType: "int24", name: "tick", type: "int24" },
+          ],
+          name: "Initialize",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: false, internalType: "address", name: "sender", type: "address" },
+            { indexed: true, internalType: "address", name: "owner", type: "address" },
+            { indexed: true, internalType: "int24", name: "tickLower", type: "int24" },
+            { indexed: true, internalType: "int24", name: "tickUpper", type: "int24" },
+            { indexed: false, internalType: "uint128", name: "amount", type: "uint128" },
+            { indexed: false, internalType: "uint256", name: "amount0", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "amount1", type: "uint256" },
+          ],
+          name: "Mint",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: false, internalType: "uint8", name: "feeProtocol0Old", type: "uint8" },
+            { indexed: false, internalType: "uint8", name: "feeProtocol1Old", type: "uint8" },
+            { indexed: false, internalType: "uint8", name: "feeProtocol0New", type: "uint8" },
+            { indexed: false, internalType: "uint8", name: "feeProtocol1New", type: "uint8" },
+          ],
+          name: "SetFeeProtocol",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "sender", type: "address" },
+            { indexed: true, internalType: "address", name: "recipient", type: "address" },
+            { indexed: false, internalType: "int256", name: "amount0", type: "int256" },
+            { indexed: false, internalType: "int256", name: "amount1", type: "int256" },
+            { indexed: false, internalType: "uint160", name: "sqrtPriceX96", type: "uint160" },
+            { indexed: false, internalType: "uint128", name: "liquidity", type: "uint128" },
+            { indexed: false, internalType: "int24", name: "tick", type: "int24" },
+          ],
+          name: "Swap",
+          type: "event",
+        },
+        {
+          inputs: [
+            { internalType: "int24", name: "tickLower", type: "int24" },
+            { internalType: "int24", name: "tickUpper", type: "int24" },
+            { internalType: "uint128", name: "amount", type: "uint128" },
+            { internalType: "address", name: "owner", type: "address" },
+          ],
+          name: "burn",
+          outputs: [
+            { internalType: "uint256", name: "amount0", type: "uint256" },
+            { internalType: "uint256", name: "amount1", type: "uint256" },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "int24", name: "tickLower", type: "int24" },
+            { internalType: "int24", name: "tickUpper", type: "int24" },
+            { internalType: "uint128", name: "amount", type: "uint128" },
+          ],
+          name: "burn",
+          outputs: [
+            { internalType: "uint256", name: "amount0", type: "uint256" },
+            { internalType: "uint256", name: "amount1", type: "uint256" },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "recipient", type: "address" },
+            { internalType: "int24", name: "tickLower", type: "int24" },
+            { internalType: "int24", name: "tickUpper", type: "int24" },
+            { internalType: "uint128", name: "amount0Requested", type: "uint128" },
+            { internalType: "uint128", name: "amount1Requested", type: "uint128" },
+            { internalType: "address", name: "owner", type: "address" },
+          ],
+          name: "collect",
+          outputs: [
+            { internalType: "uint128", name: "amount0", type: "uint128" },
+            { internalType: "uint128", name: "amount1", type: "uint128" },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "recipient", type: "address" },
+            { internalType: "int24", name: "tickLower", type: "int24" },
+            { internalType: "int24", name: "tickUpper", type: "int24" },
+            { internalType: "uint128", name: "amount0Requested", type: "uint128" },
+            { internalType: "uint128", name: "amount1Requested", type: "uint128" },
+          ],
+          name: "collect",
+          outputs: [
+            { internalType: "uint128", name: "amount0", type: "uint128" },
+            { internalType: "uint128", name: "amount1", type: "uint128" },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "collectFees",
+          outputs: [
+            { internalType: "uint128", name: "amount0", type: "uint128" },
+            { internalType: "uint128", name: "amount1", type: "uint128" },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "factory",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "factoryRegistry",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "fee",
+          outputs: [{ internalType: "uint24", name: "", type: "uint24" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "feeGrowthGlobal0X128",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "feeGrowthGlobal1X128",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "recipient", type: "address" },
+            { internalType: "uint256", name: "amount0", type: "uint256" },
+            { internalType: "uint256", name: "amount1", type: "uint256" },
+            { internalType: "bytes", name: "data", type: "bytes" },
+          ],
+          name: "flash",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "gauge",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "gaugeFees",
+          outputs: [
+            { internalType: "uint128", name: "token0", type: "uint128" },
+            { internalType: "uint128", name: "token1", type: "uint128" },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "int24", name: "tickLower", type: "int24" },
+            { internalType: "int24", name: "tickUpper", type: "int24" },
+            { internalType: "uint256", name: "_rewardGrowthGlobalX128", type: "uint256" },
+          ],
+          name: "getRewardGrowthInside",
+          outputs: [{ internalType: "uint256", name: "rewardGrowthInside", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "uint16", name: "observationCardinalityNext", type: "uint16" }],
+          name: "increaseObservationCardinalityNext",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "_factory", type: "address" },
+            { internalType: "address", name: "_token0", type: "address" },
+            { internalType: "address", name: "_token1", type: "address" },
+            { internalType: "int24", name: "_tickSpacing", type: "int24" },
+            { internalType: "address", name: "_factoryRegistry", type: "address" },
+            { internalType: "uint160", name: "_sqrtPriceX96", type: "uint160" },
+          ],
+          name: "initialize",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "lastUpdated",
+          outputs: [{ internalType: "uint32", name: "", type: "uint32" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "liquidity",
+          outputs: [{ internalType: "uint128", name: "", type: "uint128" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "maxLiquidityPerTick",
+          outputs: [{ internalType: "uint128", name: "", type: "uint128" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "recipient", type: "address" },
+            { internalType: "int24", name: "tickLower", type: "int24" },
+            { internalType: "int24", name: "tickUpper", type: "int24" },
+            { internalType: "uint128", name: "amount", type: "uint128" },
+            { internalType: "bytes", name: "data", type: "bytes" },
+          ],
+          name: "mint",
+          outputs: [
+            { internalType: "uint256", name: "amount0", type: "uint256" },
+            { internalType: "uint256", name: "amount1", type: "uint256" },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "nft",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          name: "observations",
+          outputs: [
+            { internalType: "uint32", name: "blockTimestamp", type: "uint32" },
+            { internalType: "int56", name: "tickCumulative", type: "int56" },
+            { internalType: "uint160", name: "secondsPerLiquidityCumulativeX128", type: "uint160" },
+            { internalType: "bool", name: "initialized", type: "bool" },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "uint32[]", name: "secondsAgos", type: "uint32[]" }],
+          name: "observe",
+          outputs: [
+            { internalType: "int56[]", name: "tickCumulatives", type: "int56[]" },
+            {
+              internalType: "uint160[]",
+              name: "secondsPerLiquidityCumulativeX128s",
+              type: "uint160[]",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "periodFinish",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+          name: "positions",
+          outputs: [
+            { internalType: "uint128", name: "liquidity", type: "uint128" },
+            { internalType: "uint256", name: "feeGrowthInside0LastX128", type: "uint256" },
+            { internalType: "uint256", name: "feeGrowthInside1LastX128", type: "uint256" },
+            { internalType: "uint128", name: "tokensOwed0", type: "uint128" },
+            { internalType: "uint128", name: "tokensOwed1", type: "uint128" },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardGrowthGlobalX128",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardRate",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardReserve",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rollover",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "_gauge", type: "address" },
+            { internalType: "address", name: "_nft", type: "address" },
+          ],
+          name: "setGaugeAndPositionManager",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "slot0",
+          outputs: [
+            { internalType: "uint160", name: "sqrtPriceX96", type: "uint160" },
+            { internalType: "int24", name: "tick", type: "int24" },
+            { internalType: "uint16", name: "observationIndex", type: "uint16" },
+            { internalType: "uint16", name: "observationCardinality", type: "uint16" },
+            { internalType: "uint16", name: "observationCardinalityNext", type: "uint16" },
+            { internalType: "bool", name: "unlocked", type: "bool" },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "int24", name: "tickLower", type: "int24" },
+            { internalType: "int24", name: "tickUpper", type: "int24" },
+          ],
+          name: "snapshotCumulativesInside",
+          outputs: [
+            { internalType: "int56", name: "tickCumulativeInside", type: "int56" },
+            { internalType: "uint160", name: "secondsPerLiquidityInsideX128", type: "uint160" },
+            { internalType: "uint32", name: "secondsInside", type: "uint32" },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "int128", name: "stakedLiquidityDelta", type: "int128" },
+            { internalType: "int24", name: "tickLower", type: "int24" },
+            { internalType: "int24", name: "tickUpper", type: "int24" },
+            { internalType: "bool", name: "positionUpdate", type: "bool" },
+          ],
+          name: "stake",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "stakedLiquidity",
+          outputs: [{ internalType: "uint128", name: "", type: "uint128" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "recipient", type: "address" },
+            { internalType: "bool", name: "zeroForOne", type: "bool" },
+            { internalType: "int256", name: "amountSpecified", type: "int256" },
+            { internalType: "uint160", name: "sqrtPriceLimitX96", type: "uint160" },
+            { internalType: "bytes", name: "data", type: "bytes" },
+          ],
+          name: "swap",
+          outputs: [
+            { internalType: "int256", name: "amount0", type: "int256" },
+            { internalType: "int256", name: "amount1", type: "int256" },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "_rewardRate", type: "uint256" },
+            { internalType: "uint256", name: "_rewardReserve", type: "uint256" },
+            { internalType: "uint256", name: "_periodFinish", type: "uint256" },
+          ],
+          name: "syncReward",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "int16", name: "", type: "int16" }],
+          name: "tickBitmap",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "tickSpacing",
+          outputs: [{ internalType: "int24", name: "", type: "int24" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "int24", name: "", type: "int24" }],
+          name: "ticks",
+          outputs: [
+            { internalType: "uint128", name: "liquidityGross", type: "uint128" },
+            { internalType: "int128", name: "liquidityNet", type: "int128" },
+            { internalType: "int128", name: "stakedLiquidityNet", type: "int128" },
+            { internalType: "uint256", name: "feeGrowthOutside0X128", type: "uint256" },
+            { internalType: "uint256", name: "feeGrowthOutside1X128", type: "uint256" },
+            { internalType: "uint256", name: "rewardGrowthOutsideX128", type: "uint256" },
+            { internalType: "int56", name: "tickCumulativeOutside", type: "int56" },
+            { internalType: "uint160", name: "secondsPerLiquidityOutsideX128", type: "uint160" },
+            { internalType: "uint32", name: "secondsOutside", type: "uint32" },
+            { internalType: "bool", name: "initialized", type: "bool" },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "token0",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "token1",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "unstakedFee",
+          outputs: [{ internalType: "uint24", name: "", type: "uint24" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "updateRewardsGrowthGlobal",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+      ],
+    },
     CLSwapRouter: {
       address: "0x37cdd11919ec3860ead9efb8673d7476e5326225",
       abi: [
@@ -3616,7 +4580,7 @@ const contracts = {
       ],
     },
     Id20Factory: {
-      address: "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
+      address: "0xCD8a1C3ba11CF5ECfa6267617243239504a98d90",
       abi: [
         {
           inputs: [{ internalType: "contract ILedger", name: "assetLedger_", type: "address" }],
@@ -3686,7 +4650,7 @@ const contracts = {
       ],
     },
     Ledger: {
-      address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      address: "0x36C02dA8a0983159322a80FFE9F24b1acfF8B570",
       abi: [
         {
           inputs: [
@@ -4402,8 +5366,8 @@ const contracts = {
       ],
     },
     "MUSD-avBTCm": {
-      address: "0x6Cc8CE5E4bdba11fADa45d86e091B19170227703",
-      deploymentBlock: 10314251,
+      address: "0xAe7aEBCDf505Fc4670836519DE64147FB1C4F5e4",
+      deploymentBlock: 10314299,
       abi: [
         {
           anonymous: false,
@@ -5490,7 +6454,7 @@ const contracts = {
       ],
     },
     Vault: {
-      address: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+      address: "0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154",
       abi: [
         {
           inputs: [
