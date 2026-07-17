@@ -8,7 +8,7 @@ import { GenericContractsDeclaration } from "./types";
 const contracts = {
   31337: {
     AuroveZapRouter: {
-      address: "0x82e01223d51Eb87e16A03E24687EDF0F294da6f1",
+      address: "0x4C4a2f8c81640e47606d3fd77B353E87Ba015584",
       abi: [
         {
           inputs: [
@@ -534,8 +534,8 @@ const contracts = {
         },
         {
           inputs: [],
-          name: "liquidityExecutor",
-          outputs: [{ internalType: "contract LiquidityExecutor", name: "", type: "address" }],
+          name: "liquidityAdapter",
+          outputs: [{ internalType: "contract LiquidityAdapter", name: "", type: "address" }],
           stateMutability: "view",
           type: "function",
         },
@@ -574,8 +574,8 @@ const contracts = {
         },
         {
           inputs: [],
-          name: "swapExecutor",
-          outputs: [{ internalType: "contract SwapExecutor", name: "", type: "address" }],
+          name: "swapAdapter",
+          outputs: [{ internalType: "contract SwapAdapter", name: "", type: "address" }],
           stateMutability: "view",
           type: "function",
         },
@@ -752,8 +752,8 @@ const contracts = {
       ],
     },
     "avBTCm-avMEZOm": {
-      address: "0xCE469a9f9E1c3B69cA02430e2D5a12a51926A375",
-      deploymentBlock: 10314300,
+      address: "0x539203953f82Eef4918031bBfCdCe5385fa445c2",
+      deploymentBlock: 10314319,
       abi: [
         {
           anonymous: false,
@@ -1304,7 +1304,7 @@ const contracts = {
       ],
     },
     avBTCmGauge: {
-      address: "0x44d7eE505b57762Ed8caDc465fEB3393b7c710d3",
+      address: "0xBab4A70bB12E3Bd55E4d7d4d6B6A7bC09045017d",
       abi: [
         {
           inputs: [
@@ -1500,7 +1500,7 @@ const contracts = {
       ],
     },
     avBTCmId20: {
-      address: "0xb17646006b3057714eafF5329b8e95F654B03Ba4",
+      address: "0xB5d064b44960FdedA1072f983C3E8f1e123cE154",
       abi: [
         {
           inputs: [
@@ -1805,7 +1805,7 @@ const contracts = {
       ],
     },
     avBTCmManager: {
-      address: "0xF4c112d5434D3BCEB266F46451BaDd7EdB111d9E",
+      address: "0xfee30400811f3368d95448F41853c0E6FA82bbB6",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         { inputs: [], name: "InvalidInitialization", type: "error" },
@@ -2164,7 +2164,7 @@ const contracts = {
       ],
     },
     avBTCmSink: {
-      address: "0x55C9DCD6128e7d7e7e136d78e533C01F0cB2ef77",
+      address: "0xf6cB1Bc71F7ed659E64C8a56dA5759494480e333",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         {
@@ -2425,7 +2425,7 @@ const contracts = {
       ],
     },
     avMEZOmGauge: {
-      address: "0xcB29e34127A958D7c52d9900d824673585788cE6",
+      address: "0x9cF6511bEe5957A08188F53f6a177973Ed75a1e4",
       abi: [
         {
           inputs: [
@@ -2621,7 +2621,7 @@ const contracts = {
       ],
     },
     avMEZOmId20: {
-      address: "0x4fBd2B1681897666FCc9E953839f3F49cA16bf20",
+      address: "0xA43C8fA0cb6567312091fb14ebf4d0f65De4a6E4",
       abi: [
         {
           inputs: [
@@ -2926,7 +2926,7 @@ const contracts = {
       ],
     },
     avMEZOmManager: {
-      address: "0xFA0a624DF13f86ACa52b0381D9327b8D08305d0d",
+      address: "0x53de34c18aE594AC4090FA6aB45eb3b9011648E4",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         { inputs: [], name: "InvalidInitialization", type: "error" },
@@ -3285,7 +3285,7 @@ const contracts = {
       ],
     },
     avMEZOmSink: {
-      address: "0xb3531Fc867A483E8c2DfbECF9673a89eBe982cF6",
+      address: "0x2370AC5d3a3de259709297fe2F58715332e9bC1b",
       abi: [
         { inputs: [], stateMutability: "nonpayable", type: "constructor" },
         {
@@ -4580,7 +4580,7 @@ const contracts = {
       ],
     },
     Id20Factory: {
-      address: "0xCD8a1C3ba11CF5ECfa6267617243239504a98d90",
+      address: "0x04C89607413713Ec9775E14b954286519d836FEf",
       abi: [
         {
           inputs: [{ internalType: "contract ILedger", name: "assetLedger_", type: "address" }],
@@ -4650,7 +4650,7 @@ const contracts = {
       ],
     },
     Ledger: {
-      address: "0x36C02dA8a0983159322a80FFE9F24b1acfF8B570",
+      address: "0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07",
       abi: [
         {
           inputs: [
@@ -5366,8 +5366,8 @@ const contracts = {
       ],
     },
     "MUSD-avBTCm": {
-      address: "0xAe7aEBCDf505Fc4670836519DE64147FB1C4F5e4",
-      deploymentBlock: 10314299,
+      address: "0x9221AEfF7c9140B767Af2ab44f7eB29D9f7AEA27",
+      deploymentBlock: 10314318,
       abi: [
         {
           anonymous: false,
@@ -6454,7 +6454,7 @@ const contracts = {
       ],
     },
     Vault: {
-      address: "0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154",
+      address: "0x1fA02b2d6A771842690194Cf62D91bdd92BfE28d",
       abi: [
         {
           inputs: [
