@@ -855,7 +855,7 @@ function EmptyPositions() {
           Deposit BTC, MEZO, or an existing Mezo Earn position to create a liquid position that
           keeps earning.{" "}
           <Link
-            href={appRoutes.find((route) => route.label === "Swap")?.href ?? "/swap"}
+            href={appRoutes.find((route) => route.label === "Swap")?.href ?? "/#swap-interface"}
             className="relative z-10 inline-block font-medium !text-[var(--accent-soft)] underline-offset-4 hover:underline"
           >
             Explore swaps

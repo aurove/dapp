@@ -255,7 +255,11 @@ a {
   gap: 18px;
 }
 
-.hero-action--swap {
+.hero-action-mobile {
+  display: inline-flex;
+}
+
+.hero-action-desktop {
   display: none;
 }
 
@@ -914,16 +918,22 @@ a {
     margin-inline: auto;
   }
 
-  .hero-action--swap {
-    display: inline-flex;
-  }
-
   .landing-footer__inner {
     flex-direction: column;
   }
 
   .landing-footer__nav {
     justify-content: flex-start;
+  }
+}
+
+@media (min-width: 1025px) {
+  .hero-action-mobile {
+    display: none;
+  }
+
+  .hero-action-desktop {
+    display: inline-flex;
   }
 }
 

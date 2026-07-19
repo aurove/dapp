@@ -31,9 +31,9 @@ const featureCards = [
 ] as const;
 
 const footerLinks = [
+  { label: "Swap", href: "/#swap-interface" },
   { label: "Earn", href: "/earn" },
-  { label: "Swap", href: "/swap" },
-  { label: "Academy", href: "/academy" },
+  { label: "Liquidity", href: "/liquidity" },
   { label: "", href: "https://x.com/aurove_xyz", external: true },
 ] as const;
 
@@ -80,8 +80,12 @@ export default function HomePage() {
             </div>
 
             <div className="hero-actions">
-              <Link href="/swap" className="btn btn--ghost hero-action--swap">
+              <Link href="#swap-interface" className="btn btn--ghost hero-action-mobile">
                 Go to Swap
+                <ArrowRight className="btn__icon" aria-hidden="true" />
+              </Link>
+              <Link href="/liquidity#available-pools" className="btn btn--ghost hero-action-desktop">
+                Add Liquidity
                 <ArrowRight className="btn__icon" aria-hidden="true" />
               </Link>
               <Link href="/earn" className="btn btn--gold">
@@ -91,7 +95,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="landing-hero__swap">
+          <div id="swap-interface" className="landing-hero__swap scroll-mt-6" tabIndex={-1}>
             <div className="landing-swap__card" aria-label="Mock swap preview">
               <div className="landing-swap__card-header">
                 <div>
@@ -158,8 +162,8 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <Link href="/swap" className="btn btn--gold landing-swap__cta">
-                Open Swap
+              <Link href="/earn" className="btn btn--gold landing-swap__cta">
+                Create a position
                 <ArrowRight className="btn__icon" aria-hidden="true" />
               </Link>
             </div>
