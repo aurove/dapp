@@ -35,6 +35,8 @@ import {
 type LiquidityRangeGraphProps = {
   chainId: number;
   poolKey: SlipstreamPoolKey;
+  selectedRange?: SlipstreamTickRange | null;
+  selectedStrategy?: SlipstreamRangePreset;
   onSelectionChange?: (selection: {
     range: SlipstreamTickRange | null;
     strategy: SlipstreamRangePreset;
@@ -234,7 +236,13 @@ function classForPreset(selected: boolean) {
     : "border-white/10 bg-white/[0.03] text-white/68 hover:border-white/15 hover:bg-white/[0.05] hover:text-white";
 }
 
-export function LiquidityRangeGraph({ chainId, poolKey, onSelectionChange }: LiquidityRangeGraphProps) {
+export function LiquidityRangeGraph({
+  chainId,
+  poolKey,
+  selectedRange: controlledSelectedRange,
+  selectedStrategy: controlledSelectedStrategy,
+  onSelectionChange,
+}: LiquidityRangeGraphProps) {
   const pool = useSlipstreamPoolState(chainId, poolKey);
   const { ref: chartRef, size } = useElementSize<HTMLDivElement>();
 
@@ -246,8 +254,9 @@ export function LiquidityRangeGraph({ chainId, poolKey, onSelectionChange }: Liq
     if (!pool.tickSpacing || pool.currentTick === null) return null;
     return buildPresetRange("balanced", pool.currentTick, pool.tickSpacing);
   }, [pool.currentTick, pool.tickSpacing]);
-  const selectedRange = selection ?? defaultSelection;
-  const activeStrategy: SlipstreamRangePreset = selection ? strategy : "balanced";
+  const selectedRange = controlledSelectedRange ?? selection ?? defaultSelection;
+  const activeStrategy: SlipstreamRangePreset =
+    controlledSelectedStrategy ?? (selection ? strategy : "balanced");
   const bounds = useMemo(
     () => (pool.tickSpacing ? getPoolTickBounds(pool.tickSpacing) : null),
     [pool.tickSpacing],

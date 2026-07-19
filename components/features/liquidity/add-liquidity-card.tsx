@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -14,7 +14,7 @@ import {
 import { erc1155Abi, erc20Abi, erc721Abi, formatUnits, isAddress, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
 
-import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from "@ui";
+import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from "@ui";
 import { getContractConfig } from "@/contracts/shared";
 import { usePortfolioSummary, type PortfolioSummary, type WalletPortfolio } from "@/features/portfolio";
 import { useChainTime } from "@/lib/web3/use-chain-time";
@@ -41,9 +41,13 @@ import {
 import {
   buildPresetRange,
   formatPriceLabel,
+  getPoolTickBounds,
+  normalizeTickRange,
   resolveSlipstreamPoolContractName,
   type SlipstreamPoolState,
   type SlipstreamRangePreset,
+  parsePriceInputToTick,
+  priceInputsForRange,
 } from "./slipstream-adapter";
 
 type LiquidityPoolKey = "BTC" | "MEZO";
@@ -52,6 +56,7 @@ type DraftAmountsState = Record<SlipstreamLiquiditySide, string>;
 type PoolFormState = {
   rangeStrategy: SlipstreamRangePreset;
   selectedRange: { tickLower: number; tickUpper: number } | null;
+  manualRangeInputs: { lower: string; upper: string };
   activeSide: SlipstreamLiquiditySide;
   draftAmounts: DraftAmountsState;
   selectedSourceIds: SelectedSourcesState;
@@ -122,6 +127,7 @@ function createInitialPoolFormState(): Record<LiquidityPoolKey, PoolFormState> {
     BTC: {
       rangeStrategy: "balanced",
       selectedRange: null,
+      manualRangeInputs: { lower: "", upper: "" },
       activeSide: "assetA",
       draftAmounts: { assetA: "", assetB: "" },
       selectedSourceIds: { assetA: null, assetB: null },
@@ -129,6 +135,7 @@ function createInitialPoolFormState(): Record<LiquidityPoolKey, PoolFormState> {
     MEZO: {
       rangeStrategy: "balanced",
       selectedRange: null,
+      manualRangeInputs: { lower: "", upper: "" },
       activeSide: "assetA",
       draftAmounts: { assetA: "", assetB: "" },
       selectedSourceIds: { assetA: null, assetB: null },
@@ -509,6 +516,30 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
     return formState.selectedRange ?? buildPresetRange("balanced", pool.currentTick, pool.tickSpacing);
   }, [formState.selectedRange, pool.currentTick, pool.tickSpacing]);
 
+  useEffect(() => {
+    if (!currentRange) return;
+
+    const nextInputs = priceInputsForRange({ pool, range: currentRange });
+
+    setPoolFormStateByKey((current) => {
+      const nextState = current[selectedPool];
+      if (
+        nextState.manualRangeInputs.lower === nextInputs.lower &&
+        nextState.manualRangeInputs.upper === nextInputs.upper
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [selectedPool]: {
+          ...nextState,
+          manualRangeInputs: nextInputs,
+        },
+      };
+    });
+  }, [currentRange, pool, selectedPool]);
+
   const sourcesBySide = useMemo(
     () =>
       buildSourceOptions({
@@ -676,6 +707,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
           [selectedPool]: {
             ...nextState,
             selectedRange: selection.range,
+            manualRangeInputs: selection.range ? priceInputsForRange({ pool, range: selection.range }) : nextState.manualRangeInputs,
             rangeStrategy: selection.strategy,
           },
         };
@@ -754,6 +786,33 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
           ...current[selectedPool].selectedSourceIds,
           [side]: sourceId,
         },
+      },
+    }));
+  }
+
+  function applyManualRange() {
+    if (!pool.tickSpacing) return;
+
+    const lowerTick = parsePriceInputToTick({ pool, value: formState.manualRangeInputs.lower });
+    const upperTick = parsePriceInputToTick({ pool, value: formState.manualRangeInputs.upper });
+
+    if (lowerTick === null || upperTick === null) return;
+
+    const nextRange = normalizeTickRange(
+      lowerTick < upperTick
+        ? { tickLower: lowerTick, tickUpper: upperTick }
+        : { tickLower: upperTick, tickUpper: lowerTick },
+      pool.tickSpacing,
+      getPoolTickBounds(pool.tickSpacing),
+    );
+
+    setPoolFormStateByKey((current) => ({
+      ...current,
+      [selectedPool]: {
+        ...current[selectedPool],
+        selectedRange: nextRange,
+        manualRangeInputs: priceInputsForRange({ pool, range: nextRange }),
+        rangeStrategy: "custom",
       },
     }));
   }
@@ -912,17 +971,98 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
           </div>
 
           {availablePools.length > 0 ? (
-            <LiquidityRangeGraph
-              key={selectedPool}
-              chainId={chainId}
-              poolKey={selectedPool}
-              onSelectionChange={handleGraphSelection}
-            />
+          <LiquidityRangeGraph
+            key={selectedPool}
+            chainId={chainId}
+            poolKey={selectedPool}
+            selectedRange={formState.selectedRange}
+            selectedStrategy={formState.rangeStrategy}
+            onSelectionChange={handleGraphSelection}
+          />
           ) : (
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] px-5 py-8 text-sm text-white/45">
               No pool is currently available on this network.
             </div>
           )}
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-2 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-sm font-medium text-white">Low price</label>
+              <span className="text-xs text-white/40">
+                {pool.token0?.symbol ?? "Token 0"} / {pool.token1?.symbol ?? "Token 1"}
+              </span>
+            </div>
+            <input
+              inputMode="decimal"
+              value={formState.manualRangeInputs.lower}
+              onChange={(event) => {
+                const value = normalizeAmountInput(event.target.value);
+                setPoolFormStateByKey((current) => ({
+                  ...current,
+                  [selectedPool]: {
+                    ...current[selectedPool],
+                    manualRangeInputs: {
+                      ...current[selectedPool].manualRangeInputs,
+                      lower: value,
+                    },
+                    rangeStrategy: "custom",
+                  },
+                }));
+              }}
+              placeholder="0.0000149"
+              className="h-16 w-full rounded-2xl border border-white/10 bg-[#0d1319] px-4 text-2xl font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-[var(--accent)]/50"
+            />
+          </div>
+
+          <div className="space-y-2 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-sm font-medium text-white">High price</label>
+              <span className="text-xs text-white/40">
+                {pool.token0?.symbol ?? "Token 0"} / {pool.token1?.symbol ?? "Token 1"}
+              </span>
+            </div>
+            <input
+              inputMode="decimal"
+              value={formState.manualRangeInputs.upper}
+              onChange={(event) => {
+                const value = normalizeAmountInput(event.target.value);
+                setPoolFormStateByKey((current) => ({
+                  ...current,
+                  [selectedPool]: {
+                    ...current[selectedPool],
+                    manualRangeInputs: {
+                      ...current[selectedPool].manualRangeInputs,
+                      upper: value,
+                    },
+                    rangeStrategy: "custom",
+                  },
+                }));
+              }}
+              placeholder="0.0000161"
+              className="h-16 w-full rounded-2xl border border-white/10 bg-[#0d1319] px-4 text-2xl font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-[var(--accent)]/50"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+          <p className="text-xs leading-5 text-white/46">
+            Manual range uses token0 to token1 pricing and snaps to the pool tick spacing when applied.
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-10 rounded-full px-4"
+            onClick={applyManualRange}
+            disabled={
+              parsePriceInputToTick({ pool, value: formState.manualRangeInputs.lower }) === null ||
+              parsePriceInputToTick({ pool, value: formState.manualRangeInputs.upper }) === null ||
+              !pool.tickSpacing
+            }
+          >
+            Apply manual range
+          </Button>
         </div>
 
         <div className="space-y-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] p-4 sm:p-5">

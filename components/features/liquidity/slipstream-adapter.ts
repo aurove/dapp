@@ -1,8 +1,8 @@
 "use client";
 
-import { Token } from "@uniswap/sdk-core";
-import { TickMath, nearestUsableTick, tickToPrice } from "@uniswap/v3-sdk";
-import type { Address } from "viem";
+import { Price, Token } from "@uniswap/sdk-core";
+import { TickMath, nearestUsableTick, priceToClosestTick, tickToPrice } from "@uniswap/v3-sdk";
+import { parseUnits, type Address } from "viem";
 
 export type SlipstreamRangePreset = "focused" | "balanced" | "full-range" | "custom";
 export type SlipstreamPoolKey = "BTC" | "MEZO";
@@ -235,6 +235,23 @@ function toToken(poolToken: SlipstreamTokenInfo, chainId: number) {
   return new Token(chainId, poolToken.address, poolToken.decimals, poolToken.symbol ?? undefined, poolToken.name ?? undefined);
 }
 
+function priceValueToText(price: ReturnType<typeof getTickPrice>) {
+  if (!price) return "";
+  return price.toFixed(18).replace(/\.?0+$/, "");
+}
+
+function normalizePriceInput(value: string) {
+  const cleaned = value.trim().replace(/,/g, "");
+  if (!cleaned) return null;
+  if (!/^\d*\.?\d*$/.test(cleaned)) return null;
+  try {
+    const parsed = parseUnits(cleaned, 18);
+    return parsed > 0n ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getTickPrice(params: {
   pool: SlipstreamPoolState;
   tick: number;
@@ -282,6 +299,53 @@ export function formatPriceLabel(params: {
   }
 
   return `${price.toSignificant(5)} ${quoteLabel} / ${baseLabel}`;
+}
+
+export function formatPriceInputValue(params: {
+  pool: SlipstreamPoolState;
+  tick: number;
+  invert?: boolean;
+}) {
+  return priceValueToText(getTickPrice(params));
+}
+
+export function parsePriceInputToTick(params: {
+  pool: SlipstreamPoolState;
+  value: string;
+  invert?: boolean;
+}) {
+  const { pool, value } = params;
+  const token0 = pool.token0;
+  const token1 = pool.token1;
+  const parsed = normalizePriceInput(value);
+
+  if (!token0 || !token1 || parsed === null) return null;
+
+  try {
+    const price = new Price(
+      toToken(token0, pool.chainId),
+      toToken(token1, pool.chainId),
+      "1000000000000000000",
+      parsed.toString(),
+    );
+    return priceToClosestTick(price);
+  } catch {
+    return null;
+  }
+}
+
+export function priceInputsForRange(params: {
+  pool: SlipstreamPoolState;
+  range: SlipstreamTickRange | null;
+}) {
+  if (!params.range) {
+    return { lower: "", upper: "" };
+  }
+
+  return {
+    lower: formatPriceInputValue({ pool: params.pool, tick: params.range.tickLower }),
+    upper: formatPriceInputValue({ pool: params.pool, tick: params.range.tickUpper }),
+  };
 }
 
 export function buildFallbackLiquiditySeries(params: {
