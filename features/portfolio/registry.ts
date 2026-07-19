@@ -30,12 +30,16 @@ export function getPortfolioRegistry(chainId: number): PortfolioRegistry | null 
   ].flatMap(({ key, sink, token }) => sink && token ? [{ key, address: sink, rewardToken: token.address, symbol: token.symbol, decimals: token.decimals, assetId: token.id }] : []);
   const positionManager = getContractConfig(chainId, "NonfungiblePositionManager");
   const factory = getContractConfig(chainId, "CLFactory");
+  const supportedPools = (["MUSD-avBTCm", "avBTCm-avMEZOm"] as const).flatMap((key) => {
+    const pool = getContractConfig(chainId, key);
+    return pool?.address ? [{ key, address: pool.address, abi: pool.abi as Abi }] : [];
+  });
   const vault = getContractConfig(chainId, "Vault");
   const veCollections = [
     { key: "veBTC", contract: getContractConfig(chainId, "VeBTC") },
     { key: "veMEZO", contract: getContractConfig(chainId, "VeMEZO") },
   ].flatMap(({ key, contract }) => contract?.address ? [{ key, address: contract.address, symbol: key, abi: contract.abi as Abi }] : []);
-  const revisionParts = [ledger.address, ...tranches.map((item) => item.trancheId.toString()), ...walletAssets.map((a) => a.address), ...id20s.map((a) => a.address), ...rewardSources.map((a) => a.address), ...veCollections.map((a) => a.address), positionManager?.address].filter(Boolean);
+  const revisionParts = [ledger.address, ...tranches.map((item) => item.trancheId.toString()), ...walletAssets.map((a) => a.address), ...id20s.map((a) => a.address), ...rewardSources.map((a) => a.address), ...veCollections.map((a) => a.address), ...supportedPools.map((pool) => pool.address), positionManager?.address].filter(Boolean);
 
   return {
     revision: revisionParts.map((value) => String(value).toLowerCase()).join(":"),
@@ -50,5 +54,6 @@ export function getPortfolioRegistry(chainId: number): PortfolioRegistry | null 
     vault: vault?.address ? { address: vault.address, abi: vault.abi as Abi } : undefined,
     positionManager: positionManager?.address ? { address: positionManager.address, abi: positionManager.abi as Abi } : undefined,
     factory: factory?.address ? { address: factory.address, abi: factory.abi as Abi } : undefined,
+    supportedPools,
   };
 }

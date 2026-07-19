@@ -441,12 +441,12 @@ function QuoteStat({
   );
 }
 
-export function AddLiquidityCard() {
+export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: LiquidityPoolKey }) {
   const chainId = useChainId();
   const { address: account } = useAccount();
   const { chainTimestamp } = useChainTime();
   const portfolio = usePortfolioSummary();
-  const [selectedPoolState, setSelectedPoolState] = useState<LiquidityPoolKey>("BTC");
+  const [selectedPoolState, setSelectedPoolState] = useState<LiquidityPoolKey>(initialPool);
   const [poolFormStateByKey, setPoolFormStateByKey] = useState<Record<LiquidityPoolKey, PoolFormState>>(
     () => createInitialPoolFormState(),
   );

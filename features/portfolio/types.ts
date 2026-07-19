@@ -44,7 +44,7 @@ export interface RewardsPortfolio {
 export interface LiquidityPortfolio {
   meta: PortfolioDomainMeta;
   positionIds: readonly bigint[];
-  positions: Record<string, { tokenId: bigint; pool: Address; token0: Address; token1: Address; tickLower: number; tickUpper: number; liquidity: bigint; tokensOwed0: bigint; tokensOwed1: bigint; rawAmount0?: bigint; rawAmount1?: bigint }>;
+  positions: Record<string, { tokenId: bigint; pool: Address; poolKey: string; token0: Address; token1: Address; tickSpacing: number; tickLower: number; tickUpper: number; liquidity: bigint; poolLiquidity?: bigint; currentTick?: number; sqrtPriceX96?: bigint; tokensOwed0: bigint; tokensOwed1: bigint; rawAmount0?: bigint; rawAmount1?: bigint }>;
 }
 export interface PortfolioSummary {
   owner: Address;
@@ -72,4 +72,5 @@ export interface PortfolioRegistry {
   vault?: { address: Address; abi: readonly unknown[] };
   positionManager?: { address: Address; abi: readonly unknown[] };
   factory?: { address: Address; abi: readonly unknown[] };
+  supportedPools: readonly { key: string; address: Address; abi: readonly unknown[] }[];
 }
