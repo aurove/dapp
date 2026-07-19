@@ -82,15 +82,21 @@ function AssetSelector({ side, asset, assets, balanceOf, balancesLoading, onSele
       <ChevronDown className="h-4 w-4" />
     </Button>
     <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setSearch(""); }}>
-      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md border-white/12 bg-[#111820]">
+      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md overflow-hidden border-white/12 bg-[#111820]">
         <DialogHeader><DialogTitle>Select an asset to {side.toLowerCase()}</DialogTitle><DialogDescription>{side === "Buy" ? "ID20 representations are listed first, followed by every other ERC-20 available through a Mezo CL route." : "Aurove veNFTs and Ledger tranches are listed first, followed by ERC-20s available through a Mezo CL route."}</DialogDescription></DialogHeader>
         <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search symbol, name, ID, or address" aria-label="Search assets" className="pl-9" /></div>
         <div className="flex items-center justify-between text-xs text-white/38"><span>{filteredAssets.length} asset{filteredAssets.length === 1 ? "" : "s"}</span>{search ? <button type="button" className="text-[#d8b884] hover:text-[#efd39e]" onClick={() => setSearch("")}>Clear search</button> : null}</div>
         <ScrollArea className="max-h-[55vh] pr-3"><div className="space-y-4">
-          {groups.map(([label, options]) => <section key={label} aria-label={label}><p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">{label}</p><div className="space-y-2">{options.map((option) => <button key={option.id} type="button" onClick={() => { onSelect(option); setOpen(false); setSearch(""); }} className={cn("flex w-full items-center gap-3 rounded-xl border p-3 text-left transition", option.id === asset?.id ? "border-[#b58f5f]/60 bg-[#b58f5f]/12" : "border-white/10 bg-white/[0.025] hover:bg-white/[0.06]")}>
+          {groups.map(([label, options]) => <section key={label} aria-label={label}><p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">{label}</p><div className="space-y-2">{options.map((option) => <button key={option.id} type="button" onClick={() => { onSelect(option); setOpen(false); setSearch(""); }} className={cn("flex w-full min-w-0 items-center justify-start gap-3 overflow-hidden rounded-xl border p-3 text-left whitespace-normal transition", option.id === asset?.id ? "border-[#b58f5f]/60 bg-[#b58f5f]/12" : "border-white/10 bg-white/[0.025] hover:bg-white/[0.06]")}>
               <TokenMark asset={option} />
-              <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-white">{option.symbol}</span><span className="block truncate text-xs text-white/48">{option.name} · {formLabel(option)}</span></span>
-              <span className="shrink-0 text-right text-xs text-white/55"><span className="block">{balancesLoading ? "…" : formatUnitsDecimal(balanceOf(option), option.decimals, 5)}</span><span className="text-white/35">Balance</span></span>
+              <span className="min-w-0 flex-1 overflow-hidden">
+                <span className="block truncate font-semibold text-white">{option.symbol}</span>
+                <span className="block truncate text-xs text-white/48">{option.name} · {formLabel(option)}</span>
+              </span>
+              <span className="shrink-0 text-right text-xs text-white/55">
+                <span className="block">{balancesLoading ? "…" : formatUnitsDecimal(balanceOf(option), option.decimals, 5)}</span>
+                <span className="text-white/35">Balance</span>
+              </span>
             </button>)}</div></section>)}
           {!filteredAssets.length ? <p className="p-5 text-center text-sm text-white/50">{search ? "No assets match your search." : "No valid assets for this side of the route."}</p> : null}
         </div></ScrollArea>
