@@ -14,15 +14,16 @@ import {
 import { erc1155Abi, erc20Abi, erc721Abi, formatUnits, isAddress, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
 
-import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, cn } from "@ui";
+import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from "@ui";
 import { getContractConfig } from "@/contracts/shared";
-import { useAurovePortfolio } from "@/lib/web3/use-aurove-portfolio";
+import { usePortfolioSummary, type PortfolioSummary, type WalletPortfolio } from "@/features/portfolio";
 import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw, readResult } from "@/lib/web3/value-parsers";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { LiquidityRangeGraph } from "./liquidity-range-graph";
 import { useSlipstreamPoolState } from "./liquidity-range-graph";
+import { LiquidityTokenInput } from "./liquidity-token-input";
 import {
   buildSlipstreamLiquidityQuote,
   type SlipstreamLiquidityQuote,
@@ -60,11 +61,6 @@ type LiquidityPoolOption = {
   key: LiquidityPoolKey;
   label: string;
   available: boolean;
-};
-
-type SideLabel = {
-  side: SlipstreamLiquiditySide;
-  title: string;
 };
 
 type SlipstreamLiquidityRouterFunctionName =
@@ -146,16 +142,6 @@ function poolButtonTone(selected: boolean) {
     : "border-transparent bg-transparent text-white/68 hover:border-white/10 hover:bg-white/[0.03]";
 }
 
-function sourceButtonTone(selected: boolean, disabled: boolean) {
-  return cn(
-    "min-h-24 rounded-xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b58f5f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0c1117]",
-    selected
-      ? "border-[var(--accent)]/60 bg-[linear-gradient(180deg,rgba(196,160,106,0.14),rgba(196,160,106,0.06))] text-white"
-      : "border-white/10 bg-white/[0.025] text-white/74 hover:border-white/20 hover:bg-white/[0.05]",
-    disabled && "cursor-not-allowed opacity-40 hover:border-white/10 hover:bg-white/[0.025]",
-  );
-}
-
 function TokenMarkStack({ symbol }: { symbol: LiquidityPoolKey }) {
   const tokenImage = symbol === "BTC" ? "/tokens/BTC.png" : "/tokens/MEZO.png";
 
@@ -188,21 +174,11 @@ function normalizeAmountInput(value: string) {
   return `${whole}.${fractions.join("").slice(0, 18)}`;
 }
 
-function sourceKindLabel(source: SlipstreamLiquiditySource) {
-  if (source.kind === "erc20") return source.mode === "wrapped" ? "ID20 WRAPPED" : "ERC-20";
-  if (source.kind === "venft") return "veNFT";
-  return "Tranche";
-}
-
 function sourceFamilyLabel(family: SlipstreamSourceFamily) {
   if (family === "BTC") return "BTC";
   if (family === "MEZO") return "MEZO";
   if (family === "MUSD") return "MUSD";
   return "Unknown";
-}
-
-function sourceBalanceLabel(source: SlipstreamLiquiditySource) {
-  return formatCompactRawTokenAmount(source.balanceRaw, source.decimals, null);
 }
 
 function currentRangeLabel(pool: SlipstreamPoolState, range: { tickLower: number; tickUpper: number } | null) {
@@ -226,11 +202,11 @@ function resolveSelectedSource(
 
 function buildSourceOptions(params: {
   pool: SlipstreamPoolState;
-  portfolio: ReturnType<typeof useAurovePortfolio>["portfolio"];
-  token0BalanceRaw: bigint;
-  token1BalanceRaw: bigint;
+  portfolio: PortfolioSummary | undefined;
+  veCollections: WalletPortfolio["veCollections"];
+  allowancesByAddress: Record<string, bigint>;
 }) {
-  const { pool, portfolio, token0BalanceRaw, token1BalanceRaw } = params;
+  const { pool, portfolio, veCollections, allowancesByAddress } = params;
   const token0Family = sourceFamilyForToken(pool.token0?.symbol);
   const token1Family = sourceFamilyForToken(pool.token1?.symbol);
 
@@ -240,46 +216,47 @@ function buildSourceOptions(params: {
     tokenAddress: Address | null,
     tokenSymbol: string | null,
     tokenDecimals: number,
-    tokenBalanceRaw: bigint,
   ) => {
     const options: SlipstreamLiquiditySource[] = [];
     const managedDepositDefaults = sourceDefaultVariantAndEpochs(family);
-    const portfolioToken =
-      family === "BTC"
-        ? portfolio.tokens.BTC
-        : family === "MEZO"
-          ? portfolio.tokens.MEZO
-          : null;
+    const directId20 = Object.values(portfolio?.id20Balances ?? {}).find(
+      (asset) => tokenAddress && asset.address.toLowerCase() === tokenAddress.toLowerCase(),
+    );
+    const directAsset = directId20 ?? Object.values(portfolio?.walletAssets ?? {}).find(
+      (asset) => tokenAddress && asset.address.toLowerCase() === tokenAddress.toLowerCase(),
+    );
+    const underlyingAsset = family === "BTC" || family === "MEZO" ? portfolio?.walletAssets[family] : undefined;
 
     if (tokenAddress) {
       options.push({
-        id: `${side}:erc20:plain:${tokenAddress.toLowerCase()}`,
+        id: `${side}:${family.toLowerCase()}:${directId20 ? "wrapped" : "erc20"}`,
         kind: "erc20",
         mode: "plain",
+        representation: directId20 ? "wrapped" : "erc20",
         family,
-        label:
-          family === "BTC" || family === "MEZO"
-            ? `Plain ${sourceFamilyLabel(family)} ERC20`
-            : `${tokenSymbol ?? sourceFamilyLabel(family)} wallet`,
+        label: directId20
+          ? `${directAsset?.symbol ?? tokenSymbol ?? sourceFamilyLabel(family)} (wrapped)`
+          : directAsset?.symbol ?? tokenSymbol ?? sourceFamilyLabel(family),
         token: tokenAddress,
-        balanceRaw: tokenBalanceRaw,
-        allowanceRaw: portfolioToken?.allowanceRaw ?? 0n,
-        decimals: tokenDecimals,
+        balanceRaw: directAsset?.rawBalance ?? 0n,
+        allowanceRaw: allowancesByAddress[tokenAddress.toLowerCase()] ?? 0n,
+        decimals: directAsset?.decimals ?? tokenDecimals,
         variant: 0,
         epochs: 0n,
       });
 
-      if (family === "BTC" || family === "MEZO") {
+      if ((family === "BTC" || family === "MEZO") && underlyingAsset) {
         options.push({
-          id: `${side}:erc20:wrapped:${tokenAddress.toLowerCase()}`,
+          id: `${side}:${family.toLowerCase()}:erc20`,
           kind: "erc20",
           mode: "wrapped",
+          representation: "erc20",
           family,
-          label: `Wrapped ${sourceFamilyLabel(family)} ERC20`,
-          token: tokenAddress,
-          balanceRaw: tokenBalanceRaw,
-          allowanceRaw: portfolioToken?.allowanceRaw ?? 0n,
-          decimals: tokenDecimals,
+          label: underlyingAsset.symbol,
+          token: underlyingAsset.address,
+          balanceRaw: underlyingAsset.rawBalance,
+          allowanceRaw: allowancesByAddress[underlyingAsset.address.toLowerCase()] ?? 0n,
+          decimals: underlyingAsset.decimals,
           variant: managedDepositDefaults.variant,
           epochs: managedDepositDefaults.epochs,
         });
@@ -288,13 +265,13 @@ function buildSourceOptions(params: {
 
     if (family === "BTC" || family === "MEZO") {
       const collectionKey = family === "BTC" ? "veBTC" : "veMEZO";
-      const collection = portfolio.veCollections[collectionKey];
+      const collection = veCollections[collectionKey];
 
-      const collectionAddress = collection.address;
+      const collectionAddress = collection?.address;
       if (collectionAddress) {
-        collection.positions.forEach((position) => {
+        Object.values(collection.positions).forEach((position) => {
           options.push({
-            id: `${side}:venft:${position.tokenId.toString()}`,
+            id: `${side}:${family.toLowerCase()}:locked:${position.tokenId.toString()}`,
             kind: "venft",
             family,
             label: `${collectionKey} #${position.tokenId.toString()}`,
@@ -310,16 +287,17 @@ function buildSourceOptions(params: {
       }
 
       const wrapperKey = family === "BTC" ? "avBTCm" : "avMEZOm";
-      const wrapper = portfolio.wrappers[wrapperKey];
-      if (wrapper.id20Address && wrapper.trancheId !== null) {
+      const wrapper = portfolio?.id20Balances[wrapperKey];
+      const tranche = wrapper ? Object.values(portfolio?.trancheBalances ?? {}).find((item) => item.trancheId === wrapper.trancheId) : undefined;
+      if (wrapper) {
         options.push({
-          id: `${side}:tranche:${wrapper.trancheId.toString()}`,
+          id: `${side}:${family.toLowerCase()}:liquid:${wrapper.trancheId.toString()}`,
           kind: "tranche",
           family,
-          label: `${wrapperKey} tranche #${wrapper.trancheId.toString()}`,
-          contractAddress: wrapper.id20Address,
+          label: `${tranche?.symbol ?? wrapperKey} (liquid)`,
+          contractAddress: wrapper.address,
           trancheId: wrapper.trancheId,
-          balanceRaw: wrapper.erc1155BalanceRaw,
+          balanceRaw: tranche?.rawBalance ?? 0n,
           decimals: 18,
           variant: managedDepositDefaults.variant,
           epochs: managedDepositDefaults.epochs,
@@ -336,7 +314,6 @@ function buildSourceOptions(params: {
     pool.token0?.address ?? null,
     pool.token0?.symbol ?? null,
     pool.token0?.decimals ?? 18,
-    token0BalanceRaw,
   );
 
   const assetBSources = buildSideSources(
@@ -345,25 +322,12 @@ function buildSourceOptions(params: {
     pool.token1?.address ?? null,
     pool.token1?.symbol ?? null,
     pool.token1?.decimals ?? 18,
-    token1BalanceRaw,
   );
 
   return {
     assetA: assetASources,
     assetB: assetBSources,
   };
-}
-
-function sourceOptionSummary(source: SlipstreamLiquiditySource) {
-  if (source.kind === "erc20") {
-    return `${sourceBalanceLabel(source)} available`;
-  }
-
-  if (source.kind === "venft") {
-    return `${sourceBalanceLabel(source)} capacity`;
-  }
-
-  return `${sourceBalanceLabel(source)} tranche balance`;
 }
 
 function sourceApprovalLabel(source: SlipstreamLiquiditySource) {
@@ -477,158 +441,11 @@ function QuoteStat({
   );
 }
 
-function SideSourceButton({
-  source,
-  selected,
-  disabled,
-  onSelect,
-}: {
-  source: SlipstreamLiquiditySource;
-  selected: boolean;
-  disabled: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      disabled={disabled}
-      onClick={onSelect}
-      className={sourceButtonTone(selected, disabled)}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-white">{source.label}</p>
-          <p className="mt-0.5 text-xs text-white/45">{sourceOptionSummary(source)}</p>
-        </div>
-        <Badge className="border-white/10 bg-white/[0.04] text-[10px] uppercase tracking-[0.14em] text-white/72">
-          {sourceKindLabel(source)}
-        </Badge>
-      </div>
-      <p className="mt-3 text-xs text-white/45">
-        {source.family === "UNKNOWN" ? "Unknown family" : sourceFamilyLabel(source.family)}
-        {source.kind === "erc20" ? ` · ${source.decimals} decimals` : ""}
-      </p>
-    </button>
-  );
-}
-
-function SidePanel({
-  side,
-  pool,
-  source,
-  selectedSource,
-  sources,
-  inputValue,
-  quotedValue,
-  balanceRaw,
-  onFocus,
-  onChange,
-  onMax,
-  onSelectSource,
-  isActive,
-}: {
-  side: SlipstreamLiquiditySide;
-  pool: SlipstreamPoolState;
-  source: SideLabel;
-  selectedSource: SlipstreamLiquiditySource | null;
-  sources: SlipstreamLiquiditySource[];
-  inputValue: string;
-  quotedValue: string;
-  balanceRaw: bigint | null;
-  onFocus: () => void;
-  onChange: (value: string) => void;
-  onMax: () => void;
-  onSelectSource: (sourceId: string) => void;
-  isActive: boolean;
-}) {
-  const token = side === "assetA" ? pool.token0 : pool.token1;
-  const balanceLabel = balanceRaw === null ? "Balance unavailable" : formatCompactRawTokenAmount(balanceRaw, token?.decimals ?? 18, token?.symbol ?? null);
-  const displayValue = isActive ? inputValue : quotedValue;
-  const canMax = Boolean(selectedSource && selectedSource.balanceRaw > 0n);
-  const activeSourceCount = sources.filter((item) => item.balanceRaw > 0n).length;
-
-  return (
-    <div className="space-y-3 rounded-3xl border border-white/10 bg-white/[0.025] p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/42">{source.title}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <p className="text-lg font-semibold text-white">{token?.symbol ?? source.title}</p>
-            <Badge className="border-white/10 bg-white/[0.04] text-white/72">
-              {token?.symbol ?? "Token"}
-            </Badge>
-          </div>
-          <p className="mt-1 text-sm text-white/52">
-            Balance: {balanceLabel}
-          </p>
-        </div>
-        <Badge className={cn("normal-case tracking-normal", isActive ? "border-[var(--accent)]/40 bg-[var(--accent)]/10 text-[var(--accent)]" : "border-white/10 bg-white/[0.03] text-white/68")}>
-          {isActive ? "Editing" : "Quoted"}
-        </Badge>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <label htmlFor={`liquidity-${side}`} className="text-xs font-semibold uppercase tracking-[0.18em] text-white/42">
-            Amount
-          </label>
-        </div>
-
-        <div className="flex gap-2">
-          <Input
-            id={`liquidity-${side}`}
-            inputMode="decimal"
-            placeholder="0.0"
-            value={displayValue}
-            onFocus={onFocus}
-            onChange={(event) => onChange(normalizeAmountInput(event.target.value))}
-            readOnly={!isActive}
-            disabled={!selectedSource}
-            className="h-14 border-white/12 bg-white/[0.02] px-4 text-2xl font-semibold text-white shadow-none focus-visible:ring-offset-0 read-only:cursor-pointer"
-          />
-          <Button type="button" variant="outline" size="lg" onClick={onMax} disabled={!canMax}>
-            Max
-          </Button>
-        </div>
-        <p className="text-xs text-white/45">
-          {activeSourceCount > 0 ? `Choose from ${activeSourceCount} available source${activeSourceCount === 1 ? "" : "s"}.` : "No usable source is available for this side."}
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/42">Source</p>
-          <p className="text-xs text-white/45">{selectedSource ? sourceKindLabel(selectedSource) : "Unavailable"}</p>
-        </div>
-
-        {sources.length > 0 ? (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {sources.map((item) => (
-              <SideSourceButton
-                key={item.id}
-                source={item}
-                selected={selectedSource?.id === item.id}
-                disabled={item.balanceRaw <= 0n}
-                onSelect={() => onSelectSource(item.id)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-sm text-white/48">
-            No compatible sources were found for this side.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export function AddLiquidityCard() {
   const chainId = useChainId();
   const { address: account } = useAccount();
   const { chainTimestamp } = useChainTime();
-  const portfolio = useAurovePortfolio({ ownerAddress: account ?? undefined, chainId, enabled: Boolean(account) });
+  const portfolio = usePortfolioSummary();
   const [selectedPoolState, setSelectedPoolState] = useState<LiquidityPoolKey>("BTC");
   const [poolFormStateByKey, setPoolFormStateByKey] = useState<Record<LiquidityPoolKey, PoolFormState>>(
     () => createInitialPoolFormState(),
@@ -657,44 +474,34 @@ export function AddLiquidityCard() {
 
   const pool = useSlipstreamPoolState(chainId, selectedPool);
   const routerAddress = getContractConfig(chainId, "AuroveZapRouter")?.address ?? null;
-  const token0BalanceRead = useReadContracts({
+  const erc20SourceAddresses = useMemo(() => {
+    const addresses = [
+      pool.token0?.address,
+      pool.token1?.address,
+      portfolio.data?.walletAssets.BTC?.address,
+      portfolio.data?.walletAssets.MEZO?.address,
+    ].filter((address): address is Address => Boolean(address));
+    return [...new Map(addresses.map((address) => [address.toLowerCase(), address])).values()];
+  }, [pool.token0?.address, pool.token1?.address, portfolio.data?.walletAssets]);
+  const allowanceReads = useReadContracts({
     allowFailure: true,
-    contracts:
-      account && pool.token0?.address
-        ? [
-            {
-              address: pool.token0.address,
-              abi: erc20Abi,
-              functionName: "balanceOf",
-              args: [account],
-            },
-          ]
-        : [],
+    contracts: account && routerAddress ? erc20SourceAddresses.map((address) => ({
+      address,
+      abi: erc20Abi,
+      functionName: "allowance" as const,
+      args: [account, routerAddress] as const,
+    })) : [],
     query: {
-      enabled: Boolean(account && pool.token0?.address),
+      enabled: Boolean(account && routerAddress && erc20SourceAddresses.length),
     },
   });
-
-  const token1BalanceRead = useReadContracts({
-    allowFailure: true,
-    contracts:
-      account && pool.token1?.address
-        ? [
-            {
-              address: pool.token1.address,
-              abi: erc20Abi,
-              functionName: "balanceOf",
-              args: [account],
-            },
-          ]
-        : [],
-    query: {
-      enabled: Boolean(account && pool.token1?.address),
-    },
-  });
-
-  const token0BalanceRaw = readResult<bigint>(token0BalanceRead.data, 0) ?? 0n;
-  const token1BalanceRaw = readResult<bigint>(token1BalanceRead.data, 0) ?? 0n;
+  const allowancesByAddress = useMemo(
+    () => Object.fromEntries(erc20SourceAddresses.map((address, index) => [
+      address.toLowerCase(),
+      readResult<bigint>(allowanceReads.data, index) ?? 0n,
+    ])),
+    [allowanceReads.data, erc20SourceAddresses],
+  );
   const formState = poolFormStateByKey[selectedPool];
 
   const currentRange = useMemo(() => {
@@ -706,11 +513,11 @@ export function AddLiquidityCard() {
     () =>
       buildSourceOptions({
         pool,
-        portfolio: portfolio.portfolio,
-        token0BalanceRaw,
-        token1BalanceRaw,
+        portfolio: portfolio.data,
+        veCollections: portfolio.domains.wallet.data?.veCollections ?? {},
+        allowancesByAddress,
       }),
-    [portfolio.portfolio, pool, token0BalanceRaw, token1BalanceRaw],
+    [portfolio.data, portfolio.domains.wallet.data?.veCollections, pool, allowancesByAddress],
   );
 
   const selectedSourceA = useMemo(
@@ -938,6 +745,19 @@ export function AddLiquidityCard() {
     }));
   }
 
+  function selectSource(side: SlipstreamLiquiditySide, sourceId: string) {
+    setPoolFormStateByKey((current) => ({
+      ...current,
+      [selectedPool]: {
+        ...current[selectedPool],
+        selectedSourceIds: {
+          ...current[selectedPool].selectedSourceIds,
+          [side]: sourceId,
+        },
+      },
+    }));
+  }
+
   function sideDisplayValue(side: SlipstreamLiquiditySide) {
     const token = side === "assetA" ? pool.token0 : pool.token1;
     if (!token) return "";
@@ -995,14 +815,17 @@ export function AddLiquidityCard() {
             </div>
           </div>
 
-          <button
-            type="button"
-            title="Choose the pool you want to add liquidity to."
-            aria-label="Choose the pool you want to add liquidity to."
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.03] text-white/55 transition hover:border-[var(--accent)]/40 hover:bg-white/[0.06] hover:text-white"
-          >
-            <Info className="h-4 w-4" aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Badge className="border-[var(--accent)]/35 bg-[var(--accent)]/10 text-[var(--accent)]">Editing</Badge>
+            <button
+              type="button"
+              title="Choose the pool you want to add liquidity to."
+              aria-label="Choose the pool you want to add liquidity to."
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.03] text-white/55 transition hover:border-[var(--accent)]/40 hover:bg-white/[0.06] hover:text-white"
+            >
+              <Info className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         <CardDescription>Select one pool to continue.</CardDescription>
@@ -1017,7 +840,7 @@ export function AddLiquidityCard() {
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5">
+          <div id="liquidity-pool-selector" tabIndex={-1} className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">
             {poolOptions.map((poolOption) => {
               const selected = selectedPool === poolOption.key;
 
@@ -1043,6 +866,43 @@ export function AddLiquidityCard() {
               );
             })}
           </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <LiquidityTokenInput
+            id="liquidity-assetA"
+            tokenSymbol={pool.token0?.symbol ?? null}
+            value={sideDisplayValue("assetA")}
+            balanceLabel={selectedSourceA ? formatCompactRawTokenAmount(selectedSourceA.balanceRaw, selectedSourceA.decimals, pool.token0?.symbol ?? null) : "Unavailable"}
+            isEditing={formState.activeSide === "assetA"}
+            disabled={!selectedSourceA}
+            loading={!pool.token0 || portfolio.isLoading}
+            insufficientBalance={quote.status === "insufficient-balance" && formState.activeSide === "assetA"}
+            canMax={Boolean(selectedSourceA && selectedSourceA.balanceRaw > 0n)}
+            sources={sourcesBySide.assetA}
+            selectedSource={selectedSourceA}
+            onFocus={() => activateSide("assetA", sideDisplayValue("assetA"))}
+            onChange={(value) => handleAmountChange("assetA", normalizeAmountInput(value))}
+            onMax={() => setMaxForSide("assetA")}
+            onSelectSource={(sourceId) => selectSource("assetA", sourceId)}
+          />
+          <LiquidityTokenInput
+            id="liquidity-assetB"
+            tokenSymbol={pool.token1?.symbol ?? null}
+            value={sideDisplayValue("assetB")}
+            balanceLabel={selectedSourceB ? formatCompactRawTokenAmount(selectedSourceB.balanceRaw, selectedSourceB.decimals, pool.token1?.symbol ?? null) : "Unavailable"}
+            isEditing={formState.activeSide === "assetB"}
+            disabled={!selectedSourceB}
+            loading={!pool.token1 || portfolio.isLoading}
+            insufficientBalance={quote.status === "insufficient-balance" && formState.activeSide === "assetB"}
+            canMax={Boolean(selectedSourceB && selectedSourceB.balanceRaw > 0n)}
+            sources={sourcesBySide.assetB}
+            selectedSource={selectedSourceB}
+            onFocus={() => activateSide("assetB", sideDisplayValue("assetB"))}
+            onChange={(value) => handleAmountChange("assetB", normalizeAmountInput(value))}
+            onMax={() => setMaxForSide("assetB")}
+            onSelectSource={(sourceId) => selectSource("assetB", sourceId)}
+          />
         </div>
 
         <div className="space-y-3">
@@ -1095,150 +955,22 @@ export function AddLiquidityCard() {
             </div>
           ) : null}
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <SidePanel
-              side="assetA"
-              pool={pool}
-              source={{ side: "assetA", title: pool.token0?.symbol ?? "Asset A" }}
-              selectedSource={selectedSourceA}
-              sources={sourcesBySide.assetA}
-              inputValue={formState.draftAmounts.assetA}
-              quotedValue={sideDisplayValue("assetA")}
-              balanceRaw={selectedSourceA?.balanceRaw ?? null}
-              onFocus={() => activateSide("assetA", sideDisplayValue("assetA"))}
-              onChange={(value) => handleAmountChange("assetA", value)}
-              onMax={() => setMaxForSide("assetA")}
-              onSelectSource={(sourceId) =>
-                setPoolFormStateByKey((current) => ({
-                  ...current,
-                  [selectedPool]: {
-                    ...current[selectedPool],
-                    selectedSourceIds: {
-                      ...current[selectedPool].selectedSourceIds,
-                      assetA: sourceId,
-                    },
-                  },
-                }))
-              }
-              isActive={formState.activeSide === "assetA"}
-            />
-            <SidePanel
-              side="assetB"
-              pool={pool}
-              source={{ side: "assetB", title: pool.token1?.symbol ?? "Asset B" }}
-              selectedSource={selectedSourceB}
-              sources={sourcesBySide.assetB}
-              inputValue={formState.draftAmounts.assetB}
-              quotedValue={sideDisplayValue("assetB")}
-              balanceRaw={selectedSourceB?.balanceRaw ?? null}
-              onFocus={() => activateSide("assetB", sideDisplayValue("assetB"))}
-              onChange={(value) => handleAmountChange("assetB", value)}
-              onMax={() => setMaxForSide("assetB")}
-              onSelectSource={(sourceId) =>
-                setPoolFormStateByKey((current) => ({
-                  ...current,
-                  [selectedPool]: {
-                    ...current[selectedPool],
-                    selectedSourceIds: {
-                      ...current[selectedPool].selectedSourceIds,
-                      assetB: sourceId,
-                    },
-                  },
-                }))
-              }
-              isActive={formState.activeSide === "assetB"}
-            />
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-3">
             <QuoteStat
-              label="Expected liquidity"
+              label="Liquidity"
               value={quoteSummaryValue(quote.liquidityRaw, 0)}
-              detail={quote.status === "ok" ? "Derived from the selected range and active side." : "Preview only until the quote is valid."}
+              detail={quote.status === "ok" ? "Ready" : "Enter an amount to preview"}
             />
             <QuoteStat
-              label="Asset A used / unused"
-              value={
-                quote.amountAUsedRaw !== null && quote.amountAUnusedRaw !== null
-                  ? `${quoteSummaryValue(quote.amountAUsedRaw, pool.token0?.decimals ?? 18)} / ${quoteSummaryValue(quote.amountAUnusedRaw, pool.token0?.decimals ?? 18)}`
-                  : "Unavailable"
-              }
-              detail={pool.token0?.symbol ?? "Asset A"}
-            />
-            <QuoteStat
-              label="Asset B used / unused"
-              value={
-                quote.amountBUsedRaw !== null && quote.amountBUnusedRaw !== null
-                  ? `${quoteSummaryValue(quote.amountBUsedRaw, pool.token1?.decimals ?? 18)} / ${quoteSummaryValue(quote.amountBUnusedRaw, pool.token1?.decimals ?? 18)}`
-                  : "Unavailable"
-              }
-              detail={pool.token1?.symbol ?? "Asset B"}
-            />
-            <QuoteStat
-              label="Begins in range"
-              value={rangeStartsInRange ? "Yes" : "No"}
-              detail={currentTick === null ? "Current tick unavailable" : `Current tick ${currentTick.toString()}`}
-            />
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <QuoteStat
-              label="Slippage minimums"
-              value={
-                quote.amountAMinimumRaw !== null && quote.amountBMinimumRaw !== null
-                  ? `${quoteSummaryValue(quote.amountAMinimumRaw, pool.token0?.decimals ?? 18)} / ${quoteSummaryValue(quote.amountBMinimumRaw, pool.token1?.decimals ?? 18)}`
-                  : "Unavailable"
-              }
-              detail="amountAMinimum / amountBMinimum"
-            />
-            <QuoteStat
-              label="Current price"
+              label="Price"
               value={currentPriceText}
-              detail={currentTick === null ? "Price unavailable" : `Range preset: ${rangePresetLabel}`}
+              detail={rangePresetLabel}
             />
-          </div>
-
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-white">Liquidity plan</p>
-                <p className="text-xs text-white/45">
-                  Typed router inputs ready for the Aurove Zap Router overload.
-                </p>
-              </div>
-              <Badge className="border-white/12 bg-white/[0.04] text-white/70">
-                {quote.routerPlan ? quote.routerPlan.overload : "No plan yet"}
-              </Badge>
-            </div>
-
-            {quote.routerPlan ? (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <QuoteStat
-                  label="Tick lower"
-                  value={quote.routerPlan.params.tickLower.toString()}
-                  detail="Snapped to pool spacing"
-                />
-                <QuoteStat
-                  label="Tick upper"
-                  value={quote.routerPlan.params.tickUpper.toString()}
-                  detail="Snapped to pool spacing"
-                />
-                <QuoteStat
-                  label="Receiver"
-                  value={`${quote.routerPlan.params.receiver.slice(0, 6)}…${quote.routerPlan.params.receiver.slice(-4)}`}
-                  detail="Wallet receiver"
-                />
-                <QuoteStat
-                  label="Deadline"
-                  value={quote.routerPlan.params.deadline.toString()}
-                  detail="Unix seconds"
-                />
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-4 text-sm text-white/48">
-                {account ? "Adjust the inputs above to build a router plan." : "Connect a wallet to build a router plan."}
-              </div>
-            )}
+            <QuoteStat
+              label="In range"
+              value={rangeStartsInRange ? "Yes" : "No"}
+              detail={currentTick === null ? "Waiting for pool" : `Tick ${currentTick.toString()}`}
+            />
           </div>
 
           <TransactionFlowButton
@@ -1260,7 +992,7 @@ export function AddLiquidityCard() {
             }}
             steps={() => liquiditySteps()}
             onComplete={() => {
-              void portfolio.refresh();
+              Object.values(portfolio.domains).forEach((query) => void query.refetch());
             }}
           >
             Add liquidity

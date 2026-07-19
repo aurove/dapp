@@ -4,13 +4,12 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseAbiItem, type Abi, type Address, type PublicClient } from "viem";
 import { useAccount, useChainId, usePublicClient, useReadContracts } from "wagmi";
-import { getEarnProtocolConfig, getRewardSinkAbi } from "@/contracts/earn";
+import { getEarnProtocolConfig } from "@/contracts/earn";
 import { useKnownMezoTokenBalance } from "@/components/shared/use-known-mezo-token-balance";
 import { useErc20MetadataMap } from "@/lib/web3/use-erc20-metadata";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import {
   detailReadQueryOptions,
-  metadataReadQueryOptions,
   staticReadQueryOptions,
 } from "@/lib/web3/read-query-options";
 import {
@@ -22,6 +21,7 @@ import {
   sameAddress,
 } from "@/lib/web3/value-parsers";
 import { findLatestEventLogByChunks, type CachedEventLog } from "@/lib/web3/event-cache";
+import { useRewardsPortfolio, useTranchePortfolio } from "@/features/portfolio";
 import {
   MAX_EPOCHS_BY_VARIANT,
   decodeTrancheId,
@@ -139,7 +139,7 @@ const fractionDeploymentBlockCache = new Map<string, Promise<bigint | null>>();
 const totalSupplyAtBlockCache = new Map<string, Promise<bigint | null>>();
 
 const PRODUCT_STATIC_READS = 9;
-const PRODUCT_POSITION_READS = 2;
+const PRODUCT_POSITION_READS = 1;
 const POSITION_READS = 2;
 
 function getFundingScanCache(chainId: number): FundingScanCache {
@@ -473,12 +473,13 @@ export function useEarnSnapshot() {
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = connectedChainId ?? activeChain.id;
   const earnContracts = useMemo(() => getEarnProtocolConfig(chainId), [chainId]);
-  const rewardSinkAbi = useMemo(() => getRewardSinkAbi(chainId), [chainId]);
   const assetLedger = earnContracts.ledger;
   const assetFractionAbi = earnContracts.ledger?.abi;
   const vault = earnContracts.vault;
   const veBtc = earnContracts.veBtc;
   const veMezo = earnContracts.veMezo;
+  const tranchePortfolio = useTranchePortfolio();
+  const rewardsPortfolio = useRewardsPortfolio();
 
   const supportedVeNfts = useMemo(
     () =>
@@ -569,7 +570,7 @@ export function useEarnSnapshot() {
       .sort((a, b) =>
         a.variant === b.variant ? Number(a.trancheId - b.trancheId) : a.variant.localeCompare(b.variant),
       );
-  }, [assetLedger?.address, supportedVeNfts]);
+  }, [assetLedger, supportedVeNfts]);
 
   const productsFromFractions = useMemo(
     () =>
@@ -622,27 +623,6 @@ export function useEarnSnapshot() {
     () => (rewardSinkReads.data ?? []).map((entry) => readAddress(entry.result)),
     [rewardSinkReads.data],
   );
-
-  const claimableRewardsContracts = useMemo(() => {
-    if (!userAddress || rewardSinkAddresses.length === 0 || !rewardSinkAbi) return [];
-
-    return rewardSinkAddresses.map((rewardSinkAddress) => ({
-      address: rewardSinkAddress ?? ZERO_ADDRESS,
-      abi: rewardSinkAbi,
-      functionName: "claimableRewards",
-      args: [userAddress],
-      chainId,
-    }));
-  }, [chainId, rewardSinkAbi, rewardSinkAddresses, userAddress]);
-
-  const claimableRewardsReads = useReadContracts({
-    allowFailure: true,
-    contracts: claimableRewardsContracts,
-    query: {
-      enabled: claimableRewardsContracts.length > 0,
-      ...detailReadQueryOptions,
-    },
-  });
 
   const productStaticContracts = useMemo(() => {
     if (!canReadLedger || productsFromFractions.length === 0 || !assetFractionAbi) return [];
@@ -719,23 +699,14 @@ export function useEarnSnapshot() {
       return [];
     }
 
-    return productsFromFractions.flatMap((product) => [
-      {
+    return productsFromFractions.map((product) => ({
         address: product.fractionAddress,
         abi: assetFractionAbi,
         functionName: "redeemableBalanceOf",
         args: [userAddress],
         chainId,
-      },
-      {
-        address: assetLedger!.address,
-        abi: assetLedger!.abi,
-        functionName: "balanceOf",
-        args: [userAddress, product.trancheId],
-        chainId,
-      },
-    ]);
-  }, [assetFractionAbi, assetLedger, canReadLedger, chainId, productsFromFractions, userAddress]);
+      }));
+  }, [assetFractionAbi, canReadLedger, chainId, productsFromFractions, userAddress]);
 
   const productAccountReads = useReadContracts({
     allowFailure: true,
@@ -867,12 +838,12 @@ export function useEarnSnapshot() {
       const decimals =
         readNumber(readResult<unknown>(productStaticReads.data, staticCursor + 8)) ?? 18;
 
-      const claimableRewardsRaw =
-        readBigint(readResult<unknown>(claimableRewardsReads.data, index)) ?? 0n;
+      const claimableRewardsRaw = rewardsPortfolio.data?.rewards[`${product.variant}:${product.trancheNumber}`]?.rawClaimable ?? 0n;
       const userAvailableBalanceRaw =
         readBigint(readResult<unknown>(productAccountReads.data, accountCursor)) ?? 0n;
-      const userBalanceRaw =
-        readBigint(readResult<unknown>(productAccountReads.data, accountCursor + 1)) ?? 0n;
+      const userBalanceRaw = Object.values(tranchePortfolio.data?.balances ?? {}).find(
+        (balance) => balance.trancheId === product.trancheId,
+      )?.rawBalance ?? 0n;
       const rewardSinkAddress = rewardSinkAddresses[index] ?? null;
 
       const rewardMeta = rewardAsset
@@ -900,12 +871,13 @@ export function useEarnSnapshot() {
       };
     });
   }, [
-    claimableRewardsReads.data,
     productAccountReads.data,
     productStaticReads.data,
     productsFromFractions,
     rewardSinkAddresses,
     rewardTokenMeta.metadataByAddress,
+    rewardsPortfolio.data,
+    tranchePortfolio.data,
   ]);
 
   const snapshot = useMemo<EarnSnapshot>(() => {
@@ -926,6 +898,9 @@ export function useEarnSnapshot() {
     veTokenMeta.isLoading ||
     veBtcTokenBalance.isChecking ||
     veMezoTokenBalance.isChecking;
+  const portfolioLoading = tranchePortfolio.isLoading || rewardsPortfolio.isLoading;
+  const positionsLoading = protocolReads.isLoading || tranchePortfolio.isLoading;
+  const positionsFetching = protocolReads.isFetching || tranchePortfolio.isFetching;
 
   const isFetching =
     protocolReads.isFetching ||
@@ -934,7 +909,7 @@ export function useEarnSnapshot() {
     rewardTokenMeta.isFetching ||
     veTokenMeta.isFetching ||
     veBtcTokenBalance.isChecking ||
-    veMezoTokenBalance.isChecking;
+    veMezoTokenBalance.isChecking || tranchePortfolio.isFetching || rewardsPortfolio.isFetching;
 
   const error =
     (protocolReads.error as Error | null) ||
@@ -944,6 +919,8 @@ export function useEarnSnapshot() {
     (veTokenMeta.error as Error | null) ||
     (veBtcTokenBalance.error as Error | null) ||
     (veMezoTokenBalance.error as Error | null) ||
+    (tranchePortfolio.error as Error | null) ||
+    (rewardsPortfolio.error as Error | null) ||
     null;
 
   function refresh() {
@@ -955,6 +932,8 @@ export function useEarnSnapshot() {
       veTokenMeta.refresh(),
       veBtcTokenBalance.refresh(),
       veMezoTokenBalance.refresh(),
+      tranchePortfolio.refetch(),
+      rewardsPortfolio.refetch(),
     ]);
     void queryClient.invalidateQueries({ queryKey: [EARN_APY_QUERY_PREFIX] });
   }
@@ -968,8 +947,10 @@ export function useEarnSnapshot() {
     liveProductCount: snapshot.liveProductCount,
     userPositions: snapshot.userPositions,
     tokens: snapshot.tokens,
-    isLoading,
+    isLoading: isLoading || portfolioLoading,
     isFetching,
+    positionsLoading,
+    positionsFetching,
     error,
     refresh,
   };

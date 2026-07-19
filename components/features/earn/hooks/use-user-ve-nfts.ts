@@ -6,8 +6,7 @@ import { useAccount, useChainId } from "wagmi";
 
 import { getEarnProtocolConfig } from "@/contracts/earn";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
-import { useErc20MetadataMap } from "@/lib/web3/use-erc20-metadata";
-import { useAurovePortfolio } from "@/lib/web3/use-aurove-portfolio";
+import { useWalletPortfolio } from "@/features/portfolio";
 
 type EarnVeAssetType = "veBTC" | "veMEZO";
 
@@ -80,38 +79,18 @@ function formatCount(balance: bigint): string {
 }
 
 export function useUserVeNFTs(): UseUserVeNftsResult {
-  const { address: userAddress, isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const txFlowChainId = useChainId();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = txFlowChainId ?? activeChain.id;
   const earnContracts = useMemo(() => getEarnProtocolConfig(chainId), [chainId]);
   const veBtc = earnContracts.veBtc;
   const veMezo = earnContracts.veMezo;
-  const veTokenAddresses = useMemo(
-    () => {
-      const addresses: Address[] = [];
-      if (veBtc?.address) addresses.push(veBtc.address);
-      if (veMezo?.address) addresses.push(veMezo.address);
-      return addresses;
-    },
-    [veBtc?.address, veMezo?.address],
-  );
-
-  const veTokenMeta = useErc20MetadataMap({
-    chainId,
-    addresses: veTokenAddresses,
-    enabled: Boolean(veBtc?.address || veMezo?.address),
-  });
-
-  const portfolio = useAurovePortfolio({
-    ownerAddress: userAddress ?? undefined,
-    chainId,
-    enabled: Boolean(userAddress),
-  });
+  const portfolio = useWalletPortfolio();
 
   const veCollections = useMemo<UserVeNftCollection[]>(() => {
     const result: UserVeNftCollection[] = [];
-    const collections = portfolio.portfolio.veCollections;
+    const collections = portfolio.data?.veCollections ?? {};
 
     const collectionEntries: Array<{
       assetType: EarnVeAssetType;
@@ -132,20 +111,16 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
 
     for (const entry of collectionEntries) {
       const collection = collections[entry.assetType];
-      if (!collection.address) continue;
-
-      const symbol =
-        (entry.contractAddress
-          ? veTokenMeta.metadataByAddress[entry.contractAddress.toLowerCase()]?.symbol
-          : null) ?? entry.fallbackSymbol;
+      if (!collection?.address) continue;
+      const symbol = collection.symbol ?? entry.fallbackSymbol;
 
       result.push({
         assetType: entry.assetType,
         symbol,
         contractAddress: collection.address,
-        balance: collection.balanceRaw,
-        balanceFormatted: formatCount(collection.balanceRaw),
-        veNfts: collection.positions.map((position) => ({
+        balance: BigInt(collection.tokenIds.length),
+        balanceFormatted: formatCount(BigInt(collection.tokenIds.length)),
+        veNfts: Object.values(collection.positions).map((position) => ({
           assetType: entry.assetType,
           symbol,
           contractAddress: collection.address as Address,
@@ -165,17 +140,16 @@ export function useUserVeNFTs(): UseUserVeNftsResult {
     }
 
     return result;
-  }, [portfolio.portfolio.veCollections, veBtc?.address, veMezo?.address, veTokenMeta.metadataByAddress]);
+  }, [portfolio.data?.veCollections, veBtc?.address, veMezo?.address]);
 
   return {
     veCollections,
     isConnected,
-    isLoading: portfolio.isLoading || veTokenMeta.isLoading,
-    isFetching: portfolio.isFetching || veTokenMeta.isFetching,
-    error: portfolio.error || (veTokenMeta.error as Error | null) || null,
+    isLoading: portfolio.isLoading,
+    isFetching: portfolio.isFetching,
+    error: portfolio.error,
     refresh: () => {
-      portfolio.refresh();
-      void veTokenMeta.refresh();
+      void portfolio.refetch();
     },
   };
 }

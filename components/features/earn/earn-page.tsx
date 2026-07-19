@@ -17,8 +17,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { erc20Abi, erc721Abi, formatUnits, type Abi, type Address } from "viem";
-import { useAccount, useChainId } from "wagmi";
-import { useQueryClient } from "@tanstack/react-query";
+import { useChainId } from "wagmi";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
 import { appRoutes } from "@/components/app/app-nav";
 import { FeatureHeroSection, FeatureMetricCard, FeatureSplitGrid, FeatureStatusPanel } from "@/components/features/shared/page-shell";
@@ -27,7 +26,6 @@ import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
-import { setAurovePortfolioCache } from "@/lib/web3/use-aurove-portfolio";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/earn/hooks/use-user-ve-nfts";
 import { type EarnProduct, type EarnVariant, useApyBasis, useEarnSnapshot } from "./use-earn-data";
 import { EarnPositionCard } from "./earn-position-card";
@@ -78,14 +76,13 @@ function getTokenIconPath(variant: EarnVariant) {
 
 export function EarnPage() {
   const { chainTimestamp } = useChainTime();
-  const { address: accountAddress } = useAccount();
   const {
     assetLedger,
     products,
     userPositions,
     tokens,
-    isLoading,
-    isFetching,
+    positionsLoading,
+    positionsFetching,
     error,
     refresh,
   } = useEarnSnapshot();
@@ -96,7 +93,6 @@ export function EarnPage() {
     error: veNftsError,
     refresh: refreshVeNfts,
   } = useUserVeNFTs();
-  const queryClient = useQueryClient();
 
   const [variant, setVariant] = useState<EarnVariant>("veBTC");
   const [createMode, setCreateMode] = useState<CreatePositionMode>("venft");
@@ -169,51 +165,7 @@ export function EarnPage() {
   const apyBasisMap = useMemo(() => apyQuery.data ?? {}, [apyQuery.data]);
 
   function patchCreatePortfolioState() {
-    if (!accountAddress) return;
-
-    if (createMode === "erc20" && selectedToken && parsedCreateAmount) {
-      const tokenSymbol = variant === "veBTC" ? "BTC" : "MEZO";
-      const amount = parsedCreateAmount;
-
-      setAurovePortfolioCache(queryClient, { chainId, account: accountAddress }, (current) => {
-        const token = current.tokens[tokenSymbol];
-        return {
-          ...current,
-          tokens: {
-            ...current.tokens,
-            [tokenSymbol]: {
-              ...token,
-              balanceRaw: token.balanceRaw > amount ? token.balanceRaw - amount : 0n,
-              allowanceRaw: token.allowanceRaw > amount ? token.allowanceRaw - amount : 0n,
-            },
-          },
-        };
-      });
-    }
-
-    if (createMode === "venft" && selectedVeNft) {
-      const assetType = selectedVeNft.assetType;
-      const tokenId = selectedVeNft.tokenId;
-
-      setAurovePortfolioCache(queryClient, { chainId, account: accountAddress }, (current) => {
-        const collection = current.veCollections[assetType];
-        const nextPositions = collection.positions.filter((position) => position.tokenId !== tokenId);
-        const nextTokenIds = collection.tokenIds.filter((value) => value !== tokenId);
-
-        return {
-          ...current,
-          veCollections: {
-            ...current.veCollections,
-            [assetType]: {
-              ...collection,
-              balanceRaw: collection.balanceRaw > 0n ? collection.balanceRaw - 1n : 0n,
-              tokenIds: nextTokenIds,
-              positions: nextPositions,
-            },
-          },
-        };
-      });
-    }
+    // Confirmed portfolio state is refreshed from RPC after the receipt.
   }
 
   const createDisabledReason = !selectedToken?.underlyingAddress
@@ -378,13 +330,13 @@ export function EarnPage() {
                 them when the redemption window opens.
               </p>
             </div>
-            <Button variant="secondary" size="sm" onClick={refresh} disabled={isFetching}>
-              <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+            <Button variant="secondary" size="sm" onClick={refresh} disabled={positionsFetching}>
+              <RefreshCw className={cn("h-4 w-4", positionsFetching && "animate-spin")} />
               Refresh
             </Button>
           </div>
 
-          {isLoading ? (
+          {positionsLoading ? (
             <ProductSkeleton />
           ) : userPositions.length === 0 ? (
             <EmptyPositions />

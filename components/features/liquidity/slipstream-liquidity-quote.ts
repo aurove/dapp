@@ -70,6 +70,7 @@ export type SlipstreamLiquiditySource =
       id: string;
       kind: "erc20";
       mode: "plain" | "wrapped";
+      representation: "erc20" | "wrapped";
       family: SlipstreamSourceFamily;
       label: string;
       token: Address;

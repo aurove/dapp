@@ -10,6 +10,7 @@ import { getActiveChain } from "@/lib/config/chains";
 import { getWagmiConfig } from "@/lib/config/wagmi";
 import contracts from "@/contracts/registry";
 import type { TxContractsDeclaration, TxIconState, TxNotifyApi } from "@/lib/tx-flow/types";
+import { PortfolioEventWatcher } from "@/features/portfolio";
 
 type TxFlowRuntimeValue = {
   contracts: TxContractsDeclaration;
@@ -84,6 +85,7 @@ export function Web3Providers({
   const tree = (
     <WagmiProvider config={resolvedWagmiConfig}>
       <QueryClientProvider client={resolvedQueryClient}>
+        <PortfolioEventWatcher />
         {rainbowKitConfig ? (
           <RainbowKitProvider {...rainbowKitConfig}>{children}</RainbowKitProvider>
         ) : (

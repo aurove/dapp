@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import type { Address } from "viem";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
@@ -37,6 +38,7 @@ export default function TransactionFlowButton({
   const { address, chain } = useAccount();
   const publicClient = usePublicClient()!; // will be available since we wrap display in connect btn
   const { writeContractAsync } = useWriteContract();
+  const queryClient = useQueryClient();
 
   const { contracts, notify, iconState, setIconState } = useTxFlowRuntime();
 
@@ -60,6 +62,7 @@ export default function TransactionFlowButton({
         writeAsync: writeContractAsync,
         contracts,
         notify,
+        queryClient,
       };
 
       const builtSteps =

@@ -2,13 +2,11 @@
 
 import { useMemo } from "react";
 import type { Address } from "viem";
-import { useChainId } from "wagmi";
+import { erc20Abi } from "viem";
+import { useChainId, useReadContract } from "wagmi";
 
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
-import {
-  type AurovePortfolioTokenSymbol,
-  useAurovePortfolio,
-} from "@/lib/web3/use-aurove-portfolio";
+import { useWalletPortfolio } from "@/features/portfolio";
 import { getKnownMezoTokenConfig, getKnownMezoTokenConfigs } from "./known-mezo-tokens";
 
 type UseKnownMezoTokenBalanceParams = {
@@ -23,11 +21,11 @@ function resolveKnownTokenSymbol(
   chainId: number,
   tokenAddress?: Address | null,
   tokenSymbol?: string,
-): AurovePortfolioTokenSymbol | null {
+): "BTC" | "MEZO" | "MUSD" | null {
   if (tokenSymbol) {
     const knownToken = getKnownMezoTokenConfig(chainId, tokenSymbol);
     if (knownToken) {
-      return knownToken.symbol as AurovePortfolioTokenSymbol;
+      return knownToken.symbol;
     }
   }
 
@@ -37,7 +35,7 @@ function resolveKnownTokenSymbol(
   const knownToken = getKnownMezoTokenConfigs(chainId).find(
     (item) => item.address.toLowerCase() === normalizedAddress,
   );
-  return (knownToken?.symbol as AurovePortfolioTokenSymbol | undefined) ?? null;
+  return knownToken?.symbol ?? null;
 }
 
 export function useKnownMezoTokenBalance({
@@ -55,22 +53,25 @@ export function useKnownMezoTokenBalance({
     [resolvedChainId, tokenAddress, tokenSymbol],
   );
 
-  const portfolioQuery = useAurovePortfolio({
-    ownerAddress,
+  const portfolioQuery = useWalletPortfolio();
+  const token = resolvedSymbol ? portfolioQuery.data?.assets[resolvedSymbol] : undefined;
+  const allowance = useReadContract({
+    address: token?.address,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: ownerAddress && spenderAddress ? [ownerAddress, spenderAddress] : undefined,
     chainId: resolvedChainId,
-    enabled: Boolean(ownerAddress && resolvedSymbol),
+    query: { enabled: Boolean(ownerAddress && spenderAddress && token?.address) },
   });
 
   if (resolvedSymbol) {
-    const tokenSnapshot = portfolioQuery.portfolio.tokens[resolvedSymbol];
-
     return {
-      balanceRaw: tokenSnapshot.balanceRaw,
-      allowanceRaw: tokenSnapshot.allowanceRaw,
-      isChecking: portfolioQuery.isLoading || portfolioQuery.isFetching,
-      error: portfolioQuery.error,
-      refresh: portfolioQuery.refresh,
-      readAddress: tokenSnapshot.address,
+      balanceRaw: token?.rawBalance ?? 0n,
+      allowanceRaw: allowance.data ?? 0n,
+      isChecking: portfolioQuery.isLoading || portfolioQuery.isFetching || allowance.isLoading || allowance.isFetching,
+      error: portfolioQuery.error ?? allowance.error,
+      refresh: async () => { await Promise.all([portfolioQuery.refetch(), allowance.refetch()]); },
+      readAddress: token?.address ?? null,
     };
   }
 
@@ -80,7 +81,7 @@ export function useKnownMezoTokenBalance({
     isChecking: false,
     error: null,
     refresh: () => {
-      void portfolioQuery.refresh();
+      void portfolioQuery.refetch();
     },
     readAddress: spenderAddress ?? tokenAddress ?? null,
   };

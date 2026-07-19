@@ -9,6 +9,21 @@ import type {
   TxWriteFunctionName,
 } from "./types";
 import { Abi, ContractFunctionName } from "viem";
+import { getPortfolioRegistry, invalidatePortfolioDomains, type PortfolioDomain } from "@/features/portfolio";
+
+function inferredDomains(key: string): readonly PortfolioDomain[] {
+  const value = key.toLowerCase();
+  if (value.includes("approve")) return [];
+  if (value.includes("liquidity")) return ["wallet", "tranches", "id20", "liquidity", "rewards"];
+  if (value.includes("claim")) return ["rewards", "wallet"];
+  if (value.includes("redeem")) return ["wallet", "tranches", "rewards"];
+  if (value.includes("unwrap")) return ["id20", "tranches", "rewards"];
+  if (value.includes("wrap")) return ["tranches", "id20", "rewards"];
+  if (value.includes("deposit-venft")) return ["tranches", "rewards"];
+  if (value.includes("deposit")) return ["wallet", "tranches", "rewards"];
+  if (value.includes("swap")) return ["wallet", "id20"];
+  return [];
+}
 
 export const ctxPrevResultsStore = new WeakMap<object, TxStepResult[]>();
 
@@ -74,6 +89,12 @@ export async function executePreparedWriteStep(
       hash,
       confirmations: call.confirmations ?? 1,
     });
+
+    const registry = getPortfolioRegistry(ctx.chainId);
+    const domains = step.portfolioDomains ?? inferredDomains(step.key);
+    if (registry && domains.length > 0) {
+      await invalidatePortfolioDomains({ queryClient: ctx.queryClient, chainId: ctx.chainId, owner: ctx.account, registryRevision: registry.revision, domains });
+    }
 
     if (lifecycle.onTransactionConfirmed) {
       await lifecycle.onTransactionConfirmed({

@@ -5,6 +5,8 @@ import type { RegistryContractConfig, RegistryContractName } from "@/contracts/s
 import contracts from "@/contracts/registry";
 import type { usePublicClient, useWriteContract } from "wagmi";
 import type { Address } from "viem";
+import type { QueryClient } from "@tanstack/react-query";
+import type { PortfolioDomain } from "@/features/portfolio/types";
 
 export type TxIconState = "idle" | "error" | "success" | "pending";
 
@@ -56,6 +58,7 @@ export type TxFlowRuntimeContext = {
   writeAsync: ReturnType<typeof useWriteContract>["writeContractAsync"];
   contracts: TxContractsDeclaration;
   notify?: TxNotifyApi;
+  queryClient: QueryClient;
 };
 
 export type TxWriteLifecycleHooks = {
@@ -135,6 +138,7 @@ export type TxPreparedWriteStep<
   onSimulated?: (
     simulation: Awaited<ReturnType<TxFlowRuntimeContext["publicClient"]["simulateContract"]>>,
   ) => void;
+  portfolioDomains?: readonly PortfolioDomain[];
 };
 
 export type TxRunnableStep = {
@@ -145,7 +149,7 @@ export type TxRunnableStep = {
   run: (ctx: TxFlowRuntimeContext) => Promise<"skip" | Omit<TxStepResult, "key" | "label">>;
 };
 
-export type TxStep = TxRunnableStep | TxPreparedWriteStep<any, any>;
+export type TxStep = TxRunnableStep | TxPreparedWriteStep;
 
 export type TxFlowBuilder = (ctx: { account: `0x${string}`; chainId: number }) => TxStep[];
 
