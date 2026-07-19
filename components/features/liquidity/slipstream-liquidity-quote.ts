@@ -69,6 +69,7 @@ export type SlipstreamLiquiditySource =
   | {
       id: string;
       kind: "erc20";
+      mode: "plain" | "wrapped";
       family: SlipstreamSourceFamily;
       label: string;
       token: Address;
@@ -253,7 +254,6 @@ function quoteAmountsForActiveSide(params: {
     const amountBUsedRaw = getAmount1ForLiquidity({
       liquidity,
       sqrtLowerX96,
-      sqrtUpperX96,
       sqrtCurrentX96,
     });
 
@@ -284,7 +284,6 @@ function quoteAmountsForActiveSide(params: {
   });
   const amountAUsedRaw = getAmount0ForLiquidity({
     liquidity,
-    sqrtLowerX96,
     sqrtUpperX96,
     sqrtCurrentX96,
   });
@@ -459,6 +458,25 @@ export function buildSlipstreamLiquidityQuote(params: {
 
   const amountAUsedRaw = quote.amountAUsedRaw;
   const amountBUsedRaw = quote.amountBUsedRaw;
+
+  if (amountAUsedRaw <= 0n || amountBUsedRaw <= 0n) {
+    return {
+      status: "invalid-range" as const,
+      errorMessage: "Choose a range where both sides contribute liquidity.",
+      activeSide,
+      beginsInRange,
+      activeAmountRaw,
+      amountAUsedRaw: null,
+      amountBUsedRaw: null,
+      amountAUnusedRaw: null,
+      amountBUnusedRaw: null,
+      liquidityRaw: null,
+      amountAMinimumRaw: null,
+      amountBMinimumRaw: null,
+      routerPlan: null,
+    };
+  }
+
   const amountAUnusedRaw = balanceForSource(sourceA) >= amountAUsedRaw ? balanceForSource(sourceA) - amountAUsedRaw : 0n;
   const amountBUnusedRaw = balanceForSource(sourceB) >= amountBUsedRaw ? balanceForSource(sourceB) - amountBUsedRaw : 0n;
 

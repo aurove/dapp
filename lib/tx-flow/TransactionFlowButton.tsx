@@ -101,8 +101,9 @@ export default function TransactionFlowButton({
     } catch (error) {
       const parsed = getParsedError(error);
       setIconState("error");
+      notify?.error(activeLabel ?? "Transaction failed", parsed);
       onError?.(parsed, results);
-      throw error;
+      console.trace(error);
     } finally {
       setRunning(false);
       setActiveLabel(null);

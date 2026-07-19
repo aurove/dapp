@@ -1,7 +1,6 @@
-import { normalizeFunctionArgs } from "@/contracts/types";
 import { getParsedError } from "./getParsedError";
 import { createTxNotificationLifecycle } from "@/lib/notifications/txLifecycle";
-import type { ContractAbi } from "@/contracts/types";
+import type { AbiFunctionNamedArgs, ContractAbi } from "@/contracts/types";
 import type {
   TxFlowRuntimeContext,
   TxPreparedWriteStep,
@@ -9,6 +8,7 @@ import type {
   TxWriteCall,
   TxWriteFunctionName,
 } from "./types";
+import { Abi, ContractFunctionName } from "viem";
 
 export const ctxPrevResultsStore = new WeakMap<object, TxStepResult[]>();
 
@@ -99,4 +99,87 @@ export async function executePreparedWriteStep(
     }
     throw error;
   }
+}
+
+
+
+// TODO: Improve overload narrowing for named args when signatures share the same key set.
+export function namedArgsToArrayStrict<
+  TAbi extends Abi,
+  TFunctionName extends ContractFunctionName<TAbi>,
+>(
+  abi: TAbi,
+  functionName: TFunctionName,
+  args: AbiFunctionNamedArgs<TAbi, TFunctionName>,
+): readonly unknown[] {
+  const argKeys = Object.keys(args as Record<string, unknown>);
+  const functions = abi.filter(
+    (item): item is Extract<TAbi[number], { type: "function"; name: TFunctionName }> =>
+      item.type === "function" && item.name === functionName,
+  );
+
+  if (functions.length === 0) {
+    throw new Error(`Function ${String(functionName)} not found in ABI`);
+  }
+
+  for (const fn of functions) {
+    const inputs = fn.inputs ?? [];
+    let matches = inputs.length === argKeys.length;
+
+    if (!matches) {
+      continue;
+    }
+
+    for (const input of inputs) {
+      if (!input.name || !(input.name in (args as Record<string, unknown>))) {
+        matches = false;
+        break;
+      }
+    }
+
+    if (!matches) {
+      continue;
+    }
+
+    return inputs.map((input) => {
+      if (!input.name) {
+        throw new Error(
+          `Unnamed ABI parameter found in ${String(functionName)} - cannot use named args`,
+        );
+      }
+      return (args as Record<string, unknown>)[input.name];
+    });
+  }
+
+  for (const fn of functions) {
+    for (const input of fn.inputs ?? []) {
+      if (!input.name) {
+        throw new Error(
+          `Unnamed ABI parameter found in ${String(functionName)} - cannot use named args`,
+        );
+      }
+    }
+  }
+
+  throw new Error(`No matching overload found for ${String(functionName)} with named args`);
+}
+
+export function normalizeFunctionArgs<TAbi extends Abi>(
+  abi: TAbi | undefined,
+  functionName: string,
+  args: readonly unknown[] | Record<string, unknown> | undefined,
+): readonly unknown[] | undefined {
+  if (args == null) {
+    return undefined;
+  }
+
+  if (Array.isArray(args)) {
+    return args;
+  }
+
+  if (!abi) {
+    return undefined;
+  }
+
+  return namedArgsToArrayStrict(abi, functionName as ContractFunctionName<TAbi>, args as never);
 }

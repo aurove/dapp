@@ -300,6 +300,14 @@ function formatKnownErrorInMessage(message: string | undefined): string | undefi
   return formatKnownCustomError(parsed.errorName, parsed.args);
 }
 
+function formatKnownAddressError(message: string | undefined): string | undefined {
+  if (!message) return undefined;
+  if (message.includes('Address "undefined" is invalid') || message.includes("invalid address")) {
+    return "A required contract address is missing or invalid.";
+  }
+  return undefined;
+}
+
 function extractRevertData(error: unknown, depth = 0): HexLike | undefined {
   if (!error || typeof error !== "object" || depth > 4) return undefined;
 
@@ -434,7 +442,9 @@ export const getParsedError = (error: unknown): string => {
 
     return (
       formatKnownErrorInMessage(shortMessage) ??
+      formatKnownAddressError(shortMessage) ??
       formatKnownErrorInMessage(message) ??
+      formatKnownAddressError(message) ??
       message ??
       "An unknown error occurred"
     );

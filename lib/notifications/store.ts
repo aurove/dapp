@@ -33,7 +33,7 @@ const defaultsByType: Record<NotifyType, { dismissAfterMs?: number; persistent?:
   info: { dismissAfterMs: 5000 },
   pending: { persistent: true },
   success: { dismissAfterMs: 7000 },
-  error: { dismissAfterMs: 9000 },
+  error: { persistent: true },
 };
 
 function makeNotifyId() {
@@ -95,5 +95,5 @@ export const notify = {
     notify.update(id, { type: "success", persistent: false, dismissAfterMs: 7000, message }),
 
   txFailed: (id: string, message = "Transaction failed.") =>
-    notify.update(id, { type: "error", persistent: false, dismissAfterMs: 9000, message }),
+    notify.update(id, { type: "error", persistent: true, message }),
 };

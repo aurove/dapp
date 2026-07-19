@@ -5,11 +5,13 @@ import { useCallback, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRightLeft,
+  CheckCircle2,
   Info,
+  Loader2,
   Sparkles,
   Wallet,
 } from "lucide-react";
-import { erc20Abi, formatUnits, type Address } from "viem";
+import { erc1155Abi, erc20Abi, erc721Abi, formatUnits, isAddress, type Address } from "viem";
 import { useAccount, useChainId, useReadContracts } from "wagmi";
 
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, cn } from "@ui";
@@ -17,6 +19,8 @@ import { getContractConfig } from "@/contracts/shared";
 import { useAurovePortfolio } from "@/lib/web3/use-aurove-portfolio";
 import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw, readResult } from "@/lib/web3/value-parsers";
+import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
+import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { LiquidityRangeGraph } from "./liquidity-range-graph";
 import { useSlipstreamPoolState } from "./liquidity-range-graph";
 import {
@@ -24,6 +28,11 @@ import {
   type SlipstreamLiquidityQuote,
   type SlipstreamLiquiditySide,
   type SlipstreamLiquiditySource,
+  type SlipstreamLiquidityPlan,
+  type SlipstreamRouterErc20DepositInput,
+  type SlipstreamRouterTrancheWrapInput,
+  type SlipstreamRouterVeNftDepositInput,
+  type SlipstreamRouterSideInput,
   type SlipstreamSourceFamily,
   sourceDefaultVariantAndEpochs,
   sourceFamilyForToken,
@@ -57,6 +66,57 @@ type SideLabel = {
   side: SlipstreamLiquiditySide;
   title: string;
 };
+
+type SlipstreamLiquidityRouterFunctionName =
+  | "addLiquidityErc20Erc20"
+  | "addLiquidityErc20Tranche"
+  | "addLiquidityErc20VeNft"
+  | "addLiquidityTrancheErc20"
+  | "addLiquidityTrancheTranche"
+  | "addLiquidityTrancheVeNft"
+  | "addLiquidityVeNftErc20"
+  | "addLiquidityVeNftTranche"
+  | "addLiquidityVeNftVeNft";
+
+type SlipstreamLiquidityRouterParams = SlipstreamLiquidityPlan["params"];
+
+type SlipstreamLiquidityRouterCall =
+  | {
+      functionName: "addLiquidityErc20Erc20";
+      args: [SlipstreamRouterErc20DepositInput, SlipstreamRouterErc20DepositInput, SlipstreamLiquidityRouterParams];
+    }
+  | {
+      functionName: "addLiquidityErc20Tranche";
+      args: [SlipstreamRouterErc20DepositInput, SlipstreamRouterTrancheWrapInput, SlipstreamLiquidityRouterParams];
+    }
+  | {
+      functionName: "addLiquidityErc20VeNft";
+      args: [SlipstreamRouterErc20DepositInput, SlipstreamRouterVeNftDepositInput, SlipstreamLiquidityRouterParams];
+    }
+  | {
+      functionName: "addLiquidityTrancheErc20";
+      args: [SlipstreamRouterTrancheWrapInput, SlipstreamRouterErc20DepositInput, SlipstreamLiquidityRouterParams];
+    }
+  | {
+      functionName: "addLiquidityTrancheTranche";
+      args: [SlipstreamRouterTrancheWrapInput, SlipstreamRouterTrancheWrapInput, SlipstreamLiquidityRouterParams];
+    }
+  | {
+      functionName: "addLiquidityTrancheVeNft";
+      args: [SlipstreamRouterTrancheWrapInput, SlipstreamRouterVeNftDepositInput, SlipstreamLiquidityRouterParams];
+    }
+  | {
+      functionName: "addLiquidityVeNftErc20";
+      args: [SlipstreamRouterVeNftDepositInput, SlipstreamRouterErc20DepositInput, SlipstreamLiquidityRouterParams];
+    }
+  | {
+      functionName: "addLiquidityVeNftTranche";
+      args: [SlipstreamRouterVeNftDepositInput, SlipstreamRouterTrancheWrapInput, SlipstreamLiquidityRouterParams];
+    }
+  | {
+      functionName: "addLiquidityVeNftVeNft";
+      args: [SlipstreamRouterVeNftDepositInput, SlipstreamRouterVeNftDepositInput, SlipstreamLiquidityRouterParams];
+    };
 
 const DEFAULT_SLIPPAGE_BPS = 50n;
 const DEFAULT_DEADLINE_WINDOW_SECONDS = 30n * 60n;
@@ -129,7 +189,7 @@ function normalizeAmountInput(value: string) {
 }
 
 function sourceKindLabel(source: SlipstreamLiquiditySource) {
-  if (source.kind === "erc20") return "ERC-20";
+  if (source.kind === "erc20") return source.mode === "wrapped" ? "ID20 WRAPPED" : "ERC-20";
   if (source.kind === "venft") return "veNFT";
   return "Tranche";
 }
@@ -183,7 +243,7 @@ function buildSourceOptions(params: {
     tokenBalanceRaw: bigint,
   ) => {
     const options: SlipstreamLiquiditySource[] = [];
-    const { variant, epochs } = sourceDefaultVariantAndEpochs(family);
+    const managedDepositDefaults = sourceDefaultVariantAndEpochs(family);
     const portfolioToken =
       family === "BTC"
         ? portfolio.tokens.BTC
@@ -193,38 +253,61 @@ function buildSourceOptions(params: {
 
     if (tokenAddress) {
       options.push({
-        id: `${side}:erc20:${tokenAddress.toLowerCase()}`,
+        id: `${side}:erc20:plain:${tokenAddress.toLowerCase()}`,
         kind: "erc20",
+        mode: "plain",
         family,
-        label: `${tokenSymbol ?? sourceFamilyLabel(family)} wallet`,
+        label:
+          family === "BTC" || family === "MEZO"
+            ? `Plain ${sourceFamilyLabel(family)} ERC20`
+            : `${tokenSymbol ?? sourceFamilyLabel(family)} wallet`,
         token: tokenAddress,
         balanceRaw: tokenBalanceRaw,
         allowanceRaw: portfolioToken?.allowanceRaw ?? 0n,
         decimals: tokenDecimals,
-        variant,
-        epochs,
+        variant: 0,
+        epochs: 0n,
       });
+
+      if (family === "BTC" || family === "MEZO") {
+        options.push({
+          id: `${side}:erc20:wrapped:${tokenAddress.toLowerCase()}`,
+          kind: "erc20",
+          mode: "wrapped",
+          family,
+          label: `Wrapped ${sourceFamilyLabel(family)} ERC20`,
+          token: tokenAddress,
+          balanceRaw: tokenBalanceRaw,
+          allowanceRaw: portfolioToken?.allowanceRaw ?? 0n,
+          decimals: tokenDecimals,
+          variant: managedDepositDefaults.variant,
+          epochs: managedDepositDefaults.epochs,
+        });
+      }
     }
 
     if (family === "BTC" || family === "MEZO") {
       const collectionKey = family === "BTC" ? "veBTC" : "veMEZO";
       const collection = portfolio.veCollections[collectionKey];
 
-      collection.positions.forEach((position) => {
-        options.push({
-          id: `${side}:venft:${position.tokenId.toString()}`,
-          kind: "venft",
-          family,
-          label: `${collectionKey} #${position.tokenId.toString()}`,
-          contractAddress: collection.address as Address,
-          tokenId: position.tokenId,
-          balanceRaw: position.availableFractionCapacityRaw,
-          availableFractionCapacityRaw: position.availableFractionCapacityRaw,
-          decimals: 18,
-          variant,
-          epochs,
+      const collectionAddress = collection.address;
+      if (collectionAddress) {
+        collection.positions.forEach((position) => {
+          options.push({
+            id: `${side}:venft:${position.tokenId.toString()}`,
+            kind: "venft",
+            family,
+            label: `${collectionKey} #${position.tokenId.toString()}`,
+            contractAddress: collectionAddress,
+            tokenId: position.tokenId,
+            balanceRaw: position.availableFractionCapacityRaw,
+            availableFractionCapacityRaw: position.availableFractionCapacityRaw,
+            decimals: 18,
+            variant: managedDepositDefaults.variant,
+            epochs: managedDepositDefaults.epochs,
+          });
         });
-      });
+      }
 
       const wrapperKey = family === "BTC" ? "avBTCm" : "avMEZOm";
       const wrapper = portfolio.wrappers[wrapperKey];
@@ -238,8 +321,8 @@ function buildSourceOptions(params: {
           trancheId: wrapper.trancheId,
           balanceRaw: wrapper.erc1155BalanceRaw,
           decimals: 18,
-          variant,
-          epochs,
+          variant: managedDepositDefaults.variant,
+          epochs: managedDepositDefaults.epochs,
         });
       }
     }
@@ -281,6 +364,94 @@ function sourceOptionSummary(source: SlipstreamLiquiditySource) {
   }
 
   return `${sourceBalanceLabel(source)} tranche balance`;
+}
+
+function sourceApprovalLabel(source: SlipstreamLiquiditySource) {
+  if (source.kind === "erc20") {
+    return source.label;
+  }
+
+  return source.kind === "venft" ? `${source.label} veNFT` : `${source.label} tranche units`;
+}
+
+function resolveLiquidityRouterFunctionName(
+  inputA: SlipstreamLiquiditySource["kind"],
+  inputB: SlipstreamLiquiditySource["kind"],
+): SlipstreamLiquidityRouterFunctionName {
+  switch (`${inputA}:${inputB}`) {
+    case "erc20:erc20":
+      return "addLiquidityErc20Erc20";
+    case "erc20:tranche":
+      return "addLiquidityErc20Tranche";
+    case "erc20:venft":
+      return "addLiquidityErc20VeNft";
+    case "tranche:erc20":
+      return "addLiquidityTrancheErc20";
+    case "tranche:tranche":
+      return "addLiquidityTrancheTranche";
+    case "tranche:venft":
+      return "addLiquidityTrancheVeNft";
+    case "venft:erc20":
+      return "addLiquidityVeNftErc20";
+    case "venft:tranche":
+      return "addLiquidityVeNftTranche";
+    case "venft:venft":
+      return "addLiquidityVeNftVeNft";
+    default:
+      throw new Error(`Unsupported router input combination: ${inputA}-${inputB}`);
+  }
+}
+
+function buildLiquidityRouterCall(plan: SlipstreamLiquidityPlan): SlipstreamLiquidityRouterCall {
+  const functionName = resolveLiquidityRouterFunctionName(plan.inputA.kind, plan.inputB.kind);
+
+  switch (functionName) {
+    case "addLiquidityErc20Erc20":
+      return {
+        functionName,
+        args: [plan.inputA.input as SlipstreamRouterErc20DepositInput, plan.inputB.input as SlipstreamRouterErc20DepositInput, plan.params],
+      };
+    case "addLiquidityErc20Tranche":
+      return {
+        functionName,
+        args: [plan.inputA.input as SlipstreamRouterErc20DepositInput, plan.inputB.input as SlipstreamRouterTrancheWrapInput, plan.params],
+      };
+    case "addLiquidityErc20VeNft":
+      return {
+        functionName,
+        args: [plan.inputA.input as SlipstreamRouterErc20DepositInput, plan.inputB.input as SlipstreamRouterVeNftDepositInput, plan.params],
+      };
+    case "addLiquidityTrancheErc20":
+      return {
+        functionName,
+        args: [plan.inputA.input as SlipstreamRouterTrancheWrapInput, plan.inputB.input as SlipstreamRouterErc20DepositInput, plan.params],
+      };
+    case "addLiquidityTrancheTranche":
+      return {
+        functionName,
+        args: [plan.inputA.input as SlipstreamRouterTrancheWrapInput, plan.inputB.input as SlipstreamRouterTrancheWrapInput, plan.params],
+      };
+    case "addLiquidityTrancheVeNft":
+      return {
+        functionName,
+        args: [plan.inputA.input as SlipstreamRouterTrancheWrapInput, plan.inputB.input as SlipstreamRouterVeNftDepositInput, plan.params],
+      };
+    case "addLiquidityVeNftErc20":
+      return {
+        functionName,
+        args: [plan.inputA.input as SlipstreamRouterVeNftDepositInput, plan.inputB.input as SlipstreamRouterErc20DepositInput, plan.params],
+      };
+    case "addLiquidityVeNftTranche":
+      return {
+        functionName,
+        args: [plan.inputA.input as SlipstreamRouterVeNftDepositInput, plan.inputB.input as SlipstreamRouterTrancheWrapInput, plan.params],
+      };
+    case "addLiquidityVeNftVeNft":
+      return {
+        functionName,
+        args: [plan.inputA.input as SlipstreamRouterVeNftDepositInput, plan.inputB.input as SlipstreamRouterVeNftDepositInput, plan.params],
+      };
+  }
 }
 
 function quoteSummaryValue(value: bigint | null, decimals = 18) {
@@ -485,6 +656,7 @@ export function AddLiquidityCard() {
     : availablePools[0]?.key ?? selectedPoolState;
 
   const pool = useSlipstreamPoolState(chainId, selectedPool);
+  const routerAddress = getContractConfig(chainId, "AuroveZapRouter")?.address ?? null;
   const token0BalanceRead = useReadContracts({
     allowFailure: true,
     contracts:
@@ -569,6 +741,94 @@ export function AddLiquidityCard() {
       slippageBps: DEFAULT_SLIPPAGE_BPS,
     });
   }, [account, currentRange, deadline, formState.activeSide, formState.draftAmounts, pool, selectedSourceA, selectedSourceB]);
+
+  const liquiditySteps = useCallback((): TxStep[] => {
+    if (!routerAddress || !quote.routerPlan) {
+      throw new Error("Liquidity inputs are incomplete.");
+    }
+
+    const plan = quote.routerPlan;
+    const steps: TxStep[] = [];
+
+    if (!isAddress(routerAddress)) {
+      throw new Error("Liquidity router is not configured on this network.");
+    }
+
+    const addApprovalStep = (
+      source: SlipstreamLiquiditySource | null,
+      input: SlipstreamRouterSideInput,
+      suffix: string,
+    ) => {
+      if (!source) {
+        throw new Error("A liquidity source is missing.");
+      }
+
+      const stepLabel = `Approve ${sourceApprovalLabel(source)}`;
+
+      if (source.kind === "erc20") {
+        if (!isAddress(source.token)) {
+          throw new Error(`Invalid ERC20 source for ${source.label}.`);
+        }
+
+        const amount =
+          input.kind === "erc20"
+            ? input.input.deposit.value
+            : input.kind === "tranche"
+              ? input.input.amount
+              : 0n;
+
+        steps.push(
+          makeAddressWriteStep({
+            key: `liquidity-approve-${suffix}`,
+            label: stepLabel,
+            displayLabelBtn: true,
+            address: source.token,
+            abi: erc20Abi,
+            variables: {
+              functionName: "approve",
+              args: [routerAddress, amount],
+            },
+          }) as unknown as TxStep,
+        );
+        return;
+      }
+
+      if (!isAddress(source.contractAddress)) {
+        throw new Error(`Invalid source contract for ${source.label}.`);
+      }
+
+      steps.push(
+        makeAddressWriteStep({
+          key: `liquidity-approve-${suffix}`,
+          label: stepLabel,
+          displayLabelBtn: true,
+          address: source.contractAddress,
+          abi: source.kind === "venft" ? erc721Abi : erc1155Abi,
+          variables: {
+            functionName: "setApprovalForAll",
+            args: [routerAddress, true],
+          },
+        }) as unknown as TxStep,
+      );
+    };
+
+    addApprovalStep(selectedSourceA, plan.inputA, "assetA");
+    addApprovalStep(selectedSourceB, plan.inputB, "assetB");
+
+    const routerCall = buildLiquidityRouterCall(plan);
+
+    steps.push(
+      makeContractWriteStep({
+        key: "liquidity-add",
+        label: "Supply liquidity",
+        displayLabelBtn: true,
+        contractName: "AuroveZapRouter",
+        variables: routerCall,
+      }) as unknown as TxStep,
+    );
+
+    return steps;
+  }, [quote.routerPlan, routerAddress, selectedSourceA, selectedSourceB]);
 
   const currentTick = pool.currentTick;
   const currentPriceText =
@@ -980,6 +1240,31 @@ export function AddLiquidityCard() {
               </div>
             )}
           </div>
+
+          <TransactionFlowButton
+            className="h-14 w-full justify-center rounded-2xl bg-[linear-gradient(180deg,#f1c46e,#d8a94f)] px-5 text-base font-semibold text-[#17130c] shadow-[0_16px_30px_rgba(216,169,79,0.22)] hover:bg-[linear-gradient(180deg,#f4ce84,#ddb45d)]"
+            size="lg"
+            disabled={quote.status !== "ok" || !quote.routerPlan || !routerAddress}
+            icon={<ArrowRightLeft className="h-4 w-4" aria-hidden="true" />}
+            renderStatusIcon={(state) => {
+              if (state === "pending") {
+                return <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />;
+              }
+              if (state === "success") {
+                return <CheckCircle2 className="h-4 w-4" aria-hidden="true" />;
+              }
+              if (state === "error") {
+                return <AlertTriangle className="h-4 w-4" aria-hidden="true" />;
+              }
+              return null;
+            }}
+            steps={() => liquiditySteps()}
+            onComplete={() => {
+              void portfolio.refresh();
+            }}
+          >
+            Add liquidity
+          </TransactionFlowButton>
         </div>
       </CardContent>
     </Card>

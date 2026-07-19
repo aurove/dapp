@@ -34,6 +34,11 @@ export type TxNotifyApi = {
   txSent: (id: string, hash: `0x${string}`) => void;
   txConfirmed: (id: string, message?: string) => void;
   txFailed: (id: string, message?: string) => void;
+  info: (title: string, message?: string) => string;
+  success: (title: string, message?: string) => string;
+  error: (title: string, message?: string) => string;
+  remove: (id: string) => void;
+  clear: () => void;
 };
 
 export type TxStepResult = {
