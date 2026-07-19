@@ -793,8 +793,8 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
   function applyManualRange() {
     if (!pool.tickSpacing) return;
 
-    const lowerTick = parsePriceInputToTick({ pool, value: formState.manualRangeInputs.lower });
-    const upperTick = parsePriceInputToTick({ pool, value: formState.manualRangeInputs.upper });
+    const lowerTick = parsePriceInputToTick({ pool, value: formState.manualRangeInputs.lower, bound: "lower" });
+    const upperTick = parsePriceInputToTick({ pool, value: formState.manualRangeInputs.upper, bound: "upper" });
 
     if (lowerTick === null || upperTick === null) return;
 
@@ -1056,8 +1056,8 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
             className="h-10 rounded-full px-4"
             onClick={applyManualRange}
             disabled={
-              parsePriceInputToTick({ pool, value: formState.manualRangeInputs.lower }) === null ||
-              parsePriceInputToTick({ pool, value: formState.manualRangeInputs.upper }) === null ||
+              parsePriceInputToTick({ pool, value: formState.manualRangeInputs.lower, bound: "lower" }) === null ||
+              parsePriceInputToTick({ pool, value: formState.manualRangeInputs.upper, bound: "upper" }) === null ||
               !pool.tickSpacing
             }
           >

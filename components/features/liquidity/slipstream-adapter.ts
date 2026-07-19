@@ -312,12 +312,14 @@ export function formatPriceInputValue(params: {
 export function parsePriceInputToTick(params: {
   pool: SlipstreamPoolState;
   value: string;
+  bound: "lower" | "upper";
   invert?: boolean;
 }) {
-  const { pool, value } = params;
+  const { pool, value, bound } = params;
   const token0 = pool.token0;
   const token1 = pool.token1;
   const parsed = normalizePriceInput(value);
+  const tickSpacing = pool.tickSpacing ?? 1;
 
   if (!token0 || !token1 || parsed === null) return null;
 
@@ -328,7 +330,23 @@ export function parsePriceInputToTick(params: {
       "1000000000000000000",
       parsed.toString(),
     );
-    return priceToClosestTick(price);
+    const candidate = nearestUsableTick(priceToClosestTick(price), tickSpacing);
+    const candidatePrice = getTickPrice({ pool, tick: candidate });
+
+    if (!candidatePrice) return null;
+
+    if (bound === "lower") {
+      if (candidatePrice.greaterThan(price)) {
+        return candidate - tickSpacing;
+      }
+      return candidate;
+    }
+
+    if (candidatePrice.lessThan(price)) {
+      return candidate + tickSpacing;
+    }
+
+    return candidate;
   } catch {
     return null;
   }
