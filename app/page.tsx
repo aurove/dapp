@@ -1,16 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowDownUp,
   ArrowDownToLine,
   ArrowLeftRight,
   ArrowRight,
   BadgeDollarSign,
-  ChevronDown,
-  Route,
 } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import { EcosystemPartnersCarousel } from "@/components/marketing/ecosystem-partners-carousel";
+import { SwapPage } from "@/components/features/swap";
 
 const featureCards = [
   {
@@ -96,77 +94,7 @@ export default function HomePage() {
           </div>
 
           <div id="swap-interface" className="landing-hero__swap scroll-mt-6" tabIndex={-1}>
-            <div className="landing-swap__card" aria-label="Mock swap preview">
-              <div className="landing-swap__card-header">
-                <div>
-                  <p className="landing-swap__eyebrow">BTC / MEZO / existing position</p>
-                  <h3 className="landing-swap__card-title">Deposit</h3>
-                </div>
-                <span className="landing-swap__badge">No live transaction</span>
-              </div>
-
-              <div className="landing-swap__field">
-                <div className="landing-swap__field-row">
-                  <span>You deposit</span>
-                  <span>Available to use</span>
-                </div>
-                <div className="landing-swap__asset-row">
-                  <div>
-                    <p className="landing-swap__amount">1.00</p>
-                    <p className="landing-swap__asset-detail">BTC, MEZO, or a Mezo Earn position</p>
-                  </div>
-                  <button className="landing-swap__asset-button" type="button">
-                    Select
-                    <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="landing-swap__switch" aria-hidden="true">
-                <ArrowDownUp className="h-4 w-4" />
-              </div>
-
-              <div className="landing-swap__field">
-                <div className="landing-swap__field-row">
-                  <span>You receive</span>
-                  <span>Liquid and usable</span>
-                </div>
-                <div className="landing-swap__asset-row">
-                  <div>
-                    <p className="landing-swap__amount">71,612.42</p>
-                    <p className="landing-swap__asset-detail">Aurove asset that keeps earning</p>
-                  </div>
-                  <button className="landing-swap__asset-button" type="button">
-                    Aurove
-                    <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="landing-swap__route">
-                <div className="landing-swap__route-label">
-                  <Route className="h-4 w-4" aria-hidden="true" />
-                  Flow
-                </div>
-                <p>Deposit position, receive an Aurove asset, keep earning</p>
-              </div>
-
-              <div className="landing-swap__stats">
-                <div>
-                  <span>Price impact</span>
-                  <strong>0.32%</strong>
-                </div>
-                <div>
-                  <span>Liquidity</span>
-                  <strong>$1.8M</strong>
-                </div>
-              </div>
-
-              <Link href="/earn" className="btn btn--gold landing-swap__cta">
-                Create a position
-                <ArrowRight className="btn__icon" aria-hidden="true" />
-              </Link>
-            </div>
+            <SwapPage />
           </div>
         </div>
       </section>
