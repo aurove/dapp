@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -516,30 +516,6 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
     return formState.selectedRange ?? buildPresetRange("balanced", pool.currentTick, pool.tickSpacing);
   }, [formState.selectedRange, pool.currentTick, pool.tickSpacing]);
 
-  useEffect(() => {
-    if (!currentRange) return;
-
-    const nextInputs = priceInputsForRange({ pool, range: currentRange });
-
-    setPoolFormStateByKey((current) => {
-      const nextState = current[selectedPool];
-      if (
-        nextState.manualRangeInputs.lower === nextInputs.lower &&
-        nextState.manualRangeInputs.upper === nextInputs.upper
-      ) {
-        return current;
-      }
-
-      return {
-        ...current,
-        [selectedPool]: {
-          ...nextState,
-          manualRangeInputs: nextInputs,
-        },
-      };
-    });
-  }, [currentRange, pool, selectedPool]);
-
   const sourcesBySide = useMemo(
     () =>
       buildSourceOptions({
@@ -600,6 +576,14 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
       if (!source) {
         throw new Error("A liquidity source is missing.");
       }
+
+      const hasDeposit =
+        input.kind === "erc20"
+          ? input.input.deposit.value > 0n
+          : input.kind === "tranche"
+            ? input.input.amount > 0n
+            : input.input.deposit.value > 0n;
+      if (!hasDeposit) return;
 
       const stepLabel = `Approve ${sourceApprovalLabel(source)}`;
 
@@ -673,6 +657,14 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
     currentTick === null ? "Unavailable" : formatPriceLabel({ pool, tick: currentTick });
   const rangeLabel = currentRangeLabel(pool, currentRange);
   const rangeStartsInRange = quote.beginsInRange;
+  const requiredInputSide: SlipstreamLiquiditySide | null =
+    currentTick === null || currentRange === null
+      ? null
+      : currentTick < currentRange.tickLower
+        ? "assetA"
+        : currentTick >= currentRange.tickUpper
+          ? "assetB"
+          : null;
   const rangePresetLabel =
     formState.rangeStrategy === "focused"
       ? "Focused"
@@ -687,6 +679,18 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
       range: { tickLower: number; tickUpper: number } | null;
       strategy: SlipstreamRangePreset;
     }) => {
+      const nextManualRangeInputs = selection.range
+        ? priceInputsForRange({ pool, range: selection.range })
+        : null;
+      const nextActiveSide =
+        selection.range && pool.currentTick !== null
+          ? pool.currentTick < selection.range.tickLower
+            ? "assetA"
+            : pool.currentTick >= selection.range.tickUpper
+              ? "assetB"
+              : null
+          : null;
+
       setPoolFormStateByKey((current) => {
         const nextState = current[selectedPool];
         const currentRange = nextState.selectedRange;
@@ -698,7 +702,18 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
             currentRange.tickLower === selection.range.tickLower &&
             currentRange.tickUpper === selection.range.tickUpper);
 
-        if (hasSameRange && nextState.rangeStrategy === selection.strategy) {
+        const hasSameManualRangeInputs =
+          nextManualRangeInputs === null ||
+          (nextState.manualRangeInputs.lower === nextManualRangeInputs.lower &&
+            nextState.manualRangeInputs.upper === nextManualRangeInputs.upper);
+        const hasSameActiveSide = nextActiveSide === null || nextState.activeSide === nextActiveSide;
+
+        if (
+          hasSameRange &&
+          hasSameManualRangeInputs &&
+          hasSameActiveSide &&
+          nextState.rangeStrategy === selection.strategy
+        ) {
           return current;
         }
 
@@ -707,13 +722,14 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
           [selectedPool]: {
             ...nextState,
             selectedRange: selection.range,
-            manualRangeInputs: selection.range ? priceInputsForRange({ pool, range: selection.range }) : nextState.manualRangeInputs,
+            manualRangeInputs: nextManualRangeInputs ?? nextState.manualRangeInputs,
             rangeStrategy: selection.strategy,
+            activeSide: nextActiveSide ?? nextState.activeSide,
           },
         };
       });
     },
-    [selectedPool],
+    [pool, selectedPool],
   );
 
   function handleAmountChange(side: SlipstreamLiquiditySide, value: string) {
@@ -813,6 +829,12 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
         selectedRange: nextRange,
         manualRangeInputs: priceInputsForRange({ pool, range: nextRange }),
         rangeStrategy: "custom",
+        activeSide:
+          pool.currentTick !== null && pool.currentTick < nextRange.tickLower
+            ? "assetA"
+            : pool.currentTick !== null && pool.currentTick >= nextRange.tickUpper
+              ? "assetB"
+              : current[selectedPool].activeSide,
       },
     }));
   }
@@ -927,43 +949,6 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <LiquidityTokenInput
-            id="liquidity-assetA"
-            tokenSymbol={pool.token0?.symbol ?? null}
-            value={sideDisplayValue("assetA")}
-            balanceLabel={selectedSourceA ? formatCompactRawTokenAmount(selectedSourceA.balanceRaw, selectedSourceA.decimals, pool.token0?.symbol ?? null) : "Unavailable"}
-            isEditing={formState.activeSide === "assetA"}
-            disabled={!selectedSourceA}
-            loading={!pool.token0 || portfolio.isLoading}
-            insufficientBalance={quote.status === "insufficient-balance" && formState.activeSide === "assetA"}
-            canMax={Boolean(selectedSourceA && selectedSourceA.balanceRaw > 0n)}
-            sources={sourcesBySide.assetA}
-            selectedSource={selectedSourceA}
-            onFocus={() => activateSide("assetA", sideDisplayValue("assetA"))}
-            onChange={(value) => handleAmountChange("assetA", normalizeAmountInput(value))}
-            onMax={() => setMaxForSide("assetA")}
-            onSelectSource={(sourceId) => selectSource("assetA", sourceId)}
-          />
-          <LiquidityTokenInput
-            id="liquidity-assetB"
-            tokenSymbol={pool.token1?.symbol ?? null}
-            value={sideDisplayValue("assetB")}
-            balanceLabel={selectedSourceB ? formatCompactRawTokenAmount(selectedSourceB.balanceRaw, selectedSourceB.decimals, pool.token1?.symbol ?? null) : "Unavailable"}
-            isEditing={formState.activeSide === "assetB"}
-            disabled={!selectedSourceB}
-            loading={!pool.token1 || portfolio.isLoading}
-            insufficientBalance={quote.status === "insufficient-balance" && formState.activeSide === "assetB"}
-            canMax={Boolean(selectedSourceB && selectedSourceB.balanceRaw > 0n)}
-            sources={sourcesBySide.assetB}
-            selectedSource={selectedSourceB}
-            onFocus={() => activateSide("assetB", sideDisplayValue("assetB"))}
-            onChange={(value) => handleAmountChange("assetB", normalizeAmountInput(value))}
-            onMax={() => setMaxForSide("assetB")}
-            onSelectSource={(sourceId) => selectSource("assetB", sourceId)}
-          />
-        </div>
-
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm">
             <label className="font-medium text-white">Concentrated range</label>
@@ -971,14 +956,14 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
           </div>
 
           {availablePools.length > 0 ? (
-          <LiquidityRangeGraph
-            key={selectedPool}
-            chainId={chainId}
-            poolKey={selectedPool}
-            selectedRange={formState.selectedRange}
-            selectedStrategy={formState.rangeStrategy}
-            onSelectionChange={handleGraphSelection}
-          />
+            <LiquidityRangeGraph
+              key={selectedPool}
+              chainId={chainId}
+              poolKey={selectedPool}
+              selectedRange={formState.selectedRange}
+              selectedStrategy={formState.rangeStrategy}
+              onSelectionChange={handleGraphSelection}
+            />
           ) : (
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] px-5 py-8 text-sm text-white/45">
               No pool is currently available on this network.
@@ -1063,6 +1048,43 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
           >
             Apply manual range
           </Button>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <LiquidityTokenInput
+            id="liquidity-assetA"
+            tokenSymbol={pool.token0?.symbol ?? null}
+            value={sideDisplayValue("assetA")}
+            balanceLabel={selectedSourceA ? formatCompactRawTokenAmount(selectedSourceA.balanceRaw, selectedSourceA.decimals, pool.token0?.symbol ?? null) : "Unavailable"}
+            isEditing={formState.activeSide === "assetA"}
+            disabled={!selectedSourceA || requiredInputSide === "assetB"}
+            loading={!pool.token0 || portfolio.isLoading}
+            insufficientBalance={quote.status === "insufficient-balance" && formState.activeSide === "assetA"}
+            canMax={Boolean(selectedSourceA && selectedSourceA.balanceRaw > 0n)}
+            sources={sourcesBySide.assetA}
+            selectedSource={selectedSourceA}
+            onFocus={() => activateSide("assetA", sideDisplayValue("assetA"))}
+            onChange={(value) => handleAmountChange("assetA", normalizeAmountInput(value))}
+            onMax={() => setMaxForSide("assetA")}
+            onSelectSource={(sourceId) => selectSource("assetA", sourceId)}
+          />
+          <LiquidityTokenInput
+            id="liquidity-assetB"
+            tokenSymbol={pool.token1?.symbol ?? null}
+            value={sideDisplayValue("assetB")}
+            balanceLabel={selectedSourceB ? formatCompactRawTokenAmount(selectedSourceB.balanceRaw, selectedSourceB.decimals, pool.token1?.symbol ?? null) : "Unavailable"}
+            isEditing={formState.activeSide === "assetB"}
+            disabled={!selectedSourceB || requiredInputSide === "assetA"}
+            loading={!pool.token1 || portfolio.isLoading}
+            insufficientBalance={quote.status === "insufficient-balance" && formState.activeSide === "assetB"}
+            canMax={Boolean(selectedSourceB && selectedSourceB.balanceRaw > 0n)}
+            sources={sourcesBySide.assetB}
+            selectedSource={selectedSourceB}
+            onFocus={() => activateSide("assetB", sideDisplayValue("assetB"))}
+            onChange={(value) => handleAmountChange("assetB", normalizeAmountInput(value))}
+            onMax={() => setMaxForSide("assetB")}
+            onSelectSource={(sourceId) => selectSource("assetB", sourceId)}
+          />
         </div>
 
         <div className="space-y-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] p-4 sm:p-5">

@@ -19,11 +19,11 @@ import {
 const QUOTE_EXPIRY_SECONDS = 30n;
 
 function formLabel(asset: SwapAsset): string {
-  if (asset.form === "underlying") return "Underlying · deposits before swapping";
-  if (asset.form === "venft") return "veNFT position · deposits before swapping";
-  if (asset.form === "tranche") return "Tranche-backed · wraps before swapping";
-  if (asset.form === "id20") return "Liquid ID20 / ERC20";
-  return "Liquid ERC20";
+  if (asset.form === "underlying") return "· Underlying ";
+  if (asset.form === "venft") return "";
+  if (asset.form === "tranche") return "";
+  if (asset.form === "id20") return "· Liquid ID20 / ERC20";
+  return "· Liquid ERC20";
 }
 
 function amountText(value: bigint | undefined, asset: SwapAsset | undefined): string {
@@ -91,7 +91,7 @@ function AssetSelector({ side, asset, assets, balanceOf, balancesLoading, onSele
               <TokenMark asset={option} />
               <span className="min-w-0 flex-1 overflow-hidden">
                 <span className="block truncate font-semibold text-white">{option.symbol}</span>
-                <span className="block truncate text-xs text-white/48">{option.name} · {formLabel(option)}</span>
+                <span className="block truncate text-xs text-white/48">{option.name} {formLabel(option)}</span>
               </span>
               <span className="shrink-0 text-right text-xs text-white/55">
                 <span className="block">{balancesLoading ? "…" : formatUnitsDecimal(balanceOf(option), option.decimals, 5)}</span>
@@ -109,7 +109,7 @@ function AssetAmountField(props: { label: string; value: string; asset?: SwapAss
   return <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 focus-within:border-[#b58f5f]/45">
     <div className="mb-3 flex items-center justify-between text-xs"><span className="font-medium text-white/55">{props.label}</span><span className="text-white/45">Balance: {props.balanceLoading ? "…" : props.asset ? formatUnitsDecimal(props.balance, props.asset.decimals, 5) : "—"} {props.onMax && !props.balanceLoading ? <button type="button" onClick={props.onMax} className="ml-1 font-semibold text-[#d8b884] hover:text-[#efd39e]">Max</button> : null}</span></div>
     <div className="flex items-center gap-3"><Input aria-label={`${props.label} amount`} inputMode="decimal" value={props.value} readOnly={props.readOnly} placeholder="0" onChange={(event) => props.onValue(normalizeAmount(event.target.value, props.asset?.decimals ?? 18))} className="h-12 min-w-0 flex-1 border-0 bg-transparent px-0 text-3xl font-medium shadow-none focus-visible:ring-0" /><AssetSelector side={props.label as "Sell" | "Buy"} asset={props.asset} assets={props.assets} balanceOf={props.balanceOf} balancesLoading={props.balanceLoading} onSelect={props.onAsset} /></div>
-    <div className="mt-1 min-h-4 text-xs text-white/38">{props.fiat ?? (props.asset ? formLabel(props.asset) : "")}</div>
+    <div className="mt-1 min-h-4 text-xs text-white/38">{props.fiat ?? (props.asset ? props.asset.name : "")}</div>
   </div>;
 }
 

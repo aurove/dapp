@@ -2,7 +2,7 @@ import { erc20Abi, zeroAddress, type Abi, type Address, type PublicClient } from
 import { getContractConfig, getContractsByChainId } from "@/contracts/shared";
 import { getKnownMezoTokenConfigs } from "@/components/shared/known-mezo-tokens";
 import { deriveTrancheId, MAX_EPOCHS_BY_VARIANT, nameOf, symbolOf, type CanonicalAssetVariant } from "@/components/features/earn/utils/tranche";
-import { getPortfolioRegistry } from "@/features/portfolio";
+import { getPortfolioRegistry, type WalletPortfolio } from "@/features/portfolio";
 import type { SwapAsset, SwapPool, SwapRegistry } from "../domain";
 
 type ReadResult = { status: "success"; result: unknown } | { status: "failure"; error: unknown };
@@ -46,15 +46,7 @@ function allCanonicalTranches() {
   );
 }
 
-function decodedLockAmount(value: unknown): bigint | null {
-  if (Array.isArray(value) && typeof value[0] === "bigint") return value[0];
-  if (value && typeof value === "object" && typeof (value as { amount?: unknown }).amount === "bigint") {
-    return (value as { amount: bigint }).amount;
-  }
-  return null;
-}
-
-export async function loadSwapRegistry(client: PublicClient, chainId: number, owner?: Address): Promise<SwapRegistry> {
+export async function loadSwapRegistry(client: PublicClient, chainId: number): Promise<SwapRegistry> {
   if (!getContractsByChainId(chainId)) throw new Error("Swaps are not configured on this network");
   const clRouter = getContractConfig(chainId, "CLSwapRouter");
   const auroveRouter = getContractConfig(chainId, "AuroveZapRouter");
@@ -136,37 +128,7 @@ export async function loadSwapRegistry(client: PublicClient, chainId: number, ow
       balanceKey: canonicalWalletAsset?.balanceKey ?? `cl:${address.toLowerCase()}`,
     }];
   });
-  const veNftAssets: SwapAsset[] = [];
-  if (owner && portfolio) {
-    for (const collection of portfolio.veCollections) {
-      const variant = collection.key as CanonicalAssetVariant;
-      const variantId = variant === "veBTC" ? 1 : 2;
-      const epochs = MAX_EPOCHS_BY_VARIANT[variant];
-      const trancheId = deriveTrancheId(variant, epochs);
-      const wrapper = deployedWrappers.find((item) => item.trancheId === trancheId);
-      if (!wrapper) continue;
-      const count = await client.readContract({ address: collection.address, abi: collection.abi as Abi, functionName: "balanceOf", args: [owner] });
-      if (typeof count !== "bigint") continue;
-      const tokenResults = await client.multicall({ allowFailure: true, contracts: Array.from({ length: Number(count) }, (_, index) => ({
-        address: collection.address, abi: collection.abi as Abi, functionName: "ownerToNFTokenIdList", args: [owner, BigInt(index)],
-      })) }) as ReadResult[];
-      const tokenIds = tokenResults.flatMap((result) => result.status === "success" && typeof result.result === "bigint" ? [result.result] : []);
-      const locks = await client.multicall({ allowFailure: true, contracts: tokenIds.map((tokenId) => ({
-        address: collection.address, abi: collection.abi as Abi, functionName: "locked", args: [tokenId],
-      })) }) as ReadResult[];
-      tokenIds.forEach((tokenId, index) => {
-        const amount = locks[index]?.status === "success" ? decodedLockAmount(locks[index].result) : null;
-        if (!amount || amount <= 0n) return;
-        veNftAssets.push({
-          id: `venft:${collection.address.toLowerCase()}:${tokenId}`, chainId, address: collection.address,
-          executableAddress: wrapper.address, symbol: `${collection.symbol} #${tokenId}`, name: `${collection.symbol} position`,
-          decimals: 18, form: "venft", balanceDomain: "wallet", balanceKey: `${collection.key}:${tokenId}`,
-          trancheId, variant: variantId, epochs: BigInt(epochs), wrapperAddress: wrapper.address, tokenId, fixedInputAmount: amount,
-        });
-      });
-    }
-  }
-  const assets = [...configuredAssets, ...wrapperAssets, ...trancheAssets, ...veNftAssets, ...discoveredAssets];
+  const assets = [...configuredAssets, ...wrapperAssets, ...trancheAssets, ...discoveredAssets];
   return {
     chainId,
     revision: `${portfolio?.revision ?? ""}:${pools.map((pool) => `${pool.address}:${pool.tickSpacing}:${pool.fee}`).join("|")}`,
@@ -175,4 +137,41 @@ export async function loadSwapRegistry(client: PublicClient, chainId: number, ow
     ledger: { address: ledger.address, abi: ledger.abi as Abi },
     assets, pools,
   };
+}
+
+export function withWalletVeNfts(registry: SwapRegistry | undefined, wallet: WalletPortfolio | undefined): SwapRegistry | undefined {
+  if (!registry || !wallet) return registry;
+  const marketAssets = registry.assets.filter((asset) => asset.form !== "venft");
+  const veNftAssets = Object.entries(wallet.veCollections).flatMap(([key, collection]) => {
+    if (key !== "veBTC" && key !== "veMEZO") return [];
+    const variant = key as CanonicalAssetVariant;
+    const variantId = variant === "veBTC" ? 1 : 2;
+    const epochs = MAX_EPOCHS_BY_VARIANT[variant];
+    const trancheId = deriveTrancheId(variant, epochs);
+    const wrapper = marketAssets.find((asset) => asset.form === "id20" && asset.trancheId === trancheId);
+    if (!wrapper) return [];
+    return collection.tokenIds.flatMap((tokenId): SwapAsset[] => {
+      const position = collection.positions[tokenId.toString()];
+      if (!position || position.lockAmountRaw <= 0n) return [];
+      return [{
+        id: `venft:${collection.address.toLowerCase()}:${tokenId}`,
+        chainId: registry.chainId,
+        address: collection.address,
+        executableAddress: wrapper.address,
+        symbol: `${collection.symbol} #${tokenId}`,
+        name: `${collection.symbol} position`,
+        decimals: 18,
+        form: "venft",
+        balanceDomain: "wallet",
+        balanceKey: `${key}:${tokenId}`,
+        trancheId,
+        variant: variantId,
+        epochs: BigInt(epochs),
+        wrapperAddress: wrapper.address,
+        tokenId,
+        fixedInputAmount: position.lockAmountRaw,
+      }];
+    });
+  });
+  return { ...registry, assets: [...marketAssets, ...veNftAssets] };
 }

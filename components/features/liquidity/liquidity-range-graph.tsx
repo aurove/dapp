@@ -421,6 +421,7 @@ export function LiquidityRangeGraph({
     const normalized = normalizeTickRange(nextRange, pool.tickSpacing, bounds ?? getPoolTickBounds(pool.tickSpacing));
     setSelection(normalized);
     setStrategy(nextStrategy);
+    onSelectionChange?.({ range: normalized, strategy: nextStrategy });
     setViewportCenterTick(getRangeMidpoint(normalized));
 
     const neededHalfIntervals = Math.ceil(getRangeTickCount(normalized, pool.tickSpacing) / 2) + 2;
@@ -542,11 +543,14 @@ export function LiquidityRangeGraph({
   const activeSelectedRange = renderedRange ?? visibleRange;
 
   useEffect(() => {
+    if (controlledSelectedRange !== null && controlledSelectedRange !== undefined) return;
+    if (selection !== null || !defaultSelection) return;
+
     onSelectionChange?.({
-      range: normalizedSelectedRange ?? selectedRange,
-      strategy: activeStrategy,
+      range: defaultSelection,
+      strategy: controlledSelectedStrategy ?? "balanced",
     });
-  }, [activeStrategy, normalizedSelectedRange, onSelectionChange, selectedRange]);
+  }, [controlledSelectedRange, controlledSelectedStrategy, defaultSelection, onSelectionChange, selection]);
 
   return (
     <div className="space-y-4 rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-5">

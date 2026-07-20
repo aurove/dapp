@@ -191,7 +191,7 @@ function routerInputForSource(source: SlipstreamLiquiditySource, amountRaw: bigi
         deposit: {
           variant: source.variant,
           epochs: source.epochs,
-          value: source.tokenId,
+          value: amountRaw === 0n ? 0n : source.tokenId,
         },
       },
     };
@@ -460,10 +460,10 @@ export function buildSlipstreamLiquidityQuote(params: {
   const amountAUsedRaw = quote.amountAUsedRaw;
   const amountBUsedRaw = quote.amountBUsedRaw;
 
-  if (amountAUsedRaw <= 0n || amountBUsedRaw <= 0n) {
+  if (quote.liquidityRaw <= 0n || (amountAUsedRaw <= 0n && amountBUsedRaw <= 0n)) {
     return {
       status: "invalid-range" as const,
-      errorMessage: "Choose a range where both sides contribute liquidity.",
+      errorMessage: "Choose a range that can be funded by the selected token.",
       activeSide,
       beginsInRange,
       activeAmountRaw,
