@@ -1,6 +1,7 @@
 import type { CronHandlerContext, CronHandlerDefinition } from "./types";
 
-async function syncContractEventsPlaceholder(_ctx: CronHandlerContext) {
+async function syncContractEventsPlaceholder(ctx: CronHandlerContext) {
+  void ctx;
   // TODO: connect this to the contract event sync pipeline.
   // Keep this handler idempotent and checkpointed so retries do not duplicate work.
   return {

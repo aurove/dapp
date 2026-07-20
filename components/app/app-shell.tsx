@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo } from "react";
-import { BellRing, ShieldCheck } from "lucide-react";
+import { BellRing } from "lucide-react";
 import { Badge } from "@ui";
 import { AppNav } from "@/components/app/app-nav";
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";

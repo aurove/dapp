@@ -242,10 +242,7 @@ function parseRawContractEvent(input: Record<string, unknown>): RawContractEvent
   };
 }
 
-export function normalizeInternalEvents(
-  input: unknown,
-  _requestEventKey: string | null = null,
-): RawContractEventNormalizationResult[] {
+export function normalizeInternalEvents(input: unknown): RawContractEventNormalizationResult[] {
   const items = collectWebhookItems(input);
   return items.map((item) => {
     if (!isPlainObject(item)) {

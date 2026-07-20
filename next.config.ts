@@ -1,12 +1,14 @@
 import type { NextConfig } from "next";
 import path from "path";
-import { fileURLToPath } from "url";
 
-const thisDir = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = process.cwd();
 
 const nextConfig: NextConfig = {
   turbopack: {
-    root: path.resolve(thisDir, ".."),
+    // Local pnpm dependencies are linked from the parent workspace. Vercel
+    // installs dependencies inside the cloned app, so its tracing and bundling
+    // roots should both remain scoped to that app.
+    root: process.env.VERCEL ? projectRoot : path.resolve(projectRoot, ".."),
   },
 };
 

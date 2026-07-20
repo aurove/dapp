@@ -1,5 +1,6 @@
 import type { Abi } from "viem";
 
+import type { GenericContractsDeclaration } from "@/contracts/types";
 import type { TxFlowRuntimeContext } from "./types";
 import type {
   TxAddressWritePayload,
@@ -21,8 +22,10 @@ export function getContractMetaUnsafe<TContractName extends TxContractName>(
   chainId: number,
   contracts: TxContractsDeclaration,
 ): TxDeployedContractMeta<TContractName> {
-  const chainContracts = contracts[chainId as keyof typeof contracts];
-  const meta = chainContracts?.[contractName] as TxDeployedContractMeta<TContractName> | undefined;
+  // Index through the registry's runtime shape instead of asking TypeScript to
+  // produce a union of every generated ABI on every configured chain.
+  const chainContracts = (contracts as GenericContractsDeclaration)[chainId];
+  const meta = chainContracts?.[contractName];
   if (!meta?.address) {
     throw new Error(`Missing deployment or address for ${contractName} on chainId=${chainId}`);
   }

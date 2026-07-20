@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, lte } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getAddress, http, createPublicClient, type Abi, type Address, type PublicClient } from "viem";
 
 import {
