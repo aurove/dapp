@@ -75,7 +75,6 @@ export type SlipstreamLiquiditySource =
       label: string;
       token: Address;
       balanceRaw: bigint;
-      allowanceRaw: bigint;
       decimals: number;
       variant: number;
       epochs: bigint;

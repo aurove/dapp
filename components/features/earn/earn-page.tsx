@@ -18,14 +18,14 @@ import {
   Sparkles,
   Wallet,
 } from "lucide-react";
-import { erc20Abi, erc721Abi, formatUnits, type Abi, type Address } from "viem";
+import { formatUnits, type Abi, type Address } from "viem";
 import { useChainId } from "wagmi";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
 import { appRoutes } from "@/components/app/app-nav";
 import { FeatureHeroSection, FeatureMetricCard, FeatureSplitGrid, FeatureStatusPanel } from "@/components/features/shared/page-shell";
 import { getEarnProtocolConfig, getRewardSinkAbi } from "@/contracts/earn";
 import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
-import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
+import { makeAddressWriteStep, makeContractWriteStep, makeTokenApprovalStep, type TxStep } from "@/lib/tx-flow";
 import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/earn/hooks/use-user-ve-nfts";
@@ -191,22 +191,19 @@ export function EarnPage() {
       throw new Error("Create position inputs are incomplete.");
     }
 
-    const steps: TxStep[] = [];
-    if (selectedToken.allowanceRaw < parsedCreateAmount) {
-      steps.push(
-        makeAddressWriteStep({
-          key: "approve-underlying",
-          label: `Approve ${selectedToken.symbol}`,
-          displayLabelBtn: true,
-          address: selectedToken.underlyingAddress,
-          abi: erc20Abi,
-          variables: {
-            functionName: "approve",
-            args: [assetLedger.address, parsedCreateAmount],
-          },
-        }) as unknown as TxStep,
-      );
-    }
+    const steps: TxStep[] = [
+      makeTokenApprovalStep({
+        key: "approve-underlying",
+        label: `Approve ${selectedToken.symbol}`,
+        displayLabelBtn: true,
+        approval: {
+          standard: "erc20",
+          token: selectedToken.underlyingAddress,
+          spender: assetLedger.address,
+          amount: parsedCreateAmount,
+        },
+      }),
+    ];
 
     steps.push(
       makeContractWriteStep({
@@ -230,17 +227,17 @@ export function EarnPage() {
     }
 
     return [
-      makeAddressWriteStep({
+      makeTokenApprovalStep({
         key: "approve-venft",
         label: "Approve veNFT",
         displayLabelBtn: true,
-        address: selectedVeNft.contractAddress,
-        abi: erc721Abi,
-        variables: {
-          functionName: "setApprovalForAll",
-          args: [assetLedger.address, true],
+        approval: {
+          standard: "erc721",
+          token: selectedVeNft.contractAddress,
+          operator: assetLedger.address,
+          scope: { kind: "token", tokenId: selectedVeNft.tokenId },
         },
-      }) as unknown as TxStep,
+      }),
       makeContractWriteStep({
         key: "deposit-venft",
         label: "Deposit position",

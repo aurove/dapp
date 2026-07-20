@@ -165,7 +165,7 @@ export function SwapPage() {
   const quote = useSwapQuote({ registry, plan: preliminaryPlan, tradeType, amount: parsedAmount ?? 0n, account: account.address, slippageBps });
   const plan = useMemo(() => intent && registry && quote.data ? planSwap(intent, registry, quote.data) : preliminaryPlan, [intent, preliminaryPlan, quote.data, registry]);
   const supportedPlan = plan && plan.type !== "unsupported" ? plan : undefined;
-  const approval = useSwapApproval(plan, registry);
+  const approval = useSwapApproval(plan);
   const networkFee = useSwapNetworkFee(plan, approval.isApproved);
   const execution = useSwapExecution({ plan, quote: quote.data, verifyApproval: approval.verify });
   const sellBalance = sell ? sellAssets.balanceOf(sell) : 0n;

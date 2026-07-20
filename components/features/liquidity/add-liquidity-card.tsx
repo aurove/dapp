@@ -13,16 +13,16 @@ import {
   Sparkles,
   Wallet,
 } from "lucide-react";
-import { erc1155Abi, erc20Abi, erc721Abi, formatUnits, isAddress, type Address } from "viem";
-import { useAccount, useChainId, useReadContracts } from "wagmi";
+import { formatUnits, isAddress, type Address } from "viem";
+import { useAccount, useChainId } from "wagmi";
 
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from "@ui";
 import { getContractConfig } from "@/contracts/shared";
 import { usePortfolioSummary, type PortfolioSummary, type WalletPortfolio } from "@/features/portfolio";
 import { useChainTime } from "@/lib/web3/use-chain-time";
-import { formatCompactRawTokenAmount, parseAmountRaw, readResult } from "@/lib/web3/value-parsers";
+import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
-import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
+import { makeContractWriteStep, makeTokenApprovalStep, type TxStep } from "@/lib/tx-flow";
 import { LiquidityRangeGraph } from "./liquidity-range-graph";
 import { useSlipstreamPoolState } from "./liquidity-range-graph";
 import { LiquidityTokenInput } from "./liquidity-token-input";
@@ -217,9 +217,8 @@ function buildSourceOptions(params: {
   pool: SlipstreamPoolState;
   portfolio: PortfolioSummary | undefined;
   veCollections: WalletPortfolio["veCollections"];
-  allowancesByAddress: Record<string, bigint>;
 }) {
-  const { pool, portfolio, veCollections, allowancesByAddress } = params;
+  const { pool, portfolio, veCollections } = params;
   const token0Family = sourceFamilyForToken(pool.token0?.symbol);
   const token1Family = sourceFamilyForToken(pool.token1?.symbol);
 
@@ -252,7 +251,6 @@ function buildSourceOptions(params: {
           : directAsset?.symbol ?? tokenSymbol ?? sourceFamilyLabel(family),
         token: tokenAddress,
         balanceRaw: directAsset?.rawBalance ?? 0n,
-        allowanceRaw: allowancesByAddress[tokenAddress.toLowerCase()] ?? 0n,
         decimals: directAsset?.decimals ?? tokenDecimals,
         variant: 0,
         epochs: 0n,
@@ -268,7 +266,6 @@ function buildSourceOptions(params: {
           label: underlyingAsset.symbol,
           token: underlyingAsset.address,
           balanceRaw: underlyingAsset.rawBalance,
-          allowanceRaw: allowancesByAddress[underlyingAsset.address.toLowerCase()] ?? 0n,
           decimals: underlyingAsset.decimals,
           variant: managedDepositDefaults.variant,
           epochs: managedDepositDefaults.epochs,
@@ -488,34 +485,6 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
 
   const pool = useSlipstreamPoolState(chainId, selectedPool);
   const routerAddress = getContractConfig(chainId, "AuroveZapRouter")?.address ?? null;
-  const erc20SourceAddresses = useMemo(() => {
-    const addresses = [
-      pool.token0?.address,
-      pool.token1?.address,
-      portfolio.data?.walletAssets.BTC?.address,
-      portfolio.data?.walletAssets.MEZO?.address,
-    ].filter((address): address is Address => Boolean(address));
-    return [...new Map(addresses.map((address) => [address.toLowerCase(), address])).values()];
-  }, [pool.token0?.address, pool.token1?.address, portfolio.data?.walletAssets]);
-  const allowanceReads = useReadContracts({
-    allowFailure: true,
-    contracts: account && routerAddress ? erc20SourceAddresses.map((address) => ({
-      address,
-      abi: erc20Abi,
-      functionName: "allowance" as const,
-      args: [account, routerAddress] as const,
-    })) : [],
-    query: {
-      enabled: Boolean(account && routerAddress && erc20SourceAddresses.length),
-    },
-  });
-  const allowancesByAddress = useMemo(
-    () => Object.fromEntries(erc20SourceAddresses.map((address, index) => [
-      address.toLowerCase(),
-      readResult<bigint>(allowanceReads.data, index) ?? 0n,
-    ])),
-    [allowanceReads.data, erc20SourceAddresses],
-  );
   const formState = poolFormStateByKey[selectedPool];
 
   const currentRange = useMemo(() => {
@@ -529,9 +498,8 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
         pool,
         portfolio: portfolio.data,
         veCollections: portfolio.domains.wallet.data?.veCollections ?? {},
-        allowancesByAddress,
       }),
-    [portfolio.data, portfolio.domains.wallet.data?.veCollections, pool, allowancesByAddress],
+    [portfolio.data, portfolio.domains.wallet.data?.veCollections, pool],
   );
 
   const selectedSourceA = useMemo(
@@ -607,17 +575,17 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
               : 0n;
 
         steps.push(
-          makeAddressWriteStep({
+          makeTokenApprovalStep({
             key: `liquidity-approve-${suffix}`,
             label: stepLabel,
             displayLabelBtn: true,
-            address: source.token,
-            abi: erc20Abi,
-            variables: {
-              functionName: "approve",
-              args: [routerAddress, amount],
+            approval: {
+              standard: "erc20",
+              token: source.token,
+              spender: routerAddress,
+              amount,
             },
-          }) as unknown as TxStep,
+          }),
         );
         return;
       }
@@ -627,17 +595,21 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
       }
 
       steps.push(
-        makeAddressWriteStep({
+        makeTokenApprovalStep({
           key: `liquidity-approve-${suffix}`,
           label: stepLabel,
           displayLabelBtn: true,
-          address: source.contractAddress,
-          abi: source.kind === "venft" ? erc721Abi : erc1155Abi,
-          variables: {
-            functionName: "setApprovalForAll",
-            args: [routerAddress, true],
+          approval: source.kind === "venft" ? {
+            standard: "erc721",
+            token: source.contractAddress,
+            operator: routerAddress,
+            scope: { kind: "token", tokenId: source.tokenId },
+          } : {
+            standard: "erc1155",
+            token: source.contractAddress,
+            operator: routerAddress,
           },
-        }) as unknown as TxStep,
+        }),
       );
     };
 

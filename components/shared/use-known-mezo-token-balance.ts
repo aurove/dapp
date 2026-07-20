@@ -2,18 +2,15 @@
 
 import { useMemo } from "react";
 import type { Address } from "viem";
-import { erc20Abi } from "viem";
-import { useChainId, useReadContract } from "wagmi";
+import { useChainId } from "wagmi";
 
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { useWalletPortfolio } from "@/features/portfolio";
 import { getKnownMezoTokenConfig, getKnownMezoTokenConfigs } from "./known-mezo-tokens";
 
 type UseKnownMezoTokenBalanceParams = {
-  ownerAddress?: Address;
   tokenAddress?: Address | null;
   tokenSymbol?: string;
-  spenderAddress?: Address;
   chainId?: number;
 };
 
@@ -39,10 +36,8 @@ function resolveKnownTokenSymbol(
 }
 
 export function useKnownMezoTokenBalance({
-  ownerAddress,
   tokenAddress,
   tokenSymbol,
-  spenderAddress,
   chainId,
 }: UseKnownMezoTokenBalanceParams) {
   const connectedChainId = useChainId();
@@ -55,34 +50,23 @@ export function useKnownMezoTokenBalance({
 
   const portfolioQuery = useWalletPortfolio();
   const token = resolvedSymbol ? portfolioQuery.data?.assets[resolvedSymbol] : undefined;
-  const allowance = useReadContract({
-    address: token?.address,
-    abi: erc20Abi,
-    functionName: "allowance",
-    args: ownerAddress && spenderAddress ? [ownerAddress, spenderAddress] : undefined,
-    chainId: resolvedChainId,
-    query: { enabled: Boolean(ownerAddress && spenderAddress && token?.address) },
-  });
-
   if (resolvedSymbol) {
     return {
       balanceRaw: token?.rawBalance ?? 0n,
-      allowanceRaw: allowance.data ?? 0n,
-      isChecking: portfolioQuery.isLoading || portfolioQuery.isFetching || allowance.isLoading || allowance.isFetching,
-      error: portfolioQuery.error ?? allowance.error,
-      refresh: async () => { await Promise.all([portfolioQuery.refetch(), allowance.refetch()]); },
+      isChecking: portfolioQuery.isLoading || portfolioQuery.isFetching,
+      error: portfolioQuery.error,
+      refresh: async () => { await portfolioQuery.refetch(); },
       readAddress: token?.address ?? null,
     };
   }
 
   return {
     balanceRaw: 0n,
-    allowanceRaw: 0n,
     isChecking: false,
     error: null,
     refresh: () => {
       void portfolioQuery.refetch();
     },
-    readAddress: spenderAddress ?? tokenAddress ?? null,
+    readAddress: tokenAddress ?? null,
   };
 }

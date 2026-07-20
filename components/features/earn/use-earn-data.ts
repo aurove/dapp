@@ -38,7 +38,6 @@ export type EarnTokenInfo = {
   symbol: string;
   decimals: number;
   balanceRaw: bigint;
-  allowanceRaw: bigint;
 };
 
 export type EarnRefundablePosition = {
@@ -747,17 +746,13 @@ export function useEarnSnapshot() {
   });
 
   const veBtcTokenBalance = useKnownMezoTokenBalance({
-    ownerAddress: userAddress,
     tokenAddress: veBtcUnderlyingAddress,
     tokenSymbol: "BTC",
-    spenderAddress: assetLedger?.address,
     chainId,
   });
   const veMezoTokenBalance = useKnownMezoTokenBalance({
-    ownerAddress: userAddress,
     tokenAddress: veMezoUnderlyingAddress,
     tokenSymbol: "MEZO",
-    spenderAddress: assetLedger?.address,
     chainId,
   });
 
@@ -772,7 +767,6 @@ export function useEarnSnapshot() {
             decimals:
               veTokenMeta.metadataByAddress[veBtcUnderlyingAddress.toLowerCase()]?.decimals ?? 18,
             balanceRaw: veBtcTokenBalance.balanceRaw,
-            allowanceRaw: veBtcTokenBalance.allowanceRaw,
           }
         : null;
 
@@ -788,7 +782,6 @@ export function useEarnSnapshot() {
               veTokenMeta.metadataByAddress[veMezoUnderlyingAddress.toLowerCase()]?.decimals ??
               18,
             balanceRaw: veMezoTokenBalance.balanceRaw,
-            allowanceRaw: veMezoTokenBalance.allowanceRaw,
           }
         : null;
 
@@ -799,11 +792,9 @@ export function useEarnSnapshot() {
   }, [
     veBtc,
     veBtcUnderlyingAddress,
-    veBtcTokenBalance.allowanceRaw,
     veBtcTokenBalance.balanceRaw,
     veMezo,
     veMezoUnderlyingAddress,
-    veMezoTokenBalance.allowanceRaw,
     veMezoTokenBalance.balanceRaw,
     veTokenMeta.metadataByAddress,
   ]);
