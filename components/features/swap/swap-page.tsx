@@ -11,8 +11,8 @@ import {
   DialogHeader, DialogTitle, Input, ScrollArea, cn,
 } from "@ui";
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";
-import { formatUnitsDecimal } from "@/lib/formatting/decimal";
 import { useChainTime } from "@/lib/web3/use-chain-time";
+import { formatCompactDecimal, formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
 import {
   findClRoute, planSwap, useSwapApproval, useSwapAssets, useSwapExecution, useSwapNetworkFee, useSwapQuote,
   useSwapRegistry, type SwapAsset, type SwapExecutionPlan, type SwapIntent, type SwapTradeType,
@@ -33,13 +33,28 @@ function formLabel(asset: SwapAsset): string {
   if (asset.form === "underlying") return "· Underlying ";
   if (asset.form === "venft") return "";
   if (asset.form === "tranche") return "";
-  if (asset.form === "id20") return "· Liquid ID20 / ERC20";
+  if (asset.form === "id20") return "· Liquid ID20";
   return "· Liquid ERC20";
 }
 
 function amountText(value: bigint | undefined, asset: SwapAsset | undefined): string {
   if (value === undefined || !asset) return "";
-  return formatUnitsDecimal(value, asset.decimals, 6);
+  return formatCompactRawTokenAmount(value, asset.decimals, null);
+}
+
+function amountInputText(value: bigint | undefined, asset: SwapAsset | undefined): string {
+  if (value === undefined || !asset) return "";
+  return formatUnits(value, asset.decimals);
+}
+
+function percentageText(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  if (value > 0 && value < 0.01) return "<0.01%";
+  const fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+  return `${new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: fractionDigits,
+    minimumFractionDigits: fractionDigits,
+  }).format(value)}%`;
 }
 
 function safeParse(value: string, decimals: number): bigint | null {
@@ -96,7 +111,7 @@ function AssetSelector({ side, asset, assets, balanceOf, balancesLoading, onSele
       <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md overflow-hidden border-white/12 bg-[#111820]">
         <DialogHeader><DialogTitle>Select an asset to {side.toLowerCase()}</DialogTitle><DialogDescription>{side === "Buy" ? "ID20 representations are listed first, followed by every other ERC-20 available through a Mezo CL route." : "Aurove veNFTs and Ledger tranches are listed first, followed by ERC-20s available through a Mezo CL route."}</DialogDescription></DialogHeader>
         <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search symbol, name, ID, or address" aria-label="Search assets" className="pl-9" /></div>
-        <div className="flex items-center justify-between text-xs text-white/38"><span>{filteredAssets.length} asset{filteredAssets.length === 1 ? "" : "s"}</span>{search ? <button type="button" className="text-[#d8b884] hover:text-[#efd39e]" onClick={() => setSearch("")}>Clear search</button> : null}</div>
+        <div className="flex items-center justify-between text-xs text-white/38"><span>{new Intl.NumberFormat().format(filteredAssets.length)} asset{filteredAssets.length === 1 ? "" : "s"}</span>{search ? <button type="button" className="text-[#d8b884] hover:text-[#efd39e]" onClick={() => setSearch("")}>Clear search</button> : null}</div>
         <ScrollArea className="max-h-[55vh] pr-3"><div className="space-y-4">
           {groups.map(([label, options]) => <section key={label} aria-label={label}><p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">{label}</p><div className="space-y-2">{options.map((option) => <button key={option.id} type="button" onClick={() => { onSelect(option); setOpen(false); setSearch(""); }} className={cn("flex w-full min-w-0 items-center justify-start gap-3 overflow-hidden rounded-xl border p-3 text-left whitespace-normal transition", option.id === asset?.id ? "border-[#b58f5f]/60 bg-[#b58f5f]/12" : "border-white/10 bg-white/[0.025] hover:bg-white/[0.06]")}>
               <TokenMark asset={option} />
@@ -105,7 +120,7 @@ function AssetSelector({ side, asset, assets, balanceOf, balancesLoading, onSele
                 <span className="block truncate text-xs text-white/48">{option.name} {formLabel(option)}</span>
               </span>
               <span className="shrink-0 text-right text-xs text-white/55">
-                <span className="block">{balancesLoading ? "…" : formatUnitsDecimal(balanceOf(option), option.decimals, 5)}</span>
+                <span className="block">{balancesLoading ? "…" : formatCompactRawTokenAmount(balanceOf(option), option.decimals, null)}</span>
                 <span className="text-white/35">Balance</span>
               </span>
             </button>)}</div></section>)}
@@ -118,7 +133,7 @@ function AssetSelector({ side, asset, assets, balanceOf, balancesLoading, onSele
 
 function AssetAmountField(props: { label: string; value: string; asset?: SwapAsset; assets: readonly SwapAsset[]; balance: bigint; balanceOf: (asset: SwapAsset) => bigint; balanceLoading?: boolean; readOnly?: boolean; onValue: (value: string) => void; onAsset: (asset: SwapAsset) => void; onMax?: () => void; fiat?: string }) {
   return <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 focus-within:border-[#b58f5f]/45">
-    <div className="mb-3 flex items-center justify-between text-xs"><span className="font-medium text-white/55">{props.label}</span><span className="text-white/45">Balance: {props.balanceLoading ? "…" : props.asset ? formatUnitsDecimal(props.balance, props.asset.decimals, 5) : "—"} {props.onMax && !props.balanceLoading ? <button type="button" onClick={props.onMax} className="ml-1 font-semibold text-[#d8b884] hover:text-[#efd39e]">Max</button> : null}</span></div>
+    <div className="mb-3 flex items-center justify-between text-xs"><span className="font-medium text-white/55">{props.label}</span><span className="text-white/45">Balance: {props.balanceLoading ? "…" : props.asset ? formatCompactRawTokenAmount(props.balance, props.asset.decimals, null) : "—"} {props.onMax && !props.balanceLoading ? <button type="button" onClick={props.onMax} className="ml-1 font-semibold text-[#d8b884] hover:text-[#efd39e]">Max</button> : null}</span></div>
     <div className="flex items-center gap-3"><Input name="amount" aria-label={`${props.label} amount`} inputMode="decimal" value={props.value} readOnly={props.readOnly} placeholder="0" onChange={(event) => props.onValue(normalizeAmount(event.target.value, props.asset?.decimals ?? 18))} className="h-12 min-w-0 flex-1 border-0 bg-transparent px-0 text-3xl font-medium shadow-none focus-visible:ring-0" /><AssetSelector side={props.label as "Sell" | "Buy"} asset={props.asset} assets={props.assets} balanceOf={props.balanceOf} balancesLoading={props.balanceLoading} onSelect={props.onAsset} /></div>
     <div className="mt-1 min-h-4 text-xs text-white/38">{props.fiat ?? (props.asset ? props.asset.name : "")}</div>
   </div>;
@@ -172,9 +187,9 @@ export function SwapPage() {
   const buyBalance = buy ? buyAssets.balanceOf(buy) : 0n;
   const requiredBalance = quote.data ? (tradeType === "exactOutput" && supportedPlan ? supportedPlan.amountInMaximum : quote.data.amountIn) : 0n;
   const insufficient = requiredBalance > sellBalance;
-  const outputValue = tradeType === "exactInput" ? amountText(quote.data?.amountOut, buy) : typedAmount;
-  const inputValue = tradeType === "exactOutput" ? amountText(quote.data?.amountIn, sell) : typedAmount;
-  const fiatFor = (asset: SwapAsset | undefined, value: string) => asset?.symbol === "MUSD" && value ? `≈ $${value}` : undefined;
+  const outputValue = tradeType === "exactInput" ? amountInputText(quote.data?.amountOut, buy) : typedAmount;
+  const inputValue = tradeType === "exactOutput" ? amountInputText(quote.data?.amountIn, sell) : typedAmount;
+  const fiatFor = (asset: SwapAsset | undefined, value: string) => asset?.symbol === "MUSD" && value ? `≈ $${formatCompactDecimal(value)}` : undefined;
   const reverseBuyAsset = sell?.form === "underlying" || sell?.form === "venft" || sell?.form === "tranche"
     ? registry?.assets.find((asset) => asset.form === "id20" && asset.executableAddress.toLowerCase() === sell.executableAddress.toLowerCase())
     : sell;
@@ -191,9 +206,9 @@ export function SwapPage() {
   const onSellValue = (value: string) => { setTradeType("exactInput"); setFormAmount(value); };
   const onBuyValue = (value: string) => { if (sell?.form === "venft") return; setTradeType("exactOutput"); setFormAmount(value); };
   const price = quote.data && quote.data.amountIn > 0n && quote.data.amountOut > 0n && sell && buy
-    ? `${formatUnitsDecimal(quote.data.amountOut * (10n ** BigInt(sell.decimals)) / quote.data.amountIn, buy.decimals, 6)} ${buy.symbol} per ${sell.symbol}` : "—";
+    ? `${formatCompactRawTokenAmount(quote.data.amountOut * (10n ** BigInt(sell.decimals)) / quote.data.amountIn, buy.decimals, null)} ${buy.symbol} per ${sell.symbol}` : "—";
   const inversePrice = quote.data && quote.data.amountOut > 0n && sell && buy
-    ? `${formatUnitsDecimal(quote.data.amountIn * (10n ** BigInt(buy.decimals)) / quote.data.amountOut, sell.decimals, 6)} ${sell.symbol} per ${buy.symbol}` : "—";
+    ? `${formatCompactRawTokenAmount(quote.data.amountIn * (10n ** BigInt(buy.decimals)) / quote.data.amountOut, sell.decimals, null)} ${sell.symbol} per ${buy.symbol}` : "—";
   const routeSymbol = (token: Address) => registry?.assets.find((asset) => (asset.form === "erc20" || asset.form === "id20") && asset.executableAddress.toLowerCase() === token.toLowerCase())?.symbol ?? "Pool";
   const routeText = supportedPlan ? [routeSymbol(supportedPlan.hops[0].tokenIn), ...supportedPlan.hops.map((hop) => routeSymbol(hop.tokenOut))].join(" → ") : "—";
   const quoteExpired = Boolean(quote.data && chainTimestamp !== null && chainTimestamp - quote.data.quotedAtBlockTimestamp > QUOTE_EXPIRY_SECONDS);
@@ -225,10 +240,10 @@ export function SwapPage() {
       <AssetAmountField label="Buy" value={outputValue} asset={buy} assets={buyAssets.assets} balance={buyBalance} balanceOf={buyAssets.balanceOf} balanceLoading={buyAssets.isLoading} readOnly={sell?.form === "venft"} onValue={onBuyValue} onAsset={chooseBuy} fiat={fiatFor(buy, outputValue)} />
     </div>
     {quote.data && supportedPlan ? <details className="group mt-3 rounded-xl px-2 py-2 text-xs" open><summary className="flex cursor-pointer list-none items-center justify-between text-white/62"><span>{price}</span><ChevronDown className="h-4 w-4 group-open:hidden" /><ChevronUp className="hidden h-4 w-4 group-open:block" /></summary><div className="mt-3 space-y-2 border-t border-white/8 pt-3">
-      <DetailRow label="Inverse price" value={inversePrice} /><DetailRow label="Route" value={routeText} /><DetailRow label={supportedPlan.type === "directClSwap" ? "Direct pool route" : "Aurove route"} value={supportedPlan.hops.map((hop) => `Tick spacing ${hop.tickSpacing} · ${(hop.fee / 10_000).toFixed(2)}%`).join(" · ")} />
+      <DetailRow label="Inverse price" value={inversePrice} /><DetailRow label="Route" value={routeText} /><DetailRow label={supportedPlan.type === "directClSwap" ? "Direct pool route" : "Aurove route"} value={supportedPlan.hops.map((hop) => `Tick spacing ${hop.tickSpacing} · ${percentageText(hop.fee / 10_000)}`).join(" · ")} />
       {supportedPlan.type === "auroveDepositWrapThenSwap" || supportedPlan.type === "auroveVeNftThenSwap" || supportedPlan.type === "auroveWrapThenSwap" ? <DetailRow label="Before swap" value="Deposits and wraps into ID20 before swapping" /> : null}
       <DetailRow label={tradeType === "exactInput" ? "Minimum received" : "Maximum sold"} value={`${amountText(tradeType === "exactInput" ? supportedPlan.amountOutMinimum : supportedPlan.amountInMaximum, tradeType === "exactInput" ? buy : sell)} ${tradeType === "exactInput" ? buy?.symbol : sell?.symbol}`} />
-      <DetailRow label="Price impact" value={quote.data.priceImpactBps === null ? "—" : `${(quote.data.priceImpactBps / 100).toFixed(2)}%`} /><DetailRow label="Slippage tolerance" value={`${(slippageBps / 100).toFixed(2)}%`} /><DetailRow label="Deadline" value={`${deadlineMinutes} minutes`} /><DetailRow label="Router used" value={supportedPlan.routerLabel} /><DetailRow label="Estimated network fee" value={networkFee.data ?? (networkFee.isFetching ? "Estimating…" : "Calculated by wallet at review")} />
+      <DetailRow label="Price impact" value={percentageText(quote.data.priceImpactBps === null ? null : quote.data.priceImpactBps / 100)} /><DetailRow label="Slippage tolerance" value={percentageText(slippageBps / 100)} /><DetailRow label="Deadline" value={`${new Intl.NumberFormat().format(deadlineMinutes)} minutes`} /><DetailRow label="Router used" value={supportedPlan.routerLabel} /><DetailRow label="Estimated network fee" value={networkFee.data ?? (networkFee.isFetching ? "Estimating…" : "Calculated by wallet at review")} />
     </div></details> : null}
     {quote.data && (quote.data.priceImpactBps ?? 0) >= 500 ? <div className="mx-2 mt-2 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs text-amber-100">High price impact. Review this route carefully.</div> : null}
     {formik.submitCount > 0 && formError ? <p role="alert" className="mx-2 mt-2 text-xs text-red-200">{formError}</p> : null}

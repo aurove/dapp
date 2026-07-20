@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { formatUnits } from "viem";
 import { useAccount, usePublicClient } from "wagmi";
+import { formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
 import type { SwapExecutionPlan } from "../domain";
 
 export function useSwapNetworkFee(plan: SwapExecutionPlan | undefined, enabled: boolean) {
@@ -17,8 +17,7 @@ export function useSwapNetworkFee(plan: SwapExecutionPlan | undefined, enabled: 
         client.getGasPrice(),
       ]);
       const raw = gas * gasPrice;
-      const formatted = Number(formatUnits(raw, 18));
-      return `${formatted < 0.0001 ? "<0.0001" : formatted.toFixed(4)} BTC`;
+      return formatCompactRawTokenAmount(raw, 18, "BTC");
     },
     enabled: Boolean(enabled && address && client && plan && plan.type !== "unsupported"),
     staleTime: 15_000, retry: false,
