@@ -703,7 +703,7 @@ export function useEarnSnapshot() {
         address: product.fractionAddress,
         abi: assetFractionAbi,
         functionName: "redeemableBalanceOf",
-        args: [userAddress],
+        args: [userAddress, product.trancheId],
         chainId,
       }));
   }, [assetFractionAbi, canReadLedger, chainId, productsFromFractions, userAddress]);

@@ -83,13 +83,6 @@ export async function loadSwapRegistry(client: PublicClient, chainId: number): P
   const wrapperResults = await client.multicall({ allowFailure: true, contracts: trancheDefinitions.map((tranche) => ({
     address: id20Factory.address!, abi: id20Factory.abi, functionName: "getId20", args: [tranche.trancheId],
   })) }) as ReadResult[];
-  const supplyResults = await client.multicall({ allowFailure: true, contracts: trancheDefinitions.map((tranche) => ({
-    address: ledger.address!, abi: ledger.abi, functionName: "totalSupply", args: [tranche.trancheId],
-  })) }) as ReadResult[];
-  const issuedTrancheIds = new Set(trancheDefinitions.flatMap((tranche, index) => {
-    const result = supplyResults[index];
-    return result?.status === "success" && typeof result.result === "bigint" && result.result > 0n ? [tranche.trancheId.toString()] : [];
-  }));
   const deployedWrappers = trancheDefinitions.flatMap((tranche, index) => {
     const result = wrapperResults[index];
     const address = result?.status === "success" && typeof result.result === "string" ? result.result as Address : zeroAddress;
@@ -101,7 +94,7 @@ export async function loadSwapRegistry(client: PublicClient, chainId: number): P
     form: "id20", balanceDomain: "id20", balanceKey: `id20:${wrapper.address.toLowerCase()}`,
     trancheId: wrapper.trancheId, variant: wrapper.variantId, epochs: BigInt(wrapper.epochs), wrapperAddress: wrapper.address,
   }));
-  const trancheAssets: SwapAsset[] = deployedWrappers.filter((wrapper) => issuedTrancheIds.has(wrapper.trancheId.toString())).map((wrapper) => ({
+  const trancheAssets: SwapAsset[] = deployedWrappers.map((wrapper) => ({
     id: `tranche:${wrapper.trancheId}`, chainId, address: ledger.address!, executableAddress: wrapper.address,
     symbol: symbolOf(wrapper.variant, wrapper.epochs), name: `${nameOf(wrapper.variant, wrapper.epochs)} tranche`, decimals: 18,
     form: "tranche", balanceDomain: "tranches", balanceKey: `tranche:${wrapper.trancheId}`,

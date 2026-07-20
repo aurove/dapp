@@ -67,6 +67,18 @@ export function useSwapAssets(registry: SwapRegistry | undefined, opposite: Swap
   }, [opposite, registry, side]);
   const balanceOf = (asset: SwapAsset): bigint => {
     if (asset.form === "venft") return asset.fixedInputAmount ?? 0n;
+    if (asset.form === "tranche" && asset.trancheId !== undefined) {
+      const tranche = Object.values(portfolio.data?.trancheBalances ?? {}).find((item) => item.trancheId === asset.trancheId);
+      if (tranche) return tranche.rawBalance;
+    }
+    if (asset.form === "id20") {
+      const id20 = Object.values(portfolio.data?.id20Balances ?? {}).find((item) => item.address.toLowerCase() === asset.address.toLowerCase());
+      if (id20) return id20.rawBalance;
+    }
+    if (asset.form === "erc20") {
+      const walletAsset = Object.values(portfolio.data?.walletAssets ?? {}).find((item) => item.address.toLowerCase() === asset.address.toLowerCase());
+      if (walletAsset) return walletAsset.rawBalance;
+    }
     const dynamic = discoveredBalances.data?.[asset.id];
     if (dynamic !== undefined) return dynamic;
     if (asset.balanceDomain === "wallet") return portfolio.data?.walletAssets[asset.balanceKey]?.rawBalance ?? 0n;

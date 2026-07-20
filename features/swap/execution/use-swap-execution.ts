@@ -45,7 +45,7 @@ export function useSwapExecution(params: { plan?: SwapExecutionPlan; quote?: Swa
         registryRevision: portfolio.revision, domains: plan.affectedPortfolioDomains,
       });
       await queryClient.invalidateQueries({ queryKey: ["swap", "balances", plan.expectedAsset.chainId, address.toLowerCase()] });
-      await queryClient.invalidateQueries({ queryKey: ["swap", "registry", plan.expectedAsset.chainId, address.toLowerCase()] });
+      await queryClient.invalidateQueries({ queryKey: ["swap", "registry", plan.expectedAsset.chainId] });
       setState("confirmed");
     } catch (caught) {
       setError(getParsedError(caught));

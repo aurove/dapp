@@ -5,7 +5,7 @@ import { getContractConfig } from "@/contracts/shared";
 import type { SwapAsset, SwapPool, SwapRegistry } from "../domain";
 import { getSwapPoolAbi } from "./swap-registry";
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const CACHE_PREFIX = "aurove:swap-markets";
 
 type CachedAsset = Omit<SwapAsset, "trancheId" | "epochs" | "tokenId" | "fixedInputAmount"> & {

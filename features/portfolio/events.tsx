@@ -17,7 +17,12 @@ export function PortfolioEventWatcher() {
   const { address } = useAccount(); const chainId = useChainId(); const client = usePublicClient(); const queryClient = useQueryClient();
   useEffect(() => {
     const registry = getPortfolioRegistry(chainId); if (!address || !client || !registry) return;
-    const timers = new Map<PortfolioDomain, ReturnType<typeof setTimeout>>(); const queue = (domain: PortfolioDomain) => { const prior = timers.get(domain); if (prior) clearTimeout(prior); timers.set(domain, setTimeout(() => { void invalidatePortfolioDomains({ queryClient, chainId, owner: address, registryRevision: registry.revision, domains: [domain] }); }, 300)); };
+    const timers = new Map<PortfolioDomain, ReturnType<typeof setTimeout>>(); const queue = (domain: PortfolioDomain) => { const prior = timers.get(domain); if (prior) clearTimeout(prior); timers.set(domain, setTimeout(() => {
+      void invalidatePortfolioDomains({ queryClient, chainId, owner: address, registryRevision: registry.revision, domains: [domain] });
+      if (domain === "wallet" || domain === "tranches" || domain === "id20") {
+        void queryClient.invalidateQueries({ queryKey: ["swap", "balances", chainId, address.toLowerCase()] });
+      }
+    }, 300)); };
     const relevant = (logs: readonly { args?: unknown }[]) => logs.some((log) => { const args = log.args; if (!args || typeof args !== "object") return false; return Object.values(args).some((value) => typeof value === "string" && value.toLowerCase() === address.toLowerCase()); });
     const protocolWatchers = [
       { contract: getContractConfig(chainId, "AuroveZapRouter"), domains: ["wallet", "tranches", "id20", "rewards", "liquidity"] as const },
