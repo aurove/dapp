@@ -4,6 +4,8 @@ import { Price, Token } from "@uniswap/sdk-core";
 import { TickMath, nearestUsableTick, priceToClosestTick, tickToPrice } from "@uniswap/v3-sdk";
 import { parseUnits, type Address } from "viem";
 
+import { formatCompactDecimal } from "@/lib/web3/value-parsers";
+
 export type SlipstreamRangePreset = "focused" | "balanced" | "full-range" | "custom";
 export type SlipstreamPoolKey = "BTC" | "MEZO";
 export type SlipstreamPoolContractName = "MUSD-avBTCm" | "avBTCm-avMEZOm";
@@ -34,6 +36,12 @@ export type SlipstreamTickPoint = {
 export type SlipstreamTickRange = {
   tickLower: number;
   tickUpper: number;
+};
+
+export type SlipstreamDisplayPriceOrientation = {
+  base: SlipstreamTokenInfo | null;
+  quote: SlipstreamTokenInfo | null;
+  inverted: boolean;
 };
 
 export type SlipstreamLiquiditySeries = {
@@ -235,6 +243,63 @@ function toToken(poolToken: SlipstreamTokenInfo, chainId: number) {
   return new Token(chainId, poolToken.address, poolToken.decimals, poolToken.symbol ?? undefined, poolToken.name ?? undefined);
 }
 
+function displayTokenPriority(token: SlipstreamTokenInfo | null) {
+  const identity = `${token?.symbol ?? ""} ${token?.name ?? ""}`.toUpperCase();
+  if (identity.includes("MUSD")) return 0;
+  if (identity.includes("BTC")) return 1;
+  return 2;
+}
+
+function displayPriceBasePriority(token: SlipstreamTokenInfo | null) {
+  const identity = `${token?.symbol ?? ""} ${token?.name ?? ""}`.toUpperCase();
+  if (identity.includes("BTC")) return 0;
+  if (identity.includes("MUSD")) return 1;
+  return 2;
+}
+
+function getOrientation(
+  pool: SlipstreamPoolState,
+  priority: (token: SlipstreamTokenInfo | null) => number,
+): SlipstreamDisplayPriceOrientation {
+  const inverted = priority(pool.token1) < priority(pool.token0);
+  return {
+    base: inverted ? pool.token1 : pool.token0,
+    quote: inverted ? pool.token0 : pool.token1,
+    inverted,
+  };
+}
+
+export function getDisplayTokenOrientation(pool: SlipstreamPoolState) {
+  return getOrientation(pool, displayTokenPriority);
+}
+
+export function getDisplayPriceOrientation(pool: SlipstreamPoolState) {
+  return getOrientation(pool, displayPriceBasePriority);
+}
+
+function displayTokenLabel(token: SlipstreamTokenInfo | null, fallback: string) {
+  if (token?.symbol) return token.symbol;
+  if (token?.address) return shortenAddress(token.address);
+  return fallback;
+}
+
+export function formatDisplayPair(pool: SlipstreamPoolState) {
+  const { base, quote, inverted } = getDisplayTokenOrientation(pool);
+  return `${displayTokenLabel(base, inverted ? "Token 1" : "Token 0")} / ${displayTokenLabel(
+    quote,
+    inverted ? "Token 0" : "Token 1",
+  )}`;
+}
+
+export function getDisplayPriceRangeTicks(
+  pool: SlipstreamPoolState,
+  range: SlipstreamTickRange,
+) {
+  return getDisplayPriceOrientation(pool).inverted
+    ? { lowTick: range.tickUpper, highTick: range.tickLower }
+    : { lowTick: range.tickLower, highTick: range.tickUpper };
+}
+
 function priceValueToText(price: ReturnType<typeof getTickPrice>) {
   if (!price) return "";
   return price.toFixed(18).replace(/\.?0+$/, "");
@@ -257,7 +322,8 @@ export function getTickPrice(params: {
   tick: number;
   invert?: boolean;
 }) {
-  const { pool, tick, invert = false } = params;
+  const { pool, tick } = params;
+  const invert = params.invert ?? getDisplayPriceOrientation(pool).inverted;
   const token0 = pool.token0;
   const token1 = pool.token1;
 
@@ -279,7 +345,7 @@ export function formatTickPrice(params: {
 }) {
   const price = getTickPrice(params);
   if (!price) return null;
-  return price.toSignificant(params.significantDigits ?? 5);
+  return formatCompactDecimal(price.toFixed(18), params.significantDigits ?? 5);
 }
 
 export function formatPriceLabel(params: {
@@ -287,7 +353,8 @@ export function formatPriceLabel(params: {
   tick: number;
   invert?: boolean;
 }) {
-  const { pool, tick, invert = false } = params;
+  const { pool, tick } = params;
+  const invert = params.invert ?? getDisplayPriceOrientation(pool).inverted;
   const price = getTickPrice({ pool, tick, invert });
   const base = invert ? pool.token1 : pool.token0;
   const quote = invert ? pool.token0 : pool.token1;
@@ -298,7 +365,7 @@ export function formatPriceLabel(params: {
     return `${baseLabel}/${quoteLabel}`;
   }
 
-  return `${price.toSignificant(5)} ${quoteLabel} / ${baseLabel}`;
+  return `${formatCompactDecimal(price.toFixed(18))} ${quoteLabel} / ${baseLabel}`;
 }
 
 export function formatPriceInputValue(params: {
@@ -318,6 +385,7 @@ export function parsePriceInputToTick(params: {
   const { pool, value, bound } = params;
   const token0 = pool.token0;
   const token1 = pool.token1;
+  const invert = params.invert ?? getDisplayPriceOrientation(pool).inverted;
   const parsed = normalizePriceInput(value);
   const tickSpacing = pool.tickSpacing ?? 1;
 
@@ -325,25 +393,25 @@ export function parsePriceInputToTick(params: {
 
   try {
     const price = new Price(
-      toToken(token0, pool.chainId),
-      toToken(token1, pool.chainId),
+      toToken(invert ? token1 : token0, pool.chainId),
+      toToken(invert ? token0 : token1, pool.chainId),
       "1000000000000000000",
       parsed.toString(),
     );
     const candidate = nearestUsableTick(priceToClosestTick(price), tickSpacing);
-    const candidatePrice = getTickPrice({ pool, tick: candidate });
+    const candidatePrice = getTickPrice({ pool, tick: candidate, invert });
 
     if (!candidatePrice) return null;
 
     if (bound === "lower") {
       if (candidatePrice.greaterThan(price)) {
-        return candidate - tickSpacing;
+        return candidate + (invert ? tickSpacing : -tickSpacing);
       }
       return candidate;
     }
 
     if (candidatePrice.lessThan(price)) {
-      return candidate + tickSpacing;
+      return candidate + (invert ? -tickSpacing : tickSpacing);
     }
 
     return candidate;
@@ -360,9 +428,11 @@ export function priceInputsForRange(params: {
     return { lower: "", upper: "" };
   }
 
+  const { lowTick, highTick } = getDisplayPriceRangeTicks(params.pool, params.range);
+
   return {
-    lower: formatPriceInputValue({ pool: params.pool, tick: params.range.tickLower }),
-    upper: formatPriceInputValue({ pool: params.pool, tick: params.range.tickUpper }),
+    lower: formatPriceInputValue({ pool: params.pool, tick: lowTick }),
+    upper: formatPriceInputValue({ pool: params.pool, tick: highTick }),
   };
 }
 

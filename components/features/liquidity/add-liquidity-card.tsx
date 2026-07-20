@@ -40,7 +40,10 @@ import {
 } from "./slipstream-liquidity-quote";
 import {
   buildPresetRange,
+  formatDisplayPair,
   formatPriceLabel,
+  getDisplayPriceRangeTicks,
+  getDisplayTokenOrientation,
   getPoolTickBounds,
   normalizeTickRange,
   resolveSlipstreamPoolContractName,
@@ -190,8 +193,9 @@ function sourceFamilyLabel(family: SlipstreamSourceFamily) {
 
 function currentRangeLabel(pool: SlipstreamPoolState, range: { tickLower: number; tickUpper: number } | null) {
   if (!range) return "Unavailable";
-  const lower = formatPriceLabel({ pool, tick: range.tickLower });
-  const upper = formatPriceLabel({ pool, tick: range.tickUpper });
+  const { lowTick, highTick } = getDisplayPriceRangeTicks(pool, range);
+  const lower = formatPriceLabel({ pool, tick: lowTick });
+  const upper = formatPriceLabel({ pool, tick: highTick });
   return `${lower} to ${upper}`;
 }
 
@@ -425,9 +429,9 @@ function buildLiquidityRouterCall(plan: SlipstreamLiquidityPlan): SlipstreamLiqu
   }
 }
 
-function quoteSummaryValue(value: bigint | null, decimals = 18) {
+function quoteSummaryValue(value: bigint | null) {
   if (value === null) return "Unavailable";
-  return formatCompactRawTokenAmount(value, decimals, null);
+  return formatCompactRawTokenAmount(value, 18, null);
 }
 
 function QuoteStat({
@@ -858,6 +862,9 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
   }
 
   const selectedSourceCount = [selectedSourceA, selectedSourceB].filter(Boolean).length;
+  const displaySides: readonly SlipstreamLiquiditySide[] = getDisplayTokenOrientation(pool).inverted
+    ? ["assetB", "assetA"]
+    : ["assetA", "assetB"];
   const statusTone: Record<SlipstreamLiquidityQuote["status"], string> = {
     ok: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
     "insufficient-balance": "border-rose-300/25 bg-rose-300/10 text-rose-100",
@@ -976,7 +983,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
             <div className="flex items-center justify-between gap-3">
               <label className="text-sm font-medium text-white">Low price</label>
               <span className="text-xs text-white/40">
-                {pool.token0?.symbol ?? "Token 0"} / {pool.token1?.symbol ?? "Token 1"}
+                {formatDisplayPair(pool)}
               </span>
             </div>
             <input
@@ -1005,7 +1012,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
             <div className="flex items-center justify-between gap-3">
               <label className="text-sm font-medium text-white">High price</label>
               <span className="text-xs text-white/40">
-                {pool.token0?.symbol ?? "Token 0"} / {pool.token1?.symbol ?? "Token 1"}
+                {formatDisplayPair(pool)}
               </span>
             </div>
             <input
@@ -1033,7 +1040,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
           <p className="text-xs leading-5 text-white/46">
-            Manual range uses token0 to token1 pricing and snaps to the pool tick spacing when applied.
+            Manual range uses {formatDisplayPair(pool)} pricing and snaps to the pool tick spacing when applied.
           </p>
           <Button
             type="button"
@@ -1051,40 +1058,34 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <LiquidityTokenInput
-            id="liquidity-assetA"
-            tokenSymbol={pool.token0?.symbol ?? null}
-            value={sideDisplayValue("assetA")}
-            balanceLabel={selectedSourceA ? formatCompactRawTokenAmount(selectedSourceA.balanceRaw, selectedSourceA.decimals, pool.token0?.symbol ?? null) : "Unavailable"}
-            isEditing={formState.activeSide === "assetA"}
-            disabled={!selectedSourceA || requiredInputSide === "assetB"}
-            loading={!pool.token0 || portfolio.isLoading}
-            insufficientBalance={quote.status === "insufficient-balance" && formState.activeSide === "assetA"}
-            canMax={Boolean(selectedSourceA && selectedSourceA.balanceRaw > 0n)}
-            sources={sourcesBySide.assetA}
-            selectedSource={selectedSourceA}
-            onFocus={() => activateSide("assetA", sideDisplayValue("assetA"))}
-            onChange={(value) => handleAmountChange("assetA", normalizeAmountInput(value))}
-            onMax={() => setMaxForSide("assetA")}
-            onSelectSource={(sourceId) => selectSource("assetA", sourceId)}
-          />
-          <LiquidityTokenInput
-            id="liquidity-assetB"
-            tokenSymbol={pool.token1?.symbol ?? null}
-            value={sideDisplayValue("assetB")}
-            balanceLabel={selectedSourceB ? formatCompactRawTokenAmount(selectedSourceB.balanceRaw, selectedSourceB.decimals, pool.token1?.symbol ?? null) : "Unavailable"}
-            isEditing={formState.activeSide === "assetB"}
-            disabled={!selectedSourceB || requiredInputSide === "assetA"}
-            loading={!pool.token1 || portfolio.isLoading}
-            insufficientBalance={quote.status === "insufficient-balance" && formState.activeSide === "assetB"}
-            canMax={Boolean(selectedSourceB && selectedSourceB.balanceRaw > 0n)}
-            sources={sourcesBySide.assetB}
-            selectedSource={selectedSourceB}
-            onFocus={() => activateSide("assetB", sideDisplayValue("assetB"))}
-            onChange={(value) => handleAmountChange("assetB", normalizeAmountInput(value))}
-            onMax={() => setMaxForSide("assetB")}
-            onSelectSource={(sourceId) => selectSource("assetB", sourceId)}
-          />
+          {displaySides.map((side) => {
+            const isAssetA = side === "assetA";
+            const token = isAssetA ? pool.token0 : pool.token1;
+            const source = isAssetA ? selectedSourceA : selectedSourceB;
+            const sources = isAssetA ? sourcesBySide.assetA : sourcesBySide.assetB;
+            const oppositeSide: SlipstreamLiquiditySide = isAssetA ? "assetB" : "assetA";
+
+            return (
+              <LiquidityTokenInput
+                key={side}
+                id={`liquidity-${side}`}
+                tokenSymbol={token?.symbol ?? null}
+                value={sideDisplayValue(side)}
+                balanceLabel={source ? formatCompactRawTokenAmount(source.balanceRaw, source.decimals, token?.symbol ?? null) : "Unavailable"}
+                isEditing={formState.activeSide === side}
+                disabled={!source || requiredInputSide === oppositeSide}
+                loading={!token || portfolio.isLoading}
+                insufficientBalance={quote.status === "insufficient-balance" && formState.activeSide === side}
+                canMax={Boolean(source && source.balanceRaw > 0n)}
+                sources={sources}
+                selectedSource={source}
+                onFocus={() => activateSide(side, sideDisplayValue(side))}
+                onChange={(value) => handleAmountChange(side, normalizeAmountInput(value))}
+                onMax={() => setMaxForSide(side)}
+                onSelectSource={(sourceId) => selectSource(side, sourceId)}
+              />
+            );
+          })}
         </div>
 
         <div className="space-y-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] p-4 sm:p-5">
@@ -1120,7 +1121,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
           <div className="grid gap-3 md:grid-cols-3">
             <QuoteStat
               label="Liquidity"
-              value={quoteSummaryValue(quote.liquidityRaw, 0)}
+              value={quoteSummaryValue(quote.liquidityRaw)}
               detail={quote.status === "ok" ? "Ready" : "Enter an amount to preview"}
             />
             <QuoteStat

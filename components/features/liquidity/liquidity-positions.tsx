@@ -3,13 +3,19 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Coins, Droplets, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { formatUnits, type Abi, type Address } from "viem";
+import { type Abi, type Address } from "viem";
 import { useAccount, useChainId } from "wagmi";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
 import { getPortfolioRegistry, useId20Portfolio, useLiquidityPortfolio, useWalletPortfolio, type LiquidityPortfolio, type PortfolioDomain } from "@/features/portfolio";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, type TxStep } from "@/lib/tx-flow";
-import { formatPriceLabel, type SlipstreamPoolState } from "./slipstream-adapter";
+import { formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
+import {
+  formatPriceLabel,
+  getDisplayPriceRangeTicks,
+  getDisplayTokenOrientation,
+  type SlipstreamPoolState,
+} from "./slipstream-adapter";
 
 const UINT128_MAX = (1n << 128n) - 1n;
 const DEFAULT_SLIPPAGE_BPS = 50;
@@ -24,8 +30,17 @@ function withDomains(step: TxStep, domains: readonly PortfolioDomain[]) {
 
 function amount(raw: bigint | undefined, token: TokenMeta | undefined) {
   if (raw === undefined || !token) return "Unavailable";
-  const value = Number(formatUnits(raw, token.decimals));
-  return `${value.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${token.symbol}`;
+  return formatCompactRawTokenAmount(raw, token.decimals, token.symbol);
+}
+
+function formatPercentage(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return "Unavailable";
+  if (value > 0 && value < 0.01) return "<0.01%";
+  const fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+  return `${new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: fractionDigits,
+    minimumFractionDigits: fractionDigits,
+  }).format(value)}%`;
 }
 
 function TokenPair({ token0, token1 }: { token0?: TokenMeta; token1?: TokenMeta }) {
@@ -48,7 +63,7 @@ function ActionMessage({ success, error }: { success: string | null; error: stri
   return <p role="status" className={cn("rounded-lg border px-3 py-2 text-xs", error ? "border-red-300/20 bg-red-300/10 text-red-100" : "border-emerald-300/20 bg-emerald-300/10 text-emerald-100")}>{error ?? success}</p>;
 }
 
-function PositionActions({ position, token0, token1, managerAddress, managerAbi }: { position: Position; token0?: TokenMeta; token1?: TokenMeta; managerAddress: Address; managerAbi: Abi }) {
+function PositionActions({ position, token0, token1, displayInverted, managerAddress, managerAbi }: { position: Position; token0?: TokenMeta; token1?: TokenMeta; displayInverted: boolean; managerAddress: Address; managerAbi: Abi }) {
   const { address } = useAccount();
   const [percent, setPercent] = useState("25");
   const [slippage, setSlippage] = useState((DEFAULT_SLIPPAGE_BPS / 100).toString());
@@ -65,6 +80,12 @@ function PositionActions({ position, token0, token1, managerAddress, managerAbi 
   const min0 = estimated0 === undefined ? 0n : estimated0 * (10_000n - slippageBps) / 10_000n;
   const min1 = estimated1 === undefined ? 0n : estimated1 * (10_000n - slippageBps) / 10_000n;
   const canBurn = position.liquidity === 0n && position.tokensOwed0 === 0n && position.tokensOwed1 === 0n;
+  const estimatedAmounts = displayInverted
+    ? [[estimated1, token1], [estimated0, token0]] as const
+    : [[estimated0, token0], [estimated1, token1]] as const;
+  const feeAmounts = displayInverted
+    ? [[position.tokensOwed1, token1], [position.tokensOwed0, token0]] as const
+    : [[position.tokensOwed0, token0], [position.tokensOwed1, token1]] as const;
 
   const collectSteps = address ? [withDomains(makeAddressWriteStep({ key: "liquidity-collect-fees", label: "Collect fees", displayLabelBtn: true, address: managerAddress, abi: managerAbi, variables: { functionName: "collect", args: [{ tokenId: position.tokenId, recipient: address, amount0Max: UINT128_MAX, amount1Max: UINT128_MAX }] } }) as TxStep, ["liquidity", "wallet", "id20"])] : [];
   const removeSteps = address && removeLiquidity > 0n ? [withDomains(makeAddressWriteStep({ key: "liquidity-remove", label: numericPercent === 100 ? "Remove all liquidity" : "Remove liquidity", displayLabelBtn: true, address: managerAddress, abi: managerAbi, variables: { functionName: "decreaseLiquidity", args: [{ tokenId: position.tokenId, liquidity: removeLiquidity, amount0Min: min0, amount1Min: min1, deadline }] } }) as TxStep, ["liquidity", "wallet", "id20"]), ...(collectAfter ? collectSteps : [])] : [];
@@ -77,14 +98,14 @@ function PositionActions({ position, token0, token1, managerAddress, managerAbi 
       <div><h4 className="font-medium text-white">Remove liquidity</h4><p className="text-xs text-white/50">Partially or fully withdraw the active position.</p></div>
       <div className="grid grid-cols-4 gap-2">{[25, 50, 75, 100].map((preset) => <Button key={preset} type="button" size="sm" variant={numericPercent === preset ? "default" : "secondary"} onClick={() => setPercent(String(preset))}>{preset === 100 ? "Max" : `${preset}%`}</Button>)}</div>
       <label className="block text-xs text-white/60">Percentage<Input value={percent} onChange={(event) => setPercent(event.target.value)} inputMode="decimal" className="mt-1" /></label>
-      <div className="grid grid-cols-2 gap-2 text-xs"><span className="rounded-lg bg-white/5 p-2">Est. {amount(estimated0, token0)}</span><span className="rounded-lg bg-white/5 p-2">Est. {amount(estimated1, token1)}</span></div>
+      <div className="grid grid-cols-2 gap-2 text-xs">{estimatedAmounts.map(([raw, token], index) => <span key={index} className="rounded-lg bg-white/5 p-2">Est. {amount(raw, token)}</span>)}</div>
       <label className="block text-xs text-white/60">Slippage tolerance (%)<Input value={slippage} onChange={(event) => setSlippage(event.target.value)} inputMode="decimal" className="mt-1" /></label>
       <label className="flex items-center gap-2 text-xs text-white/65"><input type="checkbox" checked={collectAfter} onChange={(event) => setCollectAfter(event.target.checked)} /> Collect owed tokens after removal</label>
       <TransactionFlowButton className="w-full" steps={removeSteps} disabled={removeLiquidity <= 0n} onComplete={complete(numericPercent === 100 ? "Liquidity fully removed. The NFT was not burned." : "Liquidity partially removed.")} onError={failed}>Preview and remove</TransactionFlowButton>
     </div>
     <div className="space-y-3 rounded-xl border border-white/10 bg-black/15 p-4">
       <div><h4 className="font-medium text-white">Uncollected fees</h4><p className="text-xs text-white/50">Sent directly to {address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "your wallet"}.</p></div>
-      <div className="grid grid-cols-2 gap-2 text-sm"><span>{amount(position.tokensOwed0, token0)}</span><span>{amount(position.tokensOwed1, token1)}</span></div>
+      <div className="grid grid-cols-2 gap-2 text-sm">{feeAmounts.map(([raw, token], index) => <span key={index}>{amount(raw, token)}</span>)}</div>
       <TransactionFlowButton className="w-full" steps={collectSteps} disabled={position.tokensOwed0 === 0n && position.tokensOwed1 === 0n} onComplete={complete("Fees collected.")} onError={failed}><Coins className="h-4 w-4" /> Collect fees</TransactionFlowButton>
       <div className="border-t border-white/10 pt-3"><p className="text-xs text-white/50">Increase liquidity uses this NFT’s exact range. The current add-liquidity router only mints new positions, so increasing is disabled until its position-aware method is configured.</p><Button className="mt-2 w-full" variant="secondary" disabled><Plus className="h-4 w-4" /> Increase liquidity</Button></div>
       {canBurn ? <div className="border-t border-white/10 pt-3"><label className="flex items-start gap-2 text-xs text-white/65"><input type="checkbox" checked={burnConfirmed} onChange={(event) => setBurnConfirmed(event.target.checked)} /> I confirm this empty NFT should be permanently burned.</label><TransactionFlowButton className="mt-2 w-full" variant="secondary" disabled={!burnConfirmed} steps={[withDomains(makeAddressWriteStep({ key: "liquidity-burn-position", label: "Burn empty position NFT", address: managerAddress, abi: managerAbi, variables: { functionName: "burn", args: [position.tokenId] } }) as TxStep, ["liquidity"])]} onComplete={complete("Empty position NFT burned.")} onError={failed}><Trash2 className="h-4 w-4" /> Burn empty NFT</TransactionFlowButton></div> : null}
@@ -98,13 +119,23 @@ function LiquidityPositionCard({ position, tokens, managerAddress, managerAbi }:
   const token0 = tokens.get(position.token0.toLowerCase()); const token1 = tokens.get(position.token1.toLowerCase());
   const status = statusOf(position);
   const poolState: SlipstreamPoolState = { chainId: 0, address: position.pool, token0: token0 ? { ...token0, name: token0.symbol } : null, token1: token1 ? { ...token1, name: token1.symbol } : null, currentTick: position.currentTick ?? null, sqrtPriceX96: position.sqrtPriceX96 ?? null, tickSpacing: position.tickSpacing };
+  const displayTokenOrientation = getDisplayTokenOrientation(poolState);
+  const displayToken0 = displayTokenOrientation.inverted ? token1 : token0;
+  const displayToken1 = displayTokenOrientation.inverted ? token0 : token1;
+  const depositedAmounts = displayTokenOrientation.inverted
+    ? [[position.rawAmount1, token1], [position.rawAmount0, token0]] as const
+    : [[position.rawAmount0, token0], [position.rawAmount1, token1]] as const;
+  const feeAmounts = displayTokenOrientation.inverted
+    ? [[position.tokensOwed1, token1], [position.tokensOwed0, token0]] as const
+    : [[position.tokensOwed0, token0], [position.tokensOwed1, token1]] as const;
+  const { lowTick, highTick } = getDisplayPriceRangeTicks(poolState, position);
   const share = position.poolLiquidity && position.poolLiquidity > 0n ? Number(position.liquidity * 1_000_000n / position.poolLiquidity) / 10_000 : null;
   return <Card className="overflow-hidden border-white/10 bg-white/[0.035]">
     <button type="button" className="w-full text-left" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-      <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-4"><TokenPair token0={token0} token1={token1} /><div><CardTitle className="text-lg">{token0?.symbol ?? "Token 0"} / {token1?.symbol ?? "Token 1"}</CardTitle><CardDescription>{position.poolKey} · Tick spacing {position.tickSpacing} · NFT #{position.tokenId.toString()}</CardDescription></div></div><div className="flex items-center gap-2"><Badge className={status.tone}>{status.label}</Badge>{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</div></CardHeader>
-      <CardContent className="grid gap-3 border-t border-white/8 pt-5 sm:grid-cols-2 lg:grid-cols-4"><div><p className="text-xs text-white/45">Deposited</p><p className="mt-1 text-sm text-white">{amount(position.rawAmount0, token0)}</p><p className="text-sm text-white">{amount(position.rawAmount1, token1)}</p></div><div><p className="text-xs text-white/45">Uncollected fees</p><p className="mt-1 text-sm text-white">{amount(position.tokensOwed0, token0)}</p><p className="text-sm text-white">{amount(position.tokensOwed1, token1)}</p></div><div><p className="text-xs text-white/45">Current price</p><p className="mt-1 text-sm text-white">{position.currentTick === undefined ? "Unavailable" : formatPriceLabel({ pool: poolState, tick: position.currentTick })}</p></div><div><p className="text-xs text-white/45">Pool share</p><p className="mt-1 text-sm text-white">{share === null ? "Unavailable" : `${share.toLocaleString(undefined, { maximumFractionDigits: 4 })}%`}</p></div></CardContent>
+      <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-4"><TokenPair token0={displayToken0} token1={displayToken1} /><div><CardTitle className="text-lg">{displayToken0?.symbol ?? "Token 0"} / {displayToken1?.symbol ?? "Token 1"}</CardTitle><CardDescription>{position.poolKey} · Tick spacing {position.tickSpacing} · NFT #{position.tokenId.toString()}</CardDescription></div></div><div className="flex items-center gap-2"><Badge className={status.tone}>{status.label}</Badge>{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</div></CardHeader>
+      <CardContent className="grid gap-3 border-t border-white/8 pt-5 sm:grid-cols-2 lg:grid-cols-4"><div><p className="text-xs text-white/45">Deposited</p>{depositedAmounts.map(([raw, token], index) => <p key={index} className={index === 0 ? "mt-1 text-sm text-white" : "text-sm text-white"}>{amount(raw, token)}</p>)}</div><div><p className="text-xs text-white/45">Uncollected fees</p>{feeAmounts.map(([raw, token], index) => <p key={index} className={index === 0 ? "mt-1 text-sm text-white" : "text-sm text-white"}>{amount(raw, token)}</p>)}</div><div><p className="text-xs text-white/45">Current price</p><p className="mt-1 text-sm text-white">{position.currentTick === undefined ? "Unavailable" : formatPriceLabel({ pool: poolState, tick: position.currentTick })}</p></div><div><p className="text-xs text-white/45">Pool share</p><p className="mt-1 text-sm text-white">{formatPercentage(share)}</p></div></CardContent>
     </button>
-    {open ? <CardContent className="space-y-4 border-t border-white/10 pt-5"><p className="text-sm text-white/65">{status.help}</p><div className="grid gap-3 text-sm sm:grid-cols-3"><div className="rounded-lg bg-white/5 p-3"><p className="text-xs text-white/45">Minimum price</p><p>{formatPriceLabel({ pool: poolState, tick: position.tickLower })}</p></div><div className="rounded-lg bg-white/5 p-3"><p className="text-xs text-white/45">Current pool price</p><p>{position.currentTick === undefined ? "Unavailable" : formatPriceLabel({ pool: poolState, tick: position.currentTick })}</p></div><div className="rounded-lg bg-white/5 p-3"><p className="text-xs text-white/45">Maximum price</p><p>{formatPriceLabel({ pool: poolState, tick: position.tickUpper })}</p></div></div><PositionActions position={position} token0={token0} token1={token1} managerAddress={managerAddress} managerAbi={managerAbi} /></CardContent> : null}
+    {open ? <CardContent className="space-y-4 border-t border-white/10 pt-5"><p className="text-sm text-white/65">{status.help}</p><div className="grid gap-3 text-sm sm:grid-cols-3"><div className="rounded-lg bg-white/5 p-3"><p className="text-xs text-white/45">Minimum price</p><p>{formatPriceLabel({ pool: poolState, tick: lowTick })}</p></div><div className="rounded-lg bg-white/5 p-3"><p className="text-xs text-white/45">Current pool price</p><p>{position.currentTick === undefined ? "Unavailable" : formatPriceLabel({ pool: poolState, tick: position.currentTick })}</p></div><div className="rounded-lg bg-white/5 p-3"><p className="text-xs text-white/45">Maximum price</p><p>{formatPriceLabel({ pool: poolState, tick: highTick })}</p></div></div><PositionActions position={position} token0={token0} token1={token1} displayInverted={displayTokenOrientation.inverted} managerAddress={managerAddress} managerAbi={managerAbi} /></CardContent> : null}
   </Card>;
 }
 

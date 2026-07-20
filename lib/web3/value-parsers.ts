@@ -51,6 +51,16 @@ function formatCompactNumber(value: number, maximumFractionDigits = 2): string {
   }).format(value);
 }
 
+export function formatCompactDecimal(raw: string, maximumFractionDigits = 4): string {
+  const numeric = Number(raw);
+
+  if (!Number.isFinite(numeric)) return raw;
+
+  return Math.abs(numeric) > 0.0001
+    ? formatCompactNumber(numeric, maximumFractionDigits)
+    : formatRawDecimal(raw, maximumFractionDigits);
+}
+
 export function formatUsd(value: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -104,16 +114,7 @@ export function formatCompactRawTokenAmount(
   if (value === null || value === undefined) return "Unavailable";
 
   const raw = formatUnits(value, decimals);
-  const numeric = Number(raw);
-
-  if (!Number.isFinite(numeric)) {
-    return symbol ? `${raw} ${symbol}` : raw;
-  }
-
-  const formatted =
-    Math.abs(numeric) > 0.0001
-      ? formatCompactNumber(numeric, maximumFractionDigits)
-      : formatRawDecimal(raw, maximumFractionDigits);
+  const formatted = formatCompactDecimal(raw, maximumFractionDigits);
 
   return symbol ? `${formatted} ${symbol}` : formatted;
 }

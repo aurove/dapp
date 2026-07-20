@@ -14,14 +14,15 @@ import {
   buildLiquiditySeries,
   buildPresetRange,
   clampTickToBounds,
+  formatDisplayPair,
   formatPriceLabel,
+  getDisplayPriceRangeTicks,
   getPoolTickBounds,
   getFullRangeHalfIntervals,
   getRangeMidpoint,
   getRangeTickCount,
   SLIPSTREAM_POOL_READ_ABI,
   normalizeTickRange,
-  shortenAddress,
   resolveSlipstreamPoolContractName,
   SLIPSTREAM_RANGE_INTERVALS,
   type SlipstreamLiquiditySeries,
@@ -87,8 +88,9 @@ function useElementSize<T extends HTMLElement>() {
 }
 
 function formatRangeText(range: SlipstreamTickRange, pool: SlipstreamPoolState) {
-  const lower = formatPriceLabel({ pool, tick: range.tickLower });
-  const upper = formatPriceLabel({ pool, tick: range.tickUpper });
+  const { lowTick, highTick } = getDisplayPriceRangeTicks(pool, range);
+  const lower = formatPriceLabel({ pool, tick: lowTick });
+  const upper = formatPriceLabel({ pool, tick: highTick });
   return { lower, upper };
 }
 
@@ -566,8 +568,7 @@ export function LiquidityRangeGraph({
             )}
           </div>
           <p className="text-xs text-white/45">
-            {pool.token0?.symbol ?? shortenAddress(pool.token0?.address)} /{" "}
-            {pool.token1?.symbol ?? shortenAddress(pool.token1?.address)}
+            {formatDisplayPair(pool)}
           </p>
         </div>
 
