@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import type { Address } from "viem";
@@ -24,7 +24,11 @@ type Props = Omit<ComponentPropsWithoutRef<typeof Button>, "children" | "onClick
   onError?: (err: string, resultsSoFar: TxStepResult[]) => void;
 };
 
-export default function TransactionFlowButton({
+export type TransactionFlowButtonHandle = {
+  run: () => Promise<void>;
+};
+
+const TransactionFlowButton = forwardRef<TransactionFlowButtonHandle, Props>(function TransactionFlowButton({
   steps,
   children,
   className,
@@ -33,8 +37,9 @@ export default function TransactionFlowButton({
   onError,
   icon,
   renderStatusIcon,
+  type = "button",
   ...props
-}: Props) {
+}, ref) {
   const { address, chain } = useAccount();
   const publicClient = usePublicClient()!; // will be available since we wrap display in connect btn
   const { writeContractAsync } = useWriteContract();
@@ -48,7 +53,7 @@ export default function TransactionFlowButton({
   const canRun = Boolean(address && !running && !disabled);
 
   const handleClick = async () => {
-    if (!address || !chain) return;
+    if (!address || !chain || running || disabled) return;
 
     setIconState("pending");
 
@@ -113,15 +118,17 @@ export default function TransactionFlowButton({
     }
   };
 
+  useImperativeHandle(ref, () => ({ run: handleClick }));
+
   const label = running && activeLabel ? activeLabel : children;
 
   return (
     <WalletConnectButton>
       <Button
         {...props}
-        type="button"
+        type={type}
         className={className}
-        onClick={handleClick}
+        onClick={type === "submit" ? undefined : handleClick}
         disabled={!canRun}
         aria-busy={running}
       >
@@ -131,4 +138,6 @@ export default function TransactionFlowButton({
       </Button>
     </WalletConnectButton>
   );
-}
+});
+
+export default TransactionFlowButton;

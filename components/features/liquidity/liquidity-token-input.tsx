@@ -144,6 +144,7 @@ export function FundingSourceSelector({
 
 export function LiquidityTokenInput({
   id,
+  name,
   actionLabel = "Deposit",
   tokenSymbol,
   value,
@@ -162,6 +163,7 @@ export function LiquidityTokenInput({
   onSelectSource,
 }: {
   id: string;
+  name?: string;
   actionLabel?: string;
   tokenSymbol: string | null;
   value: string;
@@ -197,6 +199,7 @@ export function LiquidityTokenInput({
           <div className="min-w-0 flex-1">
             <Input
               id={id}
+              name={name ?? id}
               inputMode="decimal"
               placeholder="0"
               value={value}

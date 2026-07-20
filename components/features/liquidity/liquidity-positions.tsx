@@ -1,13 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useFormik } from "formik";
+import * as Yup from "yup";
 import { ChevronDown, ChevronUp, Coins, Droplets, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { type Abi, type Address } from "viem";
 import { useAccount, useChainId } from "wagmi";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
 import { getPortfolioRegistry, useId20Portfolio, useLiquidityPortfolio, useWalletPortfolio, type LiquidityPortfolio, type PortfolioDomain } from "@/features/portfolio";
-import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
+import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, type TxStep } from "@/lib/tx-flow";
 import { formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
 import {
@@ -65,6 +67,8 @@ function ActionMessage({ success, error }: { success: string | null; error: stri
 
 function PositionActions({ position, token0, token1, displayInverted, managerAddress, managerAbi }: { position: Position; token0?: TokenMeta; token1?: TokenMeta; displayInverted: boolean; managerAddress: Address; managerAbi: Abi }) {
   const { address } = useAccount();
+  const removeTransactionRef = useRef<TransactionFlowButtonHandle>(null);
+  const burnTransactionRef = useRef<TransactionFlowButtonHandle>(null);
   const [percent, setPercent] = useState("25");
   const [slippage, setSlippage] = useState((DEFAULT_SLIPPAGE_BPS / 100).toString());
   const [collectAfter, setCollectAfter] = useState(true);
@@ -92,23 +96,42 @@ function PositionActions({ position, token0, token1, displayInverted, managerAdd
 
   const complete = (message: string) => () => { setError(null); setSuccess(message); };
   const failed = (message: string) => { setSuccess(null); setError(message); };
+  const removeFormik = useFormik({
+    initialValues: { percent, slippage, collectAfter },
+    enableReinitialize: true,
+    validationSchema: Yup.object({
+      percent: Yup.number().typeError("Enter a valid percentage.").moreThan(0).max(100).required(),
+      slippage: Yup.number().typeError("Enter a valid slippage.").min(0).max(50).required(),
+      collectAfter: Yup.boolean().required(),
+    }),
+    onSubmit: async () => removeTransactionRef.current?.run(),
+  });
+  const burnFormik = useFormik({
+    initialValues: { burnConfirmed },
+    enableReinitialize: true,
+    validationSchema: Yup.object({
+      burnConfirmed: Yup.boolean().oneOf([true], "Confirm the permanent burn before continuing."),
+    }),
+    onSubmit: async () => burnTransactionRef.current?.run(),
+  });
 
   return <div className="grid gap-4 pt-2 lg:grid-cols-2">
-    <div className="space-y-3 rounded-xl border border-white/10 bg-black/15 p-4">
+    <form onSubmit={removeFormik.handleSubmit} noValidate className="space-y-3 rounded-xl border border-white/10 bg-black/15 p-4">
       <div><h4 className="font-medium text-white">Remove liquidity</h4><p className="text-xs text-white/50">Partially or fully withdraw the active position.</p></div>
-      <div className="grid grid-cols-4 gap-2">{[25, 50, 75, 100].map((preset) => <Button key={preset} type="button" size="sm" variant={numericPercent === preset ? "default" : "secondary"} onClick={() => setPercent(String(preset))}>{preset === 100 ? "Max" : `${preset}%`}</Button>)}</div>
-      <label className="block text-xs text-white/60">Percentage<Input value={percent} onChange={(event) => setPercent(event.target.value)} inputMode="decimal" className="mt-1" /></label>
+      <div className="grid grid-cols-4 gap-2">{[25, 50, 75, 100].map((preset) => <Button key={preset} type="button" size="sm" variant={numericPercent === preset ? "default" : "secondary"} onClick={() => { setPercent(String(preset)); void removeFormik.setFieldValue("percent", String(preset)); }}>{preset === 100 ? "Max" : `${preset}%`}</Button>)}</div>
+      <label className="block text-xs text-white/60">Percentage<Input name="percent" value={percent} onBlur={removeFormik.handleBlur} onChange={(event) => { setPercent(event.target.value); void removeFormik.setFieldValue("percent", event.target.value); }} inputMode="decimal" className="mt-1" /></label>
       <div className="grid grid-cols-2 gap-2 text-xs">{estimatedAmounts.map(([raw, token], index) => <span key={index} className="rounded-lg bg-white/5 p-2">Est. {amount(raw, token)}</span>)}</div>
-      <label className="block text-xs text-white/60">Slippage tolerance (%)<Input value={slippage} onChange={(event) => setSlippage(event.target.value)} inputMode="decimal" className="mt-1" /></label>
-      <label className="flex items-center gap-2 text-xs text-white/65"><input type="checkbox" checked={collectAfter} onChange={(event) => setCollectAfter(event.target.checked)} /> Collect owed tokens after removal</label>
-      <TransactionFlowButton className="w-full" steps={removeSteps} disabled={removeLiquidity <= 0n} onComplete={complete(numericPercent === 100 ? "Liquidity fully removed. The NFT was not burned." : "Liquidity partially removed.")} onError={failed}>Preview and remove</TransactionFlowButton>
-    </div>
+      <label className="block text-xs text-white/60">Slippage tolerance (%)<Input name="slippage" value={slippage} onBlur={removeFormik.handleBlur} onChange={(event) => { setSlippage(event.target.value); void removeFormik.setFieldValue("slippage", event.target.value); }} inputMode="decimal" className="mt-1" /></label>
+      <label className="flex items-center gap-2 text-xs text-white/65"><input name="collectAfter" type="checkbox" checked={collectAfter} onChange={(event) => { setCollectAfter(event.target.checked); void removeFormik.setFieldValue("collectAfter", event.target.checked); }} /> Collect owed tokens after removal</label>
+      {removeFormik.submitCount > 0 && (removeFormik.errors.percent || removeFormik.errors.slippage) ? <p role="alert" className="text-xs text-red-200">{removeFormik.errors.percent ?? removeFormik.errors.slippage}</p> : null}
+      <TransactionFlowButton ref={removeTransactionRef} type="submit" className="w-full" steps={removeSteps} disabled={removeLiquidity <= 0n} onComplete={complete(numericPercent === 100 ? "Liquidity fully removed. The NFT was not burned." : "Liquidity partially removed.")} onError={failed}>Preview and remove</TransactionFlowButton>
+    </form>
     <div className="space-y-3 rounded-xl border border-white/10 bg-black/15 p-4">
       <div><h4 className="font-medium text-white">Uncollected fees</h4><p className="text-xs text-white/50">Sent directly to {address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "your wallet"}.</p></div>
       <div className="grid grid-cols-2 gap-2 text-sm">{feeAmounts.map(([raw, token], index) => <span key={index}>{amount(raw, token)}</span>)}</div>
       <TransactionFlowButton className="w-full" steps={collectSteps} disabled={position.tokensOwed0 === 0n && position.tokensOwed1 === 0n} onComplete={complete("Fees collected.")} onError={failed}><Coins className="h-4 w-4" /> Collect fees</TransactionFlowButton>
       <div className="border-t border-white/10 pt-3"><p className="text-xs text-white/50">Increase liquidity uses this NFT’s exact range. The current add-liquidity router only mints new positions, so increasing is disabled until its position-aware method is configured.</p><Button className="mt-2 w-full" variant="secondary" disabled><Plus className="h-4 w-4" /> Increase liquidity</Button></div>
-      {canBurn ? <div className="border-t border-white/10 pt-3"><label className="flex items-start gap-2 text-xs text-white/65"><input type="checkbox" checked={burnConfirmed} onChange={(event) => setBurnConfirmed(event.target.checked)} /> I confirm this empty NFT should be permanently burned.</label><TransactionFlowButton className="mt-2 w-full" variant="secondary" disabled={!burnConfirmed} steps={[withDomains(makeAddressWriteStep({ key: "liquidity-burn-position", label: "Burn empty position NFT", address: managerAddress, abi: managerAbi, variables: { functionName: "burn", args: [position.tokenId] } }) as TxStep, ["liquidity"])]} onComplete={complete("Empty position NFT burned.")} onError={failed}><Trash2 className="h-4 w-4" /> Burn empty NFT</TransactionFlowButton></div> : null}
+      {canBurn ? <form onSubmit={burnFormik.handleSubmit} noValidate className="border-t border-white/10 pt-3"><label className="flex items-start gap-2 text-xs text-white/65"><input name="burnConfirmed" type="checkbox" checked={burnConfirmed} onChange={(event) => { setBurnConfirmed(event.target.checked); void burnFormik.setFieldValue("burnConfirmed", event.target.checked); }} /> I confirm this empty NFT should be permanently burned.</label>{burnFormik.submitCount > 0 && burnFormik.errors.burnConfirmed ? <p role="alert" className="mt-2 text-xs text-red-200">{burnFormik.errors.burnConfirmed}</p> : null}<TransactionFlowButton ref={burnTransactionRef} type="submit" className="mt-2 w-full" variant="secondary" disabled={!burnConfirmed} steps={[withDomains(makeAddressWriteStep({ key: "liquidity-burn-position", label: "Burn empty position NFT", address: managerAddress, abi: managerAbi, variables: { functionName: "burn", args: [position.tokenId] } }) as TxStep, ["liquidity"])]} onComplete={complete("Empty position NFT burned.")} onError={failed}><Trash2 className="h-4 w-4" /> Burn empty NFT</TransactionFlowButton></form> : null}
       <ActionMessage success={success} error={error} />
     </div>
   </div>;

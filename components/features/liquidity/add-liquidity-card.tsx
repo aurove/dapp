@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useFormik } from "formik";
+import * as Yup from "yup";
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -19,7 +21,7 @@ import { getContractConfig } from "@/contracts/shared";
 import { usePortfolioSummary, type PortfolioSummary, type WalletPortfolio } from "@/features/portfolio";
 import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw, readResult } from "@/lib/web3/value-parsers";
-import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
+import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { LiquidityRangeGraph } from "./liquidity-range-graph";
 import { useSlipstreamPoolState } from "./liquidity-range-graph";
@@ -453,6 +455,7 @@ function QuoteStat({
 }
 
 export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: LiquidityPoolKey }) {
+  const transactionRef = useRef<TransactionFlowButtonHandle>(null);
   const chainId = useChainId();
   const { address: account } = useAccount();
   const { chainTimestamp } = useChainTime();
@@ -655,6 +658,33 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
 
     return steps;
   }, [quote.routerPlan, routerAddress, selectedSourceA, selectedSourceB]);
+  const activeToken = formState.activeSide === "assetA" ? pool.token0 : pool.token1;
+  const activeAmountSchema = Yup.string()
+    .required("Enter an amount.")
+    .test("valid-amount", "Enter a valid amount.", (value) =>
+      Boolean(activeToken && value && (parseAmountRaw(value, activeToken.decimals) ?? 0n) > 0n),
+    )
+    .test("valid-quote", quote.errorMessage ?? "A valid liquidity quote is required.", () => quote.status === "ok");
+  const formik = useFormik({
+    initialValues: {
+      assetA: formState.draftAmounts.assetA,
+      assetB: formState.draftAmounts.assetB,
+      lower: formState.manualRangeInputs.lower,
+      upper: formState.manualRangeInputs.upper,
+    },
+    enableReinitialize: true,
+    validationSchema: Yup.object({
+      assetA: formState.activeSide === "assetA" ? activeAmountSchema : Yup.string(),
+      assetB: formState.activeSide === "assetB" ? activeAmountSchema : Yup.string(),
+      lower: Yup.string().required("Enter a low price.").test("low-price", "Enter a valid low price.", (value) =>
+        Boolean(value && parsePriceInputToTick({ pool, value, bound: "lower" }) !== null),
+      ),
+      upper: Yup.string().required("Enter a high price.").test("high-price", "Enter a valid high price.", (value) =>
+        Boolean(value && parsePriceInputToTick({ pool, value, bound: "upper" }) !== null),
+      ),
+    }),
+    onSubmit: async () => transactionRef.current?.run(),
+  });
 
   const currentTick = pool.currentTick;
   const currentPriceText =
@@ -892,6 +922,8 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
         className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(234,209,165,0.36),transparent)]"
       />
 
+      <form onSubmit={formik.handleSubmit} noValidate>
+
       <CardHeader className="relative space-y-4 border-b border-white/10 p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
@@ -987,6 +1019,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
               </span>
             </div>
             <input
+              name="lower"
               inputMode="decimal"
               value={formState.manualRangeInputs.lower}
               onChange={(event) => {
@@ -1016,6 +1049,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
               </span>
             </div>
             <input
+              name="upper"
               inputMode="decimal"
               value={formState.manualRangeInputs.upper}
               onChange={(event) => {
@@ -1069,6 +1103,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
               <LiquidityTokenInput
                 key={side}
                 id={`liquidity-${side}`}
+                name={side}
                 tokenSymbol={token?.symbol ?? null}
                 value={sideDisplayValue(side)}
                 balanceLabel={source ? formatCompactRawTokenAmount(source.balanceRaw, source.decimals, token?.symbol ?? null) : "Unavailable"}
@@ -1137,6 +1172,8 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
           </div>
 
           <TransactionFlowButton
+            ref={transactionRef}
+            type="submit"
             className="h-14 w-full justify-center rounded-2xl bg-[linear-gradient(180deg,#f1c46e,#d8a94f)] px-5 text-base font-semibold text-[#17130c] shadow-[0_16px_30px_rgba(216,169,79,0.22)] hover:bg-[linear-gradient(180deg,#f4ce84,#ddb45d)]"
             size="lg"
             disabled={quote.status !== "ok" || !quote.routerPlan || !routerAddress}
@@ -1162,6 +1199,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
           </TransactionFlowButton>
         </div>
       </CardContent>
+      </form>
     </Card>
   );
 }

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useMemo, useState, type SyntheticEvent } from "react";
+import { useMemo, useRef, useState, type SyntheticEvent } from "react";
+import { useFormik } from "formik";
+import * as Yup from "yup";
 import {
   AlertTriangle,
   ArrowRight,
@@ -22,7 +24,7 @@ import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitl
 import { appRoutes } from "@/components/app/app-nav";
 import { FeatureHeroSection, FeatureMetricCard, FeatureSplitGrid, FeatureStatusPanel } from "@/components/features/shared/page-shell";
 import { getEarnProtocolConfig, getRewardSinkAbi } from "@/contracts/earn";
-import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
+import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
@@ -562,6 +564,7 @@ function CreatePositionCard({
   onSuccess: () => void;
   onError: (message: string) => void;
 }) {
+  const transactionRef = useRef<TransactionFlowButtonHandle>(null);
   const copy = variantCopy(variant);
   const cardDescription =
     "Lock BTC or MEZO to receive a liquid asset that keeps earning. If you already have a Mezo Earn position, you can deposit that instead.";
@@ -601,6 +604,33 @@ function CreatePositionCard({
   };
 
   const selectedVeNftOptions = availableVeNfts.filter((veNft) => veNft.assetType === variant);
+  const validationSchema = useMemo(
+    () =>
+      Yup.object({
+        amount:
+          createMode === "erc20"
+            ? Yup.string()
+                .required("Enter an amount.")
+                .test("valid-amount", "Enter a valid amount.", (value) =>
+                  Boolean(selectedToken && value && (parseAmountRaw(value, selectedToken.decimals) ?? 0n) > 0n),
+                )
+                .test("balance", "Amount exceeds your wallet balance.", (value) => {
+                  if (!selectedToken || !value) return false;
+                  const parsed = parseAmountRaw(value, selectedToken.decimals);
+                  return parsed !== null && parsed <= selectedToken.balanceRaw;
+                })
+            : Yup.string(),
+        selectedVeNftKey:
+          createMode === "venft" ? Yup.string().required("Select a position.") : Yup.string(),
+      }),
+    [createMode, selectedToken],
+  );
+  const formik = useFormik({
+    initialValues: { amount, selectedVeNftKey },
+    enableReinitialize: true,
+    validationSchema,
+    onSubmit: async () => transactionRef.current?.run(),
+  });
 
   return (
     <Card className="relative overflow-hidden border border-white/12 bg-[linear-gradient(160deg,rgba(19,24,33,0.98),rgba(10,13,18,0.98))] shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
@@ -612,6 +642,8 @@ function CreatePositionCard({
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(234,209,165,0.36),transparent)]"
       />
+
+      <form onSubmit={formik.handleSubmit} noValidate>
 
       <CardHeader className="relative space-y-4 border-b border-white/10 p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
@@ -708,16 +740,24 @@ function CreatePositionCard({
               </div>
               <Input
                 id="earn-amount"
+                name="amount"
                 inputMode="decimal"
                 placeholder={`0.00 ${selectedToken?.symbol ?? copy.asset}`}
                 value={amount}
-                onChange={(event) => setAmount(event.target.value)}
+                onBlur={formik.handleBlur}
+                onChange={(event) => {
+                  setAmount(event.target.value);
+                  void formik.setFieldValue("amount", event.target.value);
+                }}
                 className={cn(
                   "h-14 rounded-2xl px-4 text-2xl font-semibold tracking-tight",
                   isBalanceIssue &&
                   "border-red-500/60 bg-red-500/[0.05] focus-visible:ring-red-400/70",
                 )}
               />
+              {formik.touched.amount && formik.errors.amount ? (
+                <p role="alert" className="text-xs text-red-200">{formik.errors.amount}</p>
+              ) : null}
               <div className="space-y-2 pt-1">
                 <div className="flex items-center justify-between text-xs text-white/45">
                   <span>Use balance</span>
@@ -730,7 +770,15 @@ function CreatePositionCard({
                   max={100}
                   step={1}
                   value={balancePercent}
-                  onChange={(event) => handleBalancePercentChange(Number(event.target.value))}
+                  onChange={(event) => {
+                    handleBalancePercentChange(Number(event.target.value));
+                    const nextAmount = amountFromBalancePercent(
+                      selectedToken?.balanceRaw ?? 0n,
+                      Number(event.target.value),
+                      selectedToken?.decimals ?? 18,
+                    );
+                    void formik.setFieldValue("amount", nextAmount);
+                  }}
                   className="w-full accent-[#d9b06c]"
                 />
               </div>
@@ -750,8 +798,13 @@ function CreatePositionCard({
             </div>
             <select
               id="earn-venft"
+              name="selectedVeNftKey"
               value={selectedVeNftKey}
-              onChange={(event) => setSelectedVeNftKey(event.target.value)}
+              onBlur={formik.handleBlur}
+              onChange={(event) => {
+                setSelectedVeNftKey(event.target.value);
+                void formik.setFieldValue("selectedVeNftKey", event.target.value);
+              }}
               className="h-12 w-full rounded-2xl border border-white/10 bg-[#10161e] px-3 text-sm text-white outline-none transition focus:border-[var(--accent)]"
             >
               <option value="">Select position</option>
@@ -766,6 +819,9 @@ function CreatePositionCard({
                 );
               })}
             </select>
+            {formik.touched.selectedVeNftKey && formik.errors.selectedVeNftKey ? (
+              <p role="alert" className="text-xs text-red-200">{formik.errors.selectedVeNftKey}</p>
+            ) : null}
             {selectedVeNft ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 text-sm">
                 <div className="flex items-center justify-between gap-3">
@@ -816,6 +872,8 @@ function CreatePositionCard({
         </div>
 
         <TransactionFlowButton
+          ref={transactionRef}
+          type="submit"
           className="h-14 w-full justify-center rounded-2xl bg-[linear-gradient(180deg,#f1c46e,#d8a94f)] px-5 text-base font-semibold text-[#17130c] shadow-[0_16px_30px_rgba(216,169,79,0.22)] hover:bg-[linear-gradient(180deg,#f4ce84,#ddb45d)]"
           size="lg"
           icon={<ArrowRight className="h-4 w-4" aria-hidden="true" />}
@@ -839,6 +897,7 @@ function CreatePositionCard({
           {ctaLabel}
         </TransactionFlowButton>
       </CardContent>
+      </form>
     </Card>
   );
 }

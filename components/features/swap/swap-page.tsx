@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { ArrowDown, Check, ChevronDown, ChevronUp, LoaderCircle, Search, Settings2, XCircle } from "lucide-react";
 import { formatUnits, parseUnits, zeroAddress, type Address } from "viem";
 import { useAccount } from "wagmi";
+import { useFormik } from "formik";
+import * as Yup from "yup";
 import {
   Button, Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle, Input, ScrollArea, cn,
@@ -17,6 +19,15 @@ import {
 } from "@/features/swap";
 
 const QUOTE_EXPIRY_SECONDS = 30n;
+
+const swapSchema = Yup.object({
+  amount: Yup.string()
+    .required("Enter an amount.")
+    .matches(/^\d*(?:\.\d*)?$/, "Enter a valid decimal amount.")
+    .test("positive", "Amount must be greater than zero.", (value) => Number(value) > 0),
+  slippage: Yup.number().typeError("Enter a valid slippage.").min(0.01).max(50).required(),
+  deadline: Yup.number().typeError("Enter a valid deadline.").integer().min(1).max(180).required(),
+});
 
 function formLabel(asset: SwapAsset): string {
   if (asset.form === "underlying") return "· Underlying ";
@@ -108,7 +119,7 @@ function AssetSelector({ side, asset, assets, balanceOf, balancesLoading, onSele
 function AssetAmountField(props: { label: string; value: string; asset?: SwapAsset; assets: readonly SwapAsset[]; balance: bigint; balanceOf: (asset: SwapAsset) => bigint; balanceLoading?: boolean; readOnly?: boolean; onValue: (value: string) => void; onAsset: (asset: SwapAsset) => void; onMax?: () => void; fiat?: string }) {
   return <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 focus-within:border-[#b58f5f]/45">
     <div className="mb-3 flex items-center justify-between text-xs"><span className="font-medium text-white/55">{props.label}</span><span className="text-white/45">Balance: {props.balanceLoading ? "…" : props.asset ? formatUnitsDecimal(props.balance, props.asset.decimals, 5) : "—"} {props.onMax && !props.balanceLoading ? <button type="button" onClick={props.onMax} className="ml-1 font-semibold text-[#d8b884] hover:text-[#efd39e]">Max</button> : null}</span></div>
-    <div className="flex items-center gap-3"><Input aria-label={`${props.label} amount`} inputMode="decimal" value={props.value} readOnly={props.readOnly} placeholder="0" onChange={(event) => props.onValue(normalizeAmount(event.target.value, props.asset?.decimals ?? 18))} className="h-12 min-w-0 flex-1 border-0 bg-transparent px-0 text-3xl font-medium shadow-none focus-visible:ring-0" /><AssetSelector side={props.label as "Sell" | "Buy"} asset={props.asset} assets={props.assets} balanceOf={props.balanceOf} balancesLoading={props.balanceLoading} onSelect={props.onAsset} /></div>
+    <div className="flex items-center gap-3"><Input name="amount" aria-label={`${props.label} amount`} inputMode="decimal" value={props.value} readOnly={props.readOnly} placeholder="0" onChange={(event) => props.onValue(normalizeAmount(event.target.value, props.asset?.decimals ?? 18))} className="h-12 min-w-0 flex-1 border-0 bg-transparent px-0 text-3xl font-medium shadow-none focus-visible:ring-0" /><AssetSelector side={props.label as "Sell" | "Buy"} asset={props.asset} assets={props.assets} balanceOf={props.balanceOf} balancesLoading={props.balanceLoading} onSelect={props.onAsset} /></div>
     <div className="mt-1 min-h-4 text-xs text-white/38">{props.fiat ?? (props.asset ? props.asset.name : "")}</div>
   </div>;
 }
@@ -126,6 +137,11 @@ export function SwapPage() {
   const [slippageBps, setSlippageBps] = useState(50);
   const [deadlineMinutes, setDeadlineMinutes] = useState(20);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const formik = useFormik({
+    initialValues: { amount: "", slippage: "0.5", deadline: "20" },
+    validationSchema: swapSchema,
+    onSubmit: () => handleAction(),
+  });
   const { chainTimestamp, isChainTimeLoading } = useChainTime();
 
   const resolvedSellId = sellId ?? registry?.assets.find((asset) => asset.id === "erc20:MUSD")?.id ?? registry?.assets[0]?.id;
@@ -164,15 +180,16 @@ export function SwapPage() {
     : sell;
   const canReverse = Boolean(registry && buy && reverseBuyAsset && findClRoute(registry.pools, buy.executableAddress, reverseBuyAsset.executableAddress));
 
-  const chooseSell = (asset: SwapAsset) => { setSellId(asset.id); setTradeType("exactInput"); setTypedAmount(asset.fixedInputAmount ? formatUnits(asset.fixedInputAmount, asset.decimals) : ""); };
-  const chooseBuy = (asset: SwapAsset) => { setBuyId(asset.id); setTypedAmount(sell?.fixedInputAmount ? formatUnits(sell.fixedInputAmount, sell.decimals) : ""); };
+  const setFormAmount = (value: string) => { setTypedAmount(value); void formik.setFieldValue("amount", value, false); };
+  const chooseSell = (asset: SwapAsset) => { setSellId(asset.id); setTradeType("exactInput"); setFormAmount(asset.fixedInputAmount ? formatUnits(asset.fixedInputAmount, asset.decimals) : ""); };
+  const chooseBuy = (asset: SwapAsset) => { setBuyId(asset.id); setFormAmount(sell?.fixedInputAmount ? formatUnits(sell.fixedInputAmount, sell.decimals) : ""); };
   const reverse = () => {
     if (!buy || !reverseBuyAsset || !canReverse) return;
-    setSellId(buy.id); setBuyId(reverseBuyAsset.id); setTradeType("exactInput"); setTypedAmount("");
+    setSellId(buy.id); setBuyId(reverseBuyAsset.id); setTradeType("exactInput"); setFormAmount("");
   };
-  const setMax = () => { if (!sell) return; setTradeType("exactInput"); setTypedAmount(formatUnits(sellBalance, sell.decimals)); };
-  const onSellValue = (value: string) => { setTradeType("exactInput"); setTypedAmount(value); };
-  const onBuyValue = (value: string) => { if (sell?.form === "venft") return; setTradeType("exactOutput"); setTypedAmount(value); };
+  const setMax = () => { if (!sell) return; setTradeType("exactInput"); setFormAmount(formatUnits(sellBalance, sell.decimals)); };
+  const onSellValue = (value: string) => { setTradeType("exactInput"); setFormAmount(value); };
+  const onBuyValue = (value: string) => { if (sell?.form === "venft") return; setTradeType("exactOutput"); setFormAmount(value); };
   const price = quote.data && quote.data.amountIn > 0n && quote.data.amountOut > 0n && sell && buy
     ? `${formatUnitsDecimal(quote.data.amountOut * (10n ** BigInt(sell.decimals)) / quote.data.amountIn, buy.decimals, 6)} ${buy.symbol} per ${sell.symbol}` : "—";
   const inversePrice = quote.data && quote.data.amountOut > 0n && sell && buy
@@ -196,11 +213,12 @@ export function SwapPage() {
     if (!approval.isApproved) return { label: approval.isApproving ? "Approving…" : `Approve ${sell.symbol}`, disabled: approval.isApproving, approve: true, loading: approval.isApproving };
     return { label: "Review swap", disabled: false };
   })();
-  const handleAction = () => { if (action.approve) void approval.approve(); else if (action.refresh) void quote.refetch(); else execution.review(); };
+  function handleAction() { if (action.disabled) return; if (action.approve) void approval.approve(); else if (action.refresh) void quote.refetch(); else execution.review(); }
+  const formError = formik.errors.amount ?? formik.errors.slippage ?? formik.errors.deadline;
 
-  return <div className="mx-auto w-full max-w-[500px] rounded-[28px] border border-white/12 bg-[rgba(13,19,25,0.94)] p-3 shadow-[0_28px_80px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:p-4" aria-label="Aurove swap">
+  return <form onSubmit={formik.handleSubmit} noValidate className="mx-auto w-full max-w-[500px] rounded-[28px] border border-white/12 bg-[rgba(13,19,25,0.94)] p-3 shadow-[0_28px_80px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:p-4" aria-label="Aurove swap">
     <div className="flex items-center justify-between px-2 pb-3 pt-1"><div><h2 className="text-lg font-semibold text-white">Swap</h2><p className="flex items-center gap-1.5 text-xs text-white/42" aria-live="polite">Aurove and Tigris liquidity{registry && registryQuery.isError ? <><span>·</span><span className="text-amber-200/75">Using cached markets</span></> : registry && registryQuery.isFetching ? <><span>·</span><LoaderCircle className="h-3 w-3 animate-spin" /><span>Refreshing markets</span></> : null}</p></div><Button type="button" size="icon" variant="ghost" onClick={() => setSettingsOpen((value) => !value)} aria-label="Swap settings"><Settings2 className="h-4 w-4" /></Button></div>
-    {settingsOpen ? <div className="mb-3 grid grid-cols-2 gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-xs"><label className="space-y-1 text-white/55"><span>Slippage tolerance</span><span className="flex items-center gap-1"><Input inputMode="decimal" value={(slippageBps / 100).toString()} onChange={(event) => setSlippageBps(Math.round(boundedNumber(event.target.value, 0.01, 50, 0.5) * 100))} className="h-9" /><span>%</span></span></label><label className="space-y-1 text-white/55"><span>Deadline</span><span className="flex items-center gap-1"><Input inputMode="numeric" value={deadlineMinutes} onChange={(event) => setDeadlineMinutes(Math.round(boundedNumber(event.target.value, 1, 180, 20)))} className="h-9" /><span>min</span></span></label></div> : null}
+    {settingsOpen ? <div className="mb-3 grid grid-cols-2 gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-xs"><label className="space-y-1 text-white/55"><span>Slippage tolerance</span><span className="flex items-center gap-1"><Input name="slippage" inputMode="decimal" value={(slippageBps / 100).toString()} onBlur={formik.handleBlur} onChange={(event) => { const value = event.target.value; void formik.setFieldValue("slippage", value); setSlippageBps(Math.round(boundedNumber(value, 0.01, 50, 0.5) * 100)); }} className="h-9" /><span>%</span></span></label><label className="space-y-1 text-white/55"><span>Deadline</span><span className="flex items-center gap-1"><Input name="deadline" inputMode="numeric" value={deadlineMinutes} onBlur={formik.handleBlur} onChange={(event) => { const value = event.target.value; void formik.setFieldValue("deadline", value); setDeadlineMinutes(Math.round(boundedNumber(value, 1, 180, 20))); }} className="h-9" /><span>min</span></span></label></div> : null}
     <div className="relative space-y-1">
       <AssetAmountField label="Sell" value={inputValue} asset={sell} assets={sellAssets.assets} balance={sellBalance} balanceOf={sellAssets.balanceOf} balanceLoading={sellAssets.isLoading} readOnly={sell?.form === "venft"} onValue={onSellValue} onAsset={chooseSell} onMax={sell?.form === "venft" ? undefined : setMax} fiat={fiatFor(sell, inputValue)} />
       <div className="relative z-10 -my-3 flex justify-center"><Button type="button" size="icon" variant="secondary" onClick={reverse} disabled={!canReverse} className="h-9 w-9 rounded-xl border-4 border-[#0d1319]" aria-label={canReverse ? "Reverse swap direction" : "Reverse route unavailable"}><ArrowDown className="h-4 w-4" /></Button></div>
@@ -213,11 +231,12 @@ export function SwapPage() {
       <DetailRow label="Price impact" value={quote.data.priceImpactBps === null ? "—" : `${(quote.data.priceImpactBps / 100).toFixed(2)}%`} /><DetailRow label="Slippage tolerance" value={`${(slippageBps / 100).toFixed(2)}%`} /><DetailRow label="Deadline" value={`${deadlineMinutes} minutes`} /><DetailRow label="Router used" value={supportedPlan.routerLabel} /><DetailRow label="Estimated network fee" value={networkFee.data ?? (networkFee.isFetching ? "Estimating…" : "Calculated by wallet at review")} />
     </div></details> : null}
     {quote.data && (quote.data.priceImpactBps ?? 0) >= 500 ? <div className="mx-2 mt-2 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs text-amber-100">High price impact. Review this route carefully.</div> : null}
-    <div className="mt-3"><WalletConnectButton><Button type="button" className="h-12 w-full" disabled={action.disabled} onClick={handleAction}>{action.loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}{action.label}</Button></WalletConnectButton></div>
+    {formik.submitCount > 0 && formError ? <p role="alert" className="mx-2 mt-2 text-xs text-red-200">{formError}</p> : null}
+    <div className="mt-3"><WalletConnectButton><Button type="submit" className="h-12 w-full" disabled={action.disabled}>{action.loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}{action.label}</Button></WalletConnectButton></div>
     {execution.state === "confirmed" ? <button type="button" onClick={execution.reset} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm text-emerald-100"><Check className="h-4 w-4" /> Swap confirmed</button> : execution.state === "failed" ? <button type="button" onClick={execution.reset} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-300/20 bg-red-300/10 p-3 text-sm text-red-100"><XCircle className="h-4 w-4" />{execution.error ?? "Swap failed"}</button> : null}
     <Dialog open={["reviewing", "submitting", "pending"].includes(execution.state)} onOpenChange={(open) => { if (!open && execution.state === "reviewing") execution.cancelReview(); }}><DialogContent className="w-[calc(100vw-1.5rem)] max-w-md border-white/12 bg-[#111820]"><DialogHeader><DialogTitle>Review swap</DialogTitle><DialogDescription>Confirm the exact route that will be simulated and submitted.</DialogDescription></DialogHeader>
       <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4"><DetailRow label="You sell" value={`${amountText(supportedPlan?.amountIn, sell)} ${sell?.symbol ?? ""}`} /><DetailRow label="You buy" value={`${amountText(supportedPlan?.amountOut, buy)} ${buy?.symbol ?? ""}`} /><DetailRow label="Route" value={routeText} /><DetailRow label="Protection" value={tradeType === "exactInput" ? `Minimum ${amountText(supportedPlan?.amountOutMinimum, buy)} ${buy?.symbol}` : `Maximum ${amountText(supportedPlan?.amountInMaximum, sell)} ${sell?.symbol}`} /></div>
-      <DialogFooter><Button variant="secondary" disabled={execution.state !== "reviewing"} onClick={execution.cancelReview}>Cancel</Button><Button disabled={execution.state !== "reviewing"} onClick={() => void execution.submit()}>{execution.state === "submitting" ? "Submitting…" : execution.state === "pending" ? "Swapping…" : "Swap"}{execution.state !== "reviewing" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}</Button></DialogFooter>
+      <DialogFooter><Button type="button" variant="secondary" disabled={execution.state !== "reviewing"} onClick={execution.cancelReview}>Cancel</Button><Button type="button" disabled={execution.state !== "reviewing"} onClick={() => void execution.submit()}>{execution.state === "submitting" ? "Submitting…" : execution.state === "pending" ? "Swapping…" : "Swap"}{execution.state !== "reviewing" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}</Button></DialogFooter>
     </DialogContent></Dialog>
-  </div>;
+  </form>;
 }

@@ -28,6 +28,7 @@ export function WalletConnectButton({ children }: WalletConnectButtonProps) {
 
         const signInButton = (
           <Button
+            type="button"
             size="sm"
             variant="secondary"
             onClick={handleSignIn}
@@ -45,7 +46,7 @@ export function WalletConnectButton({ children }: WalletConnectButtonProps) {
 
         if (!connected) {
           return (
-            <Button size="sm" onClick={openConnectModal}>
+            <Button type="button" size="sm" onClick={openConnectModal}>
               Connect Wallet
             </Button>
           );
@@ -54,6 +55,7 @@ export function WalletConnectButton({ children }: WalletConnectButtonProps) {
         if (wrongNetwork) {
           return (
             <Button
+              type="button"
               size="sm"
               variant="destructive"
               onClick={() => {
@@ -77,7 +79,7 @@ export function WalletConnectButton({ children }: WalletConnectButtonProps) {
         return (
           <div className="flex items-center gap-2">
             {needsSignIn ? signInButton : null}
-            <Button variant="secondary" size="sm" onClick={openAccountModal} className="gap-1">
+            <Button type="button" variant="secondary" size="sm" onClick={openAccountModal} className="gap-1">
               {account.displayName}
               <ChevronDown className="h-3.5 w-3.5" />
             </Button>

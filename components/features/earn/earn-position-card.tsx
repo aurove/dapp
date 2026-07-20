@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import { formatUnits, type Address } from "viem";
+import { useFormik } from "formik";
+import * as Yup from "yup";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
-import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
+import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
 import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import {
@@ -76,6 +78,7 @@ function PositionCardContent({
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
+  const transactionRef = useRef<TransactionFlowButtonHandle>(null);
   const copy = variantCopy(product.variant);
   const apyEstimate = estimateTrancheApy(product);
   const parsedWithdraw = parseAmountRaw(withdrawAmount, product.decimals);
@@ -127,6 +130,26 @@ function PositionCardContent({
       }) as unknown as TxStep,
     ];
   };
+  const formik = useFormik({
+    initialValues: {
+      amount:
+        product.variant === "veMEZO"
+          ? formatUnits(selectedRedemptionTotalRaw, product.decimals)
+          : withdrawAmount,
+      redemptionKeys: selectedRedemptionKeysResolved,
+    },
+    enableReinitialize: true,
+    validationSchema: Yup.object({
+      amount: Yup.string()
+        .required("Enter a redemption amount.")
+        .test("valid-amount", "Enter a valid redemption amount.", (value) => {
+          const parsed = value ? parseAmountRaw(value, product.decimals) : null;
+          return parsed !== null && parsed > 0n && parsed <= product.userAvailableBalanceRaw;
+        }),
+      redemptionKeys: Yup.array(Yup.string().required()).min(1, "Select at least one veNFT."),
+    }),
+    onSubmit: async () => transactionRef.current?.run(),
+  });
 
   return (
     <Card className="rounded-xl">
@@ -182,7 +205,7 @@ function PositionCardContent({
             </div>
           </summary>
 
-          <div className="pt-3">
+          <form onSubmit={formik.handleSubmit} noValidate className="pt-3">
             <div className="flex items-center justify-between gap-3">
               <label htmlFor={actionControlId} className="text-sm font-medium text-white">
                 Redemption amount
@@ -226,6 +249,7 @@ function PositionCardContent({
                               ? [...selectedRedemptionKeys, position.key]
                               : selectedRedemptionKeys.filter((key) => key !== position.key);
                             setSelectedRedemptionKeys(next);
+                            void formik.setFieldValue("redemptionKeys", next);
                           }}
                         />
                         <div className="min-w-0">
@@ -245,6 +269,7 @@ function PositionCardContent({
               <div className="space-y-2 pt-3">
                 <Input
                   id={actionControlId}
+                  name="amount"
                   inputMode="decimal"
                   placeholder="0.00"
                   value={formatUnits(selectedRedemptionTotalRaw, product.decimals)}
@@ -260,18 +285,25 @@ function PositionCardContent({
                 <div className="flex gap-2">
                   <Input
                     id={actionControlId}
+                    name="amount"
                     inputMode="decimal"
                     placeholder="0.00"
                     value={withdrawAmount}
-                    onChange={(event) => setWithdrawAmount(event.target.value)}
+                    onBlur={formik.handleBlur}
+                    onChange={(event) => {
+                      setWithdrawAmount(event.target.value);
+                      void formik.setFieldValue("amount", event.target.value);
+                    }}
                     disabled={!isActionWindowOpen}
                   />
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() =>
-                      setWithdrawAmount(formatUnits(product.userAvailableBalanceRaw, product.decimals))
-                    }
+                    onClick={() => {
+                      const max = formatUnits(product.userAvailableBalanceRaw, product.decimals);
+                      setWithdrawAmount(max);
+                      void formik.setFieldValue("amount", max);
+                    }}
                     disabled={!isActionWindowOpen}
                   >
                     Max
@@ -283,7 +315,15 @@ function PositionCardContent({
                 </p>
               </div>
             )}
+          {formik.submitCount > 0 && typeof formik.errors.redemptionKeys === "string" ? (
+            <p role="alert" className="mt-2 text-xs text-red-200">{formik.errors.redemptionKeys}</p>
+          ) : null}
+          {formik.touched.amount && formik.errors.amount ? (
+            <p role="alert" className="mt-2 text-xs text-red-200">{formik.errors.amount}</p>
+          ) : null}
           <TransactionFlowButton
+            ref={transactionRef}
+            type="submit"
             className="w-full"
             variant="secondary"
             disabled={!canSubmit}
@@ -304,7 +344,7 @@ function PositionCardContent({
               hours into each epoch and lasts 6 hours.
             </p>
           ) : null}
-          </div>
+          </form>
         </details>
       </CardContent>
     </Card>
