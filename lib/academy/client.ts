@@ -1,7 +1,5 @@
 import type {
   AcademyActivityPage,
-  AcademyCheckInResponse,
-  AcademyCheckInState,
   AcademyLeaderboardPage,
   AcademyReferralActionResponse,
   AcademySummary,
@@ -66,18 +64,6 @@ export async function requestAcademyLeaderboard(input: {
   });
 
   return requestJson<AcademyLeaderboardPage>(`/api/academy/leaderboard?${searchParams.toString()}`, {
-    method: "GET",
-  });
-}
-
-export async function requestAcademyCheckIn(): Promise<AcademyCheckInResponse> {
-  return requestJson<AcademyCheckInResponse>("/api/academy/check-in", {
-    method: "POST",
-  });
-}
-
-export async function requestAcademyCheckInState(): Promise<AcademyCheckInState> {
-  return requestJson<AcademyCheckInState>("/api/academy/check-in", {
     method: "GET",
   });
 }

@@ -3,7 +3,6 @@ import "server-only";
 import { and, desc, eq, or } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { computeChainSecondsRemaining } from "@/lib/academy/time";
 import {
   pointsActivityDefinitions,
   pointsLedgerEntries,
@@ -13,11 +12,7 @@ import {
   type PointsProgram,
 } from "@/lib/db/schema";
 
-import {
-  ACADEMY_CHECK_IN_COOLDOWN_HOURS,
-  ACADEMY_CHECK_IN_POINTS,
-  ACADEMY_PROGRAM_SLUG,
-} from "../constants";
+import { ACADEMY_PROGRAM_SLUG } from "../constants";
 import { chainTimestampToIso } from "../time";
 import { AcademySeasonOutOfWindowError } from "./errors";
 import {
@@ -28,52 +23,12 @@ import {
 
 type JsonRecord = Record<string, unknown>;
 
-export type AcademyTaskPointsConfig = {
-  cooldownHours: number;
-  pointsAwarded: number;
-};
-
 export type AcademyTaskDefinition = {
   activityDefinition: PointsActivityDefinition;
-  config: AcademyTaskPointsConfig;
 };
 
 type AcademySeasonWindow = Pick<PointsProgram, "startsAt" | "endsAt">;
 
-function asRecord(value: unknown): JsonRecord {
-  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-    return value as JsonRecord;
-  }
-
-  return {};
-}
-
-function asPositiveNumber(value: unknown, fallback: number): number {
-  if (typeof value === "bigint") {
-    return value > 0n ? Number(value) : fallback;
-  }
-
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-    return value;
-  }
-
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      return parsed;
-    }
-  }
-
-  return fallback;
-}
-
-function parseTaskMetadata(metadata: unknown): AcademyTaskPointsConfig {
-  const record = asRecord(metadata);
-  return {
-    cooldownHours: asPositiveNumber(record.cooldownHours, ACADEMY_CHECK_IN_COOLDOWN_HOURS),
-    pointsAwarded: asPositiveNumber(record.pointsAwarded, ACADEMY_CHECK_IN_POINTS),
-  };
-}
 
 function parseTimestamp(value: string | null): number | null {
   if (!value) {
@@ -100,24 +55,6 @@ export function isAcademyProgramActiveAt(
   }
 
   return true;
-}
-
-function getAcademySeasonInactivityReason(
-  program: AcademySeasonWindow,
-  chainTimestampSeconds: number,
-): "season_not_started" | "season_ended" | null {
-  const chainTimestampMs = chainTimestampSeconds * 1000;
-  const startsAtMs = parseTimestamp(program.startsAt);
-  if (startsAtMs !== null && chainTimestampMs < startsAtMs) {
-    return "season_not_started";
-  }
-
-  const endsAtMs = parseTimestamp(program.endsAt);
-  if (endsAtMs !== null && chainTimestampMs > endsAtMs) {
-    return "season_ended";
-  }
-
-  return null;
 }
 
 function assertAcademyProgramActiveAt(
@@ -259,21 +196,6 @@ async function insertAcademyTaskAward(
   return existing[0] ?? null;
 }
 
-export function computeAcademyTaskNextEligibleAt(
-  occurredAt: string,
-  cooldownHours: number,
-): string {
-  const nextEligibleAt = new Date(Date.parse(occurredAt) + cooldownHours * 60 * 60 * 1000);
-  return nextEligibleAt.toISOString();
-}
-
-export function computeSecondsRemaining(
-  nextEligibleAt: string,
-  chainTimestampSeconds: number,
-): number {
-  return computeChainSecondsRemaining(nextEligibleAt, chainTimestampSeconds);
-}
-
 export async function resolveActiveAcademyProgram(client: typeof db): Promise<PointsProgram | null> {
   const rows = await client
     .select()
@@ -328,7 +250,6 @@ export async function resolveAcademyTaskDefinition(
 
   return {
     activityDefinition,
-    config: parseTaskMetadata(activityDefinition.metadata),
   };
 }
 
@@ -413,43 +334,4 @@ export async function recordAcademyTaskPoints(
   }
 
   return entry;
-}
-
-export function getAcademySeasonState(
-  program: AcademySeasonWindow,
-  chainTimestampSeconds: number,
-): {
-  status: "active" | "inactive";
-  inactiveReason: "season_not_started" | "season_ended" | null;
-  nextEligibleAt: string | null;
-  secondsRemaining: number;
-} {
-  const inactivityReason = getAcademySeasonInactivityReason(program, chainTimestampSeconds);
-  if (inactivityReason === "season_not_started") {
-    const nextEligibleAt = program.startsAt;
-    return {
-      status: "inactive",
-      inactiveReason: inactivityReason,
-      nextEligibleAt,
-      secondsRemaining: nextEligibleAt
-        ? Math.max(0, Math.ceil((Date.parse(nextEligibleAt) - chainTimestampSeconds * 1000) / 1000))
-        : 0,
-    };
-  }
-
-  if (inactivityReason === "season_ended") {
-    return {
-      status: "inactive",
-      inactiveReason: inactivityReason,
-      nextEligibleAt: null,
-      secondsRemaining: 0,
-    };
-  }
-
-  return {
-    status: "active",
-    inactiveReason: null,
-    nextEligibleAt: null,
-    secondsRemaining: 0,
-  };
 }

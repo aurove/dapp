@@ -64,24 +64,6 @@ export type AcademyActivityPage = {
   items: AcademyActivityEntry[];
 };
 
-export type AcademyCheckInState = {
-  taskCode: "check_in";
-  status: "success" | "cooldown" | "inactive";
-  cooldownHours: number;
-  pointsAwarded: number;
-  lastCheckInAt: string | null;
-  nextEligibleAt: string | null;
-  secondsRemaining: number;
-  seasonStartsAt: string | null;
-  seasonEndsAt: string | null;
-  inactiveReason?: "season_not_started" | "season_ended";
-};
-
-export type AcademyCheckInResponse = {
-  summary: AcademySummary;
-  checkIn: AcademyCheckInState;
-};
-
 export type AcademyReferralActionResponse = {
   status: "pending" | "bound";
   referral: AcademyReferralSummary | null;

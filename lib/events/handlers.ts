@@ -1,959 +1,482 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
-import { getAddress, http, createPublicClient, type Abi, type Address, type PublicClient } from "viem";
+import {
+  createPublicClient,
+  decodeEventLog,
+  getAddress,
+  http,
+  type Abi,
+  type Address,
+  type Hash,
+  type Log,
+  type PublicClient,
+} from "viem";
 
-import {
-  ACADEMY_ASSET_FRACTION_REWARDS_CLAIMED_TASK_CODE,
-  ACADEMY_POINTS_SCALE,
-} from "@/lib/academy/constants";
-import {
-  formatAcademyReferralPoints,
-  resolveAcademyUserByWalletAddress,
-} from "@/lib/academy/referrals";
-import {
-  recordAcademyTaskPoints,
-  isAcademyProgramActiveAt,
-  resolveActiveAcademyProgram,
-  resolveAcademyTaskDefinition,
-} from "@/lib/academy/tasks/points";
-import { db } from "@/lib/db";
-import { getKnownMusdConfig } from "@/lib/config/musd";
-import { academyAssetFractionMetadata } from "@/lib/db/academy-asset-fraction-schema";
 import { buildHandlerKey as buildHandlerKeyTyped } from "@/contracts/event-types";
+import type { ContractEventNameForContract, ContractName } from "@/contracts/event-types";
+import {
+  ACADEMY_LP_FEES_COLLECTED_TASK_CODE,
+  ACADEMY_LP_POINTS_DENOMINATOR,
+  ACADEMY_LP_POINTS_NUMERATOR,
+  ACADEMY_QUALIFYING_SWAP_TASK_CODE,
+  ACADEMY_SWAPPER_POINTS_DENOMINATOR,
+  ACADEMY_SWAPPER_POINTS_NUMERATOR,
+  ACADEMY_TASK_USER_PERCENT,
+} from "@/lib/academy/constants";
+import { formatAcademyReferralPoints, resolveAcademyUserByWalletAddress } from "@/lib/academy/referrals";
+import {
+  isAcademyProgramActiveAt,
+  recordAcademyTaskPoints,
+  resolveAcademyTaskDefinition,
+  resolveActiveAcademyProgram,
+} from "@/lib/academy/tasks/points";
+import { getAuroveSupportedPool, getAuroveSupportedPools } from "@/lib/config/supported-liquidity-pools";
+import { getKnownMusdConfig } from "@/lib/config/musd";
+import { db } from "@/lib/db";
+import { getPortfolioRegistry } from "@/features/portfolio/registry";
 
-import { getRegisteredContract, getRegisteredContractAbi, registerRuntimeContract } from "./contracts";
 import { stringifyJsonSafe } from "./json-safe";
 import type {
+  AnyContractEvent,
   AnyContractEventHandler,
   ContractEventHandlerContext,
   ContractEventHandlerDefinition,
-  AnyContractEvent,
 } from "./types";
-import type {
-  ContractEventNameForContract,
-  ContractName,
-} from "@/contracts/event-types";
 
 export { buildHandlerKeyTyped as buildHandlerKey };
 
-const DECIMALS_ABI = [
-  {
-    type: "function",
-    name: "decimals",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "uint8", name: "" }],
-  },
-] as const;
+const Q192 = 2n ** 192n;
 
-type AssetFractionAssetVariant = "veBTC" | "veMEZO";
-
-type AssetFractionMetadata = {
-  chainId: number;
-  fractionAddress: Address;
-  trancheId: bigint;
-  trancheNumber: number;
-  assetVariant: AssetFractionAssetVariant;
-  fractionName: string | null;
-  fractionSymbol: string | null;
-  veNFT: Address | null;
-  rewardAsset: Address | null;
-  trancheDuration: bigint | null;
-  source:
-    | "deployment_event"
-    | "database"
-    | "derived_symbol"
-    | "derived_ledger"
-    | "runtime_registry"
-    | "static_registry"
-    | "onchain";
-  deploymentBlock: number | null;
+type Fraction = { numerator: bigint; denominator: bigint };
+type PoolState = {
+  address: Address;
+  key: string;
+  abi: Abi;
+  token0: Address;
+  token1: Address;
+  sqrtPriceX96: bigint;
 };
 
-type ResolveAssetFractionMetadataResult =
-  | {
-      status: "resolved";
-      metadata: AssetFractionMetadata;
+type AwardResult =
+  | { status: "awarded"; taskCode: string; entryId: string; pointsDelta: string }
+  | { status: "skipped"; taskCode: string; reason: string };
+
+function asBigInt(value: unknown): bigint | null {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isInteger(value)) return BigInt(value);
+  if (typeof value === "string" && value.trim()) {
+    try {
+      return BigInt(value);
+    } catch {
+      return null;
     }
-  | {
-      status: "skipped";
-      reason: "fraction_metadata_missing" | "fraction_tranche_id_unresolved" | "fraction_asset_variant_unknown";
-    };
+  }
+  return null;
+}
+
+function asAddress(value: unknown): Address | null {
+  if (typeof value !== "string") return null;
+  try {
+    return getAddress(value);
+  } catch {
+    return null;
+  }
+}
+
+function multiplyFraction(value: Fraction, numerator: bigint, denominator: bigint): Fraction {
+  return {
+    numerator: value.numerator * numerator,
+    denominator: value.denominator * denominator,
+  };
+}
+
+function fractionToPointUnits(valueInMusdRaw: Fraction, numerator: bigint, denominator: bigint): bigint {
+  // MUSD and Academy point units both use 18 decimals. This is the sole valuation/points
+  // rounding boundary before the numeric(78,18) ledger write.
+  return (valueInMusdRaw.numerator * numerator) / (valueInMusdRaw.denominator * denominator);
+}
+
+function grossReferralBaseForExactUserPoints(userPoints: bigint): bigint {
+  if (userPoints <= 0n) return 0n;
+  const percent = BigInt(ACADEMY_TASK_USER_PERCENT);
+  // recordAcademyTaskPoints retains the existing 90/3/7 referral calculation. Supply
+  // the gross base whose 90% user share is the activity reward defined by this model.
+  return (userPoints * 100n + percent - 51n) / percent;
+}
+
+async function readPoolStates(chainId: number, blockNumber: number): Promise<PoolState[]> {
+  const client = getEventContractClient();
+  const pools = getAuroveSupportedPools(chainId);
+  const results = await client.multicall({
+    allowFailure: true,
+    blockNumber: BigInt(blockNumber),
+    contracts: pools.flatMap((pool) => [
+      { address: pool.address, abi: pool.abi, functionName: "token0" },
+      { address: pool.address, abi: pool.abi, functionName: "token1" },
+      { address: pool.address, abi: pool.abi, functionName: "slot0" },
+    ]),
+  });
+
+  return pools.flatMap((pool, index) => {
+    const [token0Result, token1Result, slot0Result] = results.slice(index * 3, index * 3 + 3);
+    if (
+      token0Result?.status !== "success" ||
+      token1Result?.status !== "success" ||
+      slot0Result?.status !== "success"
+    ) {
+      return [];
+    }
+    const token0 = asAddress(token0Result.result);
+    const token1 = asAddress(token1Result.result);
+    const slot0 = Array.isArray(slot0Result.result) ? slot0Result.result : null;
+    const sqrtPriceX96 = asBigInt(slot0?.[0]);
+    return token0 && token1 && sqrtPriceX96 && sqrtPriceX96 > 0n
+      ? [{ ...pool, token0, token1, sqrtPriceX96 }]
+      : [];
+  });
+}
+
+function valueTokenInMusdRaw(input: {
+  token: Address;
+  amount: bigint;
+  musd: Address;
+  pools: PoolState[];
+}): Fraction | null {
+  const target = input.musd.toLowerCase();
+  const queue: Array<{ token: Address; value: Fraction; visited: Set<string> }> = [
+    { token: input.token, value: { numerator: input.amount, denominator: 1n }, visited: new Set() },
+  ];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (current.token.toLowerCase() === target) return current.value;
+
+    for (const pool of input.pools) {
+      const poolKey = pool.address.toLowerCase();
+      if (current.visited.has(poolKey)) continue;
+      const squaredPrice = pool.sqrtPriceX96 * pool.sqrtPriceX96;
+      let nextToken: Address | null = null;
+      let nextValue: Fraction | null = null;
+      if (pool.token0.toLowerCase() === current.token.toLowerCase()) {
+        nextToken = pool.token1;
+        nextValue = multiplyFraction(current.value, squaredPrice, Q192);
+      } else if (pool.token1.toLowerCase() === current.token.toLowerCase()) {
+        nextToken = pool.token0;
+        nextValue = multiplyFraction(current.value, Q192, squaredPrice);
+      }
+      if (nextToken && nextValue) {
+        queue.push({ token: nextToken, value: nextValue, visited: new Set([...current.visited, poolKey]) });
+      }
+    }
+  }
+
+  return null;
+}
 
 let eventContractClient: PublicClient | null = null;
 let eventContractRpcUrl: string | null = null;
-const assetFractionMetadataCache = new Map<string, AssetFractionMetadata>();
 
-function getEventContractRpcUrl(): string {
-  const configured =
+function getEventContractClient() {
+  const rpcUrl =
     process.env.EVENTS_RELAY_RPC_URL?.trim() ||
     process.env.RPC_URL?.trim() ||
-    process.env.NEXT_PUBLIC_RPC_URL?.trim();
-
-  return configured && configured.length > 0 ? configured : "http://127.0.0.1:8545";
-}
-
-function getEventContractClient(): PublicClient {
-  const rpcUrl = getEventContractRpcUrl();
+    process.env.NEXT_PUBLIC_RPC_URL?.trim() ||
+    "http://127.0.0.1:8545";
   if (!eventContractClient || eventContractRpcUrl !== rpcUrl) {
-    eventContractClient = createPublicClient({
-      transport: http(rpcUrl, { timeout: 15_000 }),
-    });
+    eventContractClient = createPublicClient({ transport: http(rpcUrl, { timeout: 15_000 }) });
     eventContractRpcUrl = rpcUrl;
   }
-
   return eventContractClient;
 }
 
-function toBigIntValue(value: unknown, fallback?: bigint): bigint {
-  if (typeof value === "bigint") return value;
-  if (typeof value === "number" && Number.isInteger(value)) return BigInt(value);
-  if (typeof value === "string" && value.trim().length > 0) return BigInt(value.trim());
-  if (fallback !== undefined) return fallback;
-  throw new Error(`Expected bigint-compatible value, received ${String(value)}.`);
-}
-
-function toAddressValue(value: unknown): Address {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`Expected address-compatible value, received ${String(value)}.`);
-  }
-
-  return getAddress(value);
-}
-
-function toOptionalStringValue(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : null;
-}
-
-async function readDecimals(address: Address): Promise<number> {
-  try {
-    const result = await getEventContractClient().readContract({
-      address,
-      abi: DECIMALS_ABI,
-      functionName: "decimals",
-    });
-
-    return Number(result);
-  } catch {
-    return 18;
-  }
-}
-
-function getAssetFractionCacheKey(chainId: number, fractionAddress: Address): string {
-  return `${chainId}:${getAddress(fractionAddress).toLowerCase()}`;
-}
-
-function getSharedAssetFractionAbi(): Abi | null {
-  return getRegisteredContractAbi("Ledger") as Abi | null;
-}
-
-function hasAbiFunction(abi: Abi, functionName: string): boolean {
-  return abi.some((entry) => entry.type === "function" && entry.name === functionName);
-}
-
-function decodeAssetFractionVariant(trancheId: bigint): AssetFractionAssetVariant | null {
-  const trancheNumber = trancheId & 0xffffn;
-  const variantPart = (trancheId >> 16n) & 0xffn;
-  const normalized = (variantPart << 16n) | trancheNumber;
-
-  if (
-    (variantPart !== 1n && variantPart !== 2n) ||
-    trancheNumber < 1n ||
-    trancheNumber > 208n ||
-    normalized !== trancheId
-  ) {
-    return null;
-  }
-
-  return variantPart === 1n ? "veBTC" : "veMEZO";
-}
-
-async function readContractView<T>(input: {
-  address: Address;
-  abi: Abi;
-  functionName: string;
-  args?: readonly unknown[];
-  blockNumber?: number;
-}): Promise<T | null> {
-  if (!hasAbiFunction(input.abi, input.functionName)) {
-    return null;
-  }
-
-  try {
-    const result = await getEventContractClient().readContract({
-      address: input.address,
-      abi: input.abi,
-      functionName: input.functionName as never,
-      args: input.args as never,
-      blockNumber: input.blockNumber == null ? undefined : BigInt(input.blockNumber),
-    });
-
-    return result as T;
-  } catch {
-    return null;
-  }
-}
-
-function cacheAssetFractionMetadata(metadata: AssetFractionMetadata): AssetFractionMetadata {
-  const normalized: AssetFractionMetadata = {
-    ...metadata,
-    fractionAddress: getAddress(metadata.fractionAddress),
-    fractionName: metadata.fractionName ?? null,
-    fractionSymbol: metadata.fractionSymbol ?? null,
-    veNFT: metadata.veNFT ? getAddress(metadata.veNFT) : null,
-    rewardAsset: metadata.rewardAsset ? getAddress(metadata.rewardAsset) : null,
-    deploymentBlock:
-      metadata.deploymentBlock != null && Number.isInteger(metadata.deploymentBlock)
-        ? metadata.deploymentBlock
-        : null,
-  };
-
-  assetFractionMetadataCache.set(
-    getAssetFractionCacheKey(normalized.chainId, normalized.fractionAddress),
-    normalized,
-  );
-
-  const assetFractionAbi = getSharedAssetFractionAbi();
-  if (assetFractionAbi) {
-    registerRuntimeContract({
-      chainId: normalized.chainId,
-      address: normalized.fractionAddress,
-      contractName: "Ledger",
-      abi: assetFractionAbi,
-      deploymentBlock: normalized.deploymentBlock,
-      source: "runtime",
-    });
-  }
-
-  return normalized;
-}
-
-function normalizeAssetFractionMetadataRow(row: typeof academyAssetFractionMetadata.$inferSelect): AssetFractionMetadata {
-  return {
-    chainId: row.chainId,
-    fractionAddress: getAddress(row.fractionAddress),
-    trancheId: toBigIntValue(row.trancheId),
-    trancheNumber: row.trancheNumber,
-    assetVariant: row.assetVariant as AssetFractionAssetVariant,
-    fractionName: row.fractionName,
-    fractionSymbol: row.fractionSymbol,
-    veNFT: row.veNft ? getAddress(row.veNft) : null,
-    rewardAsset: row.rewardAsset ? getAddress(row.rewardAsset) : null,
-    trancheDuration: row.trancheDuration == null ? null : toBigIntValue(row.trancheDuration),
-    source: row.source as AssetFractionMetadata["source"],
-    deploymentBlock: row.deploymentBlock,
-  };
-}
-
-async function loadPersistedAssetFractionMetadata(input: {
+async function awardActivity(input: {
+  taskCode: string;
   chainId: number;
-  fractionAddress: Address;
-}): Promise<AssetFractionMetadata | null> {
-  const rows = await db
-    .select()
-    .from(academyAssetFractionMetadata)
-    .where(
-      and(
-        eq(academyAssetFractionMetadata.chainId, input.chainId),
-        eq(academyAssetFractionMetadata.fractionAddress, getAddress(input.fractionAddress).toLowerCase()),
-      ),
-    )
-    .limit(1);
-
-  const row = rows[0];
-  if (!row) {
-    return null;
-  }
-
-  return normalizeAssetFractionMetadataRow(row);
-}
-
-async function persistAssetFractionMetadata(metadata: AssetFractionMetadata): Promise<AssetFractionMetadata> {
-  const normalized = cacheAssetFractionMetadata(metadata);
-
-  await db
-    .insert(academyAssetFractionMetadata)
-    .values({
-      chainId: normalized.chainId,
-      fractionAddress: normalized.fractionAddress.toLowerCase(),
-      trancheId: normalized.trancheId.toString(),
-      trancheNumber: normalized.trancheNumber,
-      assetVariant: normalized.assetVariant,
-      fractionName: normalized.fractionName,
-      fractionSymbol: normalized.fractionSymbol,
-      veNft: normalized.veNFT?.toLowerCase() ?? null,
-      rewardAsset: normalized.rewardAsset?.toLowerCase() ?? null,
-      trancheDuration: normalized.trancheDuration?.toString() ?? null,
-      source: normalized.source,
-      deploymentBlock: normalized.deploymentBlock,
-      updatedAt: new Date().toISOString(),
-    })
-    .onConflictDoUpdate({
-      target: [academyAssetFractionMetadata.chainId, academyAssetFractionMetadata.fractionAddress],
-      set: {
-        trancheId: normalized.trancheId.toString(),
-        trancheNumber: normalized.trancheNumber,
-        assetVariant: normalized.assetVariant,
-        fractionName: normalized.fractionName,
-        fractionSymbol: normalized.fractionSymbol,
-        veNft: normalized.veNFT?.toLowerCase() ?? null,
-        rewardAsset: normalized.rewardAsset?.toLowerCase() ?? null,
-        trancheDuration: normalized.trancheDuration?.toString() ?? null,
-        source: normalized.source,
-        deploymentBlock: normalized.deploymentBlock,
-        updatedAt: new Date().toISOString(),
-      },
-    });
-
-  return normalized;
-}
-
-function parseAssetFractionSymbol(symbol: string): { assetVariant: AssetFractionAssetVariant; trancheNumber: number } | null {
-  const match = symbol.trim().match(/^av(BTC|MEZO)w(\d+)$/);
-  if (!match) {
-    return null;
-  }
-
-  const trancheNumber = Number(match[2]);
-  if (!Number.isInteger(trancheNumber) || trancheNumber < 1 || trancheNumber > 208) {
-    return null;
-  }
-
-  return {
-    assetVariant: match[1] === "BTC" ? "veBTC" : "veMEZO",
-    trancheNumber,
-  };
-}
-
-function deriveAssetFractionTrancheId(input: {
-  symbol: string | null;
-  name: string | null;
-}): { trancheId: bigint; trancheNumber: number; assetVariant: AssetFractionAssetVariant; source: "derived_symbol" } | null {
-  if (input.symbol) {
-    const parsed = parseAssetFractionSymbol(input.symbol);
-    if (parsed) {
-      const trancheId = ((parsed.assetVariant === "veBTC" ? 1n : 2n) << 16n) | BigInt(parsed.trancheNumber);
-      return {
-        trancheId,
-        trancheNumber: parsed.trancheNumber,
-        assetVariant: parsed.assetVariant,
-        source: "derived_symbol",
-      };
-    }
-  }
-
-  if (input.name) {
-    const match = input.name.trim().match(/^(.*)\s-\s(\d+)\sWeeks$/i);
-    if (match) {
-      const trancheNumber = Number(match[2]);
-      if (Number.isInteger(trancheNumber) && trancheNumber >= 1 && trancheNumber <= 208) {
-        const assetVariant = match[1].toLowerCase().includes("mezo") ? "veMEZO" : match[1].toLowerCase().includes("btc") ? "veBTC" : null;
-        if (assetVariant) {
-          const trancheId = (assetVariant === "veBTC" ? 1n : 2n) << 16n | BigInt(trancheNumber);
-          return {
-            trancheId,
-            trancheNumber,
-            assetVariant,
-            source: "derived_symbol",
-          };
-        }
-      }
-    }
-  }
-
-  return null;
-}
-
-async function deriveAssetFractionMetadataFromLedger(input: {
-  chainId: number;
-  ledgerAddress: Address;
-  fractionAddress: Address;
-  blockNumber?: number;
-}): Promise<{ trancheId: bigint; trancheNumber: number; assetVariant: AssetFractionAssetVariant; source: "derived_ledger" } | null> {
-  const ledgerContract = getRegisteredContract(input.chainId, input.ledgerAddress);
-  const ledgerAbi = ledgerContract?.abi ?? null;
-  if (!ledgerAbi || !hasAbiFunction(ledgerAbi, "assetFractionOfId")) {
-    return null;
-  }
-
-  const candidateTrancheIds: bigint[] = [];
-  for (const variantPart of [1n, 2n]) {
-    for (let trancheNumber = 1; trancheNumber <= 208; trancheNumber += 1) {
-      candidateTrancheIds.push((variantPart << 16n) | BigInt(trancheNumber));
-    }
-  }
-
-  const batchSize = 24;
-  for (let index = 0; index < candidateTrancheIds.length; index += batchSize) {
-    const trancheIdBatch = candidateTrancheIds.slice(index, index + batchSize);
-    const matches = await Promise.all(
-      trancheIdBatch.map(async (trancheId) => {
-        const fractionResult = await readContractView<Address>({
-          address: input.ledgerAddress,
-          abi: ledgerAbi,
-          functionName: "assetFractionOfId",
-          args: [trancheId],
-          blockNumber: input.blockNumber,
-        });
-
-        return fractionResult && getAddress(fractionResult).toLowerCase() === getAddress(input.fractionAddress).toLowerCase()
-          ? trancheId
-          : null;
-      }),
-    );
-
-    const matchedTrancheId = matches.find((value) => value !== null);
-    if (matchedTrancheId) {
-      const assetVariant = decodeAssetFractionVariant(matchedTrancheId);
-      if (!assetVariant) {
-        return null;
-      }
-
-      return {
-        trancheId: matchedTrancheId,
-        trancheNumber: Number(matchedTrancheId & 0xffffn),
-        assetVariant,
-        source: "derived_ledger",
-      };
-    }
-  }
-
-  return null;
-}
-
-export async function resolveAssetFractionMetadata(input: {
-  chainId: number;
-  fractionAddress: Address;
-  ledgerAddress?: Address;
-  blockNumber?: number;
-}): Promise<ResolveAssetFractionMetadataResult> {
-  const cacheKey = getAssetFractionCacheKey(input.chainId, input.fractionAddress);
-  const cached = assetFractionMetadataCache.get(cacheKey);
-  if (cached) {
-    return { status: "resolved", metadata: cached };
-  }
-
-  const persisted = await loadPersistedAssetFractionMetadata({
-    chainId: input.chainId,
-    fractionAddress: input.fractionAddress,
-  });
-  if (persisted) {
-    cacheAssetFractionMetadata(persisted);
-    return { status: "resolved", metadata: persisted };
-  }
-
-  const fractionContract = getRegisteredContract(input.chainId, input.fractionAddress);
-  const assetFractionAbi = getSharedAssetFractionAbi() ?? fractionContract?.abi ?? null;
-  if (!assetFractionAbi) {
-    return { status: "skipped", reason: "fraction_metadata_missing" };
-  }
-
-  const nameResult = await readContractView<string>({
-    address: input.fractionAddress,
-    abi: assetFractionAbi,
-    functionName: "name",
-    blockNumber: input.blockNumber,
-  });
-  const symbolResult = await readContractView<string>({
-    address: input.fractionAddress,
-    abi: assetFractionAbi,
-    functionName: "symbol",
-    blockNumber: input.blockNumber,
-  });
-  const veNFTResult = await readContractView<Address>({
-    address: input.fractionAddress,
-    abi: assetFractionAbi,
-    functionName: "veNFT",
-    blockNumber: input.blockNumber,
-  });
-  const rewardAssetResult = await readContractView<Address>({
-    address: input.fractionAddress,
-    abi: assetFractionAbi,
-    functionName: "rewardAsset",
-    blockNumber: input.blockNumber,
-  });
-  const trancheDurationResult = await readContractView<bigint | number>({
-    address: input.fractionAddress,
-    abi: assetFractionAbi,
-    functionName: "trancheDuration",
-    blockNumber: input.blockNumber,
-  });
-
-  const derived = deriveAssetFractionTrancheId({
-    symbol: symbolResult,
-    name: nameResult,
-  }) ?? (input.ledgerAddress
-    ? await deriveAssetFractionMetadataFromLedger({
-        chainId: input.chainId,
-        ledgerAddress: input.ledgerAddress,
-        fractionAddress: input.fractionAddress,
-        blockNumber: input.blockNumber,
-      })
-    : null);
-  if (!derived) {
-    return { status: "skipped", reason: "fraction_tranche_id_unresolved" };
-  }
-
-  const metadata = cacheAssetFractionMetadata({
-    chainId: input.chainId,
-    fractionAddress: input.fractionAddress,
-    trancheId: derived.trancheId,
-    trancheNumber: derived.trancheNumber,
-    assetVariant: derived.assetVariant,
-    fractionName: toOptionalStringValue(nameResult),
-    fractionSymbol: toOptionalStringValue(symbolResult),
-    veNFT: veNFTResult ?? null,
-    rewardAsset: rewardAssetResult ?? null,
-    trancheDuration:
-      trancheDurationResult == null ? null : toBigIntValue(trancheDurationResult),
-    source: derived.source,
-    deploymentBlock: fractionContract?.deploymentBlock ?? null,
-  });
-
-  await persistAssetFractionMetadata(metadata);
-
-  return { status: "resolved", metadata };
-}
-
-type AcademyAwardRecordResult =
-  | {
-      status: "awarded";
-      taskCode: string;
-      idempotencyKey: string;
-      programId: string;
-      activityDefinitionId: string;
-      entryId: string;
-      pointsDelta: string | number | bigint;
-    }
-  | {
-      status: "skipped";
-      taskCode: string;
-      reason: string;
-    };
-
-function scalePointUnits(input: { amount: bigint; amountDecimals: number; multiplier: bigint }): bigint {
-  if (input.amount === 0n) {
-    return 0n;
-  }
-
-  const amountScale = 10n ** BigInt(input.amountDecimals);
-  return (input.amount * input.multiplier * ACADEMY_POINTS_SCALE) / amountScale;
-}
-
-function readOptionalBigIntValue(args: Record<string, unknown>, key: string): bigint | null {
-  if (!(key in args)) {
-    return null;
-  }
-
-  try {
-    return toBigIntValue(args[key]);
-  } catch {
-    return null;
-  }
-}
-
-function readOptionalAddressValue(args: Record<string, unknown>, key: string): Address | null {
-  if (!(key in args)) {
-    return null;
-  }
-
-  try {
-    return toAddressValue(args[key]);
-  } catch {
-    return null;
-  }
-}
-
-function readOptionalStringValue(args: Record<string, unknown>, key: string): string | null {
-  if (!(key in args)) {
-    return null;
-  }
-
-  return toOptionalStringValue(args[key]);
-}
-
-async function awardAcademyTaskPoints(
-  client: typeof db,
-  input: {
-    taskCode: string;
-    chainId: number;
-    userId: string;
-    idempotencyKey: string;
-    chainTimestampSeconds: number;
-    pointsDelta: bigint;
-    sourceReference: string;
-    sourceDetails: Record<string, unknown>;
-    sourceKind?: "manual" | "contract_event" | "system" | "import" | "adjustment";
-  },
-): Promise<AcademyAwardRecordResult> {
-  const program = await resolveActiveAcademyProgram(client);
-  if (!program) {
-    return {
-      status: "skipped",
-      taskCode: input.taskCode,
-      reason: "academy_program_not_configured",
-    };
-  }
-
-  const task = await resolveAcademyTaskDefinition(client, program.id, input.taskCode);
-  if (!task) {
-    return {
-      status: "skipped",
-      taskCode: input.taskCode,
-      reason: `academy_task_not_configured:${input.taskCode}`,
-    };
-  }
-
-  if (!isAcademyProgramActiveAt(program, input.chainTimestampSeconds)) {
-    return {
-      status: "skipped",
-      taskCode: input.taskCode,
-      reason: "academy_season_out_of_window",
-    };
-  }
-
-  const entry = await recordAcademyTaskPoints(client, {
-    program,
-    activityDefinitionId: task.activityDefinition.id,
-    userId: input.userId,
-    chainId: input.chainId,
-    idempotencyKey: input.idempotencyKey,
-    chainTimestampSeconds: input.chainTimestampSeconds,
-    pointsDelta: input.pointsDelta,
-    sourceReference: input.sourceReference,
-    sourceDetails: {
-      ...input.sourceDetails,
-      taskCode: input.taskCode,
-    },
-    sourceKind: input.sourceKind ?? "contract_event",
-  });
-
-  return {
-    status: "awarded",
-    taskCode: input.taskCode,
-    idempotencyKey: input.idempotencyKey,
-    programId: program.id,
-    activityDefinitionId: task.activityDefinition.id,
-    entryId: entry.id,
-    pointsDelta: input.pointsDelta,
-  };
-}
-
-async function handleAssetFractionDeployed(
-  ctx: ContractEventHandlerContext,
-  event: AnyContractEvent,
-) {
-  const namedArgs = event.namedArgs as Record<string, unknown>;
-  const fractionAddress = readOptionalAddressValue(namedArgs, "assetFraction");
-  const trancheIdValue = readOptionalBigIntValue(namedArgs, "trancheId");
-  const fractionName = readOptionalStringValue(namedArgs, "fractionName");
-
-  if (!fractionAddress || trancheIdValue == null) {
-    const reason = "fraction_metadata_missing";
-    ctx.logger.info(
-      stringifyJsonSafe({
-        scope: "internal-events",
-        event: "academy.asset_fraction_deployed.skipped",
-        reason,
-        fingerprint: event.fingerprint,
-        chainId: event.chainId,
-        txHash: event.txHash,
-        logIndex: event.logIndex,
-      }),
-    );
-
-    return {
-      status: "skipped" as const,
-      reason,
-      fingerprint: event.fingerprint,
-    };
-  }
-
-  const trancheId = trancheIdValue;
-  const assetVariant = decodeAssetFractionVariant(trancheId);
-  if (!assetVariant) {
-    const reason = "fraction_asset_variant_unknown";
-    ctx.logger.info(
-      stringifyJsonSafe({
-        scope: "internal-events",
-        event: "academy.asset_fraction_deployed.skipped",
-        reason,
-        fingerprint: event.fingerprint,
-        chainId: event.chainId,
-        fractionAddress,
-        trancheId: trancheId.toString(),
-        txHash: event.txHash,
-        logIndex: event.logIndex,
-      }),
-    );
-
-    return {
-      status: "skipped" as const,
-      reason,
-      fingerprint: event.fingerprint,
-    };
-  }
-
-  const metadata = cacheAssetFractionMetadata({
-    chainId: event.chainId,
-    fractionAddress,
-    trancheId,
-    trancheNumber: Number(trancheId & 0xffffn),
-    assetVariant,
-    fractionName,
-    fractionSymbol: `av${assetVariant === "veBTC" ? "BTC" : "MEZO"}w${String(Number(trancheId & 0xffffn))}`,
-    veNFT: null,
-    rewardAsset: null,
-    trancheDuration: null,
-    source: "deployment_event",
-    deploymentBlock: event.blockNumber,
-  });
-
-  await persistAssetFractionMetadata(metadata);
-
-  ctx.logger.info(
-    stringifyJsonSafe({
-      scope: "internal-events",
-      event: "academy.asset_fraction_deployed.registered",
-      fingerprint: event.fingerprint,
-      chainId: event.chainId,
-      fractionAddress: metadata.fractionAddress,
-      trancheId: metadata.trancheId.toString(),
-      trancheNumber: metadata.trancheNumber,
-      assetVariant: metadata.assetVariant,
-      fractionName: metadata.fractionName,
-      txHash: event.txHash,
-      logIndex: event.logIndex,
-    }),
-  );
-
-  return {
-    status: "processed" as const,
-    fingerprint: event.fingerprint,
-    fractionAddress: metadata.fractionAddress,
-    trancheId: metadata.trancheId.toString(),
-    assetVariant: metadata.assetVariant,
-  };
-}
-
-async function handleAssetFractionRewardsClaimed(
-  ctx: ContractEventHandlerContext,
-  event: AnyContractEvent,
-) {
-  const namedArgs = event.namedArgs as Record<string, unknown>;
-  const fraction = readOptionalAddressValue(namedArgs, "fraction");
-  const account = readOptionalAddressValue(namedArgs, "account");
-  const recipient = readOptionalAddressValue(namedArgs, "recipient") ?? account;
-  const amount = readOptionalBigIntValue(namedArgs, "amount");
-
-  if (!fraction || !recipient || amount == null) {
-    const reason = "missing_reward_claim_metadata";
-    ctx.logger.info(
-      stringifyJsonSafe({
-        scope: "internal-events",
-        event: "academy.asset_fraction_rewards_claimed.skipped",
-        reason,
-        fingerprint: event.fingerprint,
-        chainId: event.chainId,
-        txHash: event.txHash,
-        logIndex: event.logIndex,
-      }),
-    );
-
-    return {
-      status: "skipped" as const,
-      reason,
-      fingerprint: event.fingerprint,
-    };
-  }
-
-  const metadataResult = await resolveAssetFractionMetadata({
-    chainId: event.chainId,
-    ledgerAddress: toAddressValue(event.contractAddress),
-    fractionAddress: fraction,
-    blockNumber: event.blockNumber,
-  });
-  if (metadataResult.status === "skipped") {
-    const reason = metadataResult.reason;
-    ctx.logger.info(
-      stringifyJsonSafe({
-        scope: "internal-events",
-        event: "academy.asset_fraction_rewards_claimed.skipped",
-        reason,
-        fingerprint: event.fingerprint,
-        chainId: event.chainId,
-        fraction,
-        txHash: event.txHash,
-        logIndex: event.logIndex,
-      }),
-    );
-
-    return {
-      status: "skipped" as const,
-      reason,
-      fingerprint: event.fingerprint,
-    };
-  }
-
-  const metadata = metadataResult.metadata;
-  const musdConfig = getKnownMusdConfig(event.chainId);
-  const rewardAsset = metadata.rewardAsset;
-  const rewardAssetDecimals = rewardAsset ? await readDecimals(rewardAsset) : null;
-  const musdDecimals = musdConfig?.decimals ?? 18;
-
-  if (!musdConfig || rewardAsset !== musdConfig.address) {
-    const reason = "unsupported_reward_asset";
-    ctx.logger.info(
-      stringifyJsonSafe({
-        scope: "internal-events",
-        event: "academy.asset_fraction_rewards_claimed.skipped",
-        reason,
-        fingerprint: event.fingerprint,
-        chainId: event.chainId,
-        fraction,
-        rewardAsset,
-        txHash: event.txHash,
-        logIndex: event.logIndex,
-      }),
-    );
-
-    return {
-      status: "skipped" as const,
-      reason,
-      fingerprint: event.fingerprint,
-    };
-  }
-
-  const rewardValueMUsdUnits = amount;
-  const pointsUnits = scalePointUnits({
-    amount: rewardValueMUsdUnits,
-    amountDecimals: musdDecimals,
-    multiplier: 50n,
-  });
-  if (pointsUnits === 0n) {
-    const reason = "reward_award_rounds_to_zero";
-    ctx.logger.info(
-      stringifyJsonSafe({
-        scope: "internal-events",
-        event: "academy.asset_fraction_rewards_claimed.skipped",
-        reason,
-        fingerprint: event.fingerprint,
-        chainId: event.chainId,
-        fraction,
-        rewardAsset,
-        rewardValueMUsdUnits: rewardValueMUsdUnits.toString(),
-        txHash: event.txHash,
-        logIndex: event.logIndex,
-      }),
-    );
-
-    return {
-      status: "skipped" as const,
-      reason,
-      fingerprint: event.fingerprint,
-    };
-  }
-
-  const pointsDelta = formatAcademyReferralPoints(pointsUnits);
-  const sourceBaseReference = `${event.fingerprint}:asset-ledger:reward-claimed`;
-  const sourceDetails = {
-    eventFingerprint: event.fingerprint,
-    eventName: event.eventName,
-    contractAddress: event.contractAddress,
-    txHash: event.txHash,
-    logIndex: event.logIndex,
-    blockNumber: event.blockNumber,
-    account,
-    recipient,
-    fraction,
-    fractionName: metadata.fractionName,
-    fractionSymbol: metadata.fractionSymbol,
-    trancheId: metadata.trancheId.toString(),
-    trancheNumber: metadata.trancheNumber,
-    assetVariant: metadata.assetVariant,
-    rewardAsset,
-    rewardAssetDecimals,
-    rewardAmount: amount.toString(),
-    rewardValueMUsdUnits: rewardValueMUsdUnits.toString(),
-    rewardValueMUsdDecimals: musdDecimals,
-    pointsMultiplier: 50,
-    pointsUnits: pointsUnits.toString(),
-    valuationMethod: "direct_musd",
-  };
-
-  const recipientUser = await resolveAcademyUserByWalletAddress(recipient);
-  if (!recipientUser) {
-    const reason = "recipient_user_missing";
-    ctx.logger.info(
-      stringifyJsonSafe({
-        scope: "internal-events",
-        event: "academy.asset_fraction_rewards_claimed.skipped",
-        reason,
-        fingerprint: event.fingerprint,
-        chainId: event.chainId,
-        fraction,
-        recipient,
-        txHash: event.txHash,
-        logIndex: event.logIndex,
-      }),
-    );
-
-    return {
-      status: "skipped" as const,
-      reason,
-      fingerprint: event.fingerprint,
-    };
-  }
+  wallet: Address;
+  idempotencyKey: string;
+  chainTimestampSeconds: number;
+  userPoints: bigint;
+  sourceReference: string;
+  sourceDetails: Record<string, unknown>;
+}): Promise<AwardResult> {
+  if (input.userPoints <= 0n) return { status: "skipped", taskCode: input.taskCode, reason: "zero_value" };
+  const user = await resolveAcademyUserByWalletAddress(input.wallet);
+  if (!user) return { status: "skipped", taskCode: input.taskCode, reason: "recipient_user_missing" };
 
   return db.transaction(async (client) => {
-    const award = await awardAcademyTaskPoints(client, {
-      taskCode: ACADEMY_ASSET_FRACTION_REWARDS_CLAIMED_TASK_CODE,
-      chainId: event.chainId,
-      userId: recipientUser.id,
-      idempotencyKey: `${event.fingerprint}:asset-ledger:reward-claimed`,
-      chainTimestampSeconds: event.blockTimestamp,
-      pointsDelta: pointsUnits,
-      sourceReference: sourceBaseReference,
-      sourceDetails,
+    const program = await resolveActiveAcademyProgram(client);
+    if (!program) return { status: "skipped", taskCode: input.taskCode, reason: "academy_program_not_configured" };
+    const task = await resolveAcademyTaskDefinition(client, program.id, input.taskCode);
+    if (!task) return { status: "skipped", taskCode: input.taskCode, reason: "academy_task_not_configured" };
+    if (!isAcademyProgramActiveAt(program, input.chainTimestampSeconds)) {
+      return { status: "skipped", taskCode: input.taskCode, reason: "academy_season_out_of_window" };
+    }
+
+    const grossPoints = grossReferralBaseForExactUserPoints(input.userPoints);
+    const entry = await recordAcademyTaskPoints(client, {
+      program,
+      activityDefinitionId: task.activityDefinition.id,
+      userId: user.id,
+      chainId: input.chainId,
+      idempotencyKey: input.idempotencyKey,
+      chainTimestampSeconds: input.chainTimestampSeconds,
+      pointsDelta: grossPoints,
+      sourceReference: input.sourceReference,
+      sourceDetails: {
+        ...input.sourceDetails,
+        taskCode: input.taskCode,
+        activityPoints: formatAcademyReferralPoints(input.userPoints),
+        referralBasePoints: formatAcademyReferralPoints(grossPoints),
+      },
       sourceKind: "contract_event",
     });
-
     return {
-      award,
-      fingerprint: event.fingerprint,
-      fraction,
-      rewardAsset,
-      trancheId: metadata.trancheId.toString(),
-      assetVariant: metadata.assetVariant,
-      rewardAmount: amount.toString(),
-      rewardValueMUsdUnits: rewardValueMUsdUnits.toString(),
-      pointsDelta,
+      status: "awarded",
+      taskCode: input.taskCode,
+      entryId: entry.id,
+      pointsDelta: entry.pointsDelta,
     };
   });
+}
+
+function decodeLog(log: Log, abi: Abi, eventName: string): Record<string, unknown> | null {
+  try {
+    const decoded = decodeEventLog({ abi, data: log.data, topics: log.topics, eventName });
+    return decoded.args as unknown as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+async function handleQualifyingSwap(ctx: ContractEventHandlerContext, event: AnyContractEvent) {
+  const pool = getAuroveSupportedPool(event.chainId, event.contractAddress);
+  if (!pool) return { status: "skipped" as const, reason: "unsupported_pool" };
+
+  const client = getEventContractClient();
+  const receipt = await client.getTransactionReceipt({ hash: event.txHash as Hash });
+  if (receipt.status !== "success") return { status: "skipped" as const, reason: "reverted_transaction" };
+
+  const qualifyingSwapLogs = receipt.logs
+    .filter((log) => getAuroveSupportedPool(event.chainId, log.address))
+    .filter((log) => {
+      const matchingPool = getAuroveSupportedPool(event.chainId, log.address);
+      return matchingPool ? decodeLog(log, matchingPool.abi, "Swap") !== null : false;
+    })
+    .sort((a, b) => Number(a.logIndex) - Number(b.logIndex));
+  if (Number(qualifyingSwapLogs[0]?.logIndex) !== event.logIndex) {
+    return { status: "skipped" as const, reason: "not_primary_qualifying_swap_event" };
+  }
+
+  const args = event.namedArgs as Record<string, unknown>;
+  const amount0 = asBigInt(args.amount0);
+  const amount1 = asBigInt(args.amount1);
+  if (amount0 == null || amount1 == null) return { status: "skipped" as const, reason: "malformed_swap" };
+  const poolStates = await readPoolStates(event.chainId, event.blockNumber);
+  const eventPool = poolStates.find((candidate) => candidate.address.toLowerCase() === pool.address.toLowerCase());
+  const eventSqrtPriceX96 = asBigInt(args.sqrtPriceX96);
+  if (eventPool && eventSqrtPriceX96 && eventSqrtPriceX96 > 0n) {
+    eventPool.sqrtPriceX96 = eventSqrtPriceX96;
+  }
+  const inputToken = amount0 > 0n ? eventPool?.token0 : amount1 > 0n ? eventPool?.token1 : null;
+  const inputAmount = amount0 > 0n ? amount0 : amount1 > 0n ? amount1 : 0n;
+  const musd = getKnownMusdConfig(event.chainId);
+  if (!eventPool || !inputToken || !musd || inputAmount <= 0n) {
+    return { status: "skipped" as const, reason: "zero_or_unvalued_swap" };
+  }
+  const inputValue = valueTokenInMusdRaw({ token: inputToken, amount: inputAmount, musd: musd.address, pools: poolStates });
+  if (!inputValue) return { status: "skipped" as const, reason: "musd_valuation_unavailable" };
+  const userPoints = fractionToPointUnits(
+    inputValue,
+    ACADEMY_SWAPPER_POINTS_NUMERATOR,
+    ACADEMY_SWAPPER_POINTS_DENOMINATOR,
+  );
+  const transaction = await client.getTransaction({ hash: event.txHash as Hash });
+  const wallet = getAddress(transaction.from);
+
+  const award = await awardActivity({
+    taskCode: ACADEMY_QUALIFYING_SWAP_TASK_CODE,
+    chainId: event.chainId,
+    wallet,
+    idempotencyKey: `academy:cl-swap:${event.chainId}:${event.txHash.toLowerCase()}`,
+    chainTimestampSeconds: event.blockTimestamp,
+    userPoints,
+    sourceReference: `${event.chainId}:${event.txHash.toLowerCase()}:swap`,
+    sourceDetails: {
+      txHash: event.txHash,
+      blockNumber: event.blockNumber,
+      initiatingAccount: wallet,
+      pool: pool.address,
+      poolKey: pool.key,
+      inputToken,
+      inputAmount: inputAmount.toString(),
+      inputValueMUsdNumerator: inputValue.numerator.toString(),
+      inputValueMUsdDenominator: inputValue.denominator.toString(),
+      inputValueMUsdDecimals: musd.decimals,
+      pointsRateNumerator: ACADEMY_SWAPPER_POINTS_NUMERATOR.toString(),
+      pointsRateDenominator: ACADEMY_SWAPPER_POINTS_DENOMINATOR.toString(),
+      valuationMethod: "canonical_supported_pool_spot_price",
+    },
+  });
+  ctx.logger.info(stringifyJsonSafe({ scope: "internal-events", event: "academy.cl_swap", award }));
+  return { award, fingerprint: event.fingerprint };
+}
+
+function sumDecreaseLiquidityAmounts(receiptLogs: readonly Log[], managerAbi: Abi, tokenId: bigint) {
+  return receiptLogs.reduce(
+    (total, log) => {
+      const args = decodeLog(log, managerAbi, "DecreaseLiquidity");
+      if (asBigInt(args?.tokenId) !== tokenId) return total;
+      return {
+        amount0: total.amount0 + (asBigInt(args?.amount0) ?? 0n),
+        amount1: total.amount1 + (asBigInt(args?.amount1) ?? 0n),
+      };
+    },
+    { amount0: 0n, amount1: 0n },
+  );
+}
+
+async function handlePositionFeesCollected(ctx: ContractEventHandlerContext, event: AnyContractEvent) {
+  const registry = getPortfolioRegistry(event.chainId);
+  const manager = registry?.positionManager;
+  const factory = registry?.factory;
+  if (!registry || !manager || !factory || manager.address.toLowerCase() !== event.contractAddress.toLowerCase()) {
+    return { status: "skipped" as const, reason: "unsupported_position_manager" };
+  }
+  const args = event.namedArgs as Record<string, unknown>;
+  const tokenId = asBigInt(args.tokenId);
+  const collected0 = asBigInt(args.amount0);
+  const collected1 = asBigInt(args.amount1);
+  const recipient = asAddress(args.recipient);
+  if (tokenId == null || collected0 == null || collected1 == null || !recipient) {
+    return { status: "skipped" as const, reason: "malformed_fee_collection" };
+  }
+
+  const client = getEventContractClient();
+  const receipt = await client.getTransactionReceipt({ hash: event.txHash as Hash });
+  if (receipt.status !== "success") return { status: "skipped" as const, reason: "reverted_transaction" };
+  const principal = sumDecreaseLiquidityAmounts(
+    receipt.logs.filter((log) => log.address.toLowerCase() === manager.address.toLowerCase()),
+    manager.abi as Abi,
+    tokenId,
+  );
+  const fee0 = collected0 > principal.amount0 ? collected0 - principal.amount0 : 0n;
+  const fee1 = collected1 > principal.amount1 ? collected1 - principal.amount1 : 0n;
+  if (fee0 === 0n && fee1 === 0n) return { status: "skipped" as const, reason: "zero_fee_collection" };
+
+  const position = await client.readContract({
+    address: manager.address,
+    abi: manager.abi as Abi,
+    functionName: "positions",
+    args: [tokenId],
+    blockNumber: BigInt(event.blockNumber),
+  });
+  if (!Array.isArray(position) || position.length < 5) {
+    return { status: "skipped" as const, reason: "position_unavailable" };
+  }
+  const token0 = asAddress(position[2]);
+  const token1 = asAddress(position[3]);
+  const tickSpacing = Number(position[4]);
+  if (!token0 || !token1 || !Number.isInteger(tickSpacing)) {
+    return { status: "skipped" as const, reason: "position_unavailable" };
+  }
+  const poolAddress = await client.readContract({
+    address: factory.address,
+    abi: factory.abi as Abi,
+    functionName: "getPool",
+    args: [token0, token1, tickSpacing],
+    blockNumber: BigInt(event.blockNumber),
+  });
+  const pool = typeof poolAddress === "string" ? getAuroveSupportedPool(event.chainId, poolAddress) : null;
+  if (!pool) return { status: "skipped" as const, reason: "unsupported_pool" };
+
+  const musd = getKnownMusdConfig(event.chainId);
+  const poolStates = await readPoolStates(event.chainId, event.blockNumber);
+  if (!musd) return { status: "skipped" as const, reason: "musd_valuation_unavailable" };
+  const value0 = valueTokenInMusdRaw({ token: token0, amount: fee0, musd: musd.address, pools: poolStates });
+  const value1 = valueTokenInMusdRaw({ token: token1, amount: fee1, musd: musd.address, pools: poolStates });
+  if ((fee0 > 0n && !value0) || (fee1 > 0n && !value1)) {
+    return { status: "skipped" as const, reason: "musd_valuation_unavailable" };
+  }
+  const commonDenominator = (value0?.denominator ?? 1n) * (value1?.denominator ?? 1n);
+  const totalValue: Fraction = {
+    numerator:
+      (value0?.numerator ?? 0n) * (value1?.denominator ?? 1n) +
+      (value1?.numerator ?? 0n) * (value0?.denominator ?? 1n),
+    denominator: commonDenominator,
+  };
+  const userPoints = fractionToPointUnits(
+    totalValue,
+    ACADEMY_LP_POINTS_NUMERATOR,
+    ACADEMY_LP_POINTS_DENOMINATOR,
+  );
+  let wallet = recipient;
+  if (!(await resolveAcademyUserByWalletAddress(wallet))) {
+    const owner = await client.readContract({
+      address: manager.address,
+      abi: manager.abi as Abi,
+      functionName: "ownerOf",
+      args: [tokenId],
+      blockNumber: BigInt(event.blockNumber),
+    });
+    const ownerAddress = asAddress(owner);
+    if (ownerAddress) wallet = ownerAddress;
+  }
+
+  const award = await awardActivity({
+    taskCode: ACADEMY_LP_FEES_COLLECTED_TASK_CODE,
+    chainId: event.chainId,
+    wallet,
+    idempotencyKey: `academy:cl-fees:${event.chainId}:${event.txHash.toLowerCase()}:${event.logIndex}`,
+    chainTimestampSeconds: event.blockTimestamp,
+    userPoints,
+    sourceReference: `${event.chainId}:${event.txHash.toLowerCase()}:${event.logIndex}:fees`,
+    sourceDetails: {
+      txHash: event.txHash,
+      logIndex: event.logIndex,
+      blockNumber: event.blockNumber,
+      positionTokenId: tokenId.toString(),
+      recipient,
+      creditedWallet: wallet,
+      pool: pool.address,
+      poolKey: pool.key,
+      token0,
+      token1,
+      collectedAmount0: collected0.toString(),
+      collectedAmount1: collected1.toString(),
+      principalAmount0: principal.amount0.toString(),
+      principalAmount1: principal.amount1.toString(),
+      collectedFeeAmount0: fee0.toString(),
+      collectedFeeAmount1: fee1.toString(),
+      collectedFeesValueMUsdNumerator: totalValue.numerator.toString(),
+      collectedFeesValueMUsdDenominator: totalValue.denominator.toString(),
+      collectedFeesValueMUsdDecimals: musd.decimals,
+      pointsMultiplierNumerator: ACADEMY_LP_POINTS_NUMERATOR.toString(),
+      pointsMultiplierDenominator: ACADEMY_LP_POINTS_DENOMINATOR.toString(),
+      valuationMethod: "canonical_supported_pool_spot_price",
+    },
+  });
+  ctx.logger.info(stringifyJsonSafe({ scope: "internal-events", event: "academy.cl_fees_collected", award }));
+  return { award, fingerprint: event.fingerprint };
 }
 
 const contractEventHandlers = new Map<string, AnyContractEventHandler>();
 
-registerContractEventHandler({
-  key: buildHandlerKeyTyped("Ledger" as never, "AssetFractionDeployed" as never),
-  description: "Register dynamically deployed asset fractions in the runtime contract registry.",
-  contractName: "Ledger" as never,
-  eventName: "AssetFractionDeployed" as never,
-  run: handleAssetFractionDeployed,
-});
+for (const contractName of ["MUSD-avBTCm", "avBTCm-avMEZOm"] as const) {
+  registerContractEventHandler({
+    key: buildHandlerKeyTyped(contractName as never, "Swap" as never),
+    description: "Award Academy swapper points for one qualifying concentrated-liquidity swap transaction.",
+    contractName: contractName as never,
+    eventName: "Swap" as never,
+    run: handleQualifyingSwap,
+  });
+}
 
 registerContractEventHandler({
-  key: buildHandlerKeyTyped("Ledger" as never, "AssetFractionRewardsClaimed" as never),
-  description: "Award Academy points from asset fraction reward claims.",
-  contractName: "Ledger" as never,
-  eventName: "AssetFractionRewardsClaimed" as never,
-  run: handleAssetFractionRewardsClaimed,
+  key: buildHandlerKeyTyped("NonfungiblePositionManager" as never, "Collect" as never),
+  description: "Award Academy LP points for actual fees collected from a supported position.",
+  contractName: "NonfungiblePositionManager" as never,
+  eventName: "Collect" as never,
+  run: handlePositionFeesCollected,
 });
 
 export function registerContractEventHandler<
@@ -964,17 +487,11 @@ export function registerContractEventHandler<
   return handler;
 }
 
-export function getContractEventHandler<
-  TContractName extends ContractName,
-  TEventName extends ContractEventNameForContract<TContractName>,
->(
+export function getContractEventHandler<TContractName extends ContractName, TEventName extends ContractEventNameForContract<TContractName>>(
   contractName: TContractName,
   eventName: TEventName,
 ): ContractEventHandlerDefinition<TContractName, TEventName> | null;
-export function getContractEventHandler(
-  contractName: ContractName,
-  eventName: string,
-): AnyContractEventHandler | null;
+export function getContractEventHandler(contractName: ContractName, eventName: string): AnyContractEventHandler | null;
 export function getContractEventHandler(contractName: ContractName, eventName: string): AnyContractEventHandler | null {
   return contractEventHandlers.get(`${contractName}.${eventName}`) ?? null;
 }

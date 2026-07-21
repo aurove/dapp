@@ -24,8 +24,6 @@ export function AcademyDashboard({
     isAuthenticated,
     summaryQuery,
     leaderboardQuery,
-    checkInQuery,
-    checkInMutation,
     leaderboardPage,
     setLeaderboardPage,
     currentUserLeaderboardEntry,
@@ -39,7 +37,6 @@ export function AcademyDashboard({
   const activity = useAcademyActivity(seasonId);
   const summaryError = summaryQuery.error instanceof Error ? summaryQuery.error.message : null;
   const leaderboardError = leaderboardQuery.error instanceof Error ? leaderboardQuery.error.message : null;
-  const checkInError = checkInQuery.error instanceof Error ? checkInQuery.error.message : null;
 
   return (
     <>
@@ -48,25 +45,16 @@ export function AcademyDashboard({
         summary={summaryQuery.data ?? null}
         leaderboard={leaderboardQuery.data ?? null}
         currentUserLeaderboardEntry={currentUserLeaderboardEntry}
-        checkIn={checkInQuery.data ?? null}
         summaryError={summaryError}
         leaderboardError={leaderboardError}
-        checkInError={checkInError}
         isSummaryLoading={summaryQuery.isLoading}
         isLeaderboardLoading={leaderboardQuery.isLoading}
-        isCheckInLoading={checkInQuery.isLoading}
-        isCheckInSubmitting={checkInMutation.isPending}
         leaderboardPage={leaderboardPage}
         onLeaderboardPageChange={setLeaderboardPage}
         onLeaderboardUserOpen={activity.openActivityLog}
         onLeaderboardUserPrefetch={activity.prefetchActivityLog}
         onRetryAll={() => {
-          void Promise.all([summaryQuery.refetch(), leaderboardQuery.refetch(), checkInQuery.refetch()]);
-        }}
-        onCheckIn={() => {
-          if (!checkInMutation.isPending) {
-            checkInMutation.mutate();
-          }
+          void Promise.all([summaryQuery.refetch(), leaderboardQuery.refetch()]);
         }}
       />
       <AcademyActivityDialog

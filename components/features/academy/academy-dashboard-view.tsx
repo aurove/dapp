@@ -17,12 +17,7 @@ import { FaXTwitter } from "react-icons/fa6";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton, cn } from "@ui";
 import { formatPoints } from "@/lib/academy/utils";
 import { normalizeWalletAddress, shortenWalletAddress } from "@/lib/auth/utils";
-import type {
-  AcademyCheckInState,
-  AcademyLeaderboardEntry,
-  AcademyLeaderboardPage,
-  AcademySummary,
-} from "@/lib/academy/types";
+import type { AcademyLeaderboardEntry, AcademyLeaderboardPage, AcademySummary } from "@/lib/academy/types";
 import { AcademyTasksCarousel } from "./academy-tasks-carousel";
 
 type AcademyDashboardViewProps = {
@@ -30,20 +25,15 @@ type AcademyDashboardViewProps = {
   summary: AcademySummary | null;
   leaderboard: AcademyLeaderboardPage | null;
   currentUserLeaderboardEntry: AcademyLeaderboardEntry | null;
-  checkIn: AcademyCheckInState | null;
   summaryError: string | null;
   leaderboardError: string | null;
-  checkInError: string | null;
   isSummaryLoading: boolean;
   isLeaderboardLoading: boolean;
-  isCheckInLoading: boolean;
-  isCheckInSubmitting: boolean;
   leaderboardPage: number;
   onLeaderboardPageChange: (page: number) => void;
   onLeaderboardUserOpen: (walletAddress: string) => void;
   onLeaderboardUserPrefetch: (walletAddress: string) => void;
   onRetryAll: () => void;
-  onCheckIn: () => void;
 };
 
 function StatCard({
@@ -181,25 +171,20 @@ export function AcademyDashboardView({
   summary,
   leaderboard,
   currentUserLeaderboardEntry,
-  checkIn,
   summaryError,
   leaderboardError,
-  checkInError,
   isSummaryLoading,
   isLeaderboardLoading,
-  isCheckInLoading,
-  isCheckInSubmitting,
   leaderboardPage,
   onLeaderboardPageChange,
   onLeaderboardUserOpen,
   onLeaderboardUserPrefetch,
   onRetryAll,
-  onCheckIn,
 }: AcademyDashboardViewProps) {
   const [copied, setCopied] = useState(false);
   const season = summary?.season ?? leaderboard?.season ?? null;
   const referral = summary?.referral ?? null;
-  const hasAnyError = Boolean(summaryError || leaderboardError || checkInError);
+  const hasAnyError = Boolean(summaryError || leaderboardError);
   const currentUserWallet = currentUserLeaderboardEntry
     ? normalizeWalletAddress(currentUserLeaderboardEntry.walletAddress)
     : null;
@@ -371,15 +356,7 @@ export function AcademyDashboardView({
       </div>
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,0.33fr)_minmax(0,0.67fr)]">
-        <AcademyTasksCarousel
-          authenticated={isAuthenticated}
-          checkIn={checkIn}
-          checkInError={checkInError}
-          isCheckInLoading={isCheckInLoading}
-          isCheckInSubmitting={isCheckInSubmitting}
-          onCheckIn={onCheckIn}
-          onRetryCheckIn={onRetryAll}
-        />
+        <AcademyTasksCarousel />
 
         <Card className="min-w-0 overflow-hidden border-white/10">
           <CardHeader className="space-y-2">

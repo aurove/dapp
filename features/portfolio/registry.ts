@@ -2,6 +2,7 @@ import type { Abi } from "viem";
 import { getContractConfig, getContractsByChainId } from "@/contracts/shared";
 import { getKnownMezoTokenConfigs } from "@/components/shared/known-mezo-tokens";
 import { deriveTrancheId, MAX_EPOCHS_BY_VARIANT, symbolOf } from "@/components/features/earn/utils/tranche";
+import { getAuroveSupportedPools } from "@/lib/config/supported-liquidity-pools";
 import type { PortfolioRegistry } from "./types";
 
 export function getPortfolioRegistry(chainId: number): PortfolioRegistry | null {
@@ -30,10 +31,7 @@ export function getPortfolioRegistry(chainId: number): PortfolioRegistry | null 
   ].flatMap(({ key, sink, token }) => sink && token ? [{ key, address: sink, rewardToken: token.address, symbol: token.symbol, decimals: token.decimals, assetId: token.id }] : []);
   const positionManager = getContractConfig(chainId, "NonfungiblePositionManager");
   const factory = getContractConfig(chainId, "CLFactory");
-  const supportedPools = (["MUSD-avBTCm", "avBTCm-avMEZOm"] as const).flatMap((key) => {
-    const pool = getContractConfig(chainId, key);
-    return pool?.address ? [{ key, address: pool.address, abi: pool.abi as Abi }] : [];
-  });
+  const supportedPools = getAuroveSupportedPools(chainId);
   const vault = getContractConfig(chainId, "Vault");
   const veCollections = [
     { key: "veBTC", contract: getContractConfig(chainId, "VeBTC") },

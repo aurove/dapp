@@ -160,8 +160,8 @@ export default function HomePage() {
             </h2>
             <p className="section-copy academy-copy__text">
               Aurove Academy helps new users learn the basics and gives returning users a simple
-              way to stay active. Explore guided tasks, check in regularly, track progress, and
-              earn points across the Aurove experience.{" "}
+              way to stay active. Swap through Aurove&apos;s supported pools, collect liquidity fees,
+              and track your points across the Aurove experience.{" "}
               <a
                 className="academy-link academy-link--inline"
                 href="https://x.com/aurove_xyz/status/2069109875112554548"

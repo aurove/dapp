@@ -6,14 +6,12 @@ import { normalizeWalletAddress } from "@/lib/auth/utils";
 
 import { DEFAULT_ACADEMY_ACTIVITY_PAGE_SIZE, DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE } from "./constants";
 import { resolveAcademyReferralSummary } from "./referrals";
-import { getAcademyCheckInState, runAcademyTask } from "./tasks";
 import { AcademyActivityUserNotFoundError } from "./tasks/errors";
 import { resolveActiveAcademyProgram } from "./tasks/points";
 import type {
   AcademyActivityEntry,
   AcademyActivityPage,
   AcademyActivityUser,
-  AcademyCheckInState,
   AcademyLeaderboardEntry,
   AcademyLeaderboardPage,
   AcademySeason,
@@ -392,16 +390,6 @@ export type AcademyService = {
     },
     currentUserId: string | null,
   ): Promise<AcademyActivityPage>;
-  getCheckIn(input: {
-    userId: string;
-    chainId: number;
-    chainTimestampSeconds: number;
-  }): Promise<AcademyCheckInState>;
-  checkIn(input: {
-    userId: string;
-    chainId: number;
-    chainTimestampSeconds: number;
-  }): Promise<AcademyCheckInState>;
 };
 
 export function createAcademyService(): AcademyService {
@@ -452,12 +440,6 @@ export function createAcademyService(): AcademyService {
       }
 
       return resolveAcademyActivityPage(program.id, userRow, input.page, input.limit, currentUserId);
-    },
-    async getCheckIn(input) {
-      return getAcademyCheckInState(input);
-    },
-    async checkIn(input) {
-      return runAcademyTask("check_in", input);
     },
   };
 }
