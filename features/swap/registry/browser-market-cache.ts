@@ -3,9 +3,9 @@
 import type { Abi } from "viem";
 import { getContractConfig } from "@/contracts/shared";
 import type { SwapAsset, SwapPool, SwapRegistry } from "../domain";
-import { getSwapPoolAbi } from "./swap-registry";
+import { getSwapPoolAbi, getSwapRoutingConfig } from "./swap-registry";
 
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 const CACHE_PREFIX = "aurove:swap-markets";
 
 type CachedAsset = Omit<SwapAsset, "trancheId" | "epochs" | "tokenId" | "fixedInputAmount"> & {
@@ -79,6 +79,7 @@ export function readCachedSwapMarkets(chainId: number): SwapRegistry | undefined
       ledger: { address: ledger.address, abi: ledger.abi as Abi },
       assets: cached.assets.map(decodeAsset),
       pools: cached.pools.map((pool) => ({ ...pool, abi })),
+      routing: getSwapRoutingConfig(),
     };
   } catch {
     window.localStorage.removeItem(cacheKey(chainId));

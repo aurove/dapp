@@ -32,7 +32,7 @@ export function useSwapAssets(registry: SwapRegistry | undefined, opposite: Swap
   const portfolio = usePortfolioSummary();
   const { address } = useAccount();
   const client = usePublicClient();
-  const dynamicFungibleAssets = useMemo(() => registry?.assets.filter((asset) => asset.form === "erc20" || asset.form === "id20") ?? [], [registry]);
+  const dynamicFungibleAssets = useMemo(() => registry?.assets.filter((asset) => asset.form === "underlying" || asset.form === "erc20" || asset.form === "id20") ?? [], [registry]);
   const trancheAssets = useMemo(() => registry?.assets.filter((asset) => asset.form === "tranche") ?? [], [registry]);
   const discoveredBalances = useQuery({
     queryKey: ["swap", "balances", registry?.chainId, address?.toLowerCase(), registry?.revision],
@@ -54,7 +54,7 @@ export function useSwapAssets(registry: SwapRegistry | undefined, opposite: Swap
     if (!registry) return [];
     return registry.assets.filter((asset) => {
       const allowed = side === "sell"
-        ? asset.form === "venft" || asset.form === "tranche" || asset.form === "id20" || asset.form === "erc20"
+        ? asset.form === "underlying" || asset.form === "venft" || asset.form === "tranche" || asset.form === "id20" || asset.form === "erc20"
         : asset.form === "id20" || asset.form === "erc20";
       if (!allowed) return false;
       if (!opposite) return true;
@@ -62,7 +62,7 @@ export function useSwapAssets(registry: SwapRegistry | undefined, opposite: Swap
       if (side === "sell" && (asset.form === "venft" || asset.form === "tranche")) return true;
       const tokenIn = side === "sell" ? asset.executableAddress : opposite.executableAddress;
       const tokenOut = side === "sell" ? opposite.executableAddress : asset.executableAddress;
-      return Boolean(findClRoute(registry.pools, tokenIn, tokenOut));
+      return Boolean(findClRoute(registry.pools, tokenIn, tokenOut, registry.routing.maxHops));
     }).sort((a, b) => compareSelectorAssets(a, b, side));
   }, [opposite, registry, side]);
   const balanceOf = (asset: SwapAsset): bigint => {
@@ -75,7 +75,7 @@ export function useSwapAssets(registry: SwapRegistry | undefined, opposite: Swap
       const id20 = Object.values(portfolio.data?.id20Balances ?? {}).find((item) => item.address.toLowerCase() === asset.address.toLowerCase());
       if (id20) return id20.rawBalance;
     }
-    if (asset.form === "erc20") {
+    if (asset.form === "erc20" || asset.form === "underlying") {
       const walletAsset = Object.values(portfolio.data?.walletAssets ?? {}).find((item) => item.address.toLowerCase() === asset.address.toLowerCase());
       if (walletAsset) return walletAsset.rawBalance;
     }

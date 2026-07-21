@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, Check, ChevronDown, ChevronUp, LoaderCircle, Search, Settings2, XCircle } from "lucide-react";
 import { formatUnits, parseUnits, zeroAddress, type Address } from "viem";
 import { useAccount } from "wagmi";
@@ -15,10 +15,8 @@ import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactDecimal, formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
 import {
   findClRoute, planSwap, useSwapApproval, useSwapAssets, useSwapExecution, useSwapNetworkFee, useSwapQuote,
-  useSwapRegistry, type SwapAsset, type SwapExecutionPlan, type SwapIntent, type SwapTradeType,
+  useSwapRegistry, type SwapAsset, type SwapIntent, type SwapTradeType,
 } from "@/features/swap";
-
-const QUOTE_EXPIRY_SECONDS = 30n;
 
 const swapSchema = Yup.object({
   amount: Yup.string()
@@ -66,6 +64,11 @@ function normalizeAmount(value: string, decimals: number): string {
   const cleaned = value.replace(/[^\d.]/g, "");
   const [whole = "", ...rest] = cleaned.split(".");
   return rest.length ? `${whole}.${rest.join("").slice(0, decimals)}` : whole;
+}
+
+function normalizedCaretPosition(value: string, position: number | null, decimals: number): number {
+  if (position === null) return normalizeAmount(value, decimals).length;
+  return normalizeAmount(value.slice(0, position), decimals).length;
 }
 
 function boundedNumber(value: string, minimum: number, maximum: number, fallback: number): number {
@@ -132,9 +135,37 @@ function AssetSelector({ side, asset, assets, balanceOf, balancesLoading, onSele
 }
 
 function AssetAmountField(props: { label: string; value: string; asset?: SwapAsset; assets: readonly SwapAsset[]; balance: bigint; balanceOf: (asset: SwapAsset) => bigint; balanceLoading?: boolean; readOnly?: boolean; onValue: (value: string) => void; onAsset: (asset: SwapAsset) => void; onMax?: () => void; fiat?: string }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const pendingSelectionRef = useRef<{ start: number; end: number; direction: "forward" | "backward" | "none" } | null>(null);
+  const restoreSelection = () => {
+    const input = inputRef.current;
+    const selection = pendingSelectionRef.current;
+    if (!input || !selection) return;
+    if (document.activeElement !== input) {
+      pendingSelectionRef.current = null;
+      return;
+    }
+    const valueLength = input.value.length;
+    input.setSelectionRange(Math.min(selection.start, valueLength), Math.min(selection.end, valueLength), selection.direction);
+    pendingSelectionRef.current = null;
+  };
+  useLayoutEffect(restoreSelection, [props.value]);
+
+  const handleValueChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { value, selectionStart, selectionEnd, selectionDirection } = event.currentTarget;
+    const decimals = props.asset?.decimals ?? 18;
+    pendingSelectionRef.current = {
+      start: normalizedCaretPosition(value, selectionStart, decimals),
+      end: normalizedCaretPosition(value, selectionEnd, decimals),
+      direction: selectionDirection ?? "none",
+    };
+    props.onValue(normalizeAmount(value, decimals));
+    queueMicrotask(restoreSelection);
+  };
+
   return <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 focus-within:border-[#b58f5f]/45">
     <div className="mb-3 flex items-center justify-between text-xs"><span className="font-medium text-white/55">{props.label}</span><span className="text-white/45">Balance: {props.balanceLoading ? "…" : props.asset ? formatCompactRawTokenAmount(props.balance, props.asset.decimals, null) : "—"} {props.onMax && !props.balanceLoading ? <button type="button" onClick={props.onMax} className="ml-1 font-semibold text-[#d8b884] hover:text-[#efd39e]">Max</button> : null}</span></div>
-    <div className="flex items-center gap-3"><Input name="amount" aria-label={`${props.label} amount`} inputMode="decimal" value={props.value} readOnly={props.readOnly} placeholder="0" onChange={(event) => props.onValue(normalizeAmount(event.target.value, props.asset?.decimals ?? 18))} className="h-12 min-w-0 flex-1 border-0 bg-transparent px-0 text-3xl font-medium shadow-none focus-visible:ring-0" /><AssetSelector side={props.label as "Sell" | "Buy"} asset={props.asset} assets={props.assets} balanceOf={props.balanceOf} balancesLoading={props.balanceLoading} onSelect={props.onAsset} /></div>
+    <div className="flex items-center gap-3"><Input ref={inputRef} name="amount" aria-label={`${props.label} amount`} inputMode="decimal" value={props.value} readOnly={props.readOnly} placeholder="0" onChange={handleValueChange} className="h-12 min-w-0 flex-1 border-0 bg-transparent px-0 text-3xl font-medium shadow-none focus-visible:ring-0" /><AssetSelector side={props.label as "Sell" | "Buy"} asset={props.asset} assets={props.assets} balanceOf={props.balanceOf} balancesLoading={props.balanceLoading} onSelect={props.onAsset} /></div>
     <div className="mt-1 min-h-4 text-xs text-white/38">{props.fiat ?? (props.asset ? props.asset.name : "")}</div>
   </div>;
 }
@@ -162,8 +193,8 @@ export function SwapPage() {
   const resolvedSellId = sellId ?? registry?.assets.find((asset) => asset.id === "erc20:MUSD")?.id ?? registry?.assets[0]?.id;
   const sell = registry?.assets.find((asset) => asset.id === resolvedSellId);
   const routedDefaultBuy = registry && sell
-    ? registry.assets.find((asset) => asset.form === "id20" && Boolean(findClRoute(registry.pools, sell.executableAddress, asset.executableAddress)))
-    ?? registry.assets.find((asset) => asset.form === "erc20" && asset.id !== sell.id && Boolean(findClRoute(registry.pools, sell.executableAddress, asset.executableAddress)))
+    ? registry.assets.find((asset) => asset.form === "id20" && Boolean(findClRoute(registry.pools, sell.executableAddress, asset.executableAddress, registry.routing.maxHops)))
+    ?? registry.assets.find((asset) => asset.form === "erc20" && asset.id !== sell.id && Boolean(findClRoute(registry.pools, sell.executableAddress, asset.executableAddress, registry.routing.maxHops)))
     : undefined;
   const resolvedBuyId = buyId ?? routedDefaultBuy?.id;
   const buy = registry?.assets.find((asset) => asset.id === resolvedBuyId);
@@ -176,9 +207,8 @@ export function SwapPage() {
     tokenIn: sell, tokenOut: buy, tradeType, amount: parsedAmount, slippageBps,
     recipient: (account.address ?? zeroAddress) as Address, deadline,
   } : undefined, [account.address, buy, deadline, parsedAmount, registry, sell, slippageBps, tradeType]);
-  const preliminaryPlan = useMemo<SwapExecutionPlan | undefined>(() => intent && registry ? planSwap(intent, registry) : undefined, [intent, registry]);
-  const quote = useSwapQuote({ registry, plan: preliminaryPlan, tradeType, amount: parsedAmount ?? 0n, account: account.address, slippageBps });
-  const plan = useMemo(() => intent && registry && quote.data ? planSwap(intent, registry, quote.data) : preliminaryPlan, [intent, preliminaryPlan, quote.data, registry]);
+  const quote = useSwapQuote({ registry, tokenIn: sell?.executableAddress, tokenOut: buy?.executableAddress, tradeType, amount: parsedAmount ?? 0n, account: account.address, slippageBps, maxHops: registry?.routing.maxHops });
+  const plan = useMemo(() => intent && registry && quote.data ? planSwap(intent, registry, quote.data) : undefined, [intent, quote.data, registry]);
   const supportedPlan = plan && plan.type !== "unsupported" ? plan : undefined;
   const approval = useSwapApproval(plan);
   const networkFee = useSwapNetworkFee(plan, approval.isApproved);
@@ -193,7 +223,7 @@ export function SwapPage() {
   const reverseBuyAsset = sell?.form === "underlying" || sell?.form === "venft" || sell?.form === "tranche"
     ? registry?.assets.find((asset) => asset.form === "id20" && asset.executableAddress.toLowerCase() === sell.executableAddress.toLowerCase())
     : sell;
-  const canReverse = Boolean(registry && buy && reverseBuyAsset && findClRoute(registry.pools, buy.executableAddress, reverseBuyAsset.executableAddress));
+  const canReverse = Boolean(registry && buy && reverseBuyAsset && findClRoute(registry.pools, buy.executableAddress, reverseBuyAsset.executableAddress, registry.routing.maxHops));
 
   const setFormAmount = (value: string) => { setTypedAmount(value); void formik.setFieldValue("amount", value, false); };
   const chooseSell = (asset: SwapAsset) => { setSellId(asset.id); setTradeType("exactInput"); setFormAmount(asset.fixedInputAmount ? formatUnits(asset.fixedInputAmount, asset.decimals) : ""); };
@@ -211,7 +241,7 @@ export function SwapPage() {
     ? `${formatCompactRawTokenAmount(quote.data.amountIn * (10n ** BigInt(buy.decimals)) / quote.data.amountOut, sell.decimals, null)} ${sell.symbol} per ${buy.symbol}` : "—";
   const routeSymbol = (token: Address) => registry?.assets.find((asset) => (asset.form === "erc20" || asset.form === "id20") && asset.executableAddress.toLowerCase() === token.toLowerCase())?.symbol ?? "Pool";
   const routeText = supportedPlan ? [routeSymbol(supportedPlan.hops[0].tokenIn), ...supportedPlan.hops.map((hop) => routeSymbol(hop.tokenOut))].join(" → ") : "—";
-  const quoteExpired = Boolean(quote.data && chainTimestamp !== null && chainTimestamp - quote.data.quotedAtBlockTimestamp > QUOTE_EXPIRY_SECONDS);
+  const quoteExpired = Boolean(quote.data && chainTimestamp !== null && chainTimestamp > quote.data.expiresAtBlockTimestamp);
   const action = (() => {
     if (!registry && registryQuery.isLoading) return { label: "Loading markets…", disabled: true };
     if (!registry) return { label: registryQuery.isError ? "Unable to load markets" : "Unsupported network", disabled: true };
@@ -219,9 +249,12 @@ export function SwapPage() {
     if (!sell || !buy) return { label: "Select tokens", disabled: true };
     if (!typedAmount) return { label: "Enter an amount", disabled: true };
     if (parsedAmount === null || parsedAmount <= 0n) return { label: "Invalid amount", disabled: true };
-    if (preliminaryPlan?.type === "unsupported") return { label: preliminaryPlan.reason === "No route available" ? "No route available" : preliminaryPlan.reason, disabled: true };
     if (quote.isDebouncing || quote.isFetching) return { label: "Fetching quote…", disabled: true, loading: true };
-    if (quote.isError || !quote.data) return { label: "No route available", disabled: true };
+    if (quote.routeState === "no-route") return { label: "No route available", disabled: true };
+    if (quote.routeState === "insufficient-liquidity") return { label: "Insufficient liquidity", disabled: true };
+    if (quote.routeState === "stale-quote") return { label: "Quote stale — refresh", disabled: false, refresh: true };
+    if (quote.routeState === "failed-simulation") return { label: "Route simulation failed", disabled: true };
+    if (quote.isError || !quote.data || !supportedPlan) return { label: "Unable to quote route", disabled: true };
     if (quoteExpired) return { label: "Quote expired — refresh", disabled: false, refresh: true };
     if (insufficient) return { label: `Insufficient ${sell.symbol} balance`, disabled: true };
     if (approval.isChecking) return { label: "Checking approval…", disabled: true, loading: true };
@@ -248,7 +281,7 @@ export function SwapPage() {
     {quote.data && (quote.data.priceImpactBps ?? 0) >= 500 ? <div className="mx-2 mt-2 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs text-amber-100">High price impact. Review this route carefully.</div> : null}
     {formik.submitCount > 0 && formError ? <p role="alert" className="mx-2 mt-2 text-xs text-red-200">{formError}</p> : null}
     <div className="mt-3"><WalletConnectButton><Button type="submit" className="h-12 w-full" disabled={action.disabled}>{action.loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}{action.label}</Button></WalletConnectButton></div>
-    {execution.state === "confirmed" ? <button type="button" onClick={execution.reset} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm text-emerald-100"><Check className="h-4 w-4" /> Swap confirmed</button> : execution.state === "failed" ? <button type="button" onClick={execution.reset} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-300/20 bg-red-300/10 p-3 text-sm text-red-100"><XCircle className="h-4 w-4" />{execution.error ?? "Swap failed"}</button> : null}
+    {execution.state === "confirmed" ? <button type="button" onClick={execution.reset} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm text-emerald-100"><Check className="h-4 w-4" /> Swap confirmed</button> : execution.state === "failed" || execution.state === "failed-simulation" ? <button type="button" onClick={execution.reset} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-300/20 bg-red-300/10 p-3 text-sm text-red-100"><XCircle className="h-4 w-4" />{execution.state === "failed-simulation" ? "Simulation failed: " : ""}{execution.error ?? "Swap failed"}</button> : null}
     <Dialog open={["reviewing", "submitting", "pending"].includes(execution.state)} onOpenChange={(open) => { if (!open && execution.state === "reviewing") execution.cancelReview(); }}><DialogContent className="w-[calc(100vw-1.5rem)] max-w-md border-white/12 bg-[#111820]"><DialogHeader><DialogTitle>Review swap</DialogTitle><DialogDescription>Confirm the exact route that will be simulated and submitted.</DialogDescription></DialogHeader>
       <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4"><DetailRow label="You sell" value={`${amountText(supportedPlan?.amountIn, sell)} ${sell?.symbol ?? ""}`} /><DetailRow label="You buy" value={`${amountText(supportedPlan?.amountOut, buy)} ${buy?.symbol ?? ""}`} /><DetailRow label="Route" value={routeText} /><DetailRow label="Protection" value={tradeType === "exactInput" ? `Minimum ${amountText(supportedPlan?.amountOutMinimum, buy)} ${buy?.symbol}` : `Maximum ${amountText(supportedPlan?.amountInMaximum, sell)} ${sell?.symbol}`} /></div>
       <DialogFooter><Button type="button" variant="secondary" disabled={execution.state !== "reviewing"} onClick={execution.cancelReview}>Cancel</Button><Button type="button" disabled={execution.state !== "reviewing"} onClick={() => void execution.submit()}>{execution.state === "submitting" ? "Submitting…" : execution.state === "pending" ? "Swapping…" : "Swap"}{execution.state !== "reviewing" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}</Button></DialogFooter>

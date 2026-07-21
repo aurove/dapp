@@ -41,6 +41,14 @@ export interface SwapRegistry {
   ledger: { address: Address; abi: Abi };
   assets: readonly SwapAsset[];
   pools: readonly SwapPool[];
+  routing: SwapRoutingConfig;
+}
+
+export interface SwapRoutingConfig {
+  maxHops: number;
+  maxCandidateRoutes: number;
+  quoteTtlSeconds: bigint;
+  maxPriceImpactBps: number;
 }
 
 export interface SwapIntent {
@@ -140,4 +148,14 @@ export interface SwapQuote {
   priceImpactBps: number | null;
   quotedAtBlockTimestamp: bigint;
   blockNumber: bigint;
+  expiresAtBlockTimestamp: bigint;
+  encodedPath: Hex;
+  hops: readonly SwapHop[];
+  candidateCount: number;
 }
+
+export type SwapRouteState = "success" | "no-route" | "insufficient-liquidity" | "stale-quote" | "failed-simulation";
+
+export type SwapRouteResult =
+  | { status: "success"; quote: SwapQuote }
+  | { status: Exclude<SwapRouteState, "success">; reason: string; candidateCount: number };

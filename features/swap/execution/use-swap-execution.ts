@@ -8,7 +8,7 @@ import { getParsedError } from "@/lib/tx-flow/getParsedError";
 import { getPortfolioRegistry, invalidatePortfolioDomains } from "@/features/portfolio";
 import type { SwapExecutionPlan, SwapQuote } from "../domain";
 
-export type SwapExecutionState = "idle" | "reviewing" | "submitting" | "pending" | "confirmed" | "failed";
+export type SwapExecutionState = "idle" | "reviewing" | "submitting" | "pending" | "confirmed" | "failed-simulation" | "failed";
 
 export function useSwapExecution(params: { plan?: SwapExecutionPlan; quote?: SwapQuote; verifyApproval: () => Promise<boolean> }) {
   const { address } = useAccount();
@@ -26,15 +26,22 @@ export function useSwapExecution(params: { plan?: SwapExecutionPlan; quote?: Swa
     try {
       setError(undefined);
       const latestBlock = await client.getBlock({ blockTag: "latest" });
-      if (latestBlock.timestamp - params.quote.quotedAtBlockTimestamp > 30n) throw new Error("Quote expired. Refresh the quote before swapping.");
+      if (latestBlock.timestamp > params.quote.expiresAtBlockTimestamp) throw new Error("Quote expired. Refresh the quote before swapping.");
       if (latestBlock.timestamp > plan.deadline) throw new Error("Swap deadline expired. Refresh the quote before swapping.");
       if (!(await params.verifyApproval())) throw new Error("Approval is required before swapping.");
       setState("submitting");
-      const simulation = await client.simulateContract({
-        account: address, address: plan.contractCall.address, abi: plan.contractCall.abi,
-        functionName: plan.contractCall.functionName, args: plan.contractCall.args,
-        value: plan.contractCall.value,
-      } as Parameters<typeof client.simulateContract>[0]);
+      let simulation;
+      try {
+        simulation = await client.simulateContract({
+          account: address, address: plan.contractCall.address, abi: plan.contractCall.abi,
+          functionName: plan.contractCall.functionName, args: plan.contractCall.args,
+          value: plan.contractCall.value,
+        } as Parameters<typeof client.simulateContract>[0]);
+      } catch (caught) {
+        setError(getParsedError(caught));
+        setState("failed-simulation");
+        return;
+      }
       const transactionHash = await writeContractAsync(simulation.request as never);
       setHash(transactionHash);
       setState("pending");

@@ -3,9 +3,23 @@ import { getContractConfig, getContractsByChainId } from "@/contracts/shared";
 import { getKnownMezoTokenConfigs } from "@/components/shared/known-mezo-tokens";
 import { deriveTrancheId, MAX_EPOCHS_BY_VARIANT, nameOf, symbolOf, type CanonicalAssetVariant } from "@/components/features/earn/utils/tranche";
 import { getPortfolioRegistry, type WalletPortfolio } from "@/features/portfolio";
-import type { SwapAsset, SwapPool, SwapRegistry } from "../domain";
+import type { SwapAsset, SwapPool, SwapRegistry, SwapRoutingConfig } from "../domain";
 
 type ReadResult = { status: "success"; result: unknown } | { status: "failure"; error: unknown };
+
+function boundedInteger(value: string | undefined, fallback: number, minimum: number, maximum: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? Math.max(minimum, Math.min(maximum, parsed)) : fallback;
+}
+
+export function getSwapRoutingConfig(): SwapRoutingConfig {
+  return {
+    maxHops: boundedInteger(process.env.NEXT_PUBLIC_SWAP_MAX_HOPS, 3, 1, 5),
+    maxCandidateRoutes: boundedInteger(process.env.NEXT_PUBLIC_SWAP_MAX_CANDIDATE_ROUTES, 64, 1, 256),
+    quoteTtlSeconds: BigInt(boundedInteger(process.env.NEXT_PUBLIC_SWAP_QUOTE_TTL_SECONDS, 30, 5, 300)),
+    maxPriceImpactBps: boundedInteger(process.env.NEXT_PUBLIC_SWAP_MAX_PRICE_IMPACT_BPS, 10_000, 1, 10_000),
+  };
+}
 
 function hasFunction(abi: Abi, name: string): boolean {
   return abi.some((item) => item.type === "function" && item.name === name);
@@ -100,6 +114,28 @@ export async function loadSwapRegistry(client: PublicClient, chainId: number): P
     form: "tranche", balanceDomain: "tranches", balanceKey: `tranche:${wrapper.trancheId}`,
     trancheId: wrapper.trancheId, variant: wrapper.variantId, epochs: BigInt(wrapper.epochs), wrapperAddress: wrapper.address,
   }));
+  const underlyingAssets: SwapAsset[] = deployedWrappers.flatMap((wrapper) => {
+    if (wrapper.epochs !== MAX_EPOCHS_BY_VARIANT[wrapper.variant]) return [];
+    const symbol = wrapper.variant === "veBTC" ? "BTC" : "MEZO";
+    const underlying = configuredAssets.find((asset) => asset.symbol === symbol);
+    if (!underlying) return [];
+    return [{
+      id: `underlying:${wrapper.variantId}:${wrapper.epochs}`,
+      chainId,
+      address: underlying.address,
+      executableAddress: wrapper.address,
+      symbol: underlying.symbol,
+      name: `${underlying.name} deposit into ${nameOf(wrapper.variant, wrapper.epochs)}`,
+      decimals: underlying.decimals,
+      form: "underlying",
+      balanceDomain: "wallet",
+      balanceKey: underlying.balanceKey,
+      trancheId: wrapper.trancheId,
+      variant: wrapper.variantId,
+      epochs: BigInt(wrapper.epochs),
+      wrapperAddress: wrapper.address,
+    }];
+  });
   const poolTokens = [...new Set(pools.flatMap((pool) => [pool.token0.toLowerCase(), pool.token1.toLowerCase()]))] as Address[];
   const routableAssets = [...configuredAssets, ...wrapperAssets];
   const missingTokens = poolTokens.filter((address) => !routableAssets.some((asset) => asset.executableAddress.toLowerCase() === address));
@@ -121,14 +157,14 @@ export async function loadSwapRegistry(client: PublicClient, chainId: number): P
       balanceKey: canonicalWalletAsset?.balanceKey ?? `cl:${address.toLowerCase()}`,
     }];
   });
-  const assets = [...configuredAssets, ...wrapperAssets, ...trancheAssets, ...discoveredAssets];
+  const assets = [...configuredAssets, ...underlyingAssets, ...wrapperAssets, ...trancheAssets, ...discoveredAssets];
   return {
     chainId,
     revision: `${portfolio?.revision ?? ""}:${pools.map((pool) => `${pool.address}:${pool.tickSpacing}:${pool.fee}`).join("|")}`,
     clRouter: { address: clRouter.address, abi: clRouter.abi as Abi },
     auroveRouter: { address: auroveRouter.address, abi: auroveRouter.abi as Abi },
     ledger: { address: ledger.address, abi: ledger.abi as Abi },
-    assets, pools,
+    assets, pools, routing: getSwapRoutingConfig(),
   };
 }
 

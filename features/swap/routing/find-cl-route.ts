@@ -3,31 +3,94 @@ import type { SwapHop, SwapPool } from "../domain";
 
 const same = (a: Address, b: Address) => a.toLowerCase() === b.toLowerCase();
 
-export function findClRoute(pools: readonly SwapPool[], tokenIn: Address, tokenOut: Address): SwapHop[] | null {
-  if (same(tokenIn, tokenOut)) return null;
-  const adjacent = (token: Address) => pools.flatMap((pool) => {
-    if (same(pool.token0, token)) return [{ pool, next: pool.token1 }];
-    if (same(pool.token1, token)) return [{ pool, next: pool.token0 }];
-    return [];
-  });
-  const toHop = (pool: SwapPool, from: Address, to: Address): SwapHop => ({
-    pool: pool.address, poolKey: pool.key, tokenIn: from, tokenOut: to,
-    tickSpacing: pool.tickSpacing, fee: pool.fee,
-  });
-  const queue: Array<{ token: Address; hops: SwapHop[]; visited: Set<string> }> = [{ token: tokenIn, hops: [], visited: new Set([tokenIn.toLowerCase()]) }];
-  while (queue.length) {
-    const current = queue.shift()!;
-    for (const edge of adjacent(current.token)) {
-      const normalized = edge.next.toLowerCase();
-      if (current.visited.has(normalized)) continue;
-      const hops = [...current.hops, toHop(edge.pool, current.token, edge.next)];
-      if (same(edge.next, tokenOut)) return hops;
-      queue.push({ token: edge.next, hops, visited: new Set([...current.visited, normalized]) });
-    }
-  }
-  return null;
+export interface ClPoolGraphEdge {
+  pool: SwapPool;
+  tokenIn: Address;
+  tokenOut: Address;
 }
 
-export function canRoute(pools: readonly SwapPool[], tokenIn: Address, tokenOut: Address): boolean {
-  return findClRoute(pools, tokenIn, tokenOut) !== null;
+export type ClPoolGraph = ReadonlyMap<string, readonly ClPoolGraphEdge[]>;
+
+export interface ClRouteDiscoveryOptions {
+  maxHops?: number;
+  maxCandidateRoutes?: number;
+}
+
+const DEFAULT_MAX_HOPS = 3;
+const DEFAULT_MAX_CANDIDATE_ROUTES = 64;
+
+export function buildClPoolGraph(pools: readonly SwapPool[]): ClPoolGraph {
+  const graph = new Map<string, ClPoolGraphEdge[]>();
+  const append = (tokenIn: Address, tokenOut: Address, pool: SwapPool) => {
+    const key = tokenIn.toLowerCase();
+    graph.set(key, [...(graph.get(key) ?? []), { pool, tokenIn, tokenOut }]);
+  };
+  for (const pool of pools) {
+    if (same(pool.token0, pool.token1) || pool.tickSpacing <= 0 || pool.fee < 0) continue;
+    append(pool.token0, pool.token1, pool);
+    append(pool.token1, pool.token0, pool);
+  }
+  return graph;
+}
+
+function toHop(edge: ClPoolGraphEdge): SwapHop {
+  return {
+    pool: edge.pool.address,
+    poolKey: edge.pool.key,
+    tokenIn: edge.tokenIn,
+    tokenOut: edge.tokenOut,
+    tickSpacing: edge.pool.tickSpacing,
+    fee: edge.pool.fee,
+  };
+}
+
+export function discoverClRoutes(
+  pools: readonly SwapPool[],
+  tokenIn: Address,
+  tokenOut: Address,
+  options: ClRouteDiscoveryOptions = {},
+): SwapHop[][] {
+  if (same(tokenIn, tokenOut)) return [];
+  const maxHops = Math.max(1, Math.floor(options.maxHops ?? DEFAULT_MAX_HOPS));
+  const maxCandidateRoutes = Math.max(1, Math.floor(options.maxCandidateRoutes ?? DEFAULT_MAX_CANDIDATE_ROUTES));
+  const graph = buildClPoolGraph(pools);
+  const routes: SwapHop[][] = [];
+  const queue: Array<{ token: Address; hops: SwapHop[]; visitedTokens: Set<string>; visitedPools: Set<string> }> = [{
+    token: tokenIn,
+    hops: [],
+    visitedTokens: new Set([tokenIn.toLowerCase()]),
+    visitedPools: new Set(),
+  }];
+
+  while (queue.length > 0 && routes.length < maxCandidateRoutes) {
+    const current = queue.shift()!;
+    if (current.hops.length >= maxHops) continue;
+    for (const edge of graph.get(current.token.toLowerCase()) ?? []) {
+      const nextToken = edge.tokenOut.toLowerCase();
+      const poolAddress = edge.pool.address.toLowerCase();
+      if (current.visitedTokens.has(nextToken) || current.visitedPools.has(poolAddress)) continue;
+      const nextHops = [...current.hops, toHop(edge)];
+      if (same(edge.tokenOut, tokenOut)) {
+        routes.push(nextHops);
+        if (routes.length >= maxCandidateRoutes) break;
+        continue;
+      }
+      queue.push({
+        token: edge.tokenOut,
+        hops: nextHops,
+        visitedTokens: new Set([...current.visitedTokens, nextToken]),
+        visitedPools: new Set([...current.visitedPools, poolAddress]),
+      });
+    }
+  }
+
+  return routes;
+}
+
+export function findClRoute(pools: readonly SwapPool[], tokenIn: Address, tokenOut: Address, maxHops = DEFAULT_MAX_HOPS): SwapHop[] | null {
+  return discoverClRoutes(pools, tokenIn, tokenOut, { maxHops, maxCandidateRoutes: 1 })[0] ?? null;
+}
+
+export function canRoute(pools: readonly SwapPool[], tokenIn: Address, tokenOut: Address, maxHops = DEFAULT_MAX_HOPS): boolean {
+  return findClRoute(pools, tokenIn, tokenOut, maxHops) !== null;
 }

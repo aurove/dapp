@@ -1,6 +1,5 @@
 import type { SwapExecutionPlan, SwapIntent, SwapQuote, SwapRegistry } from "../domain";
 import { encodeClPath } from "./encode-cl-path";
-import { findClRoute } from "./find-cl-route";
 
 const BPS = 10_000n;
 const minOut = (amount: bigint, bps: number) => amount * (BPS - BigInt(bps)) / BPS;
@@ -10,15 +9,39 @@ export function planSwap(intent: SwapIntent, registry: SwapRegistry, quote?: Swa
   if (intent.chainId !== registry.chainId) return { type: "unsupported", reason: "Unsupported network" };
   if (intent.tokenIn.id === intent.tokenOut.id) return { type: "unsupported", reason: "Select two different assets" };
   if (intent.amount <= 0n) return { type: "unsupported", reason: "Enter an amount" };
-  if (intent.tokenIn.form !== "venft" && intent.tokenIn.form !== "tranche" && intent.tokenIn.form !== "id20" && intent.tokenIn.form !== "erc20") {
+  if (!Number.isInteger(intent.slippageBps) || intent.slippageBps < 0 || intent.slippageBps > 10_000) {
+    return { type: "unsupported", reason: "Invalid slippage tolerance" };
+  }
+  if (intent.tokenIn.form !== "underlying" && intent.tokenIn.form !== "venft" && intent.tokenIn.form !== "tranche" && intent.tokenIn.form !== "id20" && intent.tokenIn.form !== "erc20") {
     return { type: "unsupported", reason: "The selected asset cannot be sold through the swap interface" };
   }
   if (intent.tokenOut.form !== "id20" && intent.tokenOut.form !== "erc20") {
     return { type: "unsupported", reason: "Only ERC-20 tokens can be selected as swap outputs" };
   }
-  const hops = findClRoute(registry.pools, intent.tokenIn.executableAddress, intent.tokenOut.executableAddress);
-  if (!hops) return { type: "unsupported", reason: "No route available" };
+  if (!quote) return { type: "unsupported", reason: "A live route quote is required" };
+  if (quote.tradeType !== intent.tradeType) return { type: "unsupported", reason: "The route quote does not match the trade type" };
+  if ((intent.tradeType === "exactInput" ? quote.amountIn : quote.amountOut) !== intent.amount) {
+    return { type: "unsupported", reason: "The route quote does not match the requested amount" };
+  }
+  const hops = quote.hops;
+  if (!hops.length || hops.length > registry.routing.maxHops) return { type: "unsupported", reason: "The quoted route is not executable" };
+  if (hops[0].tokenIn.toLowerCase() !== intent.tokenIn.executableAddress.toLowerCase() || hops[hops.length - 1].tokenOut.toLowerCase() !== intent.tokenOut.executableAddress.toLowerCase()) {
+    return { type: "unsupported", reason: "The route quote does not match the selected assets" };
+  }
+  const validHops = hops.every((hop, index) => {
+    const registered = registry.pools.find((pool) => pool.address.toLowerCase() === hop.pool.toLowerCase());
+    const next = hops[index + 1];
+    return Boolean(
+      registered
+      && registered.tickSpacing === hop.tickSpacing
+      && ((registered.token0.toLowerCase() === hop.tokenIn.toLowerCase() && registered.token1.toLowerCase() === hop.tokenOut.toLowerCase())
+        || (registered.token1.toLowerCase() === hop.tokenIn.toLowerCase() && registered.token0.toLowerCase() === hop.tokenOut.toLowerCase()))
+      && (!next || hop.tokenOut.toLowerCase() === next.tokenIn.toLowerCase()),
+    );
+  });
+  if (!validHops) return { type: "unsupported", reason: "The quoted route contains an unregistered or disconnected pool" };
   const encodedPath = encodeClPath(hops, intent.tradeType);
+  if (encodedPath.toLowerCase() !== quote.encodedPath.toLowerCase()) return { type: "unsupported", reason: "The encoded route does not match its hops" };
   const amountIn = quote?.amountIn ?? (intent.tradeType === "exactInput" ? intent.amount : 0n);
   const amountOut = quote?.amountOut ?? (intent.tradeType === "exactOutput" ? intent.amount : 0n);
   const amountOutMinimum = quote ? minOut(quote.amountOut, intent.slippageBps) : 0n;
@@ -58,6 +81,21 @@ export function planSwap(intent: SwapIntent, registry: SwapRegistry, quote?: Swa
     deadline: intent.deadline,
     path: encodedPath,
   };
+  if (intent.tokenIn.form === "underlying" && intent.tokenIn.variant && intent.tokenIn.epochs !== undefined) {
+    const deposit = {
+      variant: intent.tokenIn.variant,
+      epochs: intent.tokenIn.epochs,
+      value: intent.tradeType === "exactInput" ? amountIn : amountInMaximum,
+    };
+    const functionName = intent.tradeType === "exactInput" ? "zapErc20ExactInput" : "zapErc20ExactOutput";
+    return {
+      type: "auroveDepositWrapThenSwap", ...common, deposit,
+      routerAddress: registry.auroveRouter.address, routerLabel: "Aurove route", contractFunction: functionName,
+      contractCall: { address: registry.auroveRouter.address, abi: registry.auroveRouter.abi, functionName, args: [deposit, params] },
+      approval: { kind: "erc20", token: intent.tokenIn.address, spender: registry.auroveRouter.address, amount: deposit.value },
+      affectedPortfolioDomains: [...new Set(["wallet" as const, "tranches" as const, "id20" as const, intent.tokenOut.balanceDomain, "rewards" as const])],
+    };
+  }
   if (intent.tokenIn.form === "tranche" && intent.tokenIn.trancheId !== undefined) {
     const wrapAmount = intent.tradeType === "exactInput" ? amountIn : amountInMaximum;
     const functionName = intent.tradeType === "exactInput" ? "zapTrancheExactInput" : "zapTrancheExactOutput";
