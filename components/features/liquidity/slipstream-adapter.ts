@@ -142,8 +142,13 @@ export function getFullRangeHalfIntervals(tickSpacing: number) {
 }
 
 export function snapTickToSpacing(tick: number, tickSpacing: number) {
-  if (!Number.isFinite(tickSpacing) || tickSpacing <= 0) return 0;
-  return nearestUsableTick(Math.trunc(tick), tickSpacing);
+  if (!Number.isFinite(tick) || !Number.isInteger(tickSpacing) || tickSpacing <= 0) return 0;
+  const boundedTick = clampTickToBounds(
+    Math.trunc(tick),
+    TickMath.MIN_TICK,
+    TickMath.MAX_TICK,
+  );
+  return nearestUsableTick(boundedTick, tickSpacing);
 }
 
 export function clampTickToBounds(tick: number, minTick: number, maxTick: number) {

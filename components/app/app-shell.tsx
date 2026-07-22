@@ -34,6 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   src="/logo_mark.png"
                   alt="Aurove"
                   fill
+                  sizes="(min-width: 640px) 168px, 160px"
                   priority
                   className="object-cover object-center"
                 />
