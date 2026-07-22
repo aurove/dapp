@@ -107,33 +107,43 @@ function grossReferralBaseForExactUserPoints(userPoints: bigint): bigint {
 async function readPoolStates(chainId: number, blockNumber: number): Promise<PoolState[]> {
   const client = getEventContractClient();
   const pools = getAuroveSupportedPools(chainId);
-  const results = await client.multicall({
-    allowFailure: true,
-    blockNumber: BigInt(blockNumber),
-    contracts: pools.flatMap((pool) => [
-      { address: pool.address, abi: pool.abi, functionName: "token0" },
-      { address: pool.address, abi: pool.abi, functionName: "token1" },
-      { address: pool.address, abi: pool.abi, functionName: "slot0" },
-    ]),
-  });
+  const states = await Promise.all(
+    pools.map(async (pool): Promise<PoolState | null> => {
+      try {
+        const [token0Result, token1Result, slot0Result] = await Promise.all([
+          client.readContract({
+            address: pool.address,
+            abi: pool.abi,
+            functionName: "token0",
+            blockNumber: BigInt(blockNumber),
+          }),
+          client.readContract({
+            address: pool.address,
+            abi: pool.abi,
+            functionName: "token1",
+            blockNumber: BigInt(blockNumber),
+          }),
+          client.readContract({
+            address: pool.address,
+            abi: pool.abi,
+            functionName: "slot0",
+            blockNumber: BigInt(blockNumber),
+          }),
+        ]);
+        const token0 = asAddress(token0Result);
+        const token1 = asAddress(token1Result);
+        const slot0 = Array.isArray(slot0Result) ? slot0Result : null;
+        const sqrtPriceX96 = asBigInt(slot0?.[0]);
+        return token0 && token1 && sqrtPriceX96 && sqrtPriceX96 > 0n
+          ? { ...pool, token0, token1, sqrtPriceX96 }
+          : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
 
-  return pools.flatMap((pool, index) => {
-    const [token0Result, token1Result, slot0Result] = results.slice(index * 3, index * 3 + 3);
-    if (
-      token0Result?.status !== "success" ||
-      token1Result?.status !== "success" ||
-      slot0Result?.status !== "success"
-    ) {
-      return [];
-    }
-    const token0 = asAddress(token0Result.result);
-    const token1 = asAddress(token1Result.result);
-    const slot0 = Array.isArray(slot0Result.result) ? slot0Result.result : null;
-    const sqrtPriceX96 = asBigInt(slot0?.[0]);
-    return token0 && token1 && sqrtPriceX96 && sqrtPriceX96 > 0n
-      ? [{ ...pool, token0, token1, sqrtPriceX96 }]
-      : [];
-  });
+  return states.filter((state): state is PoolState => state !== null);
 }
 
 function valueTokenInMusdRaw(input: {
@@ -498,4 +508,9 @@ export function getContractEventHandler(contractName: ContractName, eventName: s
 
 export function countRegisteredContractEventHandlers(): number {
   return contractEventHandlers.size;
+}
+
+export function hasRegisteredContractEventHandlers(contractName: ContractName): boolean {
+  const keyPrefix = `${contractName}.`;
+  return Array.from(contractEventHandlers.keys()).some((key) => key.startsWith(keyPrefix));
 }

@@ -11,7 +11,10 @@ import { decodeContractEvent } from "@/lib/events/decode";
 import { dispatchDecodedContractEvent } from "@/lib/events/dispatch";
 import { normalizeInternalEvents } from "@/lib/events";
 import { stringifyJsonSafe } from "@/lib/events/json-safe";
-import { countRegisteredContractEventHandlers } from "@/lib/events/handlers";
+import {
+  countRegisteredContractEventHandlers,
+  hasRegisteredContractEventHandlers,
+} from "@/lib/events/handlers";
 import type { ContractEventProcessingResult } from "@/lib/events/types";
 
 export const runtime = "nodejs";
@@ -150,6 +153,19 @@ async function postInternalEvents(request: NextRequest) {
       continue;
     }
 
+    if (!hasRegisteredContractEventHandlers(contract.contractName)) {
+      skipped += 1;
+      results.push({
+        status: "skipped",
+        fingerprint: normalized.fingerprint,
+        chainId: raw.chainId,
+        contractAddress: raw.contractAddress,
+        contractName: contract.contractName,
+        reason: "No event handlers are registered for this contract.",
+      });
+      continue;
+    }
+
     const decoded = decodeContractEvent(contract, raw);
     if (!decoded) {
       failed += 1;
@@ -227,6 +243,14 @@ async function postInternalEvents(request: NextRequest) {
       error: "No valid internal events were accepted.",
       ...responseBody,
     }, { status: 400 });
+  }
+
+  if (failed > 0) {
+    return createNoStoreJsonResponse({
+      ok: false,
+      error: "One or more internal events failed and must be retried.",
+      ...responseBody,
+    }, { status: 500 });
   }
 
   return createNoStoreJsonResponse({
