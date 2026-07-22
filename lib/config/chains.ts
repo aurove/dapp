@@ -5,11 +5,19 @@ import { hardhat } from "wagmi/chains";
 export type AppEnvironment = "local" | "testnet" | "mainnet";
 
 export function resolveAppEnvironment(): AppEnvironment {
-  const env = (process.env.NEXT_PUBLIC_APP_ENV || "local").toLowerCase();
+  const configuredEnvironment = process.env.NEXT_PUBLIC_APP_ENV?.trim().toLowerCase();
+  if (!configuredEnvironment) {
+    return process.env.NODE_ENV === "production" ? "testnet" : "local";
+  }
+
+  const env = configuredEnvironment;
   if (env === "testnet" || env === "mainnet" || env === "local") {
     return env;
   }
-  return "local";
+
+  throw new Error(
+    `Invalid NEXT_PUBLIC_APP_ENV "${configuredEnvironment}". Expected local, testnet, or mainnet.`,
+  );
 }
 
 export function getMezoTestnetRpcHttp(): string {

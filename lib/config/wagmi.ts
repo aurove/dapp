@@ -12,8 +12,6 @@ import type { Chain } from "viem";
 import { createConfig, http, type Config } from "wagmi";
 import { getRuntimeConfig } from "@/lib/config/env";
 
-import { supportedChains } from "./chains";
-
 let wagmiConfig: Config | undefined;
 let wagmiConfigChainId: number | undefined;
 let serverWagmiConfig: Config | undefined;
@@ -31,18 +29,20 @@ const walletList = [
 ] satisfies Parameters<typeof getDefaultConfig>[0]["wallets"];
 
 function getChainRpcUrl(chain: Chain): string {
-  return chain.rpcUrls.default.http[0] ?? "http://127.0.0.1:8545";
+  const rpcUrl = chain.rpcUrls.default.http[0]?.trim();
+  if (!rpcUrl) {
+    throw new Error(`No RPC URL is configured for chain ${chain.id}.`);
+  }
+  return rpcUrl;
 }
 
 function getServerWagmiConfig(activeChain: Chain): Config {
   if (!serverWagmiConfig || serverWagmiConfigChainId !== activeChain.id) {
     serverWagmiConfig = createConfig({
-      chains: supportedChains,
+      chains: [activeChain],
       multiInjectedProviderDiscovery: false,
       transports: {
-        ...Object.fromEntries(
-          supportedChains.map((chain) => [chain.id, http(getChainRpcUrl(chain))]),
-        ),
+        [activeChain.id]: http(getChainRpcUrl(activeChain)),
       },
       ssr: true,
     });
@@ -62,14 +62,12 @@ export function getWagmiConfig(activeChain: Chain): Config {
   if (!wagmiConfig || wagmiConfigChainId !== activeChain.id) {
     wagmiConfig = getDefaultConfig({
       appName: "Aurove",
-      chains: supportedChains,
+      chains: [activeChain],
       multiInjectedProviderDiscovery: false,
       wallets: walletList,
       projectId: runtime.walletConnectProjectId,
       transports: {
-        ...Object.fromEntries(
-          supportedChains.map((chain) => [chain.id, http(getChainRpcUrl(chain))]),
-        ),
+        [activeChain.id]: http(getChainRpcUrl(activeChain)),
       },
       ssr: true,
     });
