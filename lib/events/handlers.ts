@@ -1,15 +1,12 @@
 import "server-only";
 
 import {
-  createPublicClient,
   decodeEventLog,
   getAddress,
-  http,
   type Abi,
   type Address,
   type Hash,
   type Log,
-  type PublicClient,
 } from "viem";
 
 import { buildHandlerKey as buildHandlerKeyTyped } from "@/contracts/event-types";
@@ -34,6 +31,7 @@ import { getAuroveSupportedPool, getAuroveSupportedPools } from "@/lib/config/su
 import { getKnownMusdConfig } from "@/lib/config/musd";
 import { db } from "@/lib/db";
 import { getPortfolioRegistry } from "@/features/portfolio/registry";
+import { getServerPublicClient } from "@/lib/web3/server-chain-time";
 
 import { stringifyJsonSafe } from "./json-safe";
 import type {
@@ -105,7 +103,7 @@ function grossReferralBaseForExactUserPoints(userPoints: bigint): bigint {
 }
 
 async function readPoolStates(chainId: number, blockNumber: number): Promise<PoolState[]> {
-  const client = getEventContractClient();
+  const client = getEventContractClient(chainId);
   const pools = getAuroveSupportedPools(chainId);
   const states = await Promise.all(
     pools.map(async (pool): Promise<PoolState | null> => {
@@ -183,20 +181,12 @@ function valueTokenInMusdRaw(input: {
   return null;
 }
 
-let eventContractClient: PublicClient | null = null;
-let eventContractRpcUrl: string | null = null;
-
-function getEventContractClient() {
-  const rpcUrl =
-    process.env.EVENTS_RELAY_RPC_URL?.trim() ||
-    process.env.RPC_URL?.trim() ||
-    process.env.NEXT_PUBLIC_RPC_URL?.trim() ||
-    "http://127.0.0.1:8545";
-  if (!eventContractClient || eventContractRpcUrl !== rpcUrl) {
-    eventContractClient = createPublicClient({ transport: http(rpcUrl, { timeout: 15_000 }) });
-    eventContractRpcUrl = rpcUrl;
+function getEventContractClient(chainId: number) {
+  const client = getServerPublicClient(chainId);
+  if (!client) {
+    throw new Error(`No server RPC client is configured for chain ${chainId}.`);
   }
-  return eventContractClient;
+  return client;
 }
 
 async function awardActivity(input: {
@@ -262,7 +252,7 @@ async function handleQualifyingSwap(ctx: ContractEventHandlerContext, event: Any
   const pool = getAuroveSupportedPool(event.chainId, event.contractAddress);
   if (!pool) return { status: "skipped" as const, reason: "unsupported_pool" };
 
-  const client = getEventContractClient();
+  const client = getEventContractClient(event.chainId);
   const receipt = await client.getTransactionReceipt({ hash: event.txHash as Hash });
   if (receipt.status !== "success") return { status: "skipped" as const, reason: "reverted_transaction" };
 
@@ -361,7 +351,7 @@ async function handlePositionFeesCollected(ctx: ContractEventHandlerContext, eve
     return { status: "skipped" as const, reason: "malformed_fee_collection" };
   }
 
-  const client = getEventContractClient();
+  const client = getEventContractClient(event.chainId);
   const receipt = await client.getTransactionReceipt({ hash: event.txHash as Hash });
   if (receipt.status !== "success") return { status: "skipped" as const, reason: "reverted_transaction" };
   const principal = sumDecreaseLiquidityAmounts(

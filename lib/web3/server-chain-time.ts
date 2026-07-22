@@ -26,7 +26,7 @@ function getServerChainRpcUrl(chain: Chain): string | null {
   return null;
 }
 
-function getServerPublicClient(chainId: number): ServerPublicClient | null {
+export function getServerPublicClient(chainId: number): ServerPublicClient | null {
   const chain = getChainById(chainId);
   if (!chain) {
     return null;
