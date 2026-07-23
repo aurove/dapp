@@ -4,6 +4,7 @@ import {
   decodeEventLog,
   getAddress,
   type Abi,
+  type AbiEvent,
   type Address,
   type Hash,
   type Log,
@@ -47,6 +48,7 @@ const Q192 = 2n ** 192n;
 const MIN_TRUSTED_POOL_TICK = -887_000;
 const MAX_TRUSTED_POOL_TICK = 887_000;
 const DEFAULT_MAX_ACADEMY_VALUATION_MUSD = 1_000_000n;
+const MAX_EVENT_LOG_BLOCK_DISTANCE = 10_000;
 
 type Fraction = { numerator: bigint; denominator: bigint };
 type PoolState = {
@@ -358,18 +360,105 @@ async function handleQualifyingSwap(ctx: ContractEventHandlerContext, event: Any
   return { award, fingerprint: event.fingerprint };
 }
 
-function sumDecreaseLiquidityAmounts(receiptLogs: readonly Log[], managerAbi: Abi, tokenId: bigint) {
-  return receiptLogs.reduce(
-    (total, log) => {
-      const args = decodeLog(log, managerAbi, "DecreaseLiquidity");
-      if (asBigInt(args?.tokenId) !== tokenId) return total;
-      return {
-        amount0: total.amount0 + (asBigInt(args?.amount0) ?? 0n),
-        amount1: total.amount1 + (asBigInt(args?.amount1) ?? 0n),
-      };
-    },
-    { amount0: 0n, amount1: 0n },
+function findEventAbi(abi: Abi, eventName: string): AbiEvent {
+  const event = abi.find(
+    (item): item is AbiEvent => item.type === "event" && item.name === eventName,
   );
+  if (!event) throw new Error(`${eventName} event ABI is unavailable.`);
+  return event;
+}
+
+async function resolveCollectedPrincipal(input: {
+  chainId: number;
+  managerAddress: Address;
+  managerAbi: Abi;
+  tokenId: bigint;
+  blockNumber: number;
+  logIndex: number;
+}): Promise<{ amount0: bigint; amount1: bigint }> {
+  const client = getEventContractClient(input.chainId);
+  const supportedPoolDeploymentBlocks = getAuroveSupportedPools(input.chainId)
+    .map((pool) => pool.deploymentBlock)
+    .filter(
+      (block): block is number =>
+        typeof block === "number" && Number.isInteger(block) && block >= 0,
+    );
+  if (supportedPoolDeploymentBlocks.length === 0) {
+    throw new Error("Supported pool deployment history is unavailable.");
+  }
+
+  const fromBlock = Math.min(...supportedPoolDeploymentBlocks);
+  const events = [
+    findEventAbi(input.managerAbi, "DecreaseLiquidity"),
+    findEventAbi(input.managerAbi, "Collect"),
+  ] as const;
+  const ranges: Array<{ fromBlock: bigint; toBlock: bigint }> = [];
+  for (let cursor = fromBlock; cursor <= input.blockNumber; cursor += MAX_EVENT_LOG_BLOCK_DISTANCE) {
+    ranges.push({
+      fromBlock: BigInt(cursor),
+      toBlock: BigInt(
+        Math.min(input.blockNumber, cursor + MAX_EVENT_LOG_BLOCK_DISTANCE - 1),
+      ),
+    });
+  }
+
+  const batches = await Promise.all(
+    ranges.map((range) =>
+      client.getLogs({
+        address: input.managerAddress,
+        events,
+        fromBlock: range.fromBlock,
+        toBlock: range.toBlock,
+        strict: false,
+      }),
+    ),
+  );
+  const positionEvents = batches
+    .flat()
+    .flatMap((log) => {
+      const args = log.args as Record<string, unknown> | undefined;
+      if (asBigInt(args?.tokenId) !== input.tokenId) return [];
+      const blockNumber = log.blockNumber == null ? null : Number(log.blockNumber);
+      const logIndex = log.logIndex;
+      const amount0 = asBigInt(args?.amount0);
+      const amount1 = asBigInt(args?.amount1);
+      if (
+        blockNumber == null ||
+        logIndex == null ||
+        amount0 == null ||
+        amount1 == null ||
+        (log.eventName !== "DecreaseLiquidity" && log.eventName !== "Collect")
+      ) {
+        return [];
+      }
+      return [{ blockNumber, logIndex, eventName: log.eventName, amount0, amount1 }];
+    })
+    .filter(
+      (item) =>
+        item.blockNumber < input.blockNumber ||
+        (item.blockNumber === input.blockNumber && item.logIndex <= input.logIndex),
+    )
+    .sort((a, b) => a.blockNumber - b.blockNumber || a.logIndex - b.logIndex);
+
+  let pendingPrincipal0 = 0n;
+  let pendingPrincipal1 = 0n;
+  for (const item of positionEvents) {
+    if (item.eventName === "DecreaseLiquidity") {
+      pendingPrincipal0 += item.amount0;
+      pendingPrincipal1 += item.amount1;
+      continue;
+    }
+
+    const principal0 = item.amount0 < pendingPrincipal0 ? item.amount0 : pendingPrincipal0;
+    const principal1 = item.amount1 < pendingPrincipal1 ? item.amount1 : pendingPrincipal1;
+    pendingPrincipal0 -= principal0;
+    pendingPrincipal1 -= principal1;
+    if (item.blockNumber === input.blockNumber && item.logIndex === input.logIndex) {
+      return { amount0: principal0, amount1: principal1 };
+    }
+  }
+
+  throw new Error("Unable to locate the current fee-collection event in position history.");
 }
 
 async function handlePositionFeesCollected(ctx: ContractEventHandlerContext, event: AnyContractEvent) {
@@ -391,11 +480,14 @@ async function handlePositionFeesCollected(ctx: ContractEventHandlerContext, eve
   const client = getEventContractClient(event.chainId);
   const receipt = await client.getTransactionReceipt({ hash: event.txHash as Hash });
   if (receipt.status !== "success") return { status: "skipped" as const, reason: "reverted_transaction" };
-  const principal = sumDecreaseLiquidityAmounts(
-    receipt.logs.filter((log) => log.address.toLowerCase() === manager.address.toLowerCase()),
-    manager.abi as Abi,
+  const principal = await resolveCollectedPrincipal({
+    chainId: event.chainId,
+    managerAddress: manager.address,
+    managerAbi: manager.abi as Abi,
     tokenId,
-  );
+    blockNumber: event.blockNumber,
+    logIndex: event.logIndex,
+  });
   const fee0 = collected0 > principal.amount0 ? collected0 - principal.amount0 : 0n;
   const fee1 = collected1 > principal.amount1 ? collected1 - principal.amount1 : 0n;
   if (fee0 === 0n && fee1 === 0n) return { status: "skipped" as const, reason: "zero_fee_collection" };

@@ -10,12 +10,20 @@ export type AuroveSupportedPool = {
   key: AuroveSupportedPoolKey;
   address: Address;
   abi: Abi;
+  deploymentBlock?: number;
 };
 
 export function getAuroveSupportedPools(chainId: number): AuroveSupportedPool[] {
   return AUROVE_SUPPORTED_POOL_KEYS.flatMap((key) => {
     const pool = getContractConfig(chainId, key);
-    return pool?.address ? [{ key, address: pool.address, abi: pool.abi as Abi }] : [];
+    return pool?.address
+      ? [{
+          key,
+          address: pool.address,
+          abi: pool.abi as Abi,
+          deploymentBlock: pool.deploymentBlock,
+        }]
+      : [];
   });
 }
 
