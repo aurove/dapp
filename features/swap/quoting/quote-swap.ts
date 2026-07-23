@@ -106,8 +106,9 @@ async function readPoolSnapshot(client: PublicClient, registry: SwapRegistry, ho
   if (!Array.isArray(slot0) || typeof slot0[0] !== "bigint" || typeof slot0[1] !== "number" || typeof state[1] !== "bigint") {
     throw new Error("Pool returned malformed live state");
   }
-  if (state[1] <= 0n) throw new InsufficientLiquidityError("Pool has no active liquidity");
 
+  // Active liquidity may be zero while initialized positions exist beyond an empty tick gap.
+  // v3Swap traverses that gap and quoteHop still rejects routes that reach no usable liquidity.
   return {
     token0: pool.token0,
     sqrtPriceX96: slot0[0],
