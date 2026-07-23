@@ -1,8 +1,9 @@
 import { ACADEMY_TASK_USER_PERCENT } from "./constants";
 import { formatAcademyReferralPoints, toAcademyReferralUnits } from "./units";
+import { formatCompactDecimal } from "../web3/value-parsers";
 
 export function formatPoints(value: number | bigint | string): string {
-  return formatAcademyReferralPoints(value);
+  return formatCompactDecimal(formatAcademyReferralPoints(value));
 }
 
 export function toAcademyPointsUnits(value: number | bigint | string): bigint {
