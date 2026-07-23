@@ -6,7 +6,7 @@ export type AcademyLeaderboardEntry = {
   userId: string;
   rank: number;
   walletAddress: string;
-  totalPoints: number;
+  totalPoints: string;
   entryCount: number;
   isCurrentUser: boolean;
 };
@@ -22,7 +22,7 @@ export type AcademyLeaderboardPage = {
 export type AcademySummary = {
   authenticated: boolean;
   season: AcademySeason | null;
-  totalPoints: number;
+  totalPoints: string;
   rank: number | null;
   referral: AcademyReferralSummary;
 };
@@ -37,7 +37,7 @@ export type AcademyReferralSummary = {
 export type AcademyActivityUser = {
   id: string;
   walletAddress: string;
-  totalPoints: number;
+  totalPoints: string;
   rank: number | null;
   isCurrentUser: boolean;
 };
@@ -50,7 +50,7 @@ export type AcademyActivityEntry = {
   sourceKind: string;
   sourceReference: string | null;
   sourceDetails: Record<string, unknown>;
-  pointsDelta: number;
+  pointsDelta: string;
   occurredAt: string;
   recordedAt: string;
 };

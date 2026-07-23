@@ -81,12 +81,6 @@ export function useAcademyActivity(seasonId: string | null) {
   );
 
   const closeActivityLog = useCallback(() => {
-    const canGoBack = typeof window !== "undefined" && Number(window.history.state?.idx ?? 0) > 0;
-    if (canGoBack) {
-      router.back();
-      return;
-    }
-
     const params = clearActivityParams(new URLSearchParams(searchParams.toString()));
     router.replace(buildActivityUrl(pathname, params), { scroll: false });
   }, [pathname, router, searchParams]);

@@ -71,6 +71,18 @@ function asNumber(value: unknown, fallback = 0): number {
   return fallback;
 }
 
+function asDecimalString(value: unknown, fallback = "0"): string {
+  if (typeof value === "bigint" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+
+  return fallback;
+}
+
 function toSeason(row: PointsProgram): AcademySeason {
   return {
     id: row.id,
@@ -93,7 +105,7 @@ function toLeaderboardEntry(row: LeaderboardRow, currentUserId?: string | null):
     userId: row.user_id,
     rank: asNumber(row.leaderboard_rank),
     walletAddress: row.wallet_address,
-    totalPoints: asNumber(row.current_points),
+    totalPoints: asDecimalString(row.current_points),
     entryCount: asNumber(row.entry_count),
     isCurrentUser: currentUserId ? row.user_id === currentUserId : false,
   };
@@ -151,7 +163,7 @@ function toActivityUser(
   return {
     id: user.id,
     walletAddress: user.walletAddress,
-    totalPoints: balance ? asNumber(balance.currentPoints) : 0,
+    totalPoints: balance ? asDecimalString(balance.currentPoints) : "0",
     rank,
     isCurrentUser: currentUserId ? user.id === currentUserId : false,
   };
@@ -166,7 +178,7 @@ function toActivityEntry(row: ActivityRow): AcademyActivityEntry {
     sourceKind: row.source_kind,
     sourceReference: row.source_reference,
     sourceDetails: asRecord(row.source_details),
-    pointsDelta: asNumber(row.points_delta),
+    pointsDelta: asDecimalString(row.points_delta),
     occurredAt: row.occurred_at,
     recordedAt: row.recorded_at,
   };
@@ -343,7 +355,7 @@ async function buildAcademySummary(input: {
     return {
       authenticated: input.authenticated,
       season: null,
-      totalPoints: 0,
+      totalPoints: "0",
       rank: null,
       referral: {
         refId: null,
@@ -368,7 +380,7 @@ async function buildAcademySummary(input: {
   return {
     authenticated: input.authenticated,
     season: toSeason(program),
-    totalPoints: balance ? asNumber(balance.currentPoints) : 0,
+    totalPoints: balance ? asDecimalString(balance.currentPoints) : "0",
     rank: leaderboardRow ? asNumber(leaderboardRow.leaderboard_rank) : null,
     referral,
   };

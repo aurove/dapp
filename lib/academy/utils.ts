@@ -5,7 +5,7 @@ export function formatPoints(value: number | bigint | string): string {
   return formatAcademyReferralPoints(value);
 }
 
-function toAcademyPointsUnits(value: number | bigint | string): bigint {
+export function toAcademyPointsUnits(value: number | bigint | string): bigint {
   return toAcademyReferralUnits(value);
 }
 

@@ -3,7 +3,7 @@
 import { type ReactNode, useMemo } from "react";
 import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Skeleton, cn } from "@ui";
 
-import { formatPoints } from "@/lib/academy/utils";
+import { formatPoints, toAcademyPointsUnits } from "@/lib/academy/utils";
 import { shortenWalletAddress } from "@/lib/auth/utils";
 import { AcademyApiError } from "@/lib/academy/client";
 import type { AcademyActivityEntry, AcademyActivityPage } from "@/lib/academy/types";
@@ -120,8 +120,10 @@ function EmptyState({ title, description }: { title: string; description: ReactN
 }
 
 function ActivityEntryCard({ entry }: { entry: AcademyActivityEntry }) {
-  const positive = entry.pointsDelta >= 0;
-  const pointsLabel = `${positive ? "+" : "-"}${formatPoints(Math.abs(entry.pointsDelta))}`;
+  const pointsUnits = toAcademyPointsUnits(entry.pointsDelta);
+  const positive = pointsUnits >= 0n;
+  const absolutePointsUnits = positive ? pointsUnits : -pointsUnits;
+  const pointsLabel = `${positive ? "+" : "-"}${formatPoints(absolutePointsUnits)}`;
   const awardLabel = getAwardLabel(entry.sourceDetails);
 
   return (

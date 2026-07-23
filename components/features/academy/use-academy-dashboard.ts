@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { requestAcademyLeaderboard, requestAcademySummary } from "@/lib/academy/client";
 import type { AcademyLeaderboardEntry, AcademyLeaderboardPage, AcademySummary } from "@/lib/academy/types";
@@ -13,12 +14,21 @@ const academyQueryKeys = {
     ["academy", "leaderboard", page, limit, sessionKey] as const,
 };
 
+function parsePositiveInteger(value: string | null): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 export function useAcademyDashboard(
   initialLeaderboard: AcademyLeaderboardPage | null,
   initialSummary: AcademySummary | null,
   initialCurrentUserLeaderboardEntry: AcademyLeaderboardEntry | null,
 ) {
-  const [leaderboardPage, setLeaderboardPage] = useState(1);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const leaderboardPage = parsePositiveInteger(searchParams.get("leaderboardPage")) ?? 1;
   const leaderboardLimit = 10;
   const { chainId, isAuthenticated, user, walletAddress, walletAddressNormalized } = useWalletAuth();
   const walletKey = walletAddressNormalized && chainId ? `${walletAddressNormalized}:${chainId}` : "guest";
@@ -53,6 +63,21 @@ export function useAcademyDashboard(
               isCurrentUser: true,
             }
           : null);
+
+  const setLeaderboardPage = useCallback(
+    (page: number) => {
+      const nextPage = Number.isInteger(page) && page > 0 ? page : 1;
+      const params = new URLSearchParams(searchParams.toString());
+      if (nextPage === 1) {
+        params.delete("leaderboardPage");
+      } else {
+        params.set("leaderboardPage", String(nextPage));
+      }
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
   return {
     isAuthenticated,
