@@ -1,5 +1,3 @@
-"use client";
-
 import type { Address } from "viem";
 
 import { MUSD_MAINNET_ADDRESS, MUSD_TESTNET_ADDRESS } from "@/lib/config/musd";
