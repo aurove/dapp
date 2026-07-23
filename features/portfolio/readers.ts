@@ -67,6 +67,38 @@ export async function readRewardsPortfolio(client: PublicClient, chainId: number
 }
 
 function tuple(value: unknown): readonly unknown[] | null { return Array.isArray(value) ? value : null; }
+const UINT128_MAX = (1n << 128n) - 1n;
+const UINT256_MODULUS = 1n << 256n;
+const Q128 = 1n << 128n;
+const subUint256 = (a: bigint, b: bigint) => (a - b + UINT256_MODULUS) % UINT256_MODULUS;
+function collectableFromFeeGrowth(params: {
+  currentTick: number;
+  tickLower: number;
+  tickUpper: number;
+  liquidity: bigint;
+  global0: bigint;
+  global1: bigint;
+  lowerOutside0: bigint;
+  lowerOutside1: bigint;
+  upperOutside0: bigint;
+  upperOutside1: bigint;
+  lastInside0: bigint;
+  lastInside1: bigint;
+  storedOwed0: bigint;
+  storedOwed1: bigint;
+}) {
+  const growthInside = (global: bigint, lowerOutside: bigint, upperOutside: bigint) => {
+    const below = params.currentTick >= params.tickLower ? lowerOutside : subUint256(global, lowerOutside);
+    const above = params.currentTick < params.tickUpper ? upperOutside : subUint256(global, upperOutside);
+    return subUint256(subUint256(global, below), above);
+  };
+  const inside0 = growthInside(params.global0, params.lowerOutside0, params.upperOutside0);
+  const inside1 = growthInside(params.global1, params.lowerOutside1, params.upperOutside1);
+  return {
+    amount0: params.storedOwed0 + (params.liquidity * subUint256(inside0, params.lastInside0)) / Q128,
+    amount1: params.storedOwed1 + (params.liquidity * subUint256(inside1, params.lastInside1)) / Q128,
+  };
+}
 export async function readLiquidityPortfolio(client: PublicClient, chainId: number, owner: Address, registry: PortfolioRegistry): Promise<LiquidityPortfolio> {
   const blockNumber = await client.getBlockNumber(); const failures: PortfolioReadFailure[] = []; const positions: LiquidityPortfolio["positions"] = {}; const manager = registry.positionManager;
   if (!manager) return { meta: meta(chainId, owner, blockNumber, failures), positionIds: [], positions };
@@ -78,7 +110,119 @@ export async function readLiquidityPortfolio(client: PublicClient, chainId: numb
   const decoded = positionIds.flatMap((tokenId, index) => { const result = detailResults[index]; const values = result?.status === "success" ? tuple(result.result) : null; if (!values || values.length < 12) { failures.push(failure(tokenId.toString(), manager.address, "positions", result)); return []; } return [{ tokenId, values, token0: values[2] as Address, token1: values[3] as Address, tickSpacing: Number(values[4]) }]; });
   const poolResults = registry.factory ? await client.multicall({ allowFailure: true, blockNumber, contracts: decoded.map((item) => ({ address: registry.factory!.address, abi: registry.factory!.abi as Abi, functionName: "getPool", args: [item.token0, item.token1, item.tickSpacing] })) }) as Result[] : [];
   const supported = decoded.flatMap((item, index) => { const poolResult = poolResults[index]; const pool = poolResult?.status === "success" && typeof poolResult.result === "string" ? poolResult.result as Address : "0x0000000000000000000000000000000000000000" as Address; if (registry.factory && poolResult?.status !== "success") failures.push(failure(`${item.tokenId}-pool`, registry.factory.address, "getPool", poolResult)); const config = registry.supportedPools.find((candidate) => candidate.address.toLowerCase() === pool.toLowerCase()); return config ? [{ item, pool, config }] : []; });
-  const stateResults = await client.multicall({ allowFailure: true, blockNumber, contracts: supported.flatMap(({ pool, config }) => [{ address: pool, abi: config.abi as Abi, functionName: "slot0" }, { address: pool, abi: config.abi as Abi, functionName: "liquidity" }]) }) as Result[];
-  supported.forEach(({ item, pool, config }, index) => { const slot = stateResults[index * 2]; const poolLiquidityResult = stateResults[index * 2 + 1]; const slotValues = slot?.status === "success" ? tuple(slot.result) : null; const sqrtPriceX96 = slotValues && typeof slotValues[0] === "bigint" ? slotValues[0] : undefined; const currentTick = slotValues && typeof slotValues[1] === "number" ? slotValues[1] : undefined; const poolLiquidity = successBigint(poolLiquidityResult); const tickLower = Number(item.values[5]); const tickUpper = Number(item.values[6]); const liquidity = item.values[7] as bigint; let rawAmount0: bigint | undefined; let rawAmount1: bigint | undefined; if (sqrtPriceX96 !== undefined && currentTick !== undefined) { const lower = tickToSqrtPriceX96BigInt(tickLower); const upper = tickToSqrtPriceX96BigInt(tickUpper); if (currentTick < tickLower) { rawAmount0 = getAmount0BelowRangeForLiquidity({ liquidity, sqrtLowerX96: lower, sqrtUpperX96: upper }); rawAmount1 = 0n; } else if (currentTick >= tickUpper) { rawAmount0 = 0n; rawAmount1 = getAmount1AboveRangeForLiquidity({ liquidity, sqrtLowerX96: lower, sqrtUpperX96: upper }); } else { rawAmount0 = getAmount0ForLiquidity({ liquidity, sqrtCurrentX96: sqrtPriceX96, sqrtUpperX96: upper }); rawAmount1 = getAmount1ForLiquidity({ liquidity, sqrtLowerX96: lower, sqrtCurrentX96: sqrtPriceX96 }); } } positions[item.tokenId.toString()] = { tokenId: item.tokenId, pool, poolKey: config.key, token0: item.token0, token1: item.token1, tickSpacing: item.tickSpacing, tickLower, tickUpper, liquidity, poolLiquidity, currentTick, sqrtPriceX96, tokensOwed0: item.values[10] as bigint, tokensOwed1: item.values[11] as bigint, rawAmount0, rawAmount1 }; });
+  const stateResults = await client.multicall({
+    allowFailure: true,
+    blockNumber,
+    contracts: supported.flatMap(({ item, pool, config }) => [
+      { address: pool, abi: config.abi as Abi, functionName: "slot0" },
+      { address: pool, abi: config.abi as Abi, functionName: "liquidity" },
+      { address: pool, abi: config.abi as Abi, functionName: "feeGrowthGlobal0X128" },
+      { address: pool, abi: config.abi as Abi, functionName: "feeGrowthGlobal1X128" },
+      { address: pool, abi: config.abi as Abi, functionName: "ticks", args: [Number(item.values[5])] },
+      { address: pool, abi: config.abi as Abi, functionName: "ticks", args: [Number(item.values[6])] },
+    ]),
+  }) as Result[];
+  const collectResults = await Promise.allSettled(supported.map(({ item }) => client.simulateContract({
+    account: owner,
+    address: manager.address,
+    abi: manager.abi as Abi,
+    functionName: "collect",
+    args: [{ tokenId: item.tokenId, recipient: owner, amount0Max: UINT128_MAX, amount1Max: UINT128_MAX }],
+    blockNumber,
+  })));
+  supported.forEach(({ item, pool, config }, index) => {
+    const state = stateResults.slice(index * 6, index * 6 + 6);
+    const slotValues = state[0]?.status === "success" ? tuple(state[0].result) : null;
+    const sqrtPriceX96 = slotValues && typeof slotValues[0] === "bigint" ? slotValues[0] : undefined;
+    const currentTick = slotValues && typeof slotValues[1] === "number" ? slotValues[1] : undefined;
+    const poolLiquidity = successBigint(state[1]);
+    const tickLower = Number(item.values[5]);
+    const tickUpper = Number(item.values[6]);
+    const liquidity = item.values[7] as bigint;
+    let rawAmount0: bigint | undefined;
+    let rawAmount1: bigint | undefined;
+    if (sqrtPriceX96 !== undefined && currentTick !== undefined) {
+      const lower = tickToSqrtPriceX96BigInt(tickLower);
+      const upper = tickToSqrtPriceX96BigInt(tickUpper);
+      if (currentTick < tickLower) {
+        rawAmount0 = getAmount0BelowRangeForLiquidity({ liquidity, sqrtLowerX96: lower, sqrtUpperX96: upper });
+        rawAmount1 = 0n;
+      } else if (currentTick >= tickUpper) {
+        rawAmount0 = 0n;
+        rawAmount1 = getAmount1AboveRangeForLiquidity({ liquidity, sqrtLowerX96: lower, sqrtUpperX96: upper });
+      } else {
+        rawAmount0 = getAmount0ForLiquidity({ liquidity, sqrtCurrentX96: sqrtPriceX96, sqrtUpperX96: upper });
+        rawAmount1 = getAmount1ForLiquidity({ liquidity, sqrtLowerX96: lower, sqrtCurrentX96: sqrtPriceX96 });
+      }
+    }
+
+    const collect = collectResults[index];
+    const collectTuple = collect?.status === "fulfilled" ? tuple(collect.value.result) : null;
+    let collectible0 = collectTuple && typeof collectTuple[0] === "bigint" ? collectTuple[0] : undefined;
+    let collectible1 = collectTuple && typeof collectTuple[1] === "bigint" ? collectTuple[1] : undefined;
+    if (collectible0 === undefined || collectible1 === undefined) {
+      const lowerTick = state[4]?.status === "success" ? tuple(state[4].result) : null;
+      const upperTick = state[5]?.status === "success" ? tuple(state[5].result) : null;
+      const global0 = successBigint(state[2]);
+      const global1 = successBigint(state[3]);
+      if (
+        currentTick !== undefined
+        && global0 !== undefined
+        && global1 !== undefined
+        && lowerTick
+        && upperTick
+        && typeof lowerTick[2] === "bigint"
+        && typeof lowerTick[3] === "bigint"
+        && typeof upperTick[2] === "bigint"
+        && typeof upperTick[3] === "bigint"
+        && typeof item.values[8] === "bigint"
+        && typeof item.values[9] === "bigint"
+      ) {
+        const fallback = collectableFromFeeGrowth({
+          currentTick,
+          tickLower,
+          tickUpper,
+          liquidity,
+          global0,
+          global1,
+          lowerOutside0: lowerTick[2],
+          lowerOutside1: lowerTick[3],
+          upperOutside0: upperTick[2],
+          upperOutside1: upperTick[3],
+          lastInside0: item.values[8],
+          lastInside1: item.values[9],
+          storedOwed0: item.values[10] as bigint,
+          storedOwed1: item.values[11] as bigint,
+        });
+        collectible0 = fallback.amount0;
+        collectible1 = fallback.amount1;
+      } else {
+        failures.push({
+          key: `${item.tokenId}-collectable-fees`,
+          contract: manager.address,
+          functionName: "collect",
+          reason: collect?.status === "rejected" ? reason(collect.reason) : "Collect simulation and fee-growth fallback failed",
+        });
+      }
+    }
+    positions[item.tokenId.toString()] = {
+      tokenId: item.tokenId,
+      pool,
+      poolKey: config.key,
+      token0: item.token0,
+      token1: item.token1,
+      tickSpacing: item.tickSpacing,
+      tickLower,
+      tickUpper,
+      liquidity,
+      poolLiquidity,
+      currentTick,
+      sqrtPriceX96,
+      tokensOwed0: collectible0 ?? 0n,
+      tokensOwed1: collectible1 ?? 0n,
+      rawAmount0,
+      rawAmount1,
+    };
+  });
   return { meta: meta(chainId, owner, blockNumber, failures), positionIds: supported.map(({ item }) => item.tokenId), positions };
 }

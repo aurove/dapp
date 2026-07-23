@@ -133,6 +133,20 @@ const contracts = {
           type: "event",
         },
         {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "caller", type: "address" },
+            { indexed: true, internalType: "uint256", name: "positionTokenId", type: "uint256" },
+            { indexed: false, internalType: "address", name: "assetA", type: "address" },
+            { indexed: false, internalType: "address", name: "assetB", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amountAUsed", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "amountBUsed", type: "uint256" },
+            { indexed: false, internalType: "uint128", name: "liquidity", type: "uint128" },
+          ],
+          name: "LiquidityIncreased",
+          type: "event",
+        },
+        {
           inputs: [
             {
               components: [
@@ -723,6 +737,567 @@ const contracts = {
           name: "id20Factory",
           outputs: [{ internalType: "contract IId20Factory", name: "", type: "address" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityErc20Erc20",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityErc20Tranche",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityErc20VeNft",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityTrancheErc20",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityTrancheTranche",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityTrancheVeNft",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityVeNftErc20",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityVeNftTranche",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityVeNftVeNft",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -9469,7 +10044,7 @@ const contracts = {
   },
   31611: {
     AuroveZapRouter: {
-      address: "0x9b91E9a70031f4a2a3457fE48a7FdE35f06068fC",
+      address: "0xDC49CF19e824e614fa4a8E2d451ce1e633270CD5",
       abi: [
         {
           inputs: [
@@ -9591,6 +10166,20 @@ const contracts = {
             { indexed: false, internalType: "uint128", name: "liquidity", type: "uint128" },
           ],
           name: "LiquidityAdded",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "caller", type: "address" },
+            { indexed: true, internalType: "uint256", name: "positionTokenId", type: "uint256" },
+            { indexed: false, internalType: "address", name: "assetA", type: "address" },
+            { indexed: false, internalType: "address", name: "assetB", type: "address" },
+            { indexed: false, internalType: "uint256", name: "amountAUsed", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "amountBUsed", type: "uint256" },
+            { indexed: false, internalType: "uint128", name: "liquidity", type: "uint128" },
+          ],
+          name: "LiquidityIncreased",
           type: "event",
         },
         {
@@ -10184,6 +10773,567 @@ const contracts = {
           name: "id20Factory",
           outputs: [{ internalType: "contract IId20Factory", name: "", type: "address" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityErc20Erc20",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityErc20Tranche",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityErc20VeNft",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityTrancheErc20",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityTrancheTranche",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityTrancheVeNft",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "address", name: "token", type: "address" },
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.Erc20DepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityVeNftErc20",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "trancheId", type: "uint256" },
+                { internalType: "uint256", name: "amount", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.TrancheWrapInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityVeNftTranche",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputA",
+              type: "tuple",
+            },
+            {
+              components: [
+                {
+                  components: [
+                    { internalType: "uint8", name: "variant", type: "uint8" },
+                    { internalType: "uint256", name: "epochs", type: "uint256" },
+                    { internalType: "uint256", name: "value", type: "uint256" },
+                  ],
+                  internalType: "struct IAuroveZapRouter.DepositInput",
+                  name: "deposit",
+                  type: "tuple",
+                },
+              ],
+              internalType: "struct IAuroveZapRouter.VeNftDepositInput",
+              name: "inputB",
+              type: "tuple",
+            },
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint256", name: "amountAMinimum", type: "uint256" },
+                { internalType: "uint256", name: "amountBMinimum", type: "uint256" },
+                { internalType: "uint256", name: "deadline", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.IncreaseLiquidityParams",
+              name: "params",
+              type: "tuple",
+            },
+          ],
+          name: "increaseLiquidityVeNftVeNft",
+          outputs: [
+            {
+              components: [
+                { internalType: "uint256", name: "positionTokenId", type: "uint256" },
+                { internalType: "uint128", name: "liquidity", type: "uint128" },
+                { internalType: "address", name: "assetA", type: "address" },
+                { internalType: "address", name: "assetB", type: "address" },
+                { internalType: "uint256", name: "amountAUsed", type: "uint256" },
+                { internalType: "uint256", name: "amountBUsed", type: "uint256" },
+              ],
+              internalType: "struct IAuroveZapRouter.LiquidityResult",
+              name: "result",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {

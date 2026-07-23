@@ -69,7 +69,7 @@ export function planSwap(intent: SwapIntent, registry: SwapRegistry, quote?: Swa
       routerLabel: "Direct pool route", contractFunction: functionName,
       contractCall: { address: registry.clRouter.address, abi: registry.clRouter.abi, functionName, args: [params] },
       approval: { kind: "erc20", token: intent.tokenIn.address, spender: registry.clRouter.address, amount: intent.tradeType === "exactInput" ? amountIn : amountInMaximum },
-      affectedPortfolioDomains: [...new Set([intent.tokenIn.balanceDomain, intent.tokenOut.balanceDomain])],
+      affectedPortfolioDomains: [...new Set([intent.tokenIn.balanceDomain, intent.tokenOut.balanceDomain, "liquidity" as const])],
     };
   }
 
@@ -93,7 +93,7 @@ export function planSwap(intent: SwapIntent, registry: SwapRegistry, quote?: Swa
       routerAddress: registry.auroveRouter.address, routerLabel: "Aurove route", contractFunction: functionName,
       contractCall: { address: registry.auroveRouter.address, abi: registry.auroveRouter.abi, functionName, args: [deposit, params] },
       approval: { kind: "erc20", token: intent.tokenIn.address, spender: registry.auroveRouter.address, amount: deposit.value },
-      affectedPortfolioDomains: [...new Set(["wallet" as const, "tranches" as const, "id20" as const, intent.tokenOut.balanceDomain, "rewards" as const])],
+      affectedPortfolioDomains: [...new Set(["wallet" as const, "tranches" as const, "id20" as const, intent.tokenOut.balanceDomain, "rewards" as const, "liquidity" as const])],
     };
   }
   if (intent.tokenIn.form === "tranche" && intent.tokenIn.trancheId !== undefined) {
@@ -104,7 +104,7 @@ export function planSwap(intent: SwapIntent, registry: SwapRegistry, quote?: Swa
       routerAddress: registry.auroveRouter.address, routerLabel: "Aurove route", contractFunction: functionName,
       contractCall: { address: registry.auroveRouter.address, abi: registry.auroveRouter.abi, functionName, args: [intent.tokenIn.trancheId, wrapAmount, params] },
       approval: { kind: "erc1155", token: registry.ledger.address, operator: registry.auroveRouter.address },
-      affectedPortfolioDomains: [...new Set(["tranches" as const, "id20" as const, intent.tokenOut.balanceDomain, "rewards" as const])],
+      affectedPortfolioDomains: [...new Set(["tranches" as const, "id20" as const, intent.tokenOut.balanceDomain, "rewards" as const, "liquidity" as const])],
     };
   }
   if (intent.tokenIn.form === "venft" && intent.tokenIn.variant && intent.tokenIn.epochs !== undefined && intent.tokenIn.tokenId !== undefined) {
@@ -118,7 +118,7 @@ export function planSwap(intent: SwapIntent, registry: SwapRegistry, quote?: Swa
       routerAddress: registry.auroveRouter.address, routerLabel: "Aurove route", contractFunction: functionName,
       contractCall: { address: registry.auroveRouter.address, abi: registry.auroveRouter.abi, functionName, args: [deposit, params] },
       approval: { kind: "erc721", token: intent.tokenIn.address, operator: registry.auroveRouter.address, tokenId: intent.tokenIn.tokenId },
-      affectedPortfolioDomains: [...new Set(["wallet" as const, "tranches" as const, "id20" as const, intent.tokenOut.balanceDomain, "rewards" as const])],
+      affectedPortfolioDomains: [...new Set(["wallet" as const, "tranches" as const, "id20" as const, intent.tokenOut.balanceDomain, "rewards" as const, "liquidity" as const])],
     };
   }
   return { type: "unsupported", reason: "This asset form is not supported by the configured Aurove router", hops };

@@ -132,6 +132,14 @@ async function quoteHop(snapshot: PoolSnapshot, hop: SwapHop, type: SwapTradeTyp
       same(hop.tokenIn, snapshot.token0),
       toV3BigInt(type === "exactInput" ? amount : -amount),
     );
+    const reachedPriceLimit = toBigInt(result.sqrtRatioX96) === (
+      same(hop.tokenIn, snapshot.token0)
+        ? toBigInt(TickMath.MIN_SQRT_RATIO) + 1n
+        : toBigInt(TickMath.MAX_SQRT_RATIO) - 1n
+    );
+    if (reachedPriceLimit) {
+      throw new InsufficientLiquidityError("The route cannot fill the requested amount");
+    }
     const calculated = toBigInt(result.amountCalculated);
     const quoted = type === "exactInput" ? -calculated : calculated;
     if (quoted <= 0n) throw new InsufficientLiquidityError("A hop produced no executable output");
@@ -215,10 +223,6 @@ export async function quoteBestSwapRoute(params: {
       try {
         encodeClPath(hops, tradeType);
         const values = await quoteRoute(hops, snapshots, tradeType, amount);
-        if (values.priceImpactBps !== null && values.priceImpactBps > registry.routing.maxPriceImpactBps) {
-          liquidityFailures += 1;
-          continue;
-        }
         quoted.push({ hops, values });
       } catch (error) {
         if (isLiquidityFailure(error)) liquidityFailures += 1;

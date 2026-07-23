@@ -28,8 +28,8 @@ export function PortfolioEventWatcher() {
       { contract: getContractConfig(chainId, "AuroveZapRouter"), domains: ["wallet", "tranches", "id20", "rewards", "liquidity"] as const },
       { contract: getContractConfig(chainId, "avBTCmGauge"), domains: ["id20", "rewards"] as const },
       { contract: getContractConfig(chainId, "avMEZOmGauge"), domains: ["id20", "rewards"] as const },
-      { contract: getContractConfig(chainId, "MUSD-avBTCm"), domains: ["liquidity"] as const },
-      { contract: getContractConfig(chainId, "avBTCm-avMEZOm"), domains: ["liquidity"] as const },
+      { contract: getContractConfig(chainId, "MUSD-avBTCm"), domains: ["liquidity"] as const, always: true },
+      { contract: getContractConfig(chainId, "avBTCm-avMEZOm"), domains: ["liquidity"] as const, always: true },
     ];
     const stops = [
       ...registry.walletAssets.map((asset) => client.watchContractEvent({ address: asset.address, abi: erc20Abi, eventName: "Transfer", onLogs: (logs) => { if (relevant(logs)) queue("wallet"); } })),
@@ -38,7 +38,7 @@ export function PortfolioEventWatcher() {
       ...(registry.positionManager ? [client.watchContractEvent({ address: registry.positionManager.address, abi: erc721Abi, eventName: "Transfer", onLogs: (logs) => { if (relevant(logs)) queue("liquidity"); } })] : []),
       ...(registry.positionManager ? [client.watchContractEvent({ address: registry.positionManager.address, abi: registry.positionManager.abi as never, onLogs: () => queue("liquidity") })] : []),
       ...registry.rewardSources.map((source) => client.watchContractEvent({ address: source.address, abi: registry.rewardSinkAbi as never, onLogs: (logs) => { if (relevant(logs)) { queue("rewards"); queue("wallet"); } } })),
-      ...protocolWatchers.flatMap(({ contract, domains }) => contract?.address ? [client.watchContractEvent({ address: contract.address, abi: contract.abi, onLogs: (logs) => { if (relevant(logs)) domains.forEach(queue); } })] : []),
+      ...protocolWatchers.flatMap(({ contract, domains, always }) => contract?.address ? [client.watchContractEvent({ address: contract.address, abi: contract.abi, onLogs: (logs) => { if (always || relevant(logs)) domains.forEach(queue); } })] : []),
     ];
     return () => { stops.forEach((stop) => stop()); timers.forEach(clearTimeout); };
   }, [address, chainId, client, queryClient]);

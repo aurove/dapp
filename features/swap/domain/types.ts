@@ -48,7 +48,6 @@ export interface SwapRoutingConfig {
   maxHops: number;
   maxCandidateRoutes: number;
   quoteTtlSeconds: bigint;
-  maxPriceImpactBps: number;
 }
 
 export interface SwapIntent {

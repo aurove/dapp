@@ -17,7 +17,6 @@ export function getSwapRoutingConfig(): SwapRoutingConfig {
     maxHops: boundedInteger(process.env.NEXT_PUBLIC_SWAP_MAX_HOPS, 3, 1, 5),
     maxCandidateRoutes: boundedInteger(process.env.NEXT_PUBLIC_SWAP_MAX_CANDIDATE_ROUTES, 64, 1, 256),
     quoteTtlSeconds: BigInt(boundedInteger(process.env.NEXT_PUBLIC_SWAP_QUOTE_TTL_SECONDS, 30, 5, 300)),
-    maxPriceImpactBps: boundedInteger(process.env.NEXT_PUBLIC_SWAP_MAX_PRICE_IMPACT_BPS, 10_000, 1, 10_000),
   };
 }
 
