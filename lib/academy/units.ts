@@ -1,5 +1,6 @@
+import { formatUnits } from "viem";
+
 import { ACADEMY_POINTS_PRECISION, ACADEMY_POINTS_SCALE } from "./constants";
-import { formatUnitsDecimal } from "../formatting/decimal";
 
 function expandScientificDecimal(value: string): string {
   const match = value.match(/^(\d+)(?:\.(\d*))?[eE]([+-]?\d+)$/);
@@ -55,5 +56,5 @@ export function toAcademyReferralUnits(value: number | string | bigint): bigint 
 
 export function formatAcademyReferralPoints(value: number | string | bigint): string {
   const units = typeof value === "bigint" ? value : toAcademyReferralUnits(value);
-  return formatUnitsDecimal(units, ACADEMY_POINTS_PRECISION, 5);
+  return formatUnits(units, ACADEMY_POINTS_PRECISION);
 }
