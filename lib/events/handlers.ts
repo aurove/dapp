@@ -44,6 +44,9 @@ import type {
 export { buildHandlerKeyTyped as buildHandlerKey };
 
 const Q192 = 2n ** 192n;
+const MIN_TRUSTED_POOL_TICK = -887_000;
+const MAX_TRUSTED_POOL_TICK = 887_000;
+const DEFAULT_MAX_ACADEMY_VALUATION_MUSD = 1_000_000n;
 
 type Fraction = { numerator: bigint; denominator: bigint };
 type PoolState = {
@@ -53,6 +56,8 @@ type PoolState = {
   token0: Address;
   token1: Address;
   sqrtPriceX96: bigint;
+  tick: number;
+  liquidity: bigint;
 };
 
 type AwardResult =
@@ -94,6 +99,20 @@ function fractionToPointUnits(valueInMusdRaw: Fraction, numerator: bigint, denom
   return (valueInMusdRaw.numerator * numerator) / (valueInMusdRaw.denominator * denominator);
 }
 
+function maxAcademyValuationRaw(decimals: number): bigint {
+  const configured = process.env.ACADEMY_MAX_VALUATION_MUSD?.trim();
+  const wholeMusd =
+    configured && /^\d+$/.test(configured)
+      ? BigInt(configured)
+      : DEFAULT_MAX_ACADEMY_VALUATION_MUSD;
+  return wholeMusd * 10n ** BigInt(decimals);
+}
+
+function isAcademyValuationWithinBounds(value: Fraction, musdDecimals: number): boolean {
+  if (value.numerator <= 0n || value.denominator <= 0n) return false;
+  return value.numerator <= maxAcademyValuationRaw(musdDecimals) * value.denominator;
+}
+
 function grossReferralBaseForExactUserPoints(userPoints: bigint): bigint {
   if (userPoints <= 0n) return 0n;
   const percent = BigInt(ACADEMY_TASK_USER_PERCENT);
@@ -108,7 +127,7 @@ async function readPoolStates(chainId: number, blockNumber: number): Promise<Poo
   const states = await Promise.all(
     pools.map(async (pool): Promise<PoolState | null> => {
       try {
-        const [token0Result, token1Result, slot0Result] = await Promise.all([
+        const [token0Result, token1Result, slot0Result, liquidityResult] = await Promise.all([
           client.readContract({
             address: pool.address,
             abi: pool.abi,
@@ -127,13 +146,29 @@ async function readPoolStates(chainId: number, blockNumber: number): Promise<Poo
             functionName: "slot0",
             blockNumber: BigInt(blockNumber),
           }),
+          client.readContract({
+            address: pool.address,
+            abi: pool.abi,
+            functionName: "liquidity",
+            blockNumber: BigInt(blockNumber),
+          }),
         ]);
         const token0 = asAddress(token0Result);
         const token1 = asAddress(token1Result);
         const slot0 = Array.isArray(slot0Result) ? slot0Result : null;
         const sqrtPriceX96 = asBigInt(slot0?.[0]);
-        return token0 && token1 && sqrtPriceX96 && sqrtPriceX96 > 0n
-          ? { ...pool, token0, token1, sqrtPriceX96 }
+        const tick = typeof slot0?.[1] === "number" ? slot0[1] : null;
+        const liquidity = asBigInt(liquidityResult);
+        const hasTrustedState =
+          sqrtPriceX96 !== null &&
+          sqrtPriceX96 > 0n &&
+          tick !== null &&
+          tick > MIN_TRUSTED_POOL_TICK &&
+          tick < MAX_TRUSTED_POOL_TICK &&
+          liquidity !== null &&
+          liquidity > 0n;
+        return token0 && token1 && hasTrustedState
+          ? { ...pool, token0, token1, sqrtPriceX96, tick, liquidity }
           : null;
       } catch {
         return null;
@@ -271,12 +306,11 @@ async function handleQualifyingSwap(ctx: ContractEventHandlerContext, event: Any
   const amount0 = asBigInt(args.amount0);
   const amount1 = asBigInt(args.amount1);
   if (amount0 == null || amount1 == null) return { status: "skipped" as const, reason: "malformed_swap" };
-  const poolStates = await readPoolStates(event.chainId, event.blockNumber);
+  // Use the previous block so this transaction cannot set the spot price used
+  // to value its own Academy award.
+  const valuationBlock = Math.max(0, event.blockNumber - 1);
+  const poolStates = await readPoolStates(event.chainId, valuationBlock);
   const eventPool = poolStates.find((candidate) => candidate.address.toLowerCase() === pool.address.toLowerCase());
-  const eventSqrtPriceX96 = asBigInt(args.sqrtPriceX96);
-  if (eventPool && eventSqrtPriceX96 && eventSqrtPriceX96 > 0n) {
-    eventPool.sqrtPriceX96 = eventSqrtPriceX96;
-  }
   const inputToken = amount0 > 0n ? eventPool?.token0 : amount1 > 0n ? eventPool?.token1 : null;
   const inputAmount = amount0 > 0n ? amount0 : amount1 > 0n ? amount1 : 0n;
   const musd = getKnownMusdConfig(event.chainId);
@@ -285,6 +319,9 @@ async function handleQualifyingSwap(ctx: ContractEventHandlerContext, event: Any
   }
   const inputValue = valueTokenInMusdRaw({ token: inputToken, amount: inputAmount, musd: musd.address, pools: poolStates });
   if (!inputValue) return { status: "skipped" as const, reason: "musd_valuation_unavailable" };
+  if (!isAcademyValuationWithinBounds(inputValue, musd.decimals)) {
+    return { status: "skipped" as const, reason: "musd_valuation_out_of_bounds" };
+  }
   const userPoints = fractionToPointUnits(
     inputValue,
     ACADEMY_SWAPPER_POINTS_NUMERATOR,
@@ -390,7 +427,8 @@ async function handlePositionFeesCollected(ctx: ContractEventHandlerContext, eve
   if (!pool) return { status: "skipped" as const, reason: "unsupported_pool" };
 
   const musd = getKnownMusdConfig(event.chainId);
-  const poolStates = await readPoolStates(event.chainId, event.blockNumber);
+  const valuationBlock = Math.max(0, event.blockNumber - 1);
+  const poolStates = await readPoolStates(event.chainId, valuationBlock);
   if (!musd) return { status: "skipped" as const, reason: "musd_valuation_unavailable" };
   const value0 = valueTokenInMusdRaw({ token: token0, amount: fee0, musd: musd.address, pools: poolStates });
   const value1 = valueTokenInMusdRaw({ token: token1, amount: fee1, musd: musd.address, pools: poolStates });
@@ -404,6 +442,9 @@ async function handlePositionFeesCollected(ctx: ContractEventHandlerContext, eve
       (value1?.numerator ?? 0n) * (value0?.denominator ?? 1n),
     denominator: commonDenominator,
   };
+  if (!isAcademyValuationWithinBounds(totalValue, musd.decimals)) {
+    return { status: "skipped" as const, reason: "musd_valuation_out_of_bounds" };
+  }
   const userPoints = fractionToPointUnits(
     totalValue,
     ACADEMY_LP_POINTS_NUMERATOR,
