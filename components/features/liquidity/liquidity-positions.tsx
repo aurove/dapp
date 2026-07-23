@@ -8,6 +8,11 @@ import { ChevronDown, ChevronUp, Coins, Droplets, Plus, RefreshCw, Trash2 } from
 import { formatUnits, type Abi, type Address } from "viem";
 import { useAccount, useChainId } from "wagmi";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
+import {
+  getLiquidityId20GaugeDescriptors,
+  makeId20ActivationGuardSteps,
+  useId20GaugePositions,
+} from "@/components/features/id20/use-id20-gauges";
 import { getContractConfig } from "@/contracts/shared";
 import { getPortfolioRegistry, usePortfolioSummary, type LiquidityPortfolio, type PortfolioDomain, type PortfolioSummary, type WalletPortfolio } from "@/features/portfolio";
 import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
@@ -103,6 +108,8 @@ function PositionActions({
   veCollections: WalletPortfolio["veCollections"];
 }) {
   const { address } = useAccount();
+  const chainId = useChainId();
+  const id20Gauges = useId20GaugePositions(chainId, address);
   const removeTransactionRef = useRef<TransactionFlowButtonHandle>(null);
   const increaseTransactionRef = useRef<TransactionFlowButtonHandle>(null);
   const burnTransactionRef = useRef<TransactionFlowButtonHandle>(null);
@@ -176,7 +183,17 @@ function PositionActions({
   const routerSupportsIncrease = increaseRouterCall !== null && routerAbi.some(
     (item) => item.type === "function" && item.name === increaseRouterCall.functionName,
   );
-  const increaseSteps: TxStep[] = [];
+  const requiredId20Gauges = useMemo(
+    () => getLiquidityId20GaugeDescriptors(chainId, [token0?.address, token1?.address]),
+    [chainId, token0?.address, token1?.address],
+  );
+  const inactiveRequiredId20s = useMemo(() => {
+    const required = new Set(requiredId20Gauges.map((item) => item.id20Address.toLowerCase()));
+    return id20Gauges.gauges.filter(
+      (item) => required.has(item.id20Address.toLowerCase()) && !item.isActive,
+    );
+  }, [id20Gauges.gauges, requiredId20Gauges]);
+  const increaseSteps: TxStep[] = requiredId20Gauges.flatMap(makeId20ActivationGuardSteps);
   if (increaseQuote.status === "ok" && increaseQuote.routerPlan && increaseRouterCall && routerSupportsIncrease && increaseSourceA && increaseSourceB) {
     const approvalA = buildLiquidityApprovalStep({
       source: increaseSourceA,
@@ -205,7 +222,11 @@ function PositionActions({
   const collectSteps = address ? [withDomains(makeAddressWriteStep({ key: "liquidity-collect-fees", label: "Collect fees", displayLabelBtn: true, address: managerAddress, abi: managerAbi, variables: { functionName: "collect", args: [{ tokenId: position.tokenId, recipient: address, amount0Max: UINT128_MAX, amount1Max: UINT128_MAX }] } }) as TxStep, ["liquidity", "wallet", "id20"])] : [];
   const removeSteps = address && removeLiquidity > 0n ? [withDomains(makeAddressWriteStep({ key: "liquidity-remove", label: numericPercent === 100 ? "Remove all liquidity" : "Remove liquidity", displayLabelBtn: true, address: managerAddress, abi: managerAbi, variables: { functionName: "decreaseLiquidity", args: [{ tokenId: position.tokenId, liquidity: removeLiquidity, amount0Min: min0, amount1Min: min1, deadline }] } }) as TxStep, ["liquidity", "wallet", "id20"]), ...(collectAfter ? collectSteps : [])] : [];
 
-  const complete = (message: string) => () => { setError(null); setSuccess(message); };
+  const complete = (message: string) => () => {
+    setError(null);
+    setSuccess(message);
+    void id20Gauges.refresh();
+  };
   const failed = (message: string) => { setSuccess(null); setError(message); };
   const removeFormik = useFormik({
     initialValues: { percent, slippage, collectAfter },
@@ -314,6 +335,7 @@ function PositionActions({
           })}
         </div>
         <label className="block text-xs text-white/60">Slippage tolerance (%)<Input name="slippage" value={increaseSlippage} onBlur={increaseFormik.handleBlur} onChange={(event) => { setIncreaseSlippage(event.target.value); void increaseFormik.setFieldValue("slippage", event.target.value); }} inputMode="decimal" className="mt-1" /></label>
+        {inactiveRequiredId20s.length > 0 ? <p role="status" className="rounded-lg border border-sky-300/20 bg-sky-300/10 px-3 py-2 text-xs text-sky-100">Activate {inactiveRequiredId20s.map((item) => item.symbol).join(" and ")} rewards first. The activation step is included and these increase-liquidity inputs will be preserved.</p> : null}
         {increaseRouterCall && !routerSupportsIncrease ? <p role="status" className="text-xs text-amber-100">The configured zap router does not yet expose position-aware increase methods. Deploy and sync the updated router before using this action.</p> : null}
         {increaseFormik.submitCount > 0 && (increaseFormik.errors.amount || increaseFormik.errors.slippage) ? <p role="alert" className="text-xs text-red-200">{increaseFormik.errors.amount ?? increaseFormik.errors.slippage}</p> : null}
         <TransactionFlowButton ref={increaseTransactionRef} type="submit" className="w-full" variant="secondary" steps={increaseSteps} disabled={increaseQuote.status !== "ok" || !routerSupportsIncrease} onComplete={complete("Liquidity increased.")} onError={failed}><Plus className="h-4 w-4" /> Preview and increase</TransactionFlowButton>

@@ -17,6 +17,11 @@ import { formatUnits, isAddress } from "viem";
 import { useAccount, useChainId } from "wagmi";
 
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from "@ui";
+import {
+  getLiquidityId20GaugeDescriptors,
+  makeId20ActivationGuardSteps,
+  useId20GaugePositions,
+} from "@/components/features/id20/use-id20-gauges";
 import { getContractConfig } from "@/contracts/shared";
 import { usePortfolioSummary } from "@/features/portfolio";
 import { useChainTime } from "@/lib/web3/use-chain-time";
@@ -169,6 +174,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
   const { address: account } = useAccount();
   const { chainTimestamp } = useChainTime();
   const portfolio = usePortfolioSummary();
+  const id20Gauges = useId20GaugePositions(chainId, account);
   const [selectedPoolState, setSelectedPoolState] = useState<LiquidityPoolKey>(initialPool);
   const [poolFormStateByKey, setPoolFormStateByKey] = useState<Record<LiquidityPoolKey, PoolFormState>>(
     () => createInitialPoolFormState(),
@@ -196,6 +202,16 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
     : availablePools[0]?.key ?? selectedPoolState;
 
   const pool = useSlipstreamPoolState(chainId, selectedPool);
+  const requiredId20Gauges = useMemo(
+    () => getLiquidityId20GaugeDescriptors(chainId, [pool.token0?.address, pool.token1?.address]),
+    [chainId, pool.token0?.address, pool.token1?.address],
+  );
+  const inactiveRequiredId20s = useMemo(() => {
+    const required = new Set(requiredId20Gauges.map((item) => item.id20Address.toLowerCase()));
+    return id20Gauges.gauges.filter(
+      (item) => required.has(item.id20Address.toLowerCase()) && !item.isActive,
+    );
+  }, [id20Gauges.gauges, requiredId20Gauges]);
   const routerAddress = getContractConfig(chainId, "AuroveZapRouter")?.address ?? null;
   const ledgerAddress = getContractConfig(chainId, "Ledger")?.address;
   const formState = poolFormStateByKey[selectedPool];
@@ -251,7 +267,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
     }
 
     const plan = quote.routerPlan;
-    const steps: TxStep[] = [];
+    const steps: TxStep[] = requiredId20Gauges.flatMap(makeId20ActivationGuardSteps);
 
     if (!isAddress(routerAddress)) {
       throw new Error("Liquidity router is not configured on this network.");
@@ -276,7 +292,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
     );
 
     return steps;
-  }, [quote.routerPlan, routerAddress, selectedSourceA, selectedSourceB]);
+  }, [quote.routerPlan, requiredId20Gauges, routerAddress, selectedSourceA, selectedSourceB]);
   const activeToken = formState.activeSide === "assetA" ? pool.token0 : pool.token1;
   const activeAmountSchema = Yup.string()
     .required("Enter an amount.")
@@ -772,6 +788,17 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
             </div>
           ) : null}
 
+          {inactiveRequiredId20s.length > 0 ? (
+            <div className="flex items-start gap-3 rounded-2xl border border-sky-300/20 bg-sky-300/8 px-4 py-3 text-sm text-sky-50/90">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <p>
+                Activate {inactiveRequiredId20s.map((item) => item.symbol).join(" and ")} rewards before
+                supplying liquidity. Activation is included as the first transaction step and your form
+                will stay intact.
+              </p>
+            </div>
+          ) : null}
+
           <div className="grid gap-3 md:grid-cols-3">
             <QuoteStat
               label="Liquidity"
@@ -811,6 +838,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
             }}
             steps={() => liquiditySteps()}
             onComplete={() => {
+              void id20Gauges.refresh();
               Object.values(portfolio.domains).forEach((query) => void query.refetch());
             }}
           >
