@@ -26,6 +26,7 @@ export type GenericContract = {
   address?: Address;
   abi: Abi;
   deploymentBlock?: number;
+  linkedData?: Readonly<Record<string, unknown>>;
   inheritedFunctions?: InheritedFunctions;
   external?: true;
 };
