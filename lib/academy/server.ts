@@ -4,7 +4,15 @@ import { db } from "@/lib/db";
 import { pointsPrograms, pointsUserBalances, users, type PointsProgram } from "@/lib/db/schema";
 import { normalizeWalletAddress } from "@/lib/auth/utils";
 
-import { DEFAULT_ACADEMY_ACTIVITY_PAGE_SIZE, DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE } from "./constants";
+import {
+  DEFAULT_ACADEMY_ACTIVITY_PAGE_SIZE,
+  DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE,
+} from "./constants";
+import {
+  getAcademyEpochNumber,
+  getAcademyEpochWindow,
+  type AcademyEpochWindow,
+} from "./epoch";
 import { resolveAcademyReferralSummary } from "./referrals";
 import { AcademyActivityUserNotFoundError } from "./tasks/errors";
 import { resolveActiveAcademyProgram } from "./tasks/points";
@@ -12,6 +20,7 @@ import type {
   AcademyActivityEntry,
   AcademyActivityPage,
   AcademyActivityUser,
+  AcademyLeaderboardMode,
   AcademyLeaderboardEntry,
   AcademyLeaderboardPage,
   AcademySeason,
@@ -28,6 +37,17 @@ type LeaderboardRow = {
   lifetime_spent_points: string | number | bigint;
   entry_count: string | number | bigint;
   leaderboard_rank: string | number | bigint;
+};
+
+type EpochLeaderboardRow = {
+  user_id: string;
+  wallet_address: string;
+  current_points: string | number | bigint;
+  lifetime_earned_points: string | number | bigint;
+  lifetime_spent_points: string | number | bigint;
+  entry_count: string | number | bigint;
+  leaderboard_rank: string | number | bigint;
+  last_activity_at: string | null;
 };
 
 type ActivityRow = {
@@ -119,10 +139,23 @@ function normalizePage(page: number): number {
   return Number.isInteger(page) && page > 0 ? page : 1;
 }
 
+function normalizeEpochNumber(epoch: number | null | undefined): number | null {
+  return typeof epoch === "number" && Number.isInteger(epoch) && epoch > 0 ? epoch : null;
+}
+
 function paginate(totalItems: number, limit: number): { totalPages: number } {
   return {
     totalPages: totalItems === 0 ? 0 : Math.ceil(totalItems / limit),
   };
+}
+
+function parseLeaderboardMode(value: string | null | undefined): AcademyLeaderboardMode {
+  return value?.trim().toLowerCase() === "global" ? "global" : "epoch";
+}
+
+function resolveLeaderboardTopLimit(value: string | null | undefined): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 10;
 }
 
 async function resolveAcademyUserByWalletAddress(walletAddress: string): Promise<ProgramUser | null> {
@@ -206,6 +239,10 @@ async function resolveAcademyLeaderboardRow(
   return (rows[0] as LeaderboardRow | undefined) ?? null;
 }
 
+function toEpochWindow(epoch: number | null | undefined): AcademyEpochWindow {
+  return getAcademyEpochWindow(normalizeEpochNumber(epoch) ?? getAcademyEpochNumber());
+}
+
 async function resolveAcademyLeaderboardPage(
   programSlug: string,
   page: number,
@@ -253,10 +290,112 @@ async function resolveAcademyLeaderboardPage(
 
   return {
     season: seasonRow ? toSeason(seasonRow) : null,
+    mode: "global",
     page: normalizedPage,
     limit: normalizedLimit,
     ...paginate(totalItems, normalizedLimit),
     items,
+    epoch: null,
+  };
+}
+
+async function resolveAcademyEpochLeaderboardPage(
+  programId: string,
+  epoch: number | null | undefined,
+  currentUserId: string | null,
+): Promise<AcademyLeaderboardPage> {
+  const normalizedEpoch = normalizeEpochNumber(epoch) ?? getAcademyEpochNumber();
+  const epochWindow = toEpochWindow(normalizedEpoch);
+  const topLimit = resolveLeaderboardTopLimit(process.env.ACADEMY_LEADERBOARD_TOP_LIMIT);
+
+  const leaderboardRows = await db.execute(sql`
+    with epoch_leaderboard as (
+      select
+        l.user_id,
+        u.wallet_address,
+        sum(l.points_delta) as current_points,
+        sum(greatest(l.points_delta, 0)) as lifetime_earned_points,
+        sum(greatest(-l.points_delta, 0)) as lifetime_spent_points,
+        count(*)::bigint as entry_count,
+        max(l.occurred_at) as last_activity_at
+      from public.points_ledger_entries l
+      join public.users u on u.id = l.user_id
+      where l.program_id = ${programId}
+        and l.occurred_at >= ${epochWindow.startsAt}
+        and l.occurred_at <= ${epochWindow.endsAt}
+      group by l.user_id, u.wallet_address
+    ),
+    ranked_epoch_leaderboard as (
+      select
+        user_id,
+        wallet_address,
+        current_points,
+        lifetime_earned_points,
+        lifetime_spent_points,
+        entry_count,
+        last_activity_at,
+        row_number() over (
+          order by current_points desc, last_activity_at asc nulls last, user_id asc
+        ) as leaderboard_rank
+      from epoch_leaderboard
+    )
+    select
+      user_id,
+      wallet_address,
+      current_points,
+      lifetime_earned_points,
+      lifetime_spent_points,
+      entry_count,
+      leaderboard_rank,
+      last_activity_at
+    from ranked_epoch_leaderboard
+    order by leaderboard_rank asc
+    limit ${topLimit}
+  `);
+
+  const countRows = await db.execute(sql`
+    with epoch_leaderboard as (
+      select l.user_id
+      from public.points_ledger_entries l
+      where l.program_id = ${programId}
+        and l.occurred_at >= ${epochWindow.startsAt}
+        and l.occurred_at <= ${epochWindow.endsAt}
+      group by l.user_id
+    )
+    select count(*)::bigint as total_items
+    from epoch_leaderboard
+  `);
+
+  const totalItems = asNumber((countRows[0] as { total_items?: unknown } | undefined)?.total_items, 0);
+  const seasonRow = await resolveAcademyProgramById(programId);
+  const items = (leaderboardRows as unknown as EpochLeaderboardRow[]).map((row) =>
+    toLeaderboardEntry(
+      {
+        user_id: row.user_id,
+        wallet_address: row.wallet_address,
+        current_points: row.current_points,
+        lifetime_earned_points: row.lifetime_earned_points,
+        lifetime_spent_points: row.lifetime_spent_points,
+        entry_count: row.entry_count,
+        leaderboard_rank: row.leaderboard_rank,
+      },
+      currentUserId,
+    ),
+  );
+
+  return {
+    season: seasonRow ? toSeason(seasonRow) : null,
+    mode: "epoch",
+    page: 1,
+    limit: topLimit,
+    totalPages: totalItems === 0 ? 0 : 1,
+    items,
+    epoch: {
+      epoch: normalizedEpoch,
+      startsAt: epochWindow.startsAt,
+      endsAt: epochWindow.endsAt,
+      isCurrent: epochWindow.isCurrent,
+    },
   };
 }
 
@@ -392,7 +531,12 @@ export type AcademyService = {
     chainId: number | null;
     origin: string;
   }): Promise<AcademySummary>;
-  getLeaderboard(page: number, limit: number, userId: string | null): Promise<AcademyLeaderboardPage>;
+  getLeaderboard(input: {
+    page: number;
+    limit: number;
+    userId: string | null;
+    epoch?: number | null;
+  }): Promise<AcademyLeaderboardPage>;
   getActivity(
     input: {
       walletAddress: string;
@@ -416,19 +560,26 @@ export function createAcademyService(): AcademyService {
         authenticated: Boolean(input.userId),
       });
     },
-    async getLeaderboard(page, limit, userId) {
+    async getLeaderboard(input) {
       const program = await resolveActiveAcademyProgram(db);
       if (!program) {
         return {
           season: null,
-          page: normalizePage(page),
-          limit: normalizeLimit(limit, DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE),
+          mode: parseLeaderboardMode(process.env.ACADEMY_LEADERBOARD_MODE),
+          page: normalizePage(input.page),
+          limit: normalizeLimit(input.limit, DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE),
           totalPages: 0,
           items: [],
+          epoch: null,
         };
       }
 
-      return resolveAcademyLeaderboardPage(program.slug, page, limit, userId);
+      const mode = parseLeaderboardMode(process.env.ACADEMY_LEADERBOARD_MODE);
+      if (mode === "global") {
+        return resolveAcademyLeaderboardPage(program.slug, input.page, input.limit, input.userId);
+      }
+
+      return resolveAcademyEpochLeaderboardPage(program.id, input.epoch, input.userId);
     },
     async getActivity(input, currentUserId) {
       const userRow = await resolveAcademyUserByWalletAddress(input.walletAddress);

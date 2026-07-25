@@ -2,6 +2,15 @@ import type { PointsProgram } from "@/lib/db/schema";
 
 export type AcademySeason = PointsProgram;
 
+export type AcademyLeaderboardMode = "epoch" | "global";
+
+export type AcademyLeaderboardEpoch = {
+  epoch: number;
+  startsAt: string;
+  endsAt: string;
+  isCurrent: boolean;
+};
+
 export type AcademyLeaderboardEntry = {
   userId: string;
   rank: number;
@@ -13,10 +22,12 @@ export type AcademyLeaderboardEntry = {
 
 export type AcademyLeaderboardPage = {
   season: AcademySeason | null;
+  mode: AcademyLeaderboardMode;
   page: number;
   limit: number;
   totalPages: number;
   items: AcademyLeaderboardEntry[];
+  epoch: AcademyLeaderboardEpoch | null;
 };
 
 export type AcademySummary = {

@@ -55,13 +55,17 @@ export async function requestAcademySummary(): Promise<AcademySummary> {
 }
 
 export async function requestAcademyLeaderboard(input: {
-  page: number;
-  limit: number;
+  page?: number;
+  limit?: number;
+  epoch?: number;
 }): Promise<AcademyLeaderboardPage> {
-  const searchParams = new URLSearchParams({
-    page: String(input.page),
-    limit: String(input.limit),
-  });
+  const searchParams = new URLSearchParams();
+  if (input.epoch !== undefined) {
+    searchParams.set("epoch", String(input.epoch));
+  } else {
+    searchParams.set("page", String(input.page ?? 1));
+    searchParams.set("limit", String(input.limit ?? 10));
+  }
 
   return requestJson<AcademyLeaderboardPage>(`/api/academy/leaderboard?${searchParams.toString()}`, {
     method: "GET",

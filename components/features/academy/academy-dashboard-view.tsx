@@ -15,9 +15,15 @@ import {
 import { FaXTwitter } from "react-icons/fa6";
 
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton, cn } from "@ui";
+import { formatAcademyEpochRangeFromIso } from "@/lib/academy/epoch";
 import { formatPoints } from "@/lib/academy/utils";
 import { normalizeWalletAddress, shortenWalletAddress } from "@/lib/auth/utils";
-import type { AcademyLeaderboardEntry, AcademyLeaderboardPage, AcademySummary } from "@/lib/academy/types";
+import type {
+  AcademyLeaderboardEntry,
+  AcademyLeaderboardMode,
+  AcademyLeaderboardPage,
+  AcademySummary,
+} from "@/lib/academy/types";
 import { AcademyTasksCarousel } from "./academy-tasks-carousel";
 
 type AcademyDashboardViewProps = {
@@ -25,12 +31,15 @@ type AcademyDashboardViewProps = {
   summary: AcademySummary | null;
   leaderboard: AcademyLeaderboardPage | null;
   currentUserLeaderboardEntry: AcademyLeaderboardEntry | null;
+  leaderboardMode: AcademyLeaderboardMode;
   summaryError: string | null;
   leaderboardError: string | null;
   isSummaryLoading: boolean;
   isLeaderboardLoading: boolean;
   leaderboardPage: number;
   onLeaderboardPageChange: (page: number) => void;
+  leaderboardEpoch: number | null;
+  onLeaderboardEpochChange: (epoch: number) => void;
   onLeaderboardUserOpen: (walletAddress: string) => void;
   onLeaderboardUserPrefetch: (walletAddress: string) => void;
   onRetryAll: () => void;
@@ -171,30 +180,36 @@ export function AcademyDashboardView({
   summary,
   leaderboard,
   currentUserLeaderboardEntry,
+  leaderboardMode,
   summaryError,
   leaderboardError,
   isSummaryLoading,
   isLeaderboardLoading,
   leaderboardPage,
   onLeaderboardPageChange,
+  leaderboardEpoch,
+  onLeaderboardEpochChange,
   onLeaderboardUserOpen,
   onLeaderboardUserPrefetch,
   onRetryAll,
 }: AcademyDashboardViewProps) {
   const [copied, setCopied] = useState(false);
   const season = summary?.season ?? leaderboard?.season ?? null;
+  const selectedEpoch = leaderboard?.epoch ?? null;
+  const isEpochMode = leaderboardMode === "epoch";
   const referral = summary?.referral ?? null;
   const hasAnyError = Boolean(summaryError || leaderboardError);
-  const currentUserWallet = currentUserLeaderboardEntry
+  const currentUserWallet = currentUserLeaderboardEntry && leaderboardMode === "global"
     ? normalizeWalletAddress(currentUserLeaderboardEntry.walletAddress)
     : null;
   const leaderboardEntries = currentUserWallet
-    ? leaderboard?.items.filter(
-        (entry) => normalizeWalletAddress(entry.walletAddress) !== currentUserWallet,
-      ) ?? null
+    ? leaderboard?.items.filter((entry) => normalizeWalletAddress(entry.walletAddress) !== currentUserWallet) ?? null
     : leaderboard?.items ?? null;
   const visibleLeaderboardEntries = leaderboardEntries ?? [];
-  const showLeaderboardContent = visibleLeaderboardEntries.length > 0 || Boolean(currentUserLeaderboardEntry);
+  const showLeaderboardContent =
+    visibleLeaderboardEntries.length > 0 || (leaderboardMode === "global" && Boolean(currentUserLeaderboardEntry));
+  const epochRangeLabel =
+    selectedEpoch && isEpochMode ? formatAcademyEpochRangeFromIso(selectedEpoch) : null;
   const pointsValue = isSummaryLoading ? "..." : summary ? formatPoints(summary.totalPoints) : summaryError ? "Unavailable" : "0";
   const rankValue = isSummaryLoading
     ? "..."
@@ -211,6 +226,11 @@ export function AcademyDashboardView({
       ? "We could not load the current season details just now."
       : "The next Academy campaign will appear here once it opens."
   );
+  const leaderboardDescription = isEpochMode
+    ? epochRangeLabel
+      ? `Top Academy participants for the selected weekly epoch. ${epochRangeLabel}.`
+      : "Top Academy participants for the selected Academy epoch."
+    : "Top Academy participants ranked by total points in the current season.";
 
   async function handleCopyReferralLink(link: string) {
     try {
@@ -364,9 +384,7 @@ export function AcademyDashboardView({
               <Users className="h-5 w-5 text-[#e6d2ad]" />
               Leaderboard
             </CardTitle>
-            <CardDescription>
-              Top Academy participants ranked by total points in the current season.
-            </CardDescription>
+            <CardDescription>{leaderboardDescription}</CardDescription>
           </CardHeader>
           <CardContent className="min-w-0 space-y-3">
             {isLeaderboardLoading ? (
@@ -384,7 +402,7 @@ export function AcademyDashboardView({
               />
             ) : showLeaderboardContent ? (
               <>
-                {currentUserLeaderboardEntry ? (
+                {leaderboardMode === "global" && currentUserLeaderboardEntry ? (
                   <div className="min-w-0 space-y-2 rounded-3xl border border-amber-300/20 bg-amber-300/[0.06] p-3">
                     <div className="flex items-center justify-between gap-2 px-1">
                       <p className="text-[10px] uppercase tracking-[0.24em] text-amber-100/70">Your position</p>
@@ -415,40 +433,70 @@ export function AcademyDashboardView({
                 ) : null}
 
                 {leaderboard ? (
-                  <div className="flex flex-col gap-2 pt-1 text-sm sm:flex-row sm:items-center sm:justify-between">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => onLeaderboardPageChange(Math.max(1, leaderboardPage - 1))}
-                      disabled={leaderboardPage <= 1}
-                      className="w-full gap-1 sm:w-auto"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Prev
-                    </Button>
-                    <p className="text-center text-xs text-white/45 sm:flex-1 sm:text-left">
-                      Page {leaderboard.page} of {leaderboard.totalPages || 1}
-                    </p>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() =>
-                        onLeaderboardPageChange(Math.min(leaderboard.totalPages || 1, leaderboardPage + 1))
-                      }
-                      disabled={leaderboardPage >= (leaderboard.totalPages || 1)}
-                      className="w-full gap-1 sm:w-auto"
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  leaderboardMode === "global" ? (
+                    <div className="flex flex-col gap-2 pt-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onLeaderboardPageChange(Math.max(1, leaderboardPage - 1))}
+                        disabled={leaderboardPage <= 1}
+                        className="w-full gap-1 sm:w-auto"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Prev
+                      </Button>
+                      <p className="text-center text-xs text-white/45 sm:flex-1 sm:text-left">
+                        Page {leaderboard.page} of {leaderboard.totalPages || 1}
+                      </p>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() =>
+                          onLeaderboardPageChange(Math.min(leaderboard.totalPages || 1, leaderboardPage + 1))
+                        }
+                        disabled={leaderboardPage >= (leaderboard.totalPages || 1)}
+                        className="w-full gap-1 sm:w-auto"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3 pt-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onLeaderboardEpochChange(Math.max(1, (leaderboardEpoch ?? leaderboard.epoch?.epoch ?? 1) - 1))}
+                        disabled={Math.max(1, leaderboardEpoch ?? leaderboard.epoch?.epoch ?? 1) <= 1}
+                        className="w-full gap-1 sm:w-auto"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous Epoch
+                      </Button>
+                      <p className="text-center text-xs text-white/45 sm:flex-1 sm:text-left">
+                        Selected epoch{epochRangeLabel ? ` · ${epochRangeLabel}` : ""}
+                      </p>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onLeaderboardEpochChange((leaderboardEpoch ?? leaderboard.epoch?.epoch ?? 1) + 1)}
+                        disabled={Boolean(leaderboard.epoch?.isCurrent)}
+                        className="w-full gap-1 sm:w-auto"
+                      >
+                        Next Epoch
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )
                 ) : null}
               </>
             ) : (
               <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-6 text-sm text-white/55">
-                {season
-                  ? "The leaderboard will populate once the season starts."
-                  : "The Academy leaderboard will appear once a season is live."}
+                {leaderboardMode === "epoch"
+                  ? "This epoch does not have enough Academy activity yet."
+                  : season
+                    ? "The leaderboard will populate once the season starts."
+                    : "The Academy leaderboard will appear once a season is live."}
               </div>
             )}
           </CardContent>

@@ -22,10 +22,13 @@ export function AcademyDashboard({
 }: AcademyDashboardProps) {
   const {
     isAuthenticated,
+    leaderboardMode,
     summaryQuery,
     leaderboardQuery,
     leaderboardPage,
     setLeaderboardPage,
+    leaderboardEpoch,
+    setLeaderboardEpoch,
     currentUserLeaderboardEntry,
   } = useAcademyDashboard(
     initialLeaderboard,
@@ -45,12 +48,15 @@ export function AcademyDashboard({
         summary={summaryQuery.data ?? null}
         leaderboard={leaderboardQuery.data ?? null}
         currentUserLeaderboardEntry={currentUserLeaderboardEntry}
+        leaderboardMode={leaderboardMode}
         summaryError={summaryError}
         leaderboardError={leaderboardError}
         isSummaryLoading={summaryQuery.isLoading}
         isLeaderboardLoading={leaderboardQuery.isLoading}
         leaderboardPage={leaderboardPage}
         onLeaderboardPageChange={setLeaderboardPage}
+        leaderboardEpoch={leaderboardEpoch}
+        onLeaderboardEpochChange={setLeaderboardEpoch}
         onLeaderboardUserOpen={activity.openActivityLog}
         onLeaderboardUserPrefetch={activity.prefetchActivityLog}
         onRetryAll={() => {

@@ -12,8 +12,14 @@ export const runtime = "nodejs";
 async function getAcademyLeaderboard(request: NextRequest) {
   const page = parsePositiveInteger(request.nextUrl.searchParams.get("page")) ?? 1;
   const limit = parsePositiveInteger(request.nextUrl.searchParams.get("limit")) ?? 10;
+  const epoch = parsePositiveInteger(request.nextUrl.searchParams.get("epoch"));
   const { service, session } = await getAcademyContext(request);
-  const leaderboard = await service.getLeaderboard(page, limit, session?.user.id ?? null);
+  const leaderboard = await service.getLeaderboard({
+    page,
+    limit,
+    epoch,
+    userId: session?.user.id ?? null,
+  });
   return createNoStoreJsonResponse(leaderboard);
 }
 
