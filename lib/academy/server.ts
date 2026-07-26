@@ -13,7 +13,7 @@ import {
   getAcademyEpochWindow,
   type AcademyEpochWindow,
 } from "./epoch";
-import { resolveAcademyReferralSummary } from "./referrals";
+import { resolveAcademyQualifiedReferralCounts, resolveAcademyReferralSummary } from "./referrals";
 import { AcademyActivityUserNotFoundError } from "./tasks/errors";
 import { resolveActiveAcademyProgram } from "./tasks/points";
 import type {
@@ -37,6 +37,10 @@ type LeaderboardRow = {
   lifetime_spent_points: string | number | bigint;
   entry_count: string | number | bigint;
   leaderboard_rank: string | number | bigint;
+};
+
+type LeaderboardEntryRow = LeaderboardRow & {
+  referrals: string | number | bigint;
 };
 
 type EpochLeaderboardRow = {
@@ -120,12 +124,13 @@ function toSeason(row: PointsProgram): AcademySeason {
   };
 }
 
-function toLeaderboardEntry(row: LeaderboardRow, currentUserId?: string | null): AcademyLeaderboardEntry {
+function toLeaderboardEntry(row: LeaderboardEntryRow, currentUserId?: string | null): AcademyLeaderboardEntry {
   return {
     userId: row.user_id,
     rank: asNumber(row.leaderboard_rank),
     walletAddress: row.wallet_address,
     totalPoints: asDecimalString(row.current_points),
+    referrals: asNumber(row.referrals),
     entryCount: asNumber(row.entry_count),
     isCurrentUser: currentUserId ? row.user_id === currentUserId : false,
   };
@@ -273,15 +278,35 @@ async function resolveAcademyLeaderboardPage(
     from public.points_program_leaderboard
     where program_slug = ${programSlug}
   `);
+  const seasonRow = await resolveActiveAcademyProgram(db);
+  const referralCounts = seasonRow
+    ? await resolveAcademyQualifiedReferralCounts(db, {
+        programId: seasonRow.id,
+        epochWindow: getAcademyEpochWindow(getAcademyEpochNumber()),
+      })
+    : new Map<string, number>();
 
   const totalItems = asNumber((countRows[0] as { total_items?: unknown } | undefined)?.total_items, 0);
-  const seasonRow = await resolveActiveAcademyProgram(db);
 
-  const items = (rows as unknown as LeaderboardRow[]).map((row) => toLeaderboardEntry(row, currentUserId));
+  const items = (rows as unknown as LeaderboardRow[]).map((row) =>
+    toLeaderboardEntry(
+      {
+        ...row,
+        referrals: referralCounts.get(row.user_id) ?? 0,
+      },
+      currentUserId,
+    ),
+  );
   if (currentUserId) {
     const currentUserRow = await resolveAcademyLeaderboardRow(programSlug, currentUserId);
     if (currentUserRow) {
-      const currentUserEntry = toLeaderboardEntry(currentUserRow, currentUserId);
+      const currentUserEntry = toLeaderboardEntry(
+        {
+          ...currentUserRow,
+          referrals: referralCounts.get(currentUserRow.user_id) ?? 0,
+        },
+        currentUserId,
+      );
       const withoutCurrentUser = items.filter((item) => item.userId !== currentUserId);
       withoutCurrentUser.unshift(currentUserEntry);
       items.splice(0, items.length, ...withoutCurrentUser.slice(0, normalizedLimit));
@@ -307,6 +332,10 @@ async function resolveAcademyEpochLeaderboardPage(
   const normalizedEpoch = normalizeEpochNumber(epoch) ?? getAcademyEpochNumber();
   const epochWindow = toEpochWindow(normalizedEpoch);
   const topLimit = resolveLeaderboardTopLimit(process.env.ACADEMY_LEADERBOARD_TOP_LIMIT);
+  const referralCounts = await resolveAcademyQualifiedReferralCounts(db, {
+    programId,
+    epochWindow,
+  });
 
   const leaderboardRows = await db.execute(sql`
     with epoch_leaderboard as (
@@ -378,6 +407,7 @@ async function resolveAcademyEpochLeaderboardPage(
         lifetime_spent_points: row.lifetime_spent_points,
         entry_count: row.entry_count,
         leaderboard_rank: row.leaderboard_rank,
+        referrals: referralCounts.get(row.user_id) ?? 0,
       },
       currentUserId,
     ),

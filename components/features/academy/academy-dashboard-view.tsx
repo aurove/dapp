@@ -127,8 +127,11 @@ function LeaderboardRow({ entry, onOpen, onPrefetch }: LeaderboardRowProps) {
         </div>
       </div>
       <div className="shrink-0 self-start text-left sm:self-auto sm:text-right">
-        <p className="text-base font-semibold text-white">{formatPoints(entry.totalPoints)}</p>
-        <p className="text-xs text-white/45">points</p>
+        <p className="flex flex-wrap items-center gap-x-1 text-base font-semibold text-white">
+          <span>{formatPoints(entry.totalPoints)} pts</span>
+          <span className="text-white/30">•</span>
+          <span>{new Intl.NumberFormat("en-US").format(entry.referrals)} referrals</span>
+        </p>
       </div>
     </button>
   );

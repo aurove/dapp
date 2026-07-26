@@ -16,6 +16,7 @@ export type AcademyLeaderboardEntry = {
   rank: number;
   walletAddress: string;
   totalPoints: string;
+  referrals: number;
   entryCount: number;
   isCurrentUser: boolean;
 };

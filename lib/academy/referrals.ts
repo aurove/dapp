@@ -21,6 +21,7 @@ import {
   ACADEMY_REFERRAL_PENDING_COOKIE_NAME,
   ACADEMY_TASK_USER_PERCENT,
 } from "./constants";
+import type { AcademyEpochWindow } from "./epoch";
 import { formatAcademyReferralPoints, toAcademyReferralUnits } from "./units";
 import {
   AcademyReferralAlreadyBoundError,
@@ -34,6 +35,11 @@ type ProgramUser = typeof users.$inferSelect;
 type ReferralChain = {
   directReferrerUserId: string | null;
   grandReferrerUserId: string | null;
+};
+
+type QualifiedReferralCountRow = {
+  user_id: string;
+  referrals: string | number | bigint;
 };
 
 function asNumber(value: unknown, fallback = 0): number {
@@ -51,6 +57,39 @@ function asNumber(value: unknown, fallback = 0): number {
   }
 
   return fallback;
+}
+
+export async function resolveAcademyQualifiedReferralCounts(
+  client: typeof db,
+  input: {
+    programId: string;
+    epochWindow: Pick<AcademyEpochWindow, "startsAt" | "endsAt">;
+  },
+): Promise<Map<string, number>> {
+  const rows = await client.execute(sql`
+    select
+      qualified.user_id,
+      count(distinct qualified.original_user_id)::bigint as referrals
+    from (
+      select
+        l.user_id,
+        nullif(l.source_details ->> 'originalUserId', '') as original_user_id
+      from public.points_ledger_entries l
+      where l.program_id = ${input.programId}
+        and l.occurred_at >= ${input.epochWindow.startsAt}
+        and l.occurred_at <= ${input.epochWindow.endsAt}
+        and l.source_details ->> 'awardType' = 'task_award_referral_direct'
+        and nullif(l.source_details ->> 'originalUserId', '') is not null
+    ) qualified
+    group by qualified.user_id
+  `);
+
+  const counts = new Map<string, number>();
+  for (const row of rows as unknown as QualifiedReferralCountRow[]) {
+    counts.set(row.user_id, asNumber(row.referrals, 0));
+  }
+
+  return counts;
 }
 
 export function isValidAcademyReferralId(refId: string): boolean {
