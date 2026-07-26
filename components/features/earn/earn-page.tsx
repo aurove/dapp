@@ -852,7 +852,7 @@ function CreatePositionCard({
               <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full">
                 <Image
                   src={getTokenIconPath(option)}
-                  alt=""
+                  alt={`${option === "veBTC" ? "BTC" : "MEZO"} token`}
                   width={20}
                   height={20}
                   className="h-5 w-5 object-contain"
@@ -993,7 +993,7 @@ function CreatePositionCard({
               <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[var(--accent)]/35 bg-[rgba(196,160,106,0.08)]">
                 <Image
                   src="/tokens/Aurove.png"
-                  alt=""
+                  alt={`Aurove ${copy.asset} token`}
                   width={40}
                   height={40}
                   className="h-10 w-10 object-contain"

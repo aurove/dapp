@@ -1,10 +1,27 @@
+import type { Metadata } from "next";
 import { AcademyDashboard } from "@/components/features/academy/academy-dashboard";
 import { createAcademyService } from "@/lib/academy/server";
 import { getCurrentWalletAuthContextFromCookies } from "@/lib/auth/current";
 import { getRequestOrigin } from "@/lib/auth/utils";
 import type { AcademyLeaderboardEntry } from "@/lib/academy/types";
+import { createPageMetadata } from "@/lib/seo/site";
 import { cookies } from "next/headers";
 import { headers } from "next/headers";
+
+export const metadata: Metadata = createPageMetadata({
+  title: "Academy Points & Leaderboard",
+  description:
+    "Earn Aurove Academy points as you swap, provide liquidity, and stay active. Track your score, referrals, and leaderboard rank across seasons.",
+  path: "/academy",
+  keywords: [
+    "Aurove Academy",
+    "Mezo Earn",
+    "points",
+    "leaderboard",
+    "referrals",
+    "Bitcoin DeFi",
+  ],
+});
 
 function getSearchParam(
   searchParams: Record<string, string | string[] | undefined> | undefined,

@@ -72,14 +72,50 @@ function tokenFamily(token: TokenMeta | undefined) {
 
 function TokenMark({ token, className }: { token?: TokenMeta; className?: string }) {
   const family = tokenFamily(token);
-  return <span className={cn("grid shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#18222b]", className)}>
-    <Image src={`/tokens/${family}.png`} alt="" width={32} height={32} className="h-full w-full object-cover" />
-  </span>;
+  return (
+    <span
+      className={cn(
+        "grid shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#18222b]",
+        className,
+      )}
+    >
+      <Image
+        src={`/tokens/${family}.png`}
+        alt={`${token?.symbol ?? family} token`}
+        width={32}
+        height={32}
+        className="h-full w-full object-cover"
+      />
+    </span>
+  );
 }
 
 function TokenPair({ token0, token1 }: { token0?: TokenMeta; token1?: TokenMeta }) {
-  const marks = [tokenFamily(token0), tokenFamily(token1)];
-  return <div className="relative h-11 w-16 shrink-0">{marks.map((mark, index) => <span key={`${mark}-${index}`} className={cn("absolute grid overflow-hidden rounded-full border-2 border-[#10161c] bg-[#18222b]", index === 0 ? "left-0 top-0 h-11 w-11" : "bottom-0 right-0 h-7 w-7")}><Image src={`/tokens/${mark}.png`} alt="" width={44} height={44} className="h-full w-full object-cover" /></span>)}</div>;
+  const marks = [
+    { family: tokenFamily(token0), symbol: token0?.symbol ?? tokenFamily(token0) },
+    { family: tokenFamily(token1), symbol: token1?.symbol ?? tokenFamily(token1) },
+  ];
+  return (
+    <div className="relative h-11 w-16 shrink-0">
+      {marks.map((mark, index) => (
+        <span
+          key={`${mark.family}-${index}`}
+          className={cn(
+            "absolute grid overflow-hidden rounded-full border-2 border-[#10161c] bg-[#18222b]",
+            index === 0 ? "left-0 top-0 h-11 w-11" : "bottom-0 right-0 h-7 w-7",
+          )}
+        >
+          <Image
+            src={`/tokens/${mark.family}.png`}
+            alt={`${mark.symbol} token`}
+            width={44}
+            height={44}
+            className="h-full w-full object-cover"
+          />
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function statusOf(position: Position) {

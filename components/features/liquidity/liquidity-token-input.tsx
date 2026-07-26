@@ -225,7 +225,13 @@ export function LiquidityTokenInput({
                   aria-label={`Choose funding source for ${tokenSymbol ?? "token"}${selectedSource ? `, currently ${selectedSource.label}` : ""}`}
                 >
                   <span className="relative h-7 w-7 overflow-hidden rounded-full bg-white/5">
-                    <Image src={tokenImageForSymbol(tokenSymbol)} alt="" fill sizes="28px" className="object-contain" />
+                    <Image
+                      src={tokenImageForSymbol(tokenSymbol)}
+                      alt={`${tokenSymbol ?? "Token"} icon`}
+                      fill
+                      sizes="28px"
+                      className="object-contain"
+                    />
                   </span>
                   <span className="text-sm font-semibold text-white">{tokenSymbol ?? "—"}</span>
                   <ChevronDown className="h-3.5 w-3.5 text-white/55" aria-hidden="true" />

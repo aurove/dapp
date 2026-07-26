@@ -32,7 +32,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="relative block h-6 w-[10rem] overflow-hidden sm:h-10 sm:w-[10.5rem]">
                 <Image
                   src="/logo_mark.png"
-                  alt="Aurove"
+                  alt="Aurove home"
                   fill
                   sizes="(min-width: 640px) 168px, 160px"
                   priority

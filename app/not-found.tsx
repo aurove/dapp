@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { RouteFallback } from "@/components/site/route-fallback";
+import { createPageMetadata } from "@/lib/seo/site";
 
-export const metadata: Metadata = {
-  title: "Page not found",
-  description: "The Aurove route you requested could not be found.",
-};
+export const metadata: Metadata = createPageMetadata({
+  title: "Page Not Found",
+  description:
+    "This Aurove route could not be found. Return home to explore liquid ve-yield for Mezo Earn.",
+  path: "/",
+  noIndex: true,
+});
 
 export default function NotFound() {
   return (

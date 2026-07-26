@@ -111,12 +111,18 @@ function TokenMarkStack({ symbol }: { symbol: LiquidityPoolKey }) {
   return (
     <div className="relative h-12 w-12 shrink-0 sm:h-14 sm:w-14">
       <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[var(--accent)]/35 bg-[rgba(196,160,106,0.08)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:h-14 sm:w-14">
-        <Image src={tokenImage} alt="" width={56} height={56} className="h-full w-full object-contain" />
+        <Image
+          src={tokenImage}
+          alt={`${symbol} token`}
+          width={56}
+          height={56}
+          className="h-full w-full object-contain"
+        />
       </div>
       <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#0c1117] shadow-[0_8px_18px_rgba(0,0,0,0.35)] sm:h-7 sm:w-7">
         <Image
           src="/tokens/Aurove.png"
-          alt=""
+          alt="Aurove"
           width={28}
           height={28}
           className="h-6 w-6 object-contain sm:h-7 sm:w-7"

@@ -34,8 +34,31 @@ function PoolCard({ poolKey, title, description, marks }: { poolKey: SlipstreamP
 }
 
 export function AvailableLiquidityPools() {
-  return <section id="available-pools" className="scroll-mt-6 space-y-4" aria-labelledby="available-pools-title">
-    <div><div className="flex items-center gap-2"><Droplets className="h-5 w-5 text-[var(--accent)]" /><h2 id="available-pools-title" className="text-2xl font-semibold text-white">Supply liquidity with your locked BTC and locked MEZO.</h2></div><p className="mt-1 text-sm text-white/55">Add another income stream to your Mezo Earn positions. Keep earning in Mezo Earn while collecting swap fees whenever trades move through your active price range.</p></div>
-    <div className="grid gap-4 lg:grid-cols-2">{POOLS.map((pool) => <PoolCard key={pool.key} poolKey={pool.key} title={pool.title} description={pool.description} marks={pool.marks} />)}</div>
-  </section>;
+  return (
+    <section id="available-pools" className="scroll-mt-6 space-y-4" aria-labelledby="available-pools-title">
+      <div>
+        <div className="flex items-center gap-2">
+          <Droplets className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
+          <h1 id="available-pools-title" className="text-2xl font-semibold text-white">
+            Supply liquidity with your locked BTC and locked MEZO.
+          </h1>
+        </div>
+        <p className="mt-1 text-sm text-white/55">
+          Add another income stream to your Mezo Earn positions. Keep earning in Mezo Earn while
+          collecting swap fees whenever trades move through your active price range.
+        </p>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {POOLS.map((pool) => (
+          <PoolCard
+            key={pool.key}
+            poolKey={pool.key}
+            title={pool.title}
+            description={pool.description}
+            marks={pool.marks}
+          />
+        ))}
+      </div>
+    </section>
+  );
 }

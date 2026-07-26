@@ -1,39 +1,88 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./globals.css";
 import { WalletAuthProvider } from "@/lib/auth/provider";
 import { Web3Providers } from "@/lib/providers/web3-providers";
 import { NotificationsToaster } from "@/lib/notifications";
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_KEYWORDS,
+  DEFAULT_OG_IMAGE_PATH,
+  DEFAULT_TITLE,
+  SITE_NAME,
+  SITE_TAGLINE,
+  SITE_URL,
+  TWITTER_HANDLE,
+} from "@/lib/seo/site";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://aurove.xyz"),
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "Aurove | Mezo Earn made easier",
-    template: "%s | Aurove",
+    default: DEFAULT_TITLE,
+    template: `%s · ${SITE_NAME}`,
   },
-  description: "Aurove makes Mezo Earn positions easier to use.",
-  applicationName: "Aurove",
-  keywords: [
-    "BTC",
-    "veBTC",
-    "veMEZO",
-    "Mezo Earn",
-    "liquid asset",
-    "swap",
-    "redeem",
-  ],
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  category: "finance",
+  keywords: [...DEFAULT_KEYWORDS],
+  alternates: {
+    canonical: SITE_URL,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  icons: {
+    icon: [{ url: "/icon-512.png", sizes: "512x512", type: "image/png" }],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   openGraph: {
-    title: "Aurove | Mezo Earn made easier",
-    description: "Aurove turns BTC, MEZO, or a Mezo Earn position into a liquid asset you can use more easily.",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
     type: "website",
-    siteName: "Aurove",
-    url: "/",
+    siteName: SITE_NAME,
+    url: SITE_URL,
+    locale: "en_US",
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE_PATH,
+        width: 1200,
+        height: 630,
+        alt: `${SITE_NAME} — ${SITE_TAGLINE}`,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Aurove | Mezo Earn made easier",
-    description: "Aurove turns BTC, MEZO, or a Mezo Earn position into a liquid asset you can use more easily.",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE_PATH],
+    creator: TWITTER_HANDLE,
+    site: TWITTER_HANDLE,
   },
+  other: {
+    "theme-color": "#0a0f15",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0a0f15" },
+    { media: "(prefers-color-scheme: light)", color: "#0a0f15" },
+  ],
+  colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

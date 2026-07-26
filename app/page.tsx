@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -9,6 +10,21 @@ import {
 import { FaXTwitter } from "react-icons/fa6";
 import { EcosystemPartnersCarousel } from "@/components/marketing/ecosystem-partners-carousel";
 import { SwapPage } from "@/components/features/swap";
+import { getHomeJsonLd, serializeJsonLd } from "@/lib/seo/json-ld";
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_KEYWORDS,
+  DEFAULT_TITLE,
+  createPageMetadata,
+} from "@/lib/seo/site";
+
+export const metadata: Metadata = createPageMetadata({
+  title: DEFAULT_TITLE,
+  description: DEFAULT_DESCRIPTION,
+  path: "/",
+  absoluteTitle: true,
+  keywords: DEFAULT_KEYWORDS,
+});
 
 const featureCards = [
   {
@@ -28,16 +44,31 @@ const featureCards = [
   },
 ] as const;
 
-const footerLinks = [
+type FooterLink =
+  | { label: string; href: string; external?: false }
+  | { label: string; href: string; external: true; ariaLabel: string };
+
+const footerLinks: FooterLink[] = [
   { label: "Swap", href: "/#swap-interface" },
   { label: "Earn", href: "/earn" },
   { label: "Liquidity", href: "/liquidity" },
-  { label: "", href: "https://x.com/aurove_xyz", external: true },
-] as const;
+  {
+    label: "X",
+    href: "https://x.com/aurove_xyz",
+    external: true,
+    ariaLabel: "Aurove on X",
+  },
+];
 
 export default function HomePage() {
+  const jsonLd = getHomeJsonLd();
+
   return (
     <main className="landing-page">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+      />
       <section className="landing-hero">
         <div className="landing-hero__backdrop" aria-hidden="true">
           <div className="landing-hero__ring landing-hero__ring--large" />
@@ -51,7 +82,7 @@ export default function HomePage() {
           <div className="landing-hero__copy">
             <Image
               src="/logo_mark.png"
-              alt="Aurove"
+              alt="Aurove — liquid ve-yield for Mezo Earn"
               width={240}
               height={160}
               priority
@@ -195,27 +226,28 @@ export default function HomePage() {
           </div>
 
           <nav className="landing-footer__nav" aria-label="Footer">
-            {footerLinks.map((link) => (
-              "external" in link && link.external ? (
+            {footerLinks.map((link) =>
+              link.external ? (
                 <a
-                  key={link.label}
+                  key={link.href}
                   href={link.href}
                   className="landing-footer__link"
                   target="_blank"
                   rel="noreferrer"
+                  aria-label={link.ariaLabel}
                 >
                   <FaXTwitter
                     className="mr-2 inline-block h-4 w-4 -translate-y-px"
                     aria-hidden="true"
                   />
-                  {link.label}
+                  <span className="sr-only">{link.label}</span>
                 </a>
               ) : (
                 <Link key={link.label} href={link.href} className="landing-footer__link">
                   {link.label}
                 </Link>
-              )
-            ))}
+              ),
+            )}
           </nav>
         </div>
       </footer>
