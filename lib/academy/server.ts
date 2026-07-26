@@ -253,6 +253,7 @@ async function resolveAcademyLeaderboardPage(
   page: number,
   limit: number,
   currentUserId: string | null,
+  chainId: number | null,
 ): Promise<AcademyLeaderboardPage> {
   const normalizedPage = normalizePage(page);
   const normalizedLimit = normalizeLimit(limit, DEFAULT_ACADEMY_LEADERBOARD_PAGE_SIZE);
@@ -282,6 +283,7 @@ async function resolveAcademyLeaderboardPage(
   const referralCounts = seasonRow
     ? await resolveAcademyQualifiedReferralCounts(db, {
         programId: seasonRow.id,
+        chainId,
         epochWindow: getAcademyEpochWindow(getAcademyEpochNumber()),
       })
     : new Map<string, number>();
@@ -328,12 +330,14 @@ async function resolveAcademyEpochLeaderboardPage(
   programId: string,
   epoch: number | null | undefined,
   currentUserId: string | null,
+  chainId: number | null,
 ): Promise<AcademyLeaderboardPage> {
   const normalizedEpoch = normalizeEpochNumber(epoch) ?? getAcademyEpochNumber();
   const epochWindow = toEpochWindow(normalizedEpoch);
   const topLimit = resolveLeaderboardTopLimit(process.env.ACADEMY_LEADERBOARD_TOP_LIMIT);
   const referralCounts = await resolveAcademyQualifiedReferralCounts(db, {
     programId,
+    chainId,
     epochWindow,
   });
 
@@ -565,6 +569,7 @@ export type AcademyService = {
     page: number;
     limit: number;
     userId: string | null;
+    chainId: number | null;
     epoch?: number | null;
   }): Promise<AcademyLeaderboardPage>;
   getActivity(
@@ -606,10 +611,10 @@ export function createAcademyService(): AcademyService {
 
       const mode = parseLeaderboardMode(process.env.ACADEMY_LEADERBOARD_MODE);
       if (mode === "global") {
-        return resolveAcademyLeaderboardPage(program.slug, input.page, input.limit, input.userId);
+        return resolveAcademyLeaderboardPage(program.slug, input.page, input.limit, input.userId, input.chainId);
       }
 
-      return resolveAcademyEpochLeaderboardPage(program.id, input.epoch, input.userId);
+      return resolveAcademyEpochLeaderboardPage(program.id, input.epoch, input.userId, input.chainId);
     },
     async getActivity(input, currentUserId) {
       const userRow = await resolveAcademyUserByWalletAddress(input.walletAddress);

@@ -19,6 +19,7 @@ async function getAcademyLeaderboard(request: NextRequest) {
     limit,
     epoch,
     userId: session?.user.id ?? null,
+    chainId: session?.chainId ?? null,
   });
   return createNoStoreJsonResponse(leaderboard);
 }

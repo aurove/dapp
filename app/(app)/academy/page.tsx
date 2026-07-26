@@ -48,6 +48,7 @@ export default async function AcademyPage({ searchParams }: AcademyPageProps) {
     limit: 10,
     epoch: leaderboardEpoch,
     userId: session?.user.id ?? null,
+    chainId: session?.chainId ?? null,
   });
   const initialCurrentUserLeaderboardEntry: AcademyLeaderboardEntry | null =
     initialLeaderboard.items.find((entry) => entry.isCurrentUser) ?? null;

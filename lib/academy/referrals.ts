@@ -63,25 +63,31 @@ export async function resolveAcademyQualifiedReferralCounts(
   client: typeof db,
   input: {
     programId: string;
+    chainId: number | null;
     epochWindow: Pick<AcademyEpochWindow, "startsAt" | "endsAt">;
   },
 ): Promise<Map<string, number>> {
+  if (!input.chainId) {
+    return new Map<string, number>();
+  }
+
   const rows = await client.execute(sql`
     select
-      qualified.user_id,
-      count(distinct qualified.original_user_id)::bigint as referrals
-    from (
-      select
-        l.user_id,
-        nullif(l.source_details ->> 'originalUserId', '') as original_user_id
-      from public.points_ledger_entries l
-      where l.program_id = ${input.programId}
-        and l.occurred_at >= ${input.epochWindow.startsAt}
-        and l.occurred_at <= ${input.epochWindow.endsAt}
-        and l.source_details ->> 'awardType' = 'task_award_referral_direct'
-        and nullif(l.source_details ->> 'originalUserId', '') is not null
-    ) qualified
-    group by qualified.user_id
+      direct.referrer_user_id as user_id,
+      count(distinct direct.referred_user_id)::bigint as referrals
+    from public.academy_referral_relationships direct
+    where direct.chain_id = ${input.chainId}
+      and direct.created_at >= ${input.epochWindow.startsAt}
+      and direct.created_at <= ${input.epochWindow.endsAt}
+      and exists (
+        select 1
+        from public.points_ledger_entries l
+        where l.program_id = ${input.programId}
+          and l.user_id = direct.referred_user_id
+          and l.occurred_at >= ${input.epochWindow.startsAt}
+          and l.occurred_at <= ${input.epochWindow.endsAt}
+      )
+    group by direct.referrer_user_id
   `);
 
   const counts = new Map<string, number>();
