@@ -12,13 +12,13 @@ export type TrancheApyEstimate = {
 
 /** Stable key for APY basis lookups. Prefer the reward sink (where RewardsFunded is emitted). */
 export function earnApyProductKey(
-  product: Pick<EarnProduct, "fractionAddress" | "trancheId" | "rewardSinkAddress">,
+  product: Pick<EarnProduct, "ledgerAddress" | "trancheId" | "rewardSinkAddress">,
 ): string {
   if (product.rewardSinkAddress) {
     return product.rewardSinkAddress.toLowerCase();
   }
 
-  return `${product.fractionAddress.toLowerCase()}:${product.trancheId.toString()}`;
+  return `${product.ledgerAddress.toLowerCase()}:${product.trancheId.toString()}`;
 }
 
 export function formatApyPercent(value: number | null | undefined): string {
@@ -35,8 +35,7 @@ export function formatApyPercent(value: number | null | undefined): string {
 
 /**
  * Estimates annualized yield from the latest reward funding snapshot.
- * Managed products without a fixed tranche duration are annualized as weekly
- * (Mezo epoch cadence).
+ * Managed products are annualized on a weekly Mezo-epoch cadence.
  */
 export function estimateTrancheApy(product: EarnProduct): TrancheApyEstimate | null {
   const totalSupplyRaw = product.apyTotalSupplyAtFundingRaw ?? 0n;
@@ -49,15 +48,7 @@ export function estimateTrancheApy(product: EarnProduct): TrancheApyEstimate | n
     return null;
   }
 
-  const configuredDuration =
-    product.trancheDuration && product.trancheDuration > 0n
-      ? Number(product.trancheDuration)
-      : null;
-  const periodSeconds =
-    configuredDuration && Number.isFinite(configuredDuration) && configuredDuration > 0
-      ? configuredDuration
-      : WEEK_SECONDS;
-  const annualization = SECONDS_PER_YEAR / periodSeconds;
+  const annualization = SECONDS_PER_YEAR / WEEK_SECONDS;
 
   return {
     product,

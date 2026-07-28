@@ -67,7 +67,7 @@ export function deriveTrancheIdFromLock(
   return deriveTrancheId(variant, trancheNumber);
 }
 
-export function deriveFractionSymbol(
+export function deriveTrancheSymbol(
   variant: CanonicalAssetVariant,
   trancheNumber: number,
 ): string {

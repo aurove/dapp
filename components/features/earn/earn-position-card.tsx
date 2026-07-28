@@ -77,25 +77,25 @@ function PositionCardContent({
   const copy = variantCopy(product.variant);
   const apyEstimate = estimateTrancheApy(product);
   const parsedWithdraw = parseAmountRaw(withdrawAmount, product.decimals);
-  const isSettlementWindowOpen = isTargetSettlementWindow(product, chainTimestamp);
+  const isSettlementWindowOpen = resolveSettlementWindowOpen(product, chainTimestamp);
   const isExpired = isTrancheExpired(product, chainTimestamp);
   const [selectedRedemptionKeys, setSelectedRedemptionKeys] = useState<string[]>([]);
   const selectedRedemptionKeysResolved = useMemo(() => {
-    const availableKeys = new Set(product.refundablePositions.map((position) => position.key));
+    const availableKeys = new Set(product.redeemInventory.map((position) => position.key));
     const next = selectedRedemptionKeys.filter((key) => availableKeys.has(key));
     if (next.length > 0) return next;
 
-    const fallback = product.refundablePositions[0]?.key;
+    const fallback = product.redeemInventory[0]?.key;
     return fallback ? [fallback] : [];
-  }, [product.refundablePositions, selectedRedemptionKeys]);
-  const selectedRedemptionPositions = product.refundablePositions.filter((position) =>
+  }, [product.redeemInventory, selectedRedemptionKeys]);
+  const selectedRedemptionPositions = product.redeemInventory.filter((position) =>
     selectedRedemptionKeysResolved.includes(position.key),
   );
   const selectedRedemptionTotalRaw = selectedRedemptionPositions.reduce(
     (total, position) => total + position.lockedAmountRaw,
     0n,
   );
-  const isActionWindowOpen = isSettlementWindowOpen && product.targetEpochEnd !== null;
+  const isActionWindowOpen = isSettlementWindowOpen;
   const actionControlId = `redeem-amount-${product.id}`;
   const redemptionAmountRaw =
     product.variant === "veMEZO" ? selectedRedemptionTotalRaw : parsedWithdraw ?? 0n;
@@ -216,12 +216,12 @@ function PositionCardContent({
                 <span className="text-sm font-medium text-white">Select veNFTs to redeem</span>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                {product.refundablePositions.length === 0 ? (
+                {product.redeemInventory.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white/45 sm:col-span-2">
-                    No redeemable veNFTs available.
+                    No vault inventory available for redemption yet.
                   </div>
                 ) : (
-                  product.refundablePositions.map((position) => {
+                  product.redeemInventory.map((position) => {
                     const selected = selectedRedemptionKeysResolved.includes(position.key);
 
                     return (
@@ -413,8 +413,8 @@ function formatAmount(value: bigint | null | undefined, decimals = 18, symbol?: 
   return formatCompactRawTokenAmount(value, decimals, symbol ?? undefined);
 }
 
-function isTargetSettlementWindow(product: EarnProduct, blockchainNow: bigint | null): boolean {
-  if (blockchainNow === null) return product.isTargetSettlementWindow;
+function resolveSettlementWindowOpen(product: EarnProduct, blockchainNow: bigint | null): boolean {
+  if (blockchainNow === null) return product.isSettlementWindowOpen;
   const epochStart = (blockchainNow / WEEK_SECONDS) * WEEK_SECONDS;
   const epochElapsed = blockchainNow - epochStart;
   return (
@@ -425,7 +425,7 @@ function isTargetSettlementWindow(product: EarnProduct, blockchainNow: bigint | 
 
 function isTrancheExpired(product: EarnProduct, blockchainNow: bigint | null): boolean {
   if (blockchainNow !== null) {
-    return product.refundablePositions.some(
+    return product.redeemInventory.some(
       (position) => position.unlockTime !== null && position.unlockTime <= blockchainNow,
     );
   }

@@ -23,7 +23,6 @@ import { findLatestEventLogByChunks, type CachedEventLog } from "@/lib/web3/even
 import { useRewardsPortfolio, useTranchePortfolio } from "@/features/portfolio";
 import {
   MAX_EPOCHS_BY_VARIANT,
-  decodeTrancheId,
   deriveTrancheId,
   nameOf,
   symbolOf,
@@ -40,7 +39,8 @@ export type EarnTokenInfo = {
   balanceRaw: bigint;
 };
 
-export type EarnRefundablePosition = {
+/** Vault-held veNFT inventory that can satisfy a Ledger.redeem call. */
+export type EarnRedeemInventory = {
   key: string;
   veNft: Address;
   tokenId: bigint;
@@ -50,7 +50,8 @@ export type EarnRefundablePosition = {
 
 export type EarnProduct = {
   id: string;
-  fractionAddress: Address;
+  /** Ledger contract that mints/burns ERC1155 tranche shares. */
+  ledgerAddress: Address;
   trancheId: bigint;
   trancheNumber: number;
   variant: EarnVariant;
@@ -69,13 +70,9 @@ export type EarnProduct = {
   apyRewardAmountRaw: bigint | null;
   apyTotalSupplyAtFundingRaw: bigint | null;
   apyFundingBlockNumber: bigint | null;
-  settledUnderlyingRaw: bigint | null;
   rewardSinkAddress: Address | null;
-  targetEpochEnd: bigint | null;
-  trancheDuration: bigint | null;
-  trancheLengthEpochs: bigint | null;
-  isTargetSettlementWindow: boolean;
-  refundablePositions: EarnRefundablePosition[];
+  isSettlementWindowOpen: boolean;
+  redeemInventory: EarnRedeemInventory[];
 };
 
 export type EarnApyBasisMap = Record<
@@ -87,14 +84,14 @@ export type EarnApyBasisMap = Record<
   } | null
 >;
 
-type FractionCore = {
-  address: Address;
+type ManagedTrancheCore = {
+  ledgerAddress: Address;
   symbol: string;
   name: string;
   trancheId: bigint;
+  trancheNumber: number;
   variant: EarnVariant;
   veNFT: Address | null;
-  decoded: ReturnType<typeof decodeTrancheId>;
 };
 
 type EarnSnapshot = {
@@ -125,22 +122,17 @@ const EARN_APY_QUERY_PREFIX = "earn-apy-basis";
 const REWARDS_FUNDED_SCAN_CHUNK_SIZE = 10_000n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
-const assetFractionDeployedEvent = parseAbiItem(
-  "event AssetFractionDeployed(address indexed assetFraction,uint256 indexed trancheId,string fractionName)",
-);
-
 const rewardsFundedEvent = parseAbiItem(
   "event RewardsFunded(address indexed funder,uint256 amount,uint256 distributedAmount,uint256 undistributedRewards,uint256 rewardReserve)",
 );
 
 const fundingScanCacheByChain = new Map<number, FundingScanCache>();
-const fractionDeploymentBlockCache = new Map<string, Promise<bigint | null>>();
 const totalSupplyAtBlockCache = new Map<string, Promise<bigint | null>>();
 
 /** Per-product static multicall layout: totalSupply, isSettlementWindowOpen, rewardReserve. */
 const PRODUCT_STATIC_READS = 3;
 const PRODUCT_POSITION_READS = 1;
-const POSITION_READS = 2;
+const REDEEM_INVENTORY_READS = 1;
 
 function getFundingScanCache(chainId: number): FundingScanCache {
   const existing = fundingScanCacheByChain.get(chainId);
@@ -160,45 +152,31 @@ function isNewerFundingEvent(next: FundingEventSnapshot, current?: FundingEventS
   return next.logIndex > current.logIndex;
 }
 
-function inferVariantFromSymbol(symbol: string): EarnVariant | null {
-  const normalized = symbol.toLowerCase();
-  if (normalized.startsWith("fvebtc")) return "veBTC";
-  if (normalized.startsWith("fvemezo")) return "veMEZO";
-  return null;
-}
-
-function emptyProductCore(fraction: FractionCore, userBalanceRaw = 0n): EarnProduct {
-  const decoded = fraction.decoded;
-  const variant = decoded?.variant ?? inferVariantFromSymbol(fraction.symbol) ?? "veMEZO";
-
+function emptyProductCore(core: ManagedTrancheCore, userBalanceRaw = 0n): EarnProduct {
   return {
-    id: `${fraction.address}-${fraction.trancheId.toString()}`,
-    fractionAddress: fraction.address,
-    trancheId: fraction.trancheId,
-    trancheNumber: decoded?.trancheNumber ?? Number(fraction.trancheId & 0xffffn),
-    variant,
-    name: fraction.name,
-    symbol: fraction.symbol,
-    veNFT: fraction.veNFT,
+    id: `${core.ledgerAddress}-${core.trancheId.toString()}`,
+    ledgerAddress: core.ledgerAddress,
+    trancheId: core.trancheId,
+    trancheNumber: core.trancheNumber,
+    variant: core.variant,
+    name: core.name,
+    symbol: core.symbol,
+    veNFT: core.veNFT,
     decimals: 18,
     totalSupplyRaw: null,
     userBalanceRaw,
     claimableRewardsRaw: 0n,
     userAvailableBalanceRaw: userBalanceRaw,
     rewardAsset: null,
-    rewardSymbol: variant === "veBTC" ? "BTC" : "MEZO",
+    rewardSymbol: core.variant === "veBTC" ? "BTC" : "MEZO",
     rewardDecimals: 18,
     rewardReserveRaw: null,
     apyRewardAmountRaw: null,
     apyTotalSupplyAtFundingRaw: null,
     apyFundingBlockNumber: null,
-    settledUnderlyingRaw: null,
     rewardSinkAddress: null,
-    targetEpochEnd: null,
-    trancheDuration: null,
-    trancheLengthEpochs: decoded?.trancheNumber ? BigInt(decoded.trancheNumber) : null,
-    isTargetSettlementWindow: false,
-    refundablePositions: [],
+    isSettlementWindowOpen: false,
+    redeemInventory: [],
   };
 }
 
@@ -328,75 +306,17 @@ async function scanRewardsFundedEvents(params: {
   );
 }
 
-function readAssetFractionDeploymentBlock(params: {
-  publicClient: PublicClient;
-  chainId: number;
-  assetLedgerAddress: Address;
-  assetLedgerDeploymentBlock: bigint;
-  fractionAddress: Address;
-  toBlock: bigint;
-}) {
-  const cacheKey = [
-    params.chainId,
-    params.assetLedgerAddress.toLowerCase(),
-    params.fractionAddress.toLowerCase(),
-  ].join(":");
-
-  const existing = fractionDeploymentBlockCache.get(cacheKey);
-  if (existing) return existing;
-
-  const promise = findLatestEventLogByChunks({
-    chainId: params.chainId,
-    contractAddress: params.assetLedgerAddress,
-    eventName: "AssetFractionDeployed",
-    args: { assetFraction: params.fractionAddress },
-    fromBlock: params.assetLedgerDeploymentBlock,
-    toBlock: params.toBlock,
-    chunkSize: REWARDS_FUNDED_SCAN_CHUNK_SIZE,
-    fetchRange: async (fromBlock, toBlock) => {
-      const logs = await params.publicClient.getLogs({
-        address: params.assetLedgerAddress,
-        event: assetFractionDeployedEvent,
-        args: { assetFraction: params.fractionAddress },
-        fromBlock,
-        toBlock,
-      });
-
-      return logs
-        .filter((item) => item.transactionHash && item.blockNumber !== null)
-        .map(
-          (item): CachedEventLog => ({
-            address: item.address,
-            transactionHash: item.transactionHash!,
-            blockNumber: item.blockNumber!,
-            logIndex: item.logIndex ?? 0,
-            args: {
-              assetFraction: item.args.assetFraction,
-              trancheId: item.args.trancheId ?? 0n,
-              fractionName: item.args.fractionName ?? "",
-            },
-          }),
-        );
-    },
-  })
-    .then((log) => log?.blockNumber ?? null)
-    .catch(() => null);
-
-  fractionDeploymentBlockCache.set(cacheKey, promise);
-  return promise;
-}
-
 function readTotalSupplyAtBlock(params: {
   publicClient: PublicClient;
   chainId: number;
-  assetFractionAbi: Abi;
-  address: Address;
+  ledgerAbi: Abi;
+  ledgerAddress: Address;
   trancheId: bigint;
   blockNumber: bigint;
 }) {
   const cacheKey = [
     params.chainId,
-    params.address.toLowerCase(),
+    params.ledgerAddress.toLowerCase(),
     params.trancheId.toString(),
     params.blockNumber.toString(),
   ].join(":");
@@ -406,8 +326,8 @@ function readTotalSupplyAtBlock(params: {
 
   const promise = params.publicClient
     .readContract({
-      address: params.address,
-      abi: params.assetFractionAbi,
+      address: params.ledgerAddress,
+      abi: params.ledgerAbi,
       functionName: "totalSupply",
       args: [params.trancheId],
       blockNumber: params.blockNumber,
@@ -419,57 +339,45 @@ function readTotalSupplyAtBlock(params: {
   return promise;
 }
 
-function parsePositionValue(result: unknown) {
-  if (!result) return null;
-
-  if (Array.isArray(result)) {
-    return {
-      lockedAmountRaw: readBigint(result[0]) ?? 0n,
-      trancheId: readBigint(result[1]) ?? 0n,
-      fraction: readAddress(result[2]),
-    };
-  }
-
-  if (typeof result === "object") {
-    const payload = result as {
-      lockedAmount?: unknown;
-      trancheId?: unknown;
-      fraction?: unknown;
-    };
-
-    return {
-      lockedAmountRaw: readBigint(payload.lockedAmount) ?? 0n,
-      trancheId: readBigint(payload.trancheId) ?? 0n,
-      fraction: readAddress(payload.fraction),
-    };
-  }
-
-  return null;
-}
-
 function parseLockedValue(result: unknown) {
-  if (!result) return { end: null, isPermanent: false };
+  if (!result) return { amount: 0n, end: null, isPermanent: false };
 
   if (Array.isArray(result)) {
+    const amountRaw = result[0];
+    const amount =
+      typeof amountRaw === "bigint"
+        ? amountRaw < 0n
+          ? -amountRaw
+          : amountRaw
+        : readBigint(amountRaw) ?? 0n;
     return {
+      amount,
       end: readBigint(result[1]) ?? null,
       isPermanent: Boolean(result[2]),
     };
   }
 
   if (typeof result === "object") {
-    const payload = result as { end?: unknown; isPermanent?: unknown };
+    const payload = result as { amount?: unknown; end?: unknown; isPermanent?: unknown };
+    const amountRaw = payload.amount;
+    let amount = 0n;
+    if (typeof amountRaw === "bigint") {
+      amount = amountRaw < 0n ? -amountRaw : amountRaw;
+    } else {
+      amount = readBigint(amountRaw) ?? 0n;
+    }
     return {
+      amount,
       end: readBigint(payload.end) ?? null,
       isPermanent: Boolean(payload.isPermanent),
     };
   }
 
-  return { end: null, isPermanent: false };
+  return { amount: 0n, end: null, isPermanent: false };
 }
 
-function parseHeldTokenIds(result: unknown) {
-  if (!Array.isArray(result)) return [] as bigint[];
+function parseTokenIdList(result: unknown): bigint[] {
+  if (!Array.isArray(result)) return [];
   return result.filter((tokenId): tokenId is bigint => typeof tokenId === "bigint");
 }
 
@@ -481,7 +389,7 @@ export function useEarnSnapshot() {
   const chainId = connectedChainId ?? activeChain.id;
   const earnContracts = useMemo(() => getEarnProtocolConfig(chainId), [chainId]);
   const assetLedger = earnContracts.ledger;
-  const assetFractionAbi = earnContracts.ledger?.abi;
+  const ledgerAbi = earnContracts.ledger?.abi as Abi | undefined;
   const vault = earnContracts.vault;
   const veBtc = earnContracts.veBtc;
   const veMezo = earnContracts.veMezo;
@@ -493,14 +401,14 @@ export function useEarnSnapshot() {
       [
         veBtc?.address && veBtc.abi
           ? ({
-              variant: "veBTC",
+              variant: "veBTC" as const,
               veNftAddress: veBtc.address,
               abi: veBtc.abi,
             } as const)
           : null,
         veMezo?.address && veMezo.abi
           ? ({
-              variant: "veMEZO",
+              variant: "veMEZO" as const,
               veNftAddress: veMezo.address,
               abi: veMezo.abi,
             } as const)
@@ -509,7 +417,7 @@ export function useEarnSnapshot() {
     [veBtc, veMezo],
   );
 
-  const canReadLedger = Boolean(assetLedger?.address && assetLedger.abi && assetFractionAbi);
+  const canReadLedger = Boolean(assetLedger?.address && assetLedger.abi && ledgerAbi);
 
   const protocolContracts = useMemo(() => {
     if (!canReadLedger) return [];
@@ -552,12 +460,14 @@ export function useEarnSnapshot() {
     },
   });
 
-  const veBtcUnderlyingAddress = readAddress(veBtc?.address ? protocolReads.data?.[0]?.result : undefined);
+  const veBtcUnderlyingAddress = readAddress(
+    veBtc?.address ? protocolReads.data?.[0]?.result : undefined,
+  );
   const veMezoUnderlyingAddress = readAddress(
     veMezo?.address ? protocolReads.data?.[veBtc?.address ? 1 : 0]?.result : undefined,
   );
 
-  const managedTrancheCore = useMemo<FractionCore[]>(() => {
+  const managedTrancheCore = useMemo<ManagedTrancheCore[]>(() => {
     if (!assetLedger?.address) return [];
 
     return supportedVeNfts
@@ -565,57 +475,41 @@ export function useEarnSnapshot() {
         const trancheNumber = MAX_EPOCHS_BY_VARIANT[entry.variant];
         const trancheId = deriveTrancheId(entry.variant, trancheNumber);
         return {
-          address: assetLedger.address,
+          ledgerAddress: assetLedger.address,
           symbol: symbolOf(entry.variant, trancheNumber),
           name: nameOf(entry.variant, trancheNumber),
           trancheId,
+          trancheNumber,
           variant: entry.variant,
           veNFT: entry.veNftAddress,
-          decoded: { variant: entry.variant, trancheNumber },
-        } satisfies FractionCore;
+        } satisfies ManagedTrancheCore;
       })
       .sort((a, b) =>
-        a.variant === b.variant ? Number(a.trancheId - b.trancheId) : a.variant.localeCompare(b.variant),
+        a.variant === b.variant
+          ? Number(a.trancheId - b.trancheId)
+          : a.variant.localeCompare(b.variant),
       );
   }, [assetLedger, supportedVeNfts]);
 
-  const productsFromFractions = useMemo(
+  const baseProducts = useMemo(
     () =>
       managedTrancheCore
-        .map((fraction) => {
-          const variant =
-            fraction.decoded?.variant ??
-            (sameAddress(fraction.veNFT, veBtc?.address)
-              ? "veBTC"
-              : sameAddress(fraction.veNFT, veMezo?.address)
-                ? "veMEZO"
-                : inferVariantFromSymbol(fraction.symbol));
-
-          if (!variant) return null;
-
-          const decoded = fraction.decoded ?? {
-            variant,
-            trancheNumber: Number(fraction.trancheId & 0xffffn),
-          };
-
-          return emptyProductCore({ ...fraction, decoded: { ...decoded, variant } });
-        })
-        .filter((product): product is EarnProduct => Boolean(product))
+        .map((core) => emptyProductCore(core))
         .sort((a, b) => a.variant.localeCompare(b.variant) || a.trancheNumber - b.trancheNumber),
-    [managedTrancheCore, veBtc?.address, veMezo?.address],
+    [managedTrancheCore],
   );
 
   const rewardSinkContracts = useMemo(() => {
-    if (!vault?.address || !vault.abi || productsFromFractions.length === 0) return [];
+    if (!vault?.address || !vault.abi || baseProducts.length === 0) return [];
 
-    return productsFromFractions.map((product) => ({
+    return baseProducts.map((product) => ({
       address: vault.address,
       abi: vault.abi,
       functionName: "rewardSinkOfTranche",
       args: [product.trancheId],
       chainId,
     }));
-  }, [chainId, productsFromFractions, vault]);
+  }, [baseProducts, chainId, vault]);
 
   const rewardSinkReads = useReadContracts({
     allowFailure: true,
@@ -632,11 +526,11 @@ export function useEarnSnapshot() {
   );
 
   const productStaticContracts = useMemo(() => {
-    if (!canReadLedger || productsFromFractions.length === 0 || !assetFractionAbi) return [];
+    if (!canReadLedger || baseProducts.length === 0 || !ledgerAbi) return [];
 
     const rewardSinkAbi = earnContracts.rewardSink?.abi as Abi | undefined;
 
-    return productsFromFractions.flatMap((product, index) => {
+    return baseProducts.flatMap((product, index) => {
       const rewardSinkAddress = rewardSinkAddresses[index] ?? null;
       const contracts: Array<{
         address: Address;
@@ -646,15 +540,15 @@ export function useEarnSnapshot() {
         chainId: number;
       }> = [
         {
-          address: product.fractionAddress,
-          abi: assetFractionAbi,
+          address: product.ledgerAddress,
+          abi: ledgerAbi,
           functionName: "totalSupply",
           args: [product.trancheId],
           chainId,
         },
         {
-          address: product.fractionAddress,
-          abi: assetFractionAbi,
+          address: product.ledgerAddress,
+          abi: ledgerAbi,
           functionName: "isSettlementWindowOpen",
           chainId,
         },
@@ -668,10 +562,9 @@ export function useEarnSnapshot() {
           chainId,
         });
       } else {
-        // Keep fixed stride even when the sink is not resolved yet.
         contracts.push({
-          address: product.fractionAddress,
-          abi: assetFractionAbi,
+          address: product.ledgerAddress,
+          abi: ledgerAbi,
           functionName: "totalSupply",
           args: [product.trancheId],
           chainId,
@@ -681,11 +574,11 @@ export function useEarnSnapshot() {
       return contracts;
     });
   }, [
-    assetFractionAbi,
+    baseProducts,
     canReadLedger,
     chainId,
     earnContracts.rewardSink?.abi,
-    productsFromFractions,
+    ledgerAbi,
     rewardSinkAddresses,
   ]);
 
@@ -699,18 +592,18 @@ export function useEarnSnapshot() {
   });
 
   const productAccountContracts = useMemo(() => {
-    if (!canReadLedger || !userAddress || productsFromFractions.length === 0 || !assetFractionAbi) {
+    if (!canReadLedger || !userAddress || baseProducts.length === 0 || !ledgerAbi) {
       return [];
     }
 
-    return productsFromFractions.map((product) => ({
-        address: product.fractionAddress,
-        abi: assetFractionAbi,
-        functionName: "redeemableBalanceOf",
-        args: [userAddress, product.trancheId],
-        chainId,
-      }));
-  }, [assetFractionAbi, canReadLedger, chainId, productsFromFractions, userAddress]);
+    return baseProducts.map((product) => ({
+      address: product.ledgerAddress,
+      abi: ledgerAbi,
+      functionName: "redeemableBalanceOf",
+      args: [userAddress, product.trancheId],
+      chainId,
+    }));
+  }, [baseProducts, canReadLedger, chainId, ledgerAbi, userAddress]);
 
   const productAccountReads = useReadContracts({
     allowFailure: true,
@@ -733,8 +626,6 @@ export function useEarnSnapshot() {
     enabled: rewardAssetAddresses.length > 0,
   });
 
-  const veTokenMeta = rewardTokenMeta;
-
   const veBtcTokenBalance = useKnownMezoTokenBalance({
     tokenAddress: veBtcUnderlyingAddress,
     tokenSymbol: "BTC",
@@ -753,9 +644,11 @@ export function useEarnSnapshot() {
             veNftAddress: veBtc.address,
             underlyingAddress: veBtcUnderlyingAddress,
             symbol:
-              veTokenMeta.metadataByAddress[veBtcUnderlyingAddress.toLowerCase()]?.symbol ?? "BTC",
+              rewardTokenMeta.metadataByAddress[veBtcUnderlyingAddress.toLowerCase()]?.symbol ??
+              "BTC",
             decimals:
-              veTokenMeta.metadataByAddress[veBtcUnderlyingAddress.toLowerCase()]?.decimals ?? 18,
+              rewardTokenMeta.metadataByAddress[veBtcUnderlyingAddress.toLowerCase()]?.decimals ??
+              18,
             balanceRaw: veBtcTokenBalance.balanceRaw,
           }
         : null;
@@ -766,10 +659,10 @@ export function useEarnSnapshot() {
             veNftAddress: veMezo.address,
             underlyingAddress: veMezoUnderlyingAddress,
             symbol:
-              veTokenMeta.metadataByAddress[veMezoUnderlyingAddress.toLowerCase()]?.symbol ??
+              rewardTokenMeta.metadataByAddress[veMezoUnderlyingAddress.toLowerCase()]?.symbol ??
               "MEZO",
             decimals:
-              veTokenMeta.metadataByAddress[veMezoUnderlyingAddress.toLowerCase()]?.decimals ??
+              rewardTokenMeta.metadataByAddress[veMezoUnderlyingAddress.toLowerCase()]?.decimals ??
               18,
             balanceRaw: veMezoTokenBalance.balanceRaw,
           }
@@ -780,24 +673,23 @@ export function useEarnSnapshot() {
       veMEZO: veMezoToken,
     };
   }, [
+    rewardTokenMeta.metadataByAddress,
     veBtc,
-    veBtcUnderlyingAddress,
     veBtcTokenBalance.balanceRaw,
+    veBtcUnderlyingAddress,
     veMezo,
-    veMezoUnderlyingAddress,
     veMezoTokenBalance.balanceRaw,
-    veTokenMeta.metadataByAddress,
+    veMezoUnderlyingAddress,
   ]);
 
   const products = useMemo<EarnProduct[]>(() => {
-    return productsFromFractions.map((product, index) => {
+    return baseProducts.map((product, index) => {
       const staticCursor = index * PRODUCT_STATIC_READS;
       const accountCursor = index * PRODUCT_POSITION_READS;
 
       const totalSupply = readBigint(readResult<unknown>(productStaticReads.data, staticCursor));
-      const isTargetSettlementWindow = readBoolean(
-        readResult<unknown>(productStaticReads.data, staticCursor + 1),
-      );
+      const isSettlementWindowOpen =
+        readBoolean(readResult<unknown>(productStaticReads.data, staticCursor + 1)) ?? false;
       const rewardReserveRaw = readBigint(
         readResult<unknown>(productStaticReads.data, staticCursor + 2),
       );
@@ -821,27 +713,23 @@ export function useEarnSnapshot() {
       return {
         ...product,
         totalSupplyRaw: totalSupply,
-        isTargetSettlementWindow: isTargetSettlementWindow ?? false,
-        targetEpochEnd: null,
-        trancheDuration: null,
-        trancheLengthEpochs: BigInt(product.trancheNumber),
+        isSettlementWindowOpen,
         rewardAsset,
         rewardSymbol: rewardMeta?.symbol ?? (product.variant === "veBTC" ? "BTC" : "MEZO"),
         rewardDecimals: rewardMeta?.decimals ?? 18,
         rewardReserveRaw,
-        settledUnderlyingRaw: null,
         rewardSinkAddress,
         decimals: 18,
         claimableRewardsRaw,
         userAvailableBalanceRaw,
         userBalanceRaw,
-        refundablePositions: [],
+        redeemInventory: [],
       };
     });
   }, [
+    baseProducts,
     productAccountReads.data,
     productStaticReads.data,
-    productsFromFractions,
     rewardSinkAddresses,
     rewardTokenMeta.metadataByAddress,
     rewardsPortfolio.data,
@@ -909,7 +797,7 @@ export function useEarnSnapshot() {
   return {
     chainId,
     assetLedger,
-    assetFractionAbi,
+    ledgerAbi,
     supportedVeNfts,
     products: snapshot.products,
     liveProductCount: snapshot.liveProductCount,
@@ -929,13 +817,13 @@ export function useEarnProductDetails(
   enabled: boolean,
   apyBasisMapOverride?: EarnApyBasisMap | null,
 ) {
-  const { address: userAddress } = useAccount();
   const connectedChainId = useChainId();
   const queryClient = useQueryClient();
   const activeChain = getActiveChain(resolveAppEnvironment());
   const chainId = connectedChainId ?? activeChain.id;
   const earnContracts = useMemo(() => getEarnProtocolConfig(chainId), [chainId]);
-  const assetFractionAbi = earnContracts.ledger?.abi as Abi | undefined;
+  const ledgerAbi = earnContracts.ledger?.abi as Abi | undefined;
+  const vault = earnContracts.vault;
   const veNftAbi =
     (product.variant === "veBTC" ? earnContracts.veBtc : earnContracts.veMezo)?.abi;
 
@@ -945,7 +833,7 @@ export function useEarnProductDetails(
     enabled: enabled && !apyBasisMapOverride,
     products: [product],
     chainId,
-    assetFractionAbi,
+    ledgerAbi,
   });
 
   const apyBasisMap = useMemo<EarnApyBasisMap>(
@@ -953,10 +841,8 @@ export function useEarnProductDetails(
     [apyBasisMapOverride, apyQuery.data],
   );
 
-  const detailsContracts = useMemo(() => {
-    const veNftAddress = product.veNFT;
-
-    if (!enabled || !userAddress || !veNftAddress || !veNftAbi) {
+  const inventoryContracts = useMemo(() => {
+    if (!enabled || !vault?.address || !vault.abi) {
       return [] as Array<{
         address: Address;
         abi: Abi;
@@ -968,38 +854,32 @@ export function useEarnProductDetails(
 
     return [
       {
-        address: veNftAddress,
-        abi: veNftAbi,
-        functionName: "getHeldTokenIds",
-        args: [product.fractionAddress, veNftAddress],
+        address: vault.address,
+        abi: vault.abi as Abi,
+        functionName: "veNftsOfTranche",
+        args: [product.trancheId],
         chainId,
       },
     ];
-  }, [chainId, enabled, product.fractionAddress, product.veNFT, userAddress, veNftAbi]);
+  }, [chainId, enabled, product.trancheId, vault]);
 
-  const detailsReads = useReadContracts({
+  const inventoryReads = useReadContracts({
     allowFailure: true,
-    contracts: detailsContracts,
+    contracts: inventoryContracts,
     query: {
-      enabled: detailsContracts.length > 0,
+      enabled: inventoryContracts.length > 0,
       ...detailReadQueryOptions,
     },
   });
 
-  const heldTokenIds = useMemo(() => {
-    if (!product.veNFT || !detailsReads.data?.[0]) return [] as bigint[];
-    return parseHeldTokenIds(detailsReads.data[0].result);
-  }, [detailsReads.data, product.veNFT]);
+  const inventoryTokenIds = useMemo(() => {
+    if (!inventoryReads.data?.[0]) return [] as bigint[];
+    return parseTokenIdList(inventoryReads.data[0].result);
+  }, [inventoryReads.data]);
 
-  const positionContracts = useMemo(() => {
+  const lockContracts = useMemo(() => {
     const veNftAddress = product.veNFT;
-
-    if (
-      !enabled ||
-      !veNftAddress ||
-      !veNftAbi ||
-      heldTokenIds.length === 0
-    ) {
+    if (!enabled || !veNftAddress || !veNftAbi || inventoryTokenIds.length === 0) {
       return [] as Array<{
         address: Address;
         abi: Abi;
@@ -1009,72 +889,51 @@ export function useEarnProductDetails(
       }>;
     }
 
-    return heldTokenIds.flatMap((tokenId) => [
-      {
-        address: veNftAddress,
-        abi: veNftAbi,
-        functionName: "getPosition",
-        args: [veNftAddress, tokenId],
-        chainId,
-      },
-      {
-        address: veNftAddress,
-        abi: veNftAbi,
-        functionName: "locked",
-        args: [tokenId],
-        chainId,
-      },
-    ]);
-  }, [chainId, enabled, heldTokenIds, product.veNFT, veNftAbi]);
+    return inventoryTokenIds.map((tokenId) => ({
+      address: veNftAddress,
+      abi: veNftAbi,
+      functionName: "locked",
+      args: [tokenId],
+      chainId,
+    }));
+  }, [chainId, enabled, inventoryTokenIds, product.veNFT, veNftAbi]);
 
-  const positionReads = useReadContracts({
+  const lockReads = useReadContracts({
     allowFailure: true,
-    contracts: positionContracts,
+    contracts: lockContracts,
     query: {
-      enabled: positionContracts.length > 0,
+      enabled: lockContracts.length > 0,
       ...detailReadQueryOptions,
     },
   });
 
-  const refundablePositions = useMemo<EarnRefundablePosition[]>(() => {
-    if (!product.veNFT || heldTokenIds.length === 0) return [];
+  const redeemInventory = useMemo<EarnRedeemInventory[]>(() => {
+    if (!product.veNFT || inventoryTokenIds.length === 0) return [];
 
-    const positions: EarnRefundablePosition[] = [];
+    const positions: EarnRedeemInventory[] = [];
 
-    for (let index = 0; index < heldTokenIds.length; index += 1) {
-      const tokenId = heldTokenIds[index]!;
-      const positionResult = positionReads.data?.[index * POSITION_READS]?.result;
-      const lockResult = positionReads.data?.[index * POSITION_READS + 1]?.result;
-      const position = parsePositionValue(positionResult);
-      const lock = parseLockedValue(lockResult);
-
-      if (
-        !position ||
-        position.lockedAmountRaw <= 0n ||
-        !position.trancheId ||
-        !sameAddress(position.fraction, product.fractionAddress) ||
-        position.trancheId !== product.trancheId
-      ) {
-        continue;
-      }
+    for (let index = 0; index < inventoryTokenIds.length; index += 1) {
+      const tokenId = inventoryTokenIds[index]!;
+      const lock = parseLockedValue(lockReads.data?.[index * REDEEM_INVENTORY_READS]?.result);
+      if (lock.amount <= 0n) continue;
 
       positions.push({
         key: `${product.veNFT}-${tokenId.toString()}`,
         veNft: product.veNFT,
         tokenId,
-        lockedAmountRaw: position.lockedAmountRaw,
+        lockedAmountRaw: lock.amount,
         unlockTime: lock.end,
       });
     }
 
     return positions;
-  }, [heldTokenIds, positionReads.data, product.fractionAddress, product.trancheId, product.veNFT]);
+  }, [inventoryTokenIds, lockReads.data, product.veNFT]);
 
   const hydratedProduct = useMemo<EarnProduct>(() => {
     const baseProduct =
       snapshot.products.find(
         (entry) =>
-          entry.fractionAddress.toLowerCase() === product.fractionAddress.toLowerCase() &&
+          sameAddress(entry.ledgerAddress, product.ledgerAddress) &&
           entry.trancheId === product.trancheId,
       ) ?? product;
 
@@ -1085,30 +944,30 @@ export function useEarnProductDetails(
       apyRewardAmountRaw: apyBasis?.rewardAmountRaw ?? null,
       apyTotalSupplyAtFundingRaw: apyBasis?.totalSupplyAtFundingRaw ?? null,
       apyFundingBlockNumber: apyBasis?.fundingBlockNumber ?? null,
-      refundablePositions,
+      redeemInventory,
     };
-  }, [apyBasisMap, product, refundablePositions, snapshot.products]);
+  }, [apyBasisMap, product, redeemInventory, snapshot.products]);
 
   function refresh() {
     snapshot.refresh();
-    void detailsReads.refetch();
-    void positionReads.refetch();
+    void inventoryReads.refetch();
+    void lockReads.refetch();
     void queryClient.invalidateQueries({ queryKey: [EARN_APY_QUERY_PREFIX] });
   }
 
   return {
     product: hydratedProduct,
     isLoading:
-      snapshot.isLoading || detailsReads.isLoading || positionReads.isLoading || apyQuery.isLoading,
+      snapshot.isLoading || inventoryReads.isLoading || lockReads.isLoading || apyQuery.isLoading,
     isFetching:
       snapshot.isFetching ||
-      detailsReads.isFetching ||
-      positionReads.isFetching ||
+      inventoryReads.isFetching ||
+      lockReads.isFetching ||
       apyQuery.isFetching,
     error:
       snapshot.error ||
-      (detailsReads.error as Error | null) ||
-      (positionReads.error as Error | null) ||
+      (inventoryReads.error as Error | null) ||
+      (lockReads.error as Error | null) ||
       (apyQuery.error as Error | null) ||
       null,
     refresh,
@@ -1123,17 +982,19 @@ async function fetchApyBasisMap(params: {
   const { products, chainId, publicClient } = params;
   const protocol = getEarnProtocolConfig(chainId);
   const assetLedger = protocol.ledger;
-  const assetFractionAbi = assetLedger?.abi;
+  const ledgerAbi = assetLedger?.abi as Abi | undefined;
 
   const validProducts = products.filter(
     (product) =>
-      product.fractionAddress !== ZERO_ADDRESS &&
+      product.ledgerAddress !== ZERO_ADDRESS &&
       product.rewardSinkAddress &&
       product.rewardSinkAddress !== ZERO_ADDRESS,
   );
-  if (validProducts.length === 0 || !assetLedger?.address || !assetFractionAbi) return {};
+  if (validProducts.length === 0 || !assetLedger?.address || !ledgerAbi) return {};
 
-  const btcSinkFromBlock = BigInt(protocol.rewardSink?.deploymentBlock || assetLedger.deploymentBlock || 0);
+  const btcSinkFromBlock = BigInt(
+    protocol.rewardSink?.deploymentBlock || assetLedger.deploymentBlock || 0,
+  );
   const mezoSinkFromBlock = BigInt(
     protocol.mezoRewardSink?.deploymentBlock || assetLedger.deploymentBlock || 0,
   );
@@ -1168,8 +1029,8 @@ async function fetchApyBasisMap(params: {
       const totalSupplyAtFundingRaw = await readTotalSupplyAtBlock({
         publicClient,
         chainId,
-        address: product.fractionAddress,
-        assetFractionAbi,
+        ledgerAddress: product.ledgerAddress,
+        ledgerAbi,
         trancheId: product.trancheId,
         blockNumber: supplyBlockNumber,
       });
@@ -1192,9 +1053,9 @@ export function useApyBasis(params: {
   enabled: boolean;
   products: EarnProduct[];
   chainId: number;
-  assetFractionAbi: Abi | undefined;
+  ledgerAbi: Abi | undefined;
 }) {
-  const { enabled, products, chainId, assetFractionAbi } = params;
+  const { enabled, products, chainId, ledgerAbi } = params;
   const publicClient = usePublicClient();
   const assetLedger = getEarnProtocolConfig(chainId).ledger;
   const productsWithSinks = products.filter(
@@ -1211,10 +1072,7 @@ export function useApyBasis(params: {
     enabled:
       enabled &&
       Boolean(
-        publicClient &&
-          assetLedger?.address &&
-          assetFractionAbi &&
-          productsWithSinks.length > 0,
+        publicClient && assetLedger?.address && ledgerAbi && productsWithSinks.length > 0,
       ),
     queryKey,
     queryFn: async () => {

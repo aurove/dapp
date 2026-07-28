@@ -166,13 +166,13 @@ export function EarnPage() {
 
   const chainId = useChainId();
   const earnContracts = useMemo(() => getEarnProtocolConfig(chainId), [chainId]);
-  const assetFractionAbi = earnContracts.ledger?.abi;
+  const ledgerAbi = earnContracts.ledger?.abi;
   const rewardSinkAbi = getRewardSinkAbi(chainId);
   const apyQuery = useApyBasis({
     enabled: true,
     products: products,
     chainId,
-    assetFractionAbi,
+    ledgerAbi,
   });
   const apyBasisMap = useMemo(() => apyQuery.data ?? {}, [apyQuery.data]);
 
