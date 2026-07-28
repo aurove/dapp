@@ -52,6 +52,7 @@ const footerLinks: FooterLink[] = [
   { label: "Swap", href: "/#swap-interface" },
   { label: "Earn", href: "/earn" },
   { label: "Liquidity", href: "/liquidity" },
+  { label: "Docs", href: "/docs" },
   {
     label: "X",
     href: "https://x.com/aurove_xyz",
