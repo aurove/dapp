@@ -14,16 +14,11 @@ import {
   type EarnVariant,
   useEarnProductDetails,
 } from "./use-earn-data";
+import { estimateTrancheApy, formatApyPercent } from "./utils/apy";
 
 const WEEK_SECONDS = 7n * 24n * 60n * 60n;
 const SETTLEMENT_WINDOW_START_SECONDS = 10n * 60n * 60n;
 const SETTLEMENT_WINDOW_DURATION_SECONDS = 6n * 60n * 60n;
-const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
-
-type TrancheApyEstimate = {
-  product: EarnProduct;
-  apyPercent: number;
-};
 
 export function EarnPositionCard({
   product: initialProduct,
@@ -416,44 +411,6 @@ function InfoTile({ label, value }: { label: string; value: string }) {
 
 function formatAmount(value: bigint | null | undefined, decimals = 18, symbol?: string | null) {
   return formatCompactRawTokenAmount(value, decimals, symbol ?? undefined);
-}
-
-function formatApyPercent(value: number | null | undefined) {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "Not estimated";
-  if (value > 0 && value < 0.01) return "<0.01%";
-  const fractionDigits = value >= 100 ? 0 : value >= 10 ? 1 : 2;
-  return (
-    new Intl.NumberFormat(undefined, {
-      maximumFractionDigits: fractionDigits,
-      minimumFractionDigits: fractionDigits,
-    }).format(value) + "%"
-  );
-}
-
-function estimateTrancheApy(product: EarnProduct): TrancheApyEstimate | null {
-  const totalSupplyRaw = product.apyTotalSupplyAtFundingRaw ?? 0n;
-  const rewardAmountRaw = product.apyRewardAmountRaw ?? 0n;
-  if (totalSupplyRaw <= 0n || rewardAmountRaw <= 0n) return null;
-
-  const rewardDeposited = Number(formatUnits(rewardAmountRaw, product.rewardDecimals));
-  const totalSupply = Number(formatUnits(totalSupplyRaw, 18));
-  if (!Number.isFinite(rewardDeposited) || !Number.isFinite(totalSupply) || totalSupply <= 0) {
-    return null;
-  }
-
-  const durationSeconds =
-    product.trancheDuration && product.trancheDuration > 0n
-      ? Number(product.trancheDuration)
-      : null;
-  const annualization =
-    durationSeconds && Number.isFinite(durationSeconds) && durationSeconds > 0
-      ? SECONDS_PER_YEAR / durationSeconds
-      : 1;
-
-  return {
-    product,
-    apyPercent: (rewardDeposited / totalSupply) * annualization * 100,
-  };
 }
 
 function isTargetSettlementWindow(product: EarnProduct, blockchainNow: bigint | null): boolean {

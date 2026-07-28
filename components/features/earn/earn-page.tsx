@@ -36,6 +36,11 @@ import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-pa
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/earn/hooks/use-user-ve-nfts";
 import { type EarnProduct, type EarnVariant, useApyBasis, useEarnSnapshot } from "./use-earn-data";
 import { EarnPositionCard } from "./earn-position-card";
+import {
+  earnApyProductKey,
+  estimateTrancheApy,
+  summarizeEstimatedYield,
+} from "./utils/apy";
 import { MAX_EPOCHS_BY_VARIANT, symbolOf } from "./utils/tranche";
 
 type ClaimableSummary = {
@@ -171,6 +176,31 @@ export function EarnPage() {
   });
   const apyBasisMap = useMemo(() => apyQuery.data ?? {}, [apyQuery.data]);
 
+  const estimatedYieldMetric = useMemo(() => {
+    if (apyQuery.isLoading || apyQuery.isFetching) {
+      return {
+        value: "Loading…",
+        detail: "Scanning reward funding history for live Aurove assets.",
+        subtle: true,
+      };
+    }
+
+    const estimates = products
+      .map((product) => {
+        const basis = apyBasisMap[earnApyProductKey(product)];
+        if (!basis) return null;
+        return estimateTrancheApy({
+          ...product,
+          apyRewardAmountRaw: basis.rewardAmountRaw,
+          apyTotalSupplyAtFundingRaw: basis.totalSupplyAtFundingRaw,
+          apyFundingBlockNumber: basis.fundingBlockNumber,
+        });
+      })
+      .filter((estimate): estimate is NonNullable<typeof estimate> => Boolean(estimate));
+
+    return summarizeEstimatedYield(estimates);
+  }, [apyBasisMap, apyQuery.isFetching, apyQuery.isLoading, products]);
+
   function patchCreatePortfolioState() {
     // Confirmed portfolio state is refreshed from RPC after the receipt.
   }
@@ -297,13 +327,29 @@ export function EarnPage() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <FeatureMetricCard label="AVAILABLE ASSETS" value="0" />
-            <FeatureMetricCard label="YOUR POSITIONS" value="0" />
+            <FeatureMetricCard
+              label="AVAILABLE ASSETS"
+              value={String(products.length)}
+              detail={
+                products.length > 0
+                  ? products.map((product) => product.symbol).join(" · ")
+                  : "No managed Aurove assets on this network yet."
+              }
+            />
+            <FeatureMetricCard
+              label="YOUR POSITIONS"
+              value={String(userPositions.length)}
+              detail={
+                userPositions.length > 0
+                  ? "Liquid tranche balances currently held in your wallet."
+                  : "Deposit to create your first liquid position."
+              }
+            />
             <FeatureMetricCard
               label="ESTIMATED YIELD"
-              value="Not available yet"
-              detail="Yield data will appear when an Aurove asset is live."
-              subtle
+              value={estimatedYieldMetric.value}
+              detail={estimatedYieldMetric.detail}
+              subtle={estimatedYieldMetric.subtle}
             />
           </div>
         </div>

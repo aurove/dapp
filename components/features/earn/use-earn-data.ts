@@ -16,7 +16,6 @@ import {
   readAddress,
   readBigint,
   readBoolean,
-  readNumber,
   readResult,
   sameAddress,
 } from "@/lib/web3/value-parsers";
@@ -29,6 +28,7 @@ import {
   nameOf,
   symbolOf,
 } from "@/components/features/earn/utils/tranche";
+import { earnApyProductKey } from "@/components/features/earn/utils/apy";
 
 export type EarnVariant = "veBTC" | "veMEZO";
 
@@ -137,7 +137,8 @@ const fundingScanCacheByChain = new Map<number, FundingScanCache>();
 const fractionDeploymentBlockCache = new Map<string, Promise<bigint | null>>();
 const totalSupplyAtBlockCache = new Map<string, Promise<bigint | null>>();
 
-const PRODUCT_STATIC_READS = 9;
+/** Per-product static multicall layout: totalSupply, isSettlementWindowOpen, rewardReserve. */
+const PRODUCT_STATIC_READS = 3;
 const PRODUCT_POSITION_READS = 1;
 const POSITION_READS = 2;
 
@@ -204,27 +205,36 @@ function emptyProductCore(fraction: FractionCore, userBalanceRaw = 0n): EarnProd
 function earnApyBasisQueryKey(params: {
   chainId: number;
   assetLedgerAddress: Address | null | undefined;
-  productAddresses: Address[];
+  productKeys: string[];
 }) {
   return [
     EARN_APY_QUERY_PREFIX,
     params.chainId,
     params.assetLedgerAddress?.toLowerCase() ?? null,
-    [...new Set(params.productAddresses.map((address) => address.toLowerCase()))].sort(),
+    [...new Set(params.productKeys)].sort(),
   ] as const;
 }
+
+type RewardSinkScanTarget = {
+  key: string;
+  sinkAddress: Address;
+  fromBlock: bigint;
+};
 
 async function scanRewardsFundedEvents(params: {
   publicClient: PublicClient;
   chainId: number;
-  assetLedgerAddress: Address;
-  assetLedgerDeploymentBlock: bigint;
-  addresses: Address[];
+  targets: RewardSinkScanTarget[];
 }) {
-  const normalizedAddresses = [
-    ...new Set(params.addresses.map((address) => address.toLowerCase())),
-  ];
-  if (normalizedAddresses.length === 0) return new Map<string, FundingEventSnapshot>();
+  const uniqueTargets = new Map<string, RewardSinkScanTarget>();
+  for (const target of params.targets) {
+    uniqueTargets.set(target.key.toLowerCase(), {
+      ...target,
+      key: target.key.toLowerCase(),
+      sinkAddress: target.sinkAddress,
+    });
+  }
+  if (uniqueTargets.size === 0) return new Map<string, FundingEventSnapshot>();
 
   const cache = getFundingScanCache(params.chainId);
   if (cache.inFlight) await cache.inFlight;
@@ -233,35 +243,30 @@ async function scanRewardsFundedEvents(params: {
     const latestBlock = await params.publicClient.getBlockNumber();
 
     await Promise.all(
-      params.addresses.map(async (address) => {
-        const key = address.toLowerCase();
+      [...uniqueTargets.values()].map(async (target) => {
+        const key = target.key;
         const checkedTip = cache.checkedTipByAddress.get(key);
         if (checkedTip && checkedTip >= latestBlock) return;
 
-        const deploymentBlock = await readAssetFractionDeploymentBlock({
-          publicClient: params.publicClient,
-          chainId: params.chainId,
-          assetLedgerAddress: params.assetLedgerAddress,
-          assetLedgerDeploymentBlock: params.assetLedgerDeploymentBlock,
-          fractionAddress: address,
-          toBlock: latestBlock,
-        });
-
-        if (deploymentBlock === null) return;
-
+        const deploymentBlock = target.fromBlock > 0n ? target.fromBlock : 0n;
         const fromBlock =
           checkedTip && checkedTip + 1n > deploymentBlock ? checkedTip + 1n : deploymentBlock;
 
+        if (fromBlock > latestBlock) {
+          cache.checkedTipByAddress.set(key, latestBlock);
+          return;
+        }
+
         const log = await findLatestEventLogByChunks({
           chainId: params.chainId,
-          contractAddress: address,
+          contractAddress: target.sinkAddress,
           eventName: "RewardsFunded",
           fromBlock,
           toBlock: latestBlock,
           chunkSize: REWARDS_FUNDED_SCAN_CHUNK_SIZE,
           fetchRange: async (rangeFromBlock, rangeToBlock) => {
             const logs = await params.publicClient.getLogs({
-              address,
+              address: target.sinkAddress,
               event: rewardsFundedEvent,
               fromBlock: rangeFromBlock,
               toBlock: rangeToBlock,
@@ -317,7 +322,7 @@ async function scanRewardsFundedEvents(params: {
   }
 
   return new Map(
-    normalizedAddresses
+    [...uniqueTargets.keys()]
       .map((address) => [address, cache.latestByAddress.get(address)])
       .filter((entry): entry is [string, FundingEventSnapshot] => Boolean(entry[1])),
   );
@@ -386,11 +391,13 @@ function readTotalSupplyAtBlock(params: {
   chainId: number;
   assetFractionAbi: Abi;
   address: Address;
+  trancheId: bigint;
   blockNumber: bigint;
 }) {
   const cacheKey = [
     params.chainId,
     params.address.toLowerCase(),
+    params.trancheId.toString(),
     params.blockNumber.toString(),
   ].join(":");
 
@@ -402,6 +409,7 @@ function readTotalSupplyAtBlock(params: {
       address: params.address,
       abi: params.assetFractionAbi,
       functionName: "totalSupply",
+      args: [params.trancheId],
       blockNumber: params.blockNumber,
     })
     .then(readBigint)
@@ -626,63 +634,60 @@ export function useEarnSnapshot() {
   const productStaticContracts = useMemo(() => {
     if (!canReadLedger || productsFromFractions.length === 0 || !assetFractionAbi) return [];
 
-    return productsFromFractions.flatMap((product) => [
-      {
-        address: product.fractionAddress,
-        abi: assetFractionAbi,
-        functionName: "totalSupply",
-        chainId,
-      },
-      {
-        address: product.fractionAddress,
-        abi: assetFractionAbi,
-        functionName: "isTargetSettlementWindow",
-        chainId,
-      },
-      {
-        address: product.fractionAddress,
-        abi: assetFractionAbi,
-        functionName: "targetEpochEnd",
-        chainId,
-      },
-      {
-        address: product.fractionAddress,
-        abi: assetFractionAbi,
-        functionName: "trancheDuration",
-        chainId,
-      },
-      {
-        address: product.fractionAddress,
-        abi: assetFractionAbi,
-        functionName: "trancheLengthEpochs",
-        chainId,
-      },
-      {
-        address: product.fractionAddress,
-        abi: assetFractionAbi,
-        functionName: "rewardAsset",
-        chainId,
-      },
-      {
-        address: product.fractionAddress,
-        abi: assetFractionAbi,
-        functionName: "rewardReserve",
-        chainId,
-      },
-      {
-        address: product.fractionAddress,
-        abi: assetFractionAbi,
-        functionName: "settledUnderlying",
-        chainId,
-      },
-      {
-        address: product.fractionAddress,
-        abi: assetFractionAbi,
-        functionName: "decimals",
-        chainId,
-      },
-    ]);
-  }, [assetFractionAbi, canReadLedger, chainId, productsFromFractions]);
+    const rewardSinkAbi = earnContracts.rewardSink?.abi as Abi | undefined;
+
+    return productsFromFractions.flatMap((product, index) => {
+      const rewardSinkAddress = rewardSinkAddresses[index] ?? null;
+      const contracts: Array<{
+        address: Address;
+        abi: Abi;
+        functionName: string;
+        args?: readonly unknown[];
+        chainId: number;
+      }> = [
+        {
+          address: product.fractionAddress,
+          abi: assetFractionAbi,
+          functionName: "totalSupply",
+          args: [product.trancheId],
+          chainId,
+        },
+        {
+          address: product.fractionAddress,
+          abi: assetFractionAbi,
+          functionName: "isSettlementWindowOpen",
+          chainId,
+        },
+      ];
+
+      if (rewardSinkAddress && rewardSinkAbi) {
+        contracts.push({
+          address: rewardSinkAddress,
+          abi: rewardSinkAbi,
+          functionName: "rewardReserve",
+          chainId,
+        });
+      } else {
+        // Keep fixed stride even when the sink is not resolved yet.
+        contracts.push({
+          address: product.fractionAddress,
+          abi: assetFractionAbi,
+          functionName: "totalSupply",
+          args: [product.trancheId],
+          chainId,
+        });
+      }
+
+      return contracts;
+    });
+  }, [
+    assetFractionAbi,
+    canReadLedger,
+    chainId,
+    earnContracts.rewardSink?.abi,
+    productsFromFractions,
+    rewardSinkAddresses,
+  ]);
 
   const productStaticReads = useReadContracts({
     allowFailure: true,
@@ -717,19 +722,10 @@ export function useEarnSnapshot() {
   });
 
   const rewardAssetAddresses = useMemo(() => {
-    const values = new Map<string, Address>();
-
-    productsFromFractions.forEach((product, index) => {
-      const rewardAsset = readAddress(
-        readResult<unknown>(productStaticReads.data, index * PRODUCT_STATIC_READS + 5),
-      );
-      if (rewardAsset) {
-        values.set(rewardAsset.toLowerCase(), rewardAsset);
-      }
-    });
-
-    return [...values.values()];
-  }, [productStaticReads.data, productsFromFractions]);
+    return [veBtcUnderlyingAddress, veMezoUnderlyingAddress].filter(
+      (address): address is Address => Boolean(address),
+    );
+  }, [veBtcUnderlyingAddress, veMezoUnderlyingAddress]);
 
   const rewardTokenMeta = useErc20MetadataMap({
     chainId,
@@ -737,13 +733,7 @@ export function useEarnSnapshot() {
     enabled: rewardAssetAddresses.length > 0,
   });
 
-  const veTokenMeta = useErc20MetadataMap({
-    chainId,
-    addresses: [veBtcUnderlyingAddress, veMezoUnderlyingAddress].filter(
-      (address): address is Address => Boolean(address),
-    ),
-    enabled: Boolean(veBtcUnderlyingAddress || veMezoUnderlyingAddress),
-  });
+  const veTokenMeta = rewardTokenMeta;
 
   const veBtcTokenBalance = useKnownMezoTokenBalance({
     tokenAddress: veBtcUnderlyingAddress,
@@ -808,35 +798,22 @@ export function useEarnSnapshot() {
       const isTargetSettlementWindow = readBoolean(
         readResult<unknown>(productStaticReads.data, staticCursor + 1),
       );
-      const targetEpochEnd = readBigint(
+      const rewardReserveRaw = readBigint(
         readResult<unknown>(productStaticReads.data, staticCursor + 2),
       );
-      const trancheDuration = readBigint(
-        readResult<unknown>(productStaticReads.data, staticCursor + 3),
-      );
-      const trancheLengthEpochs = readBigint(
-        readResult<unknown>(productStaticReads.data, staticCursor + 4),
-      );
-      const rewardAsset = readAddress(
-        readResult<unknown>(productStaticReads.data, staticCursor + 5),
-      );
-      const rewardReserveRaw = readBigint(
-        readResult<unknown>(productStaticReads.data, staticCursor + 6),
-      );
-      const settledUnderlyingRaw = readBigint(
-        readResult<unknown>(productStaticReads.data, staticCursor + 7),
-      );
-      const decimals =
-        readNumber(readResult<unknown>(productStaticReads.data, staticCursor + 8)) ?? 18;
 
-      const claimableRewardsRaw = rewardsPortfolio.data?.rewards[`${product.variant}:${product.trancheNumber}`]?.rawClaimable ?? 0n;
+      const rewardPortfolioKey = product.variant === "veBTC" ? "avBTCm" : "avMEZOm";
+      const claimableRewardsRaw =
+        rewardsPortfolio.data?.rewards[rewardPortfolioKey]?.rawClaimable ?? 0n;
       const userAvailableBalanceRaw =
         readBigint(readResult<unknown>(productAccountReads.data, accountCursor)) ?? 0n;
-      const userBalanceRaw = Object.values(tranchePortfolio.data?.balances ?? {}).find(
-        (balance) => balance.trancheId === product.trancheId,
-      )?.rawBalance ?? 0n;
+      const userBalanceRaw =
+        Object.values(tranchePortfolio.data?.balances ?? {}).find(
+          (balance) => balance.trancheId === product.trancheId,
+        )?.rawBalance ?? 0n;
       const rewardSinkAddress = rewardSinkAddresses[index] ?? null;
-
+      const rewardAsset =
+        product.variant === "veBTC" ? veBtcUnderlyingAddress : veMezoUnderlyingAddress;
       const rewardMeta = rewardAsset
         ? rewardTokenMeta.metadataByAddress[rewardAsset.toLowerCase()]
         : undefined;
@@ -844,17 +821,17 @@ export function useEarnSnapshot() {
       return {
         ...product,
         totalSupplyRaw: totalSupply,
-        isTargetSettlementWindow,
-        targetEpochEnd,
-        trancheDuration,
-        trancheLengthEpochs,
+        isTargetSettlementWindow: isTargetSettlementWindow ?? false,
+        targetEpochEnd: null,
+        trancheDuration: null,
+        trancheLengthEpochs: BigInt(product.trancheNumber),
         rewardAsset,
         rewardSymbol: rewardMeta?.symbol ?? (product.variant === "veBTC" ? "BTC" : "MEZO"),
         rewardDecimals: rewardMeta?.decimals ?? 18,
         rewardReserveRaw,
-        settledUnderlyingRaw,
+        settledUnderlyingRaw: null,
         rewardSinkAddress,
-        decimals,
+        decimals: 18,
         claimableRewardsRaw,
         userAvailableBalanceRaw,
         userBalanceRaw,
@@ -869,6 +846,8 @@ export function useEarnSnapshot() {
     rewardTokenMeta.metadataByAddress,
     rewardsPortfolio.data,
     tranchePortfolio.data,
+    veBtcUnderlyingAddress,
+    veMezoUnderlyingAddress,
   ]);
 
   const snapshot = useMemo<EarnSnapshot>(() => {
@@ -886,7 +865,6 @@ export function useEarnSnapshot() {
     productStaticReads.isLoading ||
     productAccountReads.isLoading ||
     rewardTokenMeta.isLoading ||
-    veTokenMeta.isLoading ||
     veBtcTokenBalance.isChecking ||
     veMezoTokenBalance.isChecking;
   const portfolioLoading = tranchePortfolio.isLoading || rewardsPortfolio.isLoading;
@@ -898,16 +876,16 @@ export function useEarnSnapshot() {
     productStaticReads.isFetching ||
     productAccountReads.isFetching ||
     rewardTokenMeta.isFetching ||
-    veTokenMeta.isFetching ||
     veBtcTokenBalance.isChecking ||
-    veMezoTokenBalance.isChecking || tranchePortfolio.isFetching || rewardsPortfolio.isFetching;
+    veMezoTokenBalance.isChecking ||
+    tranchePortfolio.isFetching ||
+    rewardsPortfolio.isFetching;
 
   const error =
     (protocolReads.error as Error | null) ||
     (productStaticReads.error as Error | null) ||
     (productAccountReads.error as Error | null) ||
     (rewardTokenMeta.error as Error | null) ||
-    (veTokenMeta.error as Error | null) ||
     (veBtcTokenBalance.error as Error | null) ||
     (veMezoTokenBalance.error as Error | null) ||
     (tranchePortfolio.error as Error | null) ||
@@ -920,7 +898,6 @@ export function useEarnSnapshot() {
       productStaticReads.refetch(),
       productAccountReads.refetch(),
       rewardTokenMeta.refresh(),
-      veTokenMeta.refresh(),
       veBtcTokenBalance.refresh(),
       veMezoTokenBalance.refresh(),
       tranchePortfolio.refetch(),
@@ -1101,7 +1078,7 @@ export function useEarnProductDetails(
           entry.trancheId === product.trancheId,
       ) ?? product;
 
-    const apyBasis = apyBasisMap[baseProduct.fractionAddress.toLowerCase()];
+    const apyBasis = apyBasisMap[earnApyProductKey(baseProduct)];
 
     return {
       ...baseProduct,
@@ -1144,27 +1121,40 @@ async function fetchApyBasisMap(params: {
   publicClient: PublicClient;
 }) {
   const { products, chainId, publicClient } = params;
-  const assetLedger = getEarnProtocolConfig(chainId).ledger;
+  const protocol = getEarnProtocolConfig(chainId);
+  const assetLedger = protocol.ledger;
   const assetFractionAbi = assetLedger?.abi;
 
-  const validProducts = products.filter((product) => product.fractionAddress !== ZERO_ADDRESS);
+  const validProducts = products.filter(
+    (product) =>
+      product.fractionAddress !== ZERO_ADDRESS &&
+      product.rewardSinkAddress &&
+      product.rewardSinkAddress !== ZERO_ADDRESS,
+  );
   if (validProducts.length === 0 || !assetLedger?.address || !assetFractionAbi) return {};
 
-  const addresses = [...new Set(validProducts.map((product) => product.fractionAddress))];
+  const btcSinkFromBlock = BigInt(protocol.rewardSink?.deploymentBlock || assetLedger.deploymentBlock || 0);
+  const mezoSinkFromBlock = BigInt(
+    protocol.mezoRewardSink?.deploymentBlock || assetLedger.deploymentBlock || 0,
+  );
+
+  const targets = validProducts.map((product) => ({
+    key: earnApyProductKey(product),
+    sinkAddress: product.rewardSinkAddress as Address,
+    fromBlock: product.variant === "veBTC" ? btcSinkFromBlock : mezoSinkFromBlock,
+  }));
 
   const latestFundings = await scanRewardsFundedEvents({
     publicClient,
     chainId,
-    assetLedgerAddress: assetLedger.address,
-    assetLedgerDeploymentBlock: BigInt(assetLedger.deploymentBlock || 0),
-    addresses,
+    targets,
   });
 
   const result: EarnApyBasisMap = {};
 
   await Promise.all(
     validProducts.map(async (product) => {
-      const key = product.fractionAddress.toLowerCase();
+      const key = earnApyProductKey(product);
       const latestFunding = latestFundings.get(key);
 
       if (!latestFunding) {
@@ -1180,16 +1170,18 @@ async function fetchApyBasisMap(params: {
         chainId,
         address: product.fractionAddress,
         assetFractionAbi,
+        trancheId: product.trancheId,
         blockNumber: supplyBlockNumber,
       });
 
-      result[key] = totalSupplyAtFundingRaw
-        ? {
-            rewardAmountRaw: latestFunding.amount,
-            totalSupplyAtFundingRaw,
-            fundingBlockNumber: latestFunding.blockNumber,
-          }
-        : null;
+      result[key] =
+        totalSupplyAtFundingRaw !== null && totalSupplyAtFundingRaw !== undefined
+          ? {
+              rewardAmountRaw: latestFunding.amount,
+              totalSupplyAtFundingRaw,
+              fundingBlockNumber: latestFunding.blockNumber,
+            }
+          : null;
     }),
   );
 
@@ -1205,17 +1197,25 @@ export function useApyBasis(params: {
   const { enabled, products, chainId, assetFractionAbi } = params;
   const publicClient = usePublicClient();
   const assetLedger = getEarnProtocolConfig(chainId).ledger;
+  const productsWithSinks = products.filter(
+    (product) => product.rewardSinkAddress && product.rewardSinkAddress !== ZERO_ADDRESS,
+  );
 
   const queryKey = earnApyBasisQueryKey({
     chainId,
     assetLedgerAddress: assetLedger?.address,
-    productAddresses: products.map((product) => product.fractionAddress),
+    productKeys: productsWithSinks.map((product) => earnApyProductKey(product)),
   });
 
   return useQuery({
     enabled:
       enabled &&
-      Boolean(publicClient && assetLedger?.address && assetFractionAbi && products.length > 0),
+      Boolean(
+        publicClient &&
+          assetLedger?.address &&
+          assetFractionAbi &&
+          productsWithSinks.length > 0,
+      ),
     queryKey,
     queryFn: async () => {
       if (!publicClient) {
@@ -1223,7 +1223,7 @@ export function useApyBasis(params: {
       }
 
       return fetchApyBasisMap({
-        products,
+        products: productsWithSinks,
         chainId,
         publicClient,
       });
