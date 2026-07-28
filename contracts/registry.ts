@@ -8010,6 +8010,11 @@ const contracts = {
         { inputs: [], name: "ERC1967NonPayable", type: "error" },
         { inputs: [], name: "FailedCall", type: "error" },
         {
+          inputs: [{ internalType: "uint256", name: "mTokenId", type: "uint256" }],
+          name: "FreeManagedRewardNotSet",
+          type: "error",
+        },
+        {
           inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
           name: "GrantBackedVeNft",
           type: "error",
@@ -8021,6 +8026,7 @@ const contracts = {
           name: "InvalidEpochs",
           type: "error",
         },
+        { inputs: [], name: "InvalidFreeRewardClaim", type: "error" },
         { inputs: [], name: "InvalidInitialization", type: "error" },
         {
           inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
@@ -8029,6 +8035,14 @@ const contracts = {
         },
         { inputs: [], name: "InvalidVariantForTranche", type: "error" },
         { inputs: [], name: "ManagedTokenNotSet", type: "error" },
+        {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "uint256", name: "tokenId", type: "uint256" },
+          ],
+          name: "NotInCustody",
+          type: "error",
+        },
         { inputs: [], name: "NotInitializing", type: "error" },
         {
           inputs: [{ internalType: "address", name: "owner", type: "address" }],
@@ -8041,6 +8055,11 @@ const contracts = {
           type: "error",
         },
         { inputs: [], name: "ReentrancyGuardReentrantCall", type: "error" },
+        {
+          inputs: [{ internalType: "address", name: "token", type: "address" }],
+          name: "SafeERC20FailedOperation",
+          type: "error",
+        },
         {
           inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
           name: "TrancheNotRegistered",
@@ -8074,6 +8093,20 @@ const contracts = {
         },
         { inputs: [], name: "ZeroAddress", type: "error" },
         { inputs: [], name: "ZeroTokenId", type: "error" },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "uint256", name: "trancheId", type: "uint256" },
+            { indexed: true, internalType: "address", name: "keeper", type: "address" },
+            { indexed: true, internalType: "address", name: "manager", type: "address" },
+            { indexed: false, internalType: "address", name: "token", type: "address" },
+            { indexed: false, internalType: "uint256", name: "grossAmount", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "keeperAmount", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "managerAmount", type: "uint256" },
+          ],
+          name: "FreeManagedRewardsClaimed",
+          type: "event",
+        },
         {
           anonymous: false,
           inputs: [{ indexed: false, internalType: "uint64", name: "version", type: "uint64" }],
@@ -8177,6 +8210,20 @@ const contracts = {
           name: "VE_MEZO",
           outputs: [{ internalType: "address", name: "", type: "address" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "uint256[]", name: "tokenIds", type: "uint256[]" },
+            { internalType: "address[]", name: "tokens", type: "address[]" },
+          ],
+          name: "claimFreeManagedRewards",
+          outputs: [
+            { internalType: "uint256[]", name: "keeperAmounts", type: "uint256[]" },
+            { internalType: "uint256[]", name: "managerAmounts", type: "uint256[]" },
+          ],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -16287,8 +16334,8 @@ const contracts = {
           ],
         },
         lastOperation: {
-          action: "deployed",
-          transactionHash: "0x4823db7289a9f0993b55ace5923b282c558c721c30f4b2918b217517216a35a0",
+          action: "upgraded",
+          transactionHash: "0xe1db08dc39f60ab1151116e68f93d3c50120562941c271baecb046b8b5f6b35f",
         },
       },
       abi: [
@@ -18109,8 +18156,8 @@ const contracts = {
         proxyKind: "uups",
         initializer: { name: "initialize", args: ["0x6E1126EA838DA392A55D8DdeD9bADEccA5835114"] },
         lastOperation: {
-          action: "deployed",
-          transactionHash: "0x262f982aa805d5a3594e5a5c03309b60d5bcf209ee2b596c3a517db84292d878",
+          action: "upgraded",
+          transactionHash: "0xe457c90398a8514cc4094cf06569ebf2418ba6a4eca0aa61e3574a4c8dda0706",
         },
       },
       abi: [
@@ -18146,6 +18193,11 @@ const contracts = {
         { inputs: [], name: "ERC1967NonPayable", type: "error" },
         { inputs: [], name: "FailedCall", type: "error" },
         {
+          inputs: [{ internalType: "uint256", name: "mTokenId", type: "uint256" }],
+          name: "FreeManagedRewardNotSet",
+          type: "error",
+        },
+        {
           inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
           name: "GrantBackedVeNft",
           type: "error",
@@ -18157,6 +18209,7 @@ const contracts = {
           name: "InvalidEpochs",
           type: "error",
         },
+        { inputs: [], name: "InvalidFreeRewardClaim", type: "error" },
         { inputs: [], name: "InvalidInitialization", type: "error" },
         {
           inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
@@ -18165,6 +18218,14 @@ const contracts = {
         },
         { inputs: [], name: "InvalidVariantForTranche", type: "error" },
         { inputs: [], name: "ManagedTokenNotSet", type: "error" },
+        {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "uint256", name: "tokenId", type: "uint256" },
+          ],
+          name: "NotInCustody",
+          type: "error",
+        },
         { inputs: [], name: "NotInitializing", type: "error" },
         {
           inputs: [{ internalType: "address", name: "owner", type: "address" }],
@@ -18177,6 +18238,11 @@ const contracts = {
           type: "error",
         },
         { inputs: [], name: "ReentrancyGuardReentrantCall", type: "error" },
+        {
+          inputs: [{ internalType: "address", name: "token", type: "address" }],
+          name: "SafeERC20FailedOperation",
+          type: "error",
+        },
         {
           inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
           name: "TrancheNotRegistered",
@@ -18210,6 +18276,20 @@ const contracts = {
         },
         { inputs: [], name: "ZeroAddress", type: "error" },
         { inputs: [], name: "ZeroTokenId", type: "error" },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "uint256", name: "trancheId", type: "uint256" },
+            { indexed: true, internalType: "address", name: "keeper", type: "address" },
+            { indexed: true, internalType: "address", name: "manager", type: "address" },
+            { indexed: false, internalType: "address", name: "token", type: "address" },
+            { indexed: false, internalType: "uint256", name: "grossAmount", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "keeperAmount", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "managerAmount", type: "uint256" },
+          ],
+          name: "FreeManagedRewardsClaimed",
+          type: "event",
+        },
         {
           anonymous: false,
           inputs: [{ indexed: false, internalType: "uint64", name: "version", type: "uint64" }],
@@ -18313,6 +18393,20 @@ const contracts = {
           name: "VE_MEZO",
           outputs: [{ internalType: "address", name: "", type: "address" }],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "uint256[]", name: "tokenIds", type: "uint256[]" },
+            { internalType: "address[]", name: "tokens", type: "address[]" },
+          ],
+          name: "claimFreeManagedRewards",
+          outputs: [
+            { internalType: "uint256[]", name: "keeperAmounts", type: "uint256[]" },
+            { internalType: "uint256[]", name: "managerAmounts", type: "uint256[]" },
+          ],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
