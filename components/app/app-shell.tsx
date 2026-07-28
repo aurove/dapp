@@ -72,10 +72,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <footer className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-8 pt-2 text-xs text-white/40 md:px-6">
-        <p>
-          © {year} Aurove. This interface reflects configured contract state. Verify transaction
-          details and destination contracts before signing.
-        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            © {year} Aurove. This interface reflects configured contract state. Verify transaction
+            details and destination contracts before signing.
+          </p>
+          <Link href="/docs" className="text-white/55 transition hover:text-white/80">
+            Documentation
+          </Link>
+        </div>
       </footer>
 
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0a0f15]/96 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_36px_rgba(0,0,0,0.35)] backdrop-blur lg:hidden">

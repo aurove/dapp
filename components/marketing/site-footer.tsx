@@ -4,6 +4,7 @@ const navItems = [
   { label: "Overview", href: "#overview" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "Earn Products", href: "#earn-products" },
+  { label: "Docs", href: "/docs" },
 ] as const;
 
 export function SiteFooter() {
@@ -19,15 +20,25 @@ export function SiteFooter() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--muted)]">
-          {navItems.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="transition hover:text-[var(--foreground)]"
-            >
-              {item.label}
-            </a>
-          ))}
+          {navItems.map((item) =>
+            item.href.startsWith("/") ? (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="transition hover:text-[var(--foreground)]"
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <a
+                key={item.href}
+                href={item.href}
+                className="transition hover:text-[var(--foreground)]"
+              >
+                {item.label}
+              </a>
+            ),
+          )}
           <Link href="/earn" className="transition hover:text-[var(--foreground)]">
             App
           </Link>

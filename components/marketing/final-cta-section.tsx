@@ -23,13 +23,13 @@ export function FinalCtaSection() {
               <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               Launch App
             </Link>
-            <a
-              href="#how-it-works"
+            <Link
+              href="/docs"
               className={buttonVariants({ variant: "secondary", size: "lg", className: "gap-2" })}
             >
               <Workflow className="h-4 w-4" aria-hidden="true" />
-              Review Flow
-            </a>
+              Read the docs
+            </Link>
           </div>
         </div>
       </div>

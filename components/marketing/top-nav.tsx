@@ -7,6 +7,7 @@ const navItems = [
   { label: "Why Aurove", href: "#overview" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "Benefits", href: "#earn-products" },
+  { label: "Docs", href: "/docs" },
 ] as const;
 
 export function TopNav() {
@@ -20,19 +21,33 @@ export function TopNav() {
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {navItems.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className={buttonVariants({
-                variant: "ghost",
-                size: "sm",
-                className: "text-[13px] text-[var(--muted)] hover:text-[var(--foreground)]",
-              })}
-            >
-              {item.label}
-            </a>
-          ))}
+          {navItems.map((item) =>
+            item.href.startsWith("/") ? (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={buttonVariants({
+                  variant: "ghost",
+                  size: "sm",
+                  className: "text-[13px] text-[var(--muted)] hover:text-[var(--foreground)]",
+                })}
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <a
+                key={item.href}
+                href={item.href}
+                className={buttonVariants({
+                  variant: "ghost",
+                  size: "sm",
+                  className: "text-[13px] text-[var(--muted)] hover:text-[var(--foreground)]",
+                })}
+              >
+                {item.label}
+              </a>
+            ),
+          )}
         </nav>
 
         <div className="flex items-center gap-2">

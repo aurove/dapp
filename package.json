@@ -31,6 +31,7 @@
     "abitype": "1.0.6",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "flexsearch": "^0.8.212",
     "formik": "^2.4.6",
     "framer-motion": "^12.38.0",
     "jsbi": "^4.3.2",
@@ -47,6 +48,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/flexsearch": "^0.7.42",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
