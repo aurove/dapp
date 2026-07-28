@@ -1,7 +1,7 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   ArchitectureDiagram,
+  Diagram,
   LiquidityFlowDiagram,
   RewardFlowDiagram,
   VaultLifecycleDiagram,
@@ -9,6 +9,7 @@ import {
 } from "@/components/docs/diagram";
 import { Callout } from "@/components/docs/callout";
 import { CodeBlock } from "@/components/docs/code-block";
+import { DocRouteLink } from "@/components/docs/doc-route-link";
 import { DocsCard, DocsCardGrid } from "@/components/docs/docs-card";
 import { DocsTabs } from "@/components/docs/docs-tabs";
 import {
@@ -165,25 +166,26 @@ const pages: DocPageDefinition[] = [
             <tr>
               <td>Stay earning on locked BTC / MEZO</td>
               <td>
-                <Link href="/earn">Earn</Link> managed liquid products
+                <DocRouteLink href="/earn">Earn</DocRouteLink> managed liquid products
               </td>
             </tr>
             <tr>
               <td>Liquidity without self-unwinding locks</td>
               <td>
-                <Link href="/#swap-interface">Swap</Link> liquid assets and deposit-then-swap routes
+                <DocRouteLink href="/#swap-interface">Swap</DocRouteLink> liquid assets and
+                deposit-then-swap routes
               </td>
             </tr>
             <tr>
               <td>Additional fee income</td>
               <td>
-                <Link href="/liquidity">Liquidity</Link> CL positions
+                <DocRouteLink href="/liquidity">Liquidity</DocRouteLink> CL positions
               </td>
             </tr>
             <tr>
               <td>Learn and stay active</td>
               <td>
-                <Link href="/academy">Academy</Link> points, tasks, referrals
+                <DocRouteLink href="/academy">Academy</DocRouteLink> points, tasks, referrals
               </td>
             </tr>
           </tbody>
@@ -264,7 +266,7 @@ const pages: DocPageDefinition[] = [
         <RewardFlowDiagram />
         <Callout variant="important">
           For contract addresses and function-level detail, see{" "}
-          <Link href="/docs/developers/contracts">Developer contracts</Link>.
+          <DocRouteLink href="/docs/developers/contracts">Developer contracts</DocRouteLink>.
         </Callout>
       </>
     ),
@@ -346,16 +348,24 @@ const pages: DocPageDefinition[] = [
     slug: "getting-started/faucet",
     title: "Faucet & test tokens",
     description:
-      "How to obtain Mezo Testnet gas and assets for Earn, Swap, and Liquidity testing.",
+      "How to obtain Mezo Testnet gas and assets for Earn, Swap, and Liquidity testing via the Mezo faucet.",
     tags: ["faucet", "testnet", "tokens", "btc", "musd", "mezo"],
     status: "live",
-    searchText: "faucet test tokens mezo testnet gas btc musd mezo tokens balances",
+    searchText:
+      "faucet test tokens mezo testnet gas btc musd mezo tokens balances faucet.test.mezo.org",
     Content: () => (
       <>
         <h1>Faucet & test tokens</h1>
+        <Callout variant="info" title="Mezo Testnet faucet">
+          Users can get Mezo Testnet tokens at{" "}
+          <a href="https://faucet.test.mezo.org/" target="_blank" rel="noreferrer">
+            https://faucet.test.mezo.org/
+          </a>
+          .
+        </Callout>
         <Callout variant="important" title="No in-app faucet">
-          The Aurove dapp does <strong>not</strong> ship an embedded token faucet. Test assets come
-          from Mezo ecosystem faucets, team distributions, or local seed scripts for developers.
+          The Aurove dapp does <strong>not</strong> ship an embedded token faucet. Use the official
+          Mezo Testnet faucet above for public testing.
         </Callout>
         <h2>What you need on Mezo Testnet</h2>
         <ul>
@@ -375,10 +385,12 @@ const pages: DocPageDefinition[] = [
         <h2>Practical steps</h2>
         <ol>
           <li>Connect wallet and switch to Mezo Testnet.</li>
-          <li>Fund gas via the Mezo testnet faucet / ecosystem faucet documented by Mezo.</li>
           <li>
-            Obtain test BTC/MEZO/MUSD as available for the current season or from local{" "}
-            <code>scripts/</code> seeding in development.
+            Open the Mezo Testnet faucet at{" "}
+            <a href="https://faucet.test.mezo.org/" target="_blank" rel="noreferrer">
+              https://faucet.test.mezo.org/
+            </a>{" "}
+            and request test tokens for your address.
           </li>
           <li>
             Confirm balances in wallet and in-app (Earn amount fields, Swap asset selector, Liquidity
@@ -418,14 +430,18 @@ const pages: DocPageDefinition[] = [
                   <ol className="list-decimal space-y-1 pl-5 text-white/70">
                     <li>Connect + correct network.</li>
                     <li>
-                      Open <Link href="/earn">Earn</Link> → <strong>Lock tokens</strong> or{" "}
-                      <strong>Deposit position</strong>.
+                      Open <DocRouteLink href="/earn">Earn</DocRouteLink> →{" "}
+                      <strong>Lock tokens</strong> or <strong>Deposit position</strong>.
                     </li>
                     <li>
                       Submit and confirm; find the balance under <strong>Your Liquid Positions</strong>.
                     </li>
                     <li>
-                      Optionally swap on the homepage <code>#swap-interface</code> or add liquidity.
+                      Optionally swap on the homepage{" "}
+                      <DocRouteLink href="/#swap-interface" code>
+                        /#swap-interface
+                      </DocRouteLink>{" "}
+                      or add liquidity.
                     </li>
                   </ol>
                 </>
@@ -467,25 +483,47 @@ const pages: DocPageDefinition[] = [
             <tr>
               <td>Create liquid position</td>
               <td>
-                <code>/earn</code>
+                <DocRouteLink href="/earn" code>
+                  /earn
+                </DocRouteLink>
               </td>
             </tr>
             <tr>
               <td>Swap</td>
               <td>
-                <code>/#swap-interface</code> (legacy <code>/swap</code> redirects)
+                <DocRouteLink href="/#swap-interface" code>
+                  /#swap-interface
+                </DocRouteLink>{" "}
+                (legacy{" "}
+                <DocRouteLink href="/swap" code>
+                  /swap
+                </DocRouteLink>{" "}
+                redirects)
               </td>
             </tr>
             <tr>
               <td>Provide liquidity</td>
               <td>
-                <code>/liquidity</code> → <code>/liquidity/add/btc|mezo</code>
+                <DocRouteLink href="/liquidity" code>
+                  /liquidity
+                </DocRouteLink>{" "}
+                →{" "}
+                <DocRouteLink href="/liquidity/add/btc" code>
+                  /liquidity/add/btc
+                </DocRouteLink>
+                ,{" "}
+                <DocRouteLink href="/liquidity/add/mezo" code>
+                  /liquidity/add/mezo
+                </DocRouteLink>
               </td>
             </tr>
             <tr>
               <td>Academy</td>
               <td>
-                <code>/academy</code> (requires Sign In)
+                <DocRouteLink href="/academy" code>
+                  /academy
+                </DocRouteLink>{" "}
+                (requires Sign In)
               </td>
             </tr>
           </tbody>
@@ -688,8 +726,11 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         <h1>Marketplace overview</h1>
         <Callout variant="info" title="Live on Testnet">
           There is no separate order-book marketplace page. Trading is the{" "}
-          <strong>Swap</strong> surface on the homepage (<code>/#swap-interface</code>), backed by
-          Mezo concentrated-liquidity pools and Aurove zap routes.
+          <strong>Swap</strong> surface on the homepage (
+          <DocRouteLink href="/#swap-interface" code>
+            /#swap-interface
+          </DocRouteLink>
+          ), backed by Mezo concentrated-liquidity pools and Aurove zap routes.
         </Callout>
         <h2>What the market supports</h2>
         <ul>
@@ -699,7 +740,8 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
           <li>Canonical pools: MUSD/avBTCm and avBTCm/avMEZOm</li>
         </ul>
         <p>
-          Full execution details: <Link href="/docs/trade/swapping">Swapping</Link>.
+          Full execution details:{" "}
+          <DocRouteLink href="/docs/trade/swapping">Swapping</DocRouteLink>.
         </p>
       </>
     ),
@@ -737,7 +779,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         <p>
           Transferring tranche shares into the matching <code>AuroveId20</code> mints fungible ERC20
           (wrap-on-receive). Unwrap burns ERC20 and returns ERC1155. See{" "}
-          <Link href="/docs/protocol/id20">ID20</Link>.
+          <DocRouteLink href="/docs/protocol/id20">ID20</DocRouteLink>.
         </p>
       </>
     ),
@@ -755,8 +797,19 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
       <>
         <h1>Swapping</h1>
         <p>
-          Primary location: homepage <code>/#swap-interface</code>. Nav <strong>Swap</strong> links
-          there; <code>/swap</code> and <code>/trade/*</code> redirect.
+          Primary location: homepage{" "}
+          <DocRouteLink href="/#swap-interface" code>
+            /#swap-interface
+          </DocRouteLink>
+          . Nav <strong>Swap</strong> links there;{" "}
+          <DocRouteLink href="/swap" code>
+            /swap
+          </DocRouteLink>{" "}
+          and{" "}
+          <DocRouteLink href="/trade" code>
+            /trade
+          </DocRouteLink>{" "}
+          redirect.
         </p>
         <h2>Settings</h2>
         <ul>
@@ -802,8 +855,19 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
       <>
         <h1>Providing liquidity</h1>
         <p>
-          Routes: <code>/liquidity</code>, <code>/liquidity/add/btc</code>,{" "}
-          <code>/liquidity/add/mezo</code>.
+          Routes:{" "}
+          <DocRouteLink href="/liquidity" code>
+            /liquidity
+          </DocRouteLink>
+          ,{" "}
+          <DocRouteLink href="/liquidity/add/btc" code>
+            /liquidity/add/btc
+          </DocRouteLink>
+          ,{" "}
+          <DocRouteLink href="/liquidity/add/mezo" code>
+            /liquidity/add/mezo
+          </DocRouteLink>
+          .
         </p>
         <h2>Available pools (configured)</h2>
         <table>
@@ -817,13 +881,17 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
             <tr>
               <td>MUSD / avBTCm</td>
               <td>
-                <code>/liquidity/add/btc</code>
+                <DocRouteLink href="/liquidity/add/btc" code>
+                  /liquidity/add/btc
+                </DocRouteLink>
               </td>
             </tr>
             <tr>
               <td>avBTCm / avMEZOm</td>
               <td>
-                <code>/liquidity/add/mezo</code>
+                <DocRouteLink href="/liquidity/add/mezo" code>
+                  /liquidity/add/mezo
+                </DocRouteLink>
               </td>
             </tr>
           </tbody>
@@ -1008,10 +1076,18 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         <ol>
           <li>
             <strong>Liquidity provider task</strong> — collect actual fees from supported CL pools →
-            CTA to <code>/liquidity</code>.
+            CTA to{" "}
+            <DocRouteLink href="/liquidity" code>
+              /liquidity
+            </DocRouteLink>
+            .
           </li>
           <li>
-            <strong>Swapper task</strong> — swap involving supported pools → CTA to swap.
+            <strong>Swapper task</strong> — swap involving supported pools → CTA to{" "}
+            <DocRouteLink href="/#swap-interface" code>
+              /#swap-interface
+            </DocRouteLink>
+            .
           </li>
           <li>
             <strong>Keep the season moving</strong> — workflow note that more tasks may go live over
@@ -1028,27 +1104,285 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
     slug: "academy/referrals",
     title: "Referrals",
     description:
-      "Share your Academy referral link, track direct and grand referrals after authentication.",
-    tags: ["academy", "referrals"],
+      "How Academy direct and grand referrals work: link binding, two-hop chains, and 90% / 3% / 7% point splits.",
+    tags: ["academy", "referrals", "direct", "grand", "points"],
     status: "live",
-    searchText: "referrals direct grand referral link copy authenticate academy network",
+    searchText:
+      "referrals direct grand referral link copy authenticate academy network 90 3 7 percent task award two hop chain cookie bind self referral",
     Content: () => (
       <>
         <h1>Referrals</h1>
         <p>
-          After Sign In, Academy shows your personal referral link with metrics for{" "}
-          <strong>Direct referrals</strong> and <strong>Grand referrals</strong>.
+          Academy referrals attribute a wallet to a referrer on a given chain, then share a fixed
+          slice of that wallet’s task points with a two-hop chain:{" "}
+          <strong>direct</strong> (the person you invited) and <strong>grand</strong> (people your
+          directs invite).
         </p>
-        <h2>States</h2>
+        <Callout variant="info" title="Live on Testnet">
+          Referral links, counts, and reward splits are live in the Academy UI after wallet{" "}
+          <strong>Sign In</strong>. Binding is stored per chain and cannot be reassigned once set.
+        </Callout>
+
+        <h2>UI states</h2>
         <ul>
-          <li>Not authenticated — prompt to authenticate for referral unlock</li>
-          <li>Profile not ready — link appears once the Academy profile is ready</li>
-          <li>Ready — copyable link + counts</li>
+          <li>
+            <strong>Not authenticated</strong> — prompt to authenticate to unlock your referral link
+          </li>
+          <li>
+            <strong>Profile not ready</strong> — link appears once the Academy profile / code is ready
+          </li>
+          <li>
+            <strong>Ready</strong> — copyable link plus <strong>Direct referrals</strong> and{" "}
+            <strong>Grand referrals</strong> counts
+          </li>
+        </ul>
+
+        <h2>Your referral link</h2>
+        <p>
+          After Sign In, Academy ensures an 8-character referral code for your wallet on the active
+          chain and builds a link of the form:
+        </p>
+        <CodeBlock
+          language="text"
+          code={`https://www.aurove.xyz/academy?ref=<8-char-code>`}
+        />
+        <ul>
+          <li>
+            Query param: <code>ref</code>
+          </li>
+          <li>
+            Code charset: alphanumeric plus <code>_</code> / <code>-</code>, length <strong>8</strong>
+          </li>
+          <li>
+            One code per <strong>user + chain</strong>; codes are unique globally
+          </li>
+        </ul>
+
+        <h2>How someone becomes your referral</h2>
+        <ol>
+          <li>They open your link (or any URL carrying your <code>ref</code> code).</li>
+          <li>
+            If they are not signed in yet, the app can store the code in a short-lived pending cookie
+            (<code>academy_referral</code>, ~7 days) until they authenticate.
+          </li>
+          <li>
+            On bind (authenticated <code>POST /api/academy/referral</code>), the system records a
+            relationship: <em>referred user → referrer</em> for that chain.
+          </li>
+        </ol>
+        <h3>Binding rules</h3>
+        <ul>
+          <li>
+            <strong>One referrer per wallet per chain</strong> — once bound, a different code is
+            rejected as already bound.
+          </li>
+          <li>
+            <strong>No self-referral</strong> — you cannot use your own code.
+          </li>
+          <li>
+            <strong>Chain must match</strong> — the code’s chain must match the authenticated session
+            chain.
+          </li>
+          <li>
+            Re-binding the <em>same</em> referrer is idempotent (returns the existing relationship).
+          </li>
+        </ul>
+
+        <h2>Direct vs grand referrals</h2>
+        <p>The network is a two-hop tree built only from direct relationships:</p>
+        <Diagram title="Direct and grand referral chain">
+          <div className="flex flex-col items-center gap-3 text-sm">
+            <div className="rounded-xl border border-[#d2a45f]/40 bg-[#d2a45f]/12 px-4 py-2 text-[#f0e2c8]">
+              You (grand to C)
+            </div>
+            <div className="text-white/35">↓ invites</div>
+            <div className="rounded-xl border border-white/12 bg-[#0d1219] px-4 py-2 text-white/85">
+              Alice — your <strong className="text-[#ecd09b]">direct</strong> referral
+            </div>
+            <div className="text-white/35">↓ Alice invites</div>
+            <div className="rounded-xl border border-white/12 bg-[#0d1219] px-4 py-2 text-white/85">
+              Carol — your <strong className="text-[#ecd09b]">grand</strong> referral
+            </div>
+          </div>
+        </Diagram>
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Meaning</th>
+              <th>How it is counted</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <strong>Direct referrals</strong>
+              </td>
+              <td>Wallets that bound your referral code</td>
+              <td>
+                Count of relationships where you are the <code>referrer_user_id</code> on this chain
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Grand referrals</strong>
+              </td>
+              <td>Wallets referred by your directs</td>
+              <td>
+                Count of relationships one hop below your directs (your direct is their referrer)
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <Callout variant="important">
+          There is no deeper than two hops for rewards. If Carol later invites Dave, Dave is{" "}
+          <em>Alice’s grand</em> and <em>Carol’s direct</em> — not attributed further up to you.
+        </Callout>
+
+        <h2>How referral points are earned</h2>
+        <p>
+          Referrals do not pay a one-time signup bonus in the current system. Instead, when a referred
+          user earns <strong>task points</strong> (for example from a qualifying swap or fee
+          collection), the base award is split across the action user and their referral chain:
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Recipient</th>
+              <th>Share of base task points</th>
+              <th>When paid</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Action user (the person who completed the task)</td>
+              <td>
+                <strong>90%</strong>
+              </td>
+              <td>Always, for the task award</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Direct referrer</strong> of that user
+              </td>
+              <td>
+                <strong>3%</strong>
+              </td>
+              <td>Only if a direct referrer is bound</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Grand referrer</strong> (referrer of the direct referrer)
+              </td>
+              <td>
+                <strong>7%</strong>
+              </td>
+              <td>Only if a grand referrer exists on the chain</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Example: Alice is bound to you, and Carol is bound to Alice. When Carol earns{" "}
+          <strong>100</strong> base task points:
+        </p>
+        <ul>
+          <li>
+            Carol receives <strong>90</strong> (user share)
+          </li>
+          <li>
+            Alice receives <strong>3</strong> (direct referral reward)
+          </li>
+          <li>
+            You receive <strong>7</strong> (grand referral reward)
+          </li>
         </ul>
         <p>
-          Referral rewards appear in activity logs as <strong>Direct referral reward</strong> or{" "}
-          <strong>Grand referral reward</strong> when awarded.
+          If Carol has no grand referrer (Alice was not referred by anyone), Alice still gets 3% and
+          Carol 90%; the 7% grand slice is simply not minted to anyone.
         </p>
+        <Callout variant="info">
+          Splits use fixed-point Academy units (18 decimals) with rounded integer division so ledger
+          amounts stay precise.
+        </Callout>
+
+        <h2>Where rewards show up</h2>
+        <ul>
+          <li>
+            <strong>Points total / rank</strong> — include user and referral award entries for the
+            season
+          </li>
+          <li>
+            <strong>Activity dialog</strong> (leaderboard row) — badges such as{" "}
+            <strong>Task reward</strong>, <strong>Direct referral reward</strong>, and{" "}
+            <strong>Grand referral reward</strong>
+          </li>
+        </ul>
+        <p>
+          Ledger source types used internally: <code>task_award_user</code>,{" "}
+          <code>task_award_referral_direct</code>, <code>task_award_referral_grand</code>.
+        </p>
+
+        <h2>Qualified referrals (epoch context)</h2>
+        <p>
+          For some epoch / leaderboard helpers, a direct referral may be treated as{" "}
+          <em>qualified</em> only when the referred user also has points activity inside that epoch
+          window. The Academy referral card counts (<strong>Direct</strong> / <strong>Grand</strong>)
+          are total relationship counts for the chain, not limited to the current epoch.
+        </p>
+
+        <h2>Quick reference</h2>
+        <DocsTabs
+          tabs={[
+            {
+              id: "user",
+              label: "User",
+              content: (
+                <ol className="list-decimal space-y-1.5 pl-5 text-white/70">
+                  <li>Connect wallet, switch network, Sign In on Academy.</li>
+                  <li>Copy your referral link and share it.</li>
+                  <li>
+                    When friends sign in via your link, your <strong>Direct</strong> count increases.
+                  </li>
+                  <li>
+                    When they refer others, your <strong>Grand</strong> count increases.
+                  </li>
+                  <li>
+                    You earn ongoing points when they complete Academy tasks (3% direct / 7% grand of
+                    their base task points).
+                  </li>
+                </ol>
+              ),
+            },
+            {
+              id: "developer",
+              label: "Developer",
+              content: (
+                <ul className="list-disc space-y-1.5 pl-5 text-white/70">
+                  <li>
+                    Constants: <code>ACADEMY_TASK_USER_PERCENT = 90</code>,{" "}
+                    <code>ACADEMY_REFERRAL_DIRECT_PERCENT = 3</code>,{" "}
+                    <code>ACADEMY_REFERRAL_GRAND_PERCENT = 7</code>
+                  </li>
+                  <li>
+                    Bind: <code>bindAcademyReferral</code> · summary:{" "}
+                    <code>resolveAcademyReferralSummary</code>
+                  </li>
+                  <li>
+                    Chain resolution: direct join + left-join grand on{" "}
+                    <code>academy_referral_relationships</code>
+                  </li>
+                  <li>
+                    Awards: <code>buildAcademyTaskAwardRecipients</code> /{" "}
+                    <code>splitAcademyReferralPointUnits</code>
+                  </li>
+                  <li>
+                    API: <code>POST /api/academy/referral</code> with <code>{`{ "refId": "..." }`}</code>
+                  </li>
+                </ul>
+              ),
+            },
+          ]}
+        />
       </>
     ),
   },
