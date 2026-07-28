@@ -1528,7 +1528,7 @@ const contracts = {
         tokenA: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tokenB: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
         tickSpacing: 200,
-        sqrtPriceX96: "201383680444484562214517868512572",
+        sqrtPriceX96: "205314953051790867649599097410958",
       },
       abi: [
         {
@@ -2081,7 +2081,7 @@ const contracts = {
     },
     "avBTCm-avMEZOmGauge": {
       address: "0xCd1b3cAB8715e66a5c00F420C84742f6406059eF",
-      deploymentBlock: 10314272,
+      deploymentBlock: 10314313,
       linkedData: {
         contractName: "CLGauge",
         poolKey: "avBTCm-avMEZOm",
@@ -5824,7 +5824,7 @@ const contracts = {
         },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x1106a85caed81bd1f4be8d95ed1b69b0bce372391880c18db0e87c06f3df8f3c",
+          transactionHash: "0xcdbf6f9e1cc21119a3051f15d41ceb25735267260747758b403c9cb4d2aa9ea8",
         },
       },
       abi: [
@@ -6549,7 +6549,7 @@ const contracts = {
         tokenA: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
         tokenB: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tickSpacing: 200,
-        sqrtPriceX96: "20114727584593475781011588654577",
+        sqrtPriceX96: "20014292379209108373776046340172",
       },
       abi: [
         {
@@ -7102,7 +7102,7 @@ const contracts = {
     },
     "MUSD-avBTCmGauge": {
       address: "0xC5d9ddC440759CCe340c745a6133c7A29E90cF94",
-      deploymentBlock: 10314271,
+      deploymentBlock: 10314312,
       linkedData: {
         contractName: "CLGauge",
         poolKey: "MUSD-avBTCm",
@@ -7974,7 +7974,7 @@ const contracts = {
         initializer: { name: "initialize", args: ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"] },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x2fc6876841ab3e514df9cb8986b8b03c4e66af5bc99210e0a5502149c22129e9",
+          transactionHash: "0x649357a47b4c5e583fbed7eb0072062d9dbd34d82d7f70d6a1fa6eb2eadf1192",
         },
       },
       abi: [
