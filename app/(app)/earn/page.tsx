@@ -24,6 +24,7 @@ export const metadata: Metadata = createPageMetadata({
 export default function AppEarnPage() {
   return (
     <div className="space-y-6">
+      <EarnPage />
       <ProductSeo
         path="/earn"
         title={TITLE}
@@ -41,7 +42,6 @@ export default function AppEarnPage() {
           { href: "/liquidity", label: "Provide liquidity" },
         ]}
       />
-      <EarnPage />
     </div>
   );
 }

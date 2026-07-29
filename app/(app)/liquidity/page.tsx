@@ -24,6 +24,7 @@ export const metadata: Metadata = createPageMetadata({
 export default function AppLiquidityPage() {
   return (
     <div className="space-y-6">
+      <LiquidityPage />
       <ProductSeo
         path="/liquidity"
         title={TITLE}
@@ -41,7 +42,6 @@ export default function AppLiquidityPage() {
           { href: "/docs/swap/overview", label: "Swap overview" },
         ]}
       />
-      <LiquidityPage />
     </div>
   );
 }

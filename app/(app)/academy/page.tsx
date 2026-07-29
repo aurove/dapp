@@ -76,6 +76,11 @@ export default async function AcademyPage({ searchParams }: AcademyPageProps) {
 
   return (
     <div className="space-y-6">
+      <AcademyDashboard
+        initialLeaderboard={initialLeaderboard}
+        initialSummary={initialSummary}
+        initialCurrentUserLeaderboardEntry={initialCurrentUserLeaderboardEntry}
+      />
       <ProductSeo
         path="/academy"
         title={TITLE}
@@ -92,11 +97,6 @@ export default async function AcademyPage({ searchParams }: AcademyPageProps) {
           { href: "/docs/academy/referrals", label: "Referrals" },
           { href: "/#swap-interface", label: "Open Swap" },
         ]}
-      />
-      <AcademyDashboard
-        initialLeaderboard={initialLeaderboard}
-        initialSummary={initialSummary}
-        initialCurrentUserLeaderboardEntry={initialCurrentUserLeaderboardEntry}
       />
     </div>
   );
