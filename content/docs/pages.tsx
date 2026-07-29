@@ -19,6 +19,7 @@ import {
 } from "@/lib/docs/contracts-reference";
 import { getDocSectionTitle } from "@/lib/docs/navigation";
 import type { DocFrontmatter, DocSearchDocument } from "@/lib/docs/types";
+import { SwapFlowsContent } from "@/content/docs/swap-flows-page";
 
 export type DocPageDefinition = DocFrontmatter & {
   Content: () => ReactNode;
@@ -66,7 +67,7 @@ const pages: DocPageDefinition[] = [
     tags: ["introduction", "overview", "vebtc", "vemezo", "mezo"],
     status: "live",
     searchText:
-      "Aurove liquid ve-yield Mezo Earn veBTC veMEZO avBTCm avMEZOm managed locked assets tokenized yield fractions liquidity trading incentives academy",
+      "Aurove liquid ve-yield Mezo Earn veBTC veMEZO avBTCm avMEZOm managed locked assets tokenized yield fractions liquidity swap incentives academy",
     Content: () => (
       <>
         <h1>What is Aurove</h1>
@@ -99,7 +100,8 @@ const pages: DocPageDefinition[] = [
             <strong>Liquidity</strong> — supply concentrated liquidity on Aurove CL pools.
           </li>
           <li>
-            <strong>Trading</strong> — swap through Mezo CL routes powered by Aurove assets.
+            <strong>Swap</strong> — swap liquid assets and veNFTs through Mezo CL routes powered by
+            Aurove.
           </li>
           <li>
             <strong>Incentives</strong> — claim tranche/gauge rewards and earn Academy points.
@@ -108,15 +110,15 @@ const pages: DocPageDefinition[] = [
         <h2>Product surfaces</h2>
         <DocsCardGrid>
           <DocsCard
-            title="Earn"
-            description="Create liquid positions, claim rewards, redeem in settlement windows."
-            href="/docs/earn/managed-yield"
+            title="Swap"
+            description="Swap supported assets and veNFTs via Aurove concentrated-liquidity routes."
+            href="/docs/swap/overview"
             status="live"
           />
           <DocsCard
-            title="Swap"
-            description="Trade supported assets via Aurove concentrated-liquidity routes."
-            href="/docs/trade/swapping"
+            title="Earn"
+            description="Create liquid positions, claim rewards, redeem in settlement windows."
+            href="/docs/earn/managed-yield"
             status="live"
           />
           <DocsCard
@@ -145,7 +147,7 @@ const pages: DocPageDefinition[] = [
     tags: ["introduction", "why", "liquidity", "yield"],
     status: "live",
     searchText:
-      "why aurove liquid yield locked bitcoin mezo composability capital efficiency trading LP without unwinding locks",
+      "why aurove liquid yield locked bitcoin mezo composability capital efficiency swap LP without unwinding locks",
     Content: () => (
       <>
         <h1>Why Aurove</h1>
@@ -407,43 +409,83 @@ const pages: DocPageDefinition[] = [
     slug: "getting-started/first-transaction",
     title: "First transaction",
     description:
-      "Recommended first paths: create a liquid Earn position, swap, provide liquidity, or join Academy.",
-    tags: ["onboarding", "transaction", "earn", "swap", "liquidity"],
+      "Start with a swap: exchange liquid assets, or swap an entire veNFT for MUSD / ID20 in one flow.",
+    tags: ["onboarding", "transaction", "swap", "venft"],
     status: "live",
     searchText:
-      "first transaction create liquid position swap add liquidity academy transaction flow button approvals",
+      "first transaction swap venft entire veBTC veMEZO review swap approve musd avbtcm zap",
     Content: () => (
       <>
         <h1>First transaction</h1>
         <p>
+          The simplest first on-chain action on Aurove is a <strong>swap</strong> on the homepage.
           Write actions use a multi-step <strong>TransactionFlowButton</strong>: connect → approve
           (if needed) → main call. Progress appears on the button and in the notification toaster.
         </p>
+        <Callout variant="info" title="Recommended first swaps">
+          Start with either a liquid-asset swap (e.g. MUSD → avBTCm) or swapping an entire veNFT
+          position for a buy token. Both run through the same Swap card.
+        </Callout>
         <DocsTabs
           tabs={[
             {
-              id: "user",
-              label: "User",
+              id: "liquid",
+              label: "Swap assets",
               content: (
                 <>
-                  <p className="mb-2 font-medium text-white">Recommended first session</p>
+                  <p className="mb-2 font-medium text-white">Swap liquid tokens</p>
                   <ol className="list-decimal space-y-1 pl-5 text-white/70">
-                    <li>Connect + correct network.</li>
+                    <li>Connect wallet and switch to Mezo Testnet.</li>
                     <li>
-                      Open <DocRouteLink href="/earn">Earn</DocRouteLink> →{" "}
-                      <strong>Lock tokens</strong> or <strong>Deposit position</strong>.
-                    </li>
-                    <li>
-                      Submit and confirm; find the balance under <strong>Your Liquid Positions</strong>.
-                    </li>
-                    <li>
-                      Optionally swap on the homepage{" "}
+                      Open the homepage Swap card (
                       <DocRouteLink href="/#swap-interface" code>
                         /#swap-interface
-                      </DocRouteLink>{" "}
-                      or add liquidity.
+                      </DocRouteLink>
+                      ).
+                    </li>
+                    <li>
+                      Choose <strong>Sell</strong> and <strong>Buy</strong> assets (for example MUSD
+                      → avBTCm).
+                    </li>
+                    <li>Enter an amount, review the quote, approve if prompted.</li>
+                    <li>
+                      <strong>Review swap</strong> → confirm → <strong>Swap</strong>.
                     </li>
                   </ol>
+                  <p className="mt-3 text-white/70">
+                    Full matrix of sell forms:{" "}
+                    <DocRouteLink href="/docs/swap/flows">Swap flows guide</DocRouteLink>.
+                  </p>
+                </>
+              ),
+            },
+            {
+              id: "venft",
+              label: "Swap veNFT",
+              content: (
+                <>
+                  <p className="mb-2 font-medium text-white">Swap an entire veBTC / veMEZO</p>
+                  <ol className="list-decimal space-y-1 pl-5 text-white/70">
+                    <li>Hold a veBTC or veMEZO NFT in the connected wallet.</li>
+                    <li>
+                      Open Swap → Sell → group <strong>veNFT positions</strong> → select{" "}
+                      <code>veBTC #…</code> or <code>veMEZO #…</code>.
+                    </li>
+                    <li>
+                      Amount is fixed to the lock size. Pick a buy token with a live route (e.g.
+                      MUSD).
+                    </li>
+                    <li>
+                      Approve the NFT for the zap router → <strong>Review swap</strong> →{" "}
+                      <strong>Swap</strong>.
+                    </li>
+                  </ol>
+                  <p className="mt-3 text-white/70">
+                    Partial exit (sell only part of locked power) is not a single swap: deposit on{" "}
+                    <DocRouteLink href="/earn">Earn</DocRouteLink> first, then sell tranche
+                    fractions — see{" "}
+                    <DocRouteLink href="/docs/swap/flows">Flow 5 in Swap flows</DocRouteLink>.
+                  </p>
                 </>
               ),
             },
@@ -452,18 +494,18 @@ const pages: DocPageDefinition[] = [
               label: "Developer",
               content: (
                 <>
-                  <p className="mb-2 text-white/70">
-                    Primary entrypoints for a first on-chain action:
-                  </p>
+                  <p className="mb-2 text-white/70">Primary swap entrypoints:</p>
                   <ul className="list-disc space-y-1 pl-5 text-white/70">
                     <li>
-                      <code>Ledger.depositErc20</code> / <code>depositVeNft</code>
+                      <code>directClSwap</code> via <code>CLSwapRouter</code> (ERC-20 / ID20)
                     </li>
                     <li>
-                      Swap plans via registry + CL router / <code>AuroveZapRouter</code>
+                      <code>auroveVeNftThenSwap</code> via{" "}
+                      <code>AuroveZapRouter.zapVeNftExactInput</code>
                     </li>
                     <li>
-                      Liquidity mint via zap router + <code>NonfungiblePositionManager</code>
+                      Other zaps: deposit-wrap, tranche-wrap — see{" "}
+                      <DocRouteLink href="/docs/swap/flows">Swap flows guide</DocRouteLink>
                     </li>
                   </ul>
                 </>
@@ -471,7 +513,7 @@ const pages: DocPageDefinition[] = [
             },
           ]}
         />
-        <h2>Paths</h2>
+        <h2>Where to go next</h2>
         <table>
           <thead>
             <tr>
@@ -481,7 +523,27 @@ const pages: DocPageDefinition[] = [
           </thead>
           <tbody>
             <tr>
-              <td>Create liquid position</td>
+              <td>Swap (homepage)</td>
+              <td>
+                <DocRouteLink href="/#swap-interface" code>
+                  /#swap-interface
+                </DocRouteLink>
+              </td>
+            </tr>
+            <tr>
+              <td>Swap overview & flows</td>
+              <td>
+                <DocRouteLink href="/docs/swap/overview" code>
+                  /docs/swap/overview
+                </DocRouteLink>
+                ,{" "}
+                <DocRouteLink href="/docs/swap/flows" code>
+                  /docs/swap/flows
+                </DocRouteLink>
+              </td>
+            </tr>
+            <tr>
+              <td>Create liquid position (Earn)</td>
               <td>
                 <DocRouteLink href="/earn" code>
                   /earn
@@ -489,41 +551,11 @@ const pages: DocPageDefinition[] = [
               </td>
             </tr>
             <tr>
-              <td>Swap</td>
-              <td>
-                <DocRouteLink href="/#swap-interface" code>
-                  /#swap-interface
-                </DocRouteLink>{" "}
-                (legacy{" "}
-                <DocRouteLink href="/swap" code>
-                  /swap
-                </DocRouteLink>{" "}
-                redirects)
-              </td>
-            </tr>
-            <tr>
               <td>Provide liquidity</td>
               <td>
                 <DocRouteLink href="/liquidity" code>
                   /liquidity
-                </DocRouteLink>{" "}
-                →{" "}
-                <DocRouteLink href="/liquidity/add/btc" code>
-                  /liquidity/add/btc
                 </DocRouteLink>
-                ,{" "}
-                <DocRouteLink href="/liquidity/add/mezo" code>
-                  /liquidity/add/mezo
-                </DocRouteLink>
-              </td>
-            </tr>
-            <tr>
-              <td>Academy</td>
-              <td>
-                <DocRouteLink href="/academy" code>
-                  /academy
-                </DocRouteLink>{" "}
-                (requires Sign In)
               </td>
             </tr>
           </tbody>
@@ -714,40 +746,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
     ),
   },
   {
-    slug: "trade/marketplace",
-    title: "Marketplace overview",
-    description:
-      "How trading works in Aurove today: the Swap interface is the live market for liquid assets.",
-    tags: ["trade", "marketplace", "swap"],
-    status: "live",
-    searchText: "marketplace trade swap interface markets registry cl pools no order book",
-    Content: () => (
-      <>
-        <h1>Marketplace overview</h1>
-        <Callout variant="info" title="Live on Testnet">
-          There is no separate order-book marketplace page. Trading is the{" "}
-          <strong>Swap</strong> surface on the homepage (
-          <DocRouteLink href="/#swap-interface" code>
-            /#swap-interface
-          </DocRouteLink>
-          ), backed by Mezo concentrated-liquidity pools and Aurove zap routes.
-        </Callout>
-        <h2>What the market supports</h2>
-        <ul>
-          <li>ERC-20 ↔ ERC-20 swaps on registered CL routes</li>
-          <li>Sell-side veNFT / ledger tranche inventory via deposit-or-wrap-then-swap plans</li>
-          <li>Buy-side preference for ID20 assets when available</li>
-          <li>Canonical pools: MUSD/avBTCm and avBTCm/avMEZOm</li>
-        </ul>
-        <p>
-          Full execution details:{" "}
-          <DocRouteLink href="/docs/trade/swapping">Swapping</DocRouteLink>.
-        </p>
-      </>
-    ),
-  },
-  {
-    slug: "trade/fractions",
+    slug: "swap/fractions",
     title: "Fractions",
     description:
       "Ledger ERC1155 fraction balances and how they appear as sellable inventory in Swap.",
@@ -785,17 +784,22 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
     ),
   },
   {
-    slug: "trade/swapping",
-    title: "Swapping",
+    slug: "swap/overview",
+    title: "Swap overview",
     description:
       "Use the Aurove swap card: quotes, slippage, routes, approvals, and review confirmation.",
-    tags: ["swap", "trade", "slippage", "route", "quote"],
+    tags: ["swap", "slippage", "route", "quote", "venft"],
     status: "live",
     searchText:
-      "swap exact input output slippage deadline price impact review swap approve musd id20 route",
+      "swap exact input output slippage deadline price impact review swap approve musd id20 route venft",
     Content: () => (
       <>
-        <h1>Swapping</h1>
+        <h1>Swap overview</h1>
+        <Callout variant="info">
+          For step-by-step guides of every verified sell form (ID20, ERC-20, underlying, tranche,
+          entire veNFT, and partial ve exit via Earn), see the{" "}
+          <DocRouteLink href="/docs/swap/flows">Swap flows guide</DocRouteLink>.
+        </Callout>
         <p>
           Primary location: homepage{" "}
           <DocRouteLink href="/#swap-interface" code>
@@ -805,11 +809,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
           <DocRouteLink href="/swap" code>
             /swap
           </DocRouteLink>{" "}
-          and{" "}
-          <DocRouteLink href="/trade" code>
-            /trade
-          </DocRouteLink>{" "}
-          redirect.
+          redirects to the same surface.
         </p>
         <h2>Settings</h2>
         <ul>
@@ -832,15 +832,40 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         <h2>Special sell types</h2>
         <ul>
           <li>
-            <strong>veNFT</strong> — amount fixed by position.
+            <strong>veNFT</strong> — amount fixed by position (entire NFT only). Ideal first swap if
+            you already hold veBTC / veMEZO.
           </li>
           <li>
             <strong>Tranche / wrap plans</strong> — quote may note deposits and wraps into ID20
             before swapping.
           </li>
         </ul>
+        <p>
+          Full flow matrix with prerequisites and outputs:{" "}
+          <DocRouteLink href="/docs/swap/flows">Swap flows guide</DocRouteLink>.
+        </p>
       </>
     ),
+  },
+  {
+    slug: "swap/flows",
+    title: "Swap flows guide",
+    description:
+      "Verified end-to-end swap paths: ID20, ERC-20, underlying deposit-zap, tranche wrap, entire veNFT, and partial exit via Earn.",
+    tags: [
+      "swap",
+      "flows",
+      "venft",
+      "tranche",
+      "id20",
+      "zap",
+      "exact-input",
+      "approvals",
+    ],
+    status: "live",
+    searchText:
+      "swap flows guide entire venft tranche id20 partial deposit wrap zap ERC20 MUSD avBTCm approvals exact input ledger fractions earn deposit then swap",
+    Content: SwapFlowsContent,
   },
   {
     slug: "liquidity/providing-liquidity",

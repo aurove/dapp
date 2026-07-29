@@ -26,20 +26,20 @@ export const DOCS_NAV: DocNavSection[] = [
     ],
   },
   {
+    title: "Swap",
+    items: [
+      { title: "Swap overview", slug: "swap/overview", status: "live" },
+      { title: "Swap flows guide", slug: "swap/flows", status: "live" },
+      { title: "Fractions", slug: "swap/fractions", status: "live" },
+    ],
+  },
+  {
     title: "Earn",
     items: [
       { title: "veBTC", slug: "earn/vebtc", status: "live" },
       { title: "veMEZO", slug: "earn/vemezo", status: "live" },
       { title: "Managed yield", slug: "earn/managed-yield", status: "live" },
       { title: "Tranches", slug: "earn/tranches", status: "live" },
-    ],
-  },
-  {
-    title: "Trade",
-    items: [
-      { title: "Marketplace overview", slug: "trade/marketplace", status: "live" },
-      { title: "Fractions", slug: "trade/fractions", status: "live" },
-      { title: "Swapping", slug: "trade/swapping", status: "live" },
     ],
   },
   {

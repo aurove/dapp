@@ -63,18 +63,18 @@ export default function DocsHomePage() {
       </DocsProse>
       <DocsCardGrid>
         <DocsCard
+          title="Swap"
+          description="Swap liquid Aurove assets and veNFTs through Mezo concentrated-liquidity routes."
+          href="/docs/swap/overview"
+          status="live"
+          icon={<Layers className="h-4 w-4" />}
+        />
+        <DocsCard
           title="Earn"
           description="Turn locked Bitcoin and MEZO voting power into liquid yield assets."
           href="/docs/earn/managed-yield"
           status="live"
           icon={<BarChart3 className="h-4 w-4" />}
-        />
-        <DocsCard
-          title="Trade"
-          description="Swap liquid Aurove assets through Mezo concentrated-liquidity routes."
-          href="/docs/trade/swapping"
-          status="live"
-          icon={<Layers className="h-4 w-4" />}
         />
         <DocsCard
           title="Liquidity"
@@ -122,10 +122,10 @@ export default function DocsHomePage() {
             <Link href="/docs/getting-started/connect-wallet">Connect wallet</Link>
           </li>
           <li>
-            <Link href="/docs/getting-started/first-transaction">First transaction</Link>
+            <Link href="/docs/getting-started/first-transaction">First transaction (swap &amp; veNFTs)</Link>
           </li>
           <li>
-            <Link href="/docs/introduction/architecture-overview">Architecture overview</Link>
+            <Link href="/docs/swap/overview">Swap overview</Link>
           </li>
         </ol>
       </DocsProse>

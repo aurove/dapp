@@ -99,7 +99,7 @@ export function ArchitectureDiagram() {
             <Node>ID20 ERC20</Node>
             <Node tone="muted">Id20Gauge</Node>
           </Stack>
-          <Arrow label="trade / LP" />
+          <Arrow label="swap / LP" />
           <Stack>
             <Node>CL Pools</Node>
             <Node tone="muted">Position NFT</Node>
