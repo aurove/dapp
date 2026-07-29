@@ -51,11 +51,13 @@ export function DocsTocNav({
   activeId,
   onNavigate,
   className,
+  scrollRootRef,
 }: {
   items: TocItem[];
   activeId: string | null;
   onNavigate?: (id: string) => void;
   className?: string;
+  scrollRootRef?: RefObject<HTMLElement | null>;
 }) {
   if (!items.length) {
     return (
@@ -75,8 +77,16 @@ export function DocsTocNav({
                 onClick={(event) => {
                   event.preventDefault();
                   const target = document.getElementById(item.id);
+                  const root = scrollRootRef?.current;
                   if (target) {
-                    target.scrollIntoView({ behavior: "smooth", block: "start" });
+                    if (root) {
+                      const rootRect = root.getBoundingClientRect();
+                      const targetRect = target.getBoundingClientRect();
+                      const nextTop = root.scrollTop + (targetRect.top - rootRect.top) - 16;
+                      root.scrollTo({ top: nextTop, behavior: "smooth" });
+                    } else {
+                      target.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
                     window.history.replaceState(null, "", `#${item.id}`);
                     onNavigate?.(item.id);
                   }
@@ -101,8 +111,12 @@ export function DocsTocNav({
 
 export function DocsTocSidebar({
   contentRef,
+  scrollRootRef,
+  variant = "both",
 }: {
   contentRef: RefObject<HTMLElement | null>;
+  scrollRootRef?: RefObject<HTMLElement | null>;
+  variant?: "mobile" | "desktop" | "both";
 }) {
   const [items, setItems] = useState<TocItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -127,7 +141,6 @@ export function DocsTocSidebar({
   }, [contentRef]);
 
   useEffect(() => {
-    // Defer until article HTML is committed (including nested client islands).
     const frame = window.requestAnimationFrame(() => refresh());
     const timer = window.setTimeout(() => refresh(), 50);
     return () => {
@@ -145,6 +158,8 @@ export function DocsTocSidebar({
 
     if (!elements.length) return;
 
+    const root = scrollRootRef?.current ?? null;
+
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries
@@ -157,34 +172,74 @@ export function DocsTocSidebar({
         }
 
         let current: string | null = null;
+        const topEdge = root ? root.getBoundingClientRect().top + 48 : 120;
         for (const el of elements) {
-          if (el.getBoundingClientRect().top <= 120) {
+          if (el.getBoundingClientRect().top <= topEdge) {
             current = el.id;
           }
         }
         if (current) setActiveId(current);
       },
       {
-        rootMargin: "-100px 0px -55% 0px",
+        root,
+        rootMargin: root ? "-12% 0px -60% 0px" : "-100px 0px -55% 0px",
         threshold: [0, 0.25, 0.5, 1],
       },
     );
 
     elements.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [items]);
+  }, [items, scrollRootRef]);
+
+  const nav = (
+    <DocsTocNav
+      items={items}
+      activeId={activeId}
+      onNavigate={setActiveId}
+      scrollRootRef={scrollRootRef}
+    />
+  );
+
+  if (variant === "mobile") {
+    if (!items.length) return null;
+    return (
+      <div className="mb-4">
+        <details className="group rounded-2xl border border-white/10 bg-white/[0.02]">
+          <summary className="cursor-pointer list-none px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/50 marker:content-none [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center justify-between gap-2">
+              On this page
+              <span className="text-white/35 transition group-open:rotate-180">▾</span>
+            </span>
+          </summary>
+          <div className="border-t border-white/8 px-4 pb-4 pt-2">{nav}</div>
+        </details>
+      </div>
+    );
+  }
+
+  if (variant === "desktop") {
+    return (
+      <aside className="flex h-full w-52 shrink-0 flex-col overflow-hidden 2xl:w-56">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pl-1 pr-1">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
+            On this page
+          </p>
+          {nav}
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <>
       <aside className="hidden w-52 shrink-0 xl:block 2xl:w-56">
-        <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pb-8 pl-1">
+        <div className="max-h-full overflow-y-auto pl-1">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
             On this page
           </p>
-          <DocsTocNav items={items} activeId={activeId} onNavigate={setActiveId} />
+          {nav}
         </div>
       </aside>
-
       <div className="mb-6 xl:hidden">
         {items.length > 0 ? (
           <details className="group rounded-2xl border border-white/10 bg-white/[0.02]">
@@ -194,9 +249,7 @@ export function DocsTocSidebar({
                 <span className="text-white/35 transition group-open:rotate-180">▾</span>
               </span>
             </summary>
-            <div className="border-t border-white/8 px-4 pb-4 pt-2">
-              <DocsTocNav items={items} activeId={activeId} onNavigate={setActiveId} />
-            </div>
+            <div className="border-t border-white/8 px-4 pb-4 pt-2">{nav}</div>
           </details>
         ) : null}
       </div>

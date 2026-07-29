@@ -19,7 +19,6 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
         open.add(section.title);
       }
     }
-    // Default first section open on landing
     if (!activeSlug) open.add(DOCS_NAV[0]?.title ?? "");
     return open;
   }, [activeSlug]);
@@ -36,7 +35,7 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   return (
-    <nav aria-label="Documentation" className="space-y-1 pb-8">
+    <nav aria-label="Documentation" className="space-y-1 pb-6">
       <Link
         href="/docs"
         onClick={onNavigate}
@@ -67,7 +66,7 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
               />
             </button>
             {isOpen ? (
-              <ul className="mt-0.5 space-y-0.5 border-l border-white/8 ml-3 pl-2">
+              <ul className="ml-3 mt-0.5 space-y-0.5 border-l border-white/8 pl-2">
                 {section.items.map((item) => {
                   const href = `/docs/${item.slug}`;
                   const active = activeSlug === item.slug;
@@ -85,7 +84,7 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
                       >
                         <span className="truncate">{item.title}</span>
                         {item.status && item.status !== "live" ? (
-                          <StatusBadge status={item.status} className="hidden xl:inline-flex scale-90" />
+                          <StatusBadge status={item.status} className="hidden scale-90 xl:inline-flex" />
                         ) : null}
                       </Link>
                     </li>
@@ -100,14 +99,13 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+/** Desktop left nav — stays put; only its own list scrolls if long. */
 export function DocsSidebar() {
   return (
-    <aside className="hidden w-64 shrink-0 lg:block">
-      <div className="sticky top-20 max-h-[calc(100vh-6rem)]">
-        <ScrollArea className="h-[calc(100vh-6rem)] pr-3">
-          <NavTree />
-        </ScrollArea>
-      </div>
+    <aside className="hidden h-full w-64 shrink-0 flex-col overflow-hidden border-r border-white/5 py-4 pr-2 lg:flex md:py-6">
+      <ScrollArea className="h-full pr-2">
+        <NavTree />
+      </ScrollArea>
     </aside>
   );
 }
@@ -116,7 +114,7 @@ export function DocsMobileNav() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="mb-4 flex items-center gap-2 lg:hidden">
+    <div className="mb-3 flex items-center gap-2 lg:hidden">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger
           className={buttonVariants({

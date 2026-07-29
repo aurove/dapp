@@ -13,8 +13,8 @@ export function DocsProse({
       className={cn(
         "docs-prose max-w-none text-[15px] leading-7 text-white/72",
         "[&>h1]:mb-4 [&>h1]:text-3xl [&>h1]:font-semibold [&>h1]:tracking-tight [&>h1]:text-[#f6f3ef]",
-        "[&>h2]:mt-10 [&>h2]:mb-3 [&>h2]:scroll-mt-28 [&>h2]:text-xl [&>h2]:font-semibold [&>h2]:tracking-tight [&>h2]:text-[#f6f3ef]",
-        "[&>h3]:mt-7 [&>h3]:mb-2 [&>h3]:scroll-mt-28 [&>h3]:text-base [&>h3]:font-semibold [&>h3]:text-[#f0ebe3]",
+        "[&>h2]:mt-10 [&>h2]:mb-3 [&>h2]:scroll-mt-4 [&>h2]:text-xl [&>h2]:font-semibold [&>h2]:tracking-tight [&>h2]:text-[#f6f3ef]",
+        "[&>h3]:mt-7 [&>h3]:mb-2 [&>h3]:scroll-mt-4 [&>h3]:text-base [&>h3]:font-semibold [&>h3]:text-[#f0ebe3]",
         "[&>p]:my-3 [&>p]:text-white/70",
         "[&>ul]:my-3 [&>ul]:list-disc [&>ul]:space-y-1.5 [&>ul]:pl-5",
         "[&>ol]:my-3 [&>ol]:list-decimal [&>ol]:space-y-1.5 [&>ol]:pl-5",

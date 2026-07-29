@@ -50,7 +50,7 @@ export default async function DocArticlePage({ params }: PageProps) {
   const Content = page.Content;
 
   return (
-    <article className="w-full min-w-0">
+    <article className="h-full min-h-0 w-full min-w-0">
       <DocsPageTracker slug={page.slug} title={page.title} />
       <DocsArticle
         header={
