@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import { EcosystemPartnersCarousel } from "@/components/marketing/ecosystem-partners-carousel";
+import { ProtocolStatsSection } from "@/components/marketing/protocol-stats-section";
 import { SwapPage } from "@/components/features/swap";
 import { JsonLd } from "@/components/site/json-ld";
 import { getHomeJsonLd } from "@/lib/seo/json-ld";
@@ -126,6 +127,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <ProtocolStatsSection />
 
       <section className="landing-section landing-section--intro">
         <div className="landing-container">

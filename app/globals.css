@@ -320,8 +320,131 @@ a {
   padding-top: 66px;
 }
 
+/* Stats sit between hero and Why Aurove — same section rhythm, quieter surface. */
+.landing-section--stats {
+  padding-block: 66px 58px;
+}
+
 .landing-section--academy {
   padding-top: 84px;
+}
+
+.section-copy--stats {
+  max-width: 42rem;
+  font-size: 1rem;
+  color: rgba(232, 230, 225, 0.58);
+}
+
+/* Same gap language as .feature-grid; 4 metrics instead of 3 features. */
+.protocol-stats-grid {
+  margin-top: 32px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+.protocol-stats-grid__item {
+  min-width: 0;
+  display: flex;
+}
+
+@media (min-width: 640px) {
+  .protocol-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .protocol-stats-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/*
+ * Protocol stat cards intentionally mirror .feature-card:
+ * radius 24, soft white border, dark vertical gradient, circular gold icon.
+ */
+/*
+ * Icon sits to the left of the stat copy.
+ * Number + description stay stacked (value over label).
+ */
+.protocol-stat-card {
+  width: 100%;
+  min-height: 132px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(11, 16, 23, 0.96), rgba(9, 13, 18, 0.88));
+  padding: 22px 20px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 16px 36px rgba(0, 0, 0, 0.22);
+}
+
+.protocol-stat-card__icon-wrap {
+  flex: none;
+  display: inline-flex;
+  height: 52px;
+  width: 52px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.025);
+  color: #f0c57a;
+}
+
+.protocol-stat-card__icon {
+  height: 1.35rem;
+  width: 1.35rem;
+}
+
+.protocol-stat-card__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.protocol-stat-card__value {
+  margin: 0;
+  font-size: clamp(1.85rem, 2.6vw, 2.25rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+  word-break: break-word;
+}
+
+.protocol-stat-card__label {
+  margin: 0;
+  color: rgba(232, 230, 225, 0.62);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.protocol-stat-card__skeleton-value {
+  height: 2rem;
+  width: 5.75rem;
+  border-radius: 0.5rem;
+}
+
+.protocol-stat-card__skeleton-label {
+  height: 0.85rem;
+  width: 7.5rem;
+  border-radius: 0.4rem;
+}
+
+.price-ticker {
+  --price-ticker-height: 2.25rem;
 }
 
 .section-kicker {

@@ -4,6 +4,7 @@ import "./globals.css";
 import { WalletAuthProvider } from "@/lib/auth/provider";
 import { Web3Providers } from "@/lib/providers/web3-providers";
 import { NotificationsToaster } from "@/lib/notifications";
+import { GlobalPriceTicker } from "@/components/market/global-price-ticker";
 import { GTag } from "@/components/site/gtag";
 import { Hotjar } from "@/components/site/hotjar";
 import {
@@ -98,6 +99,8 @@ export default function RootLayout({
         <GTag />
         <Hotjar />
         <Web3Providers>
+          {/* Global live prices — above every page chrome; isolated error boundary inside. */}
+          <GlobalPriceTicker />
           <WalletAuthProvider>{children}</WalletAuthProvider>
         </Web3Providers>
         <NotificationsToaster />
