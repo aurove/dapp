@@ -4,6 +4,7 @@ import "./globals.css";
 import { WalletAuthProvider } from "@/lib/auth/provider";
 import { Web3Providers } from "@/lib/providers/web3-providers";
 import { NotificationsToaster } from "@/lib/notifications";
+import { GTag } from "@/components/site/gtag";
 import { Hotjar } from "@/components/site/hotjar";
 import {
   DEFAULT_DESCRIPTION,
@@ -94,6 +95,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
+        <GTag />
         <Hotjar />
         <Web3Providers>
           <WalletAuthProvider>{children}</WalletAuthProvider>
