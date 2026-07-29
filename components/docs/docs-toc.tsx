@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { cn } from "@ui";
 
 export type TocItem = {
@@ -120,6 +120,15 @@ export function DocsTocSidebar({
 }) {
   const [items, setItems] = useState<TocItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const mobileDetailsRef = useRef<HTMLDetailsElement>(null);
+
+  const handleNavigate = useCallback((id: string) => {
+    setActiveId(id);
+    // Fold the mobile TOC after jumping to a section.
+    if (mobileDetailsRef.current) {
+      mobileDetailsRef.current.open = false;
+    }
+  }, []);
 
   const refresh = useCallback(() => {
     const next = collectAndTagHeadings(contentRef.current);
@@ -195,26 +204,29 @@ export function DocsTocSidebar({
     <DocsTocNav
       items={items}
       activeId={activeId}
-      onNavigate={setActiveId}
+      onNavigate={handleNavigate}
       scrollRootRef={scrollRootRef}
     />
   );
 
+  const mobileDetails = (
+    <details
+      ref={mobileDetailsRef}
+      className="group rounded-2xl border border-white/10 bg-white/[0.02]"
+    >
+      <summary className="cursor-pointer list-none px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/50 marker:content-none [&::-webkit-details-marker]:hidden">
+        <span className="flex items-center justify-between gap-2">
+          On this page
+          <span className="text-white/35 transition group-open:rotate-180">▾</span>
+        </span>
+      </summary>
+      <div className="border-t border-white/8 px-4 pb-4 pt-2">{nav}</div>
+    </details>
+  );
+
   if (variant === "mobile") {
     if (!items.length) return null;
-    return (
-      <div className="mb-4">
-        <details className="group rounded-2xl border border-white/10 bg-white/[0.02]">
-          <summary className="cursor-pointer list-none px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/50 marker:content-none [&::-webkit-details-marker]:hidden">
-            <span className="flex items-center justify-between gap-2">
-              On this page
-              <span className="text-white/35 transition group-open:rotate-180">▾</span>
-            </span>
-          </summary>
-          <div className="border-t border-white/8 px-4 pb-4 pt-2">{nav}</div>
-        </details>
-      </div>
-    );
+    return <div className="mb-4">{mobileDetails}</div>;
   }
 
   if (variant === "desktop") {
@@ -240,19 +252,7 @@ export function DocsTocSidebar({
           {nav}
         </div>
       </aside>
-      <div className="mb-6 xl:hidden">
-        {items.length > 0 ? (
-          <details className="group rounded-2xl border border-white/10 bg-white/[0.02]">
-            <summary className="cursor-pointer list-none px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/50 marker:content-none [&::-webkit-details-marker]:hidden">
-              <span className="flex items-center justify-between gap-2">
-                On this page
-                <span className="text-white/35 transition group-open:rotate-180">▾</span>
-              </span>
-            </summary>
-            <div className="border-t border-white/8 px-4 pb-4 pt-2">{nav}</div>
-          </details>
-        ) : null}
-      </div>
+      <div className="mb-6 xl:hidden">{items.length > 0 ? mobileDetails : null}</div>
     </>
   );
 }
