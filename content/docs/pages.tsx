@@ -20,6 +20,7 @@ import {
 import { getDocSectionTitle } from "@/lib/docs/navigation";
 import type { DocFrontmatter, DocSearchDocument } from "@/lib/docs/types";
 import { AUROVE_FAQ_ITEMS } from "@/lib/seo/json-ld";
+import { EarnFlowsContent } from "@/content/docs/earn-flows-page";
 import { SwapFlowsContent } from "@/content/docs/swap-flows-page";
 
 export type DocPageDefinition = DocFrontmatter & {
@@ -119,7 +120,7 @@ const pages: DocPageDefinition[] = [
           <DocsCard
             title="Earn"
             description="Create liquid positions, claim rewards, redeem in settlement windows."
-            href="/docs/earn/managed-yield"
+            href="/docs/earn/flows"
             status="live"
           />
           <DocsCard
@@ -341,8 +342,8 @@ const pages: DocPageDefinition[] = [
           </tbody>
         </table>
         <Callout variant="info">
-          Supported environments: local Hardhat, <strong>Mezo Testnet</strong> (default public), and
-          Mezo Mainnet configuration (when deployed). Native gas token on Mezo is <strong>BTC</strong>.
+          The public app targets <strong>Mezo Testnet</strong> today. Mezo Mainnet is used when the
+          deployment is configured for it. Native gas token on Mezo is <strong>BTC</strong>.
         </Callout>
       </>
     ),
@@ -565,6 +566,17 @@ const pages: DocPageDefinition[] = [
     ),
   },
   {
+    slug: "earn/flows",
+    title: "Earn flows guide",
+    description:
+      "End-to-end Earn: deposit veNFT or lock tokens, claim rewards, and redeem in the settlement window — with screenshots.",
+    tags: ["earn", "flows", "deposit", "redeem", "settlement", "screenshots"],
+    status: "live",
+    searchText:
+      "earn flows guide create position lock tokens deposit venft claimables id20 gauge redeem settlement window await",
+    Content: EarnFlowsContent,
+  },
+  {
     slug: "earn/vebtc",
     title: "veBTC",
     description:
@@ -576,6 +588,10 @@ const pages: DocPageDefinition[] = [
     Content: () => (
       <>
         <h1>veBTC</h1>
+        <Callout variant="info">
+          Step-by-step UI walkthrough with screenshots:{" "}
+          <DocRouteLink href="/docs/earn/flows">Earn flows guide</DocRouteLink>.
+        </Callout>
         <p>
           The BTC path converts locked Bitcoin voting power into liquid Aurove inventory. In the UI,
           select <strong>BTC</strong> on Earn.
@@ -639,6 +655,9 @@ const pages: DocPageDefinition[] = [
     Content: () => (
       <>
         <h1>veMEZO</h1>
+        <Callout variant="info">
+          Full Earn UI path: <DocRouteLink href="/docs/earn/flows">Earn flows guide</DocRouteLink>.
+        </Callout>
         <p>
           The MEZO path mirrors BTC Earn with longer managed lock parameters. Select{" "}
           <strong>MEZO</strong> on the Earn page.
@@ -678,6 +697,10 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
     Content: () => (
       <>
         <h1>Managed yield</h1>
+        <Callout variant="info">
+          See claimables, gauges, and redeem screenshots in the{" "}
+          <DocRouteLink href="/docs/earn/flows">Earn flows guide</DocRouteLink>.
+        </Callout>
         <p>
           Deposits are normalized into a <strong>managed tranche</strong> backed by a Vault-held
           MANAGED ve position. Underlying continues to earn Mezo rebases; Aurove distributes those
@@ -719,6 +742,10 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
     Content: () => (
       <>
         <h1>Tranches</h1>
+        <Callout variant="info">
+          Settlement window open vs closed UI:{" "}
+          <DocRouteLink href="/docs/earn/flows">Earn flows guide</DocRouteLink> (Flows 6–7).
+        </Callout>
         <p>
           A <strong>tranche</strong> is an ERC1155 token id representing a slice of a managed ve
           position for a variant and epoch bucket. Managed products use the max epoch bucket for each
@@ -852,7 +879,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
     slug: "swap/flows",
     title: "Swap flows guide",
     description:
-      "Verified end-to-end swap paths: ID20, ERC-20, underlying deposit-zap, tranche wrap, entire veNFT, and partial exit via Earn.",
+      "End-to-end swap paths: ID20, ERC-20, underlying deposit-zap, tranche wrap, entire veNFT, and partial exit via Earn.",
     tags: [
       "swap",
       "flows",

@@ -36,6 +36,7 @@ export const DOCS_NAV: DocNavSection[] = [
   {
     title: "Earn",
     items: [
+      { title: "Earn flows guide", slug: "earn/flows", status: "live" },
       { title: "veBTC", slug: "earn/vebtc", status: "live" },
       { title: "veMEZO", slug: "earn/vemezo", status: "live" },
       { title: "Managed yield", slug: "earn/managed-yield", status: "live" },

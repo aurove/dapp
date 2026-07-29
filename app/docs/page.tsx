@@ -86,8 +86,8 @@ export default function DocsHomePage() {
         />
         <DocsCard
           title="Earn"
-          description="Turn locked Bitcoin and MEZO voting power into liquid yield assets."
-          href="/docs/earn/managed-yield"
+          description="Deposit, claim, and redeem liquid ve-yield — end-to-end Earn flows with screenshots."
+          href="/docs/earn/flows"
           status="live"
           icon={<BarChart3 className="h-4 w-4" />}
         />

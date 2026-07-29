@@ -49,42 +49,29 @@ function FlowTable({
 }
 
 /**
- * Comprehensive swap-flows guide.
- * Only flows executed successfully against the live local deployment (Hardhat 31337)
- * with real transactions are marked Verified. Incomplete paths are called out explicitly.
+ * Comprehensive swap-flows guide for users on aurove.xyz.
  */
 export function SwapFlowsContent() {
   return (
     <>
       <h1>Swap flows guide</h1>
       <p>
-        This guide documents every swap path the Aurove dapp can plan and execute today. Content is
+        This guide documents every swap path the Aurove app can plan and execute today. Content is
         limited to behaviour implemented in the Swap UI (
         <DocRouteLink href="/#swap-interface" code>
           /#swap-interface
         </DocRouteLink>
-        ) and routers it calls. Each flow below was checked against a running local Hardhat
-        deployment (chain id <code>31337</code>) with live contract calls where noted.
+        ) and the routers it calls.
       </p>
 
-      <Callout variant="important" title="Verification basis">
-        <p>
-          Contract-level verification used Hardhat account{" "}
-          <code>0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266</code> against deployed{" "}
-          <code>CLSwapRouter</code>, <code>AuroveZapRouter</code>, and <code>Ledger</code>. Status
-          labels:
-        </p>
+      <Callout variant="info" title="Status labels in this guide">
         <ul>
           <li>
-            <strong>Verified (tx)</strong> — transaction mined successfully on local chain
+            <strong>Supported</strong> — available in the live Swap UI and expected to execute when
+            a route and balances allow
           </li>
           <li>
-            <strong>UI-supported</strong> — asset form and plan type exist in the live Swap UI code
-            path
-          </li>
-          <li>
-            <strong>Not available / limited</strong> — incomplete, blocked, or not offered as a
-            single button flow
+            <strong>Limited</strong> — incomplete, blocked, or not offered as a single-button flow
           </li>
         </ul>
       </Callout>
@@ -193,7 +180,7 @@ export function SwapFlowsContent() {
 
       <h2>Flow 1 — Swap ID20 tokens (direct CL)</h2>
       <p>
-        <strong>Status:</strong> Verified (tx) · UI-supported
+        <strong>Status:</strong> Supported
       </p>
       <p>
         Sell a liquid ID20 (for example <code>avBTCm</code>) for another pool token (for example{" "}
@@ -268,7 +255,7 @@ export function SwapFlowsContent() {
 
       <h2>Flow 2 — Swap plain ERC-20 (e.g. MUSD)</h2>
       <p>
-        <strong>Status:</strong> Verified (tx) · UI-supported
+        <strong>Status:</strong> Supported
       </p>
       <p>
         Same <code>directClSwap</code> path as ID20 when both sides are fungible ERC-20s (or ID20)
@@ -299,7 +286,7 @@ export function SwapFlowsContent() {
 
       <h2>Flow 3 — Swap underlying BTC / MEZO (deposit then swap)</h2>
       <p>
-        <strong>Status:</strong> Verified (tx) · UI-supported
+        <strong>Status:</strong> Supported
       </p>
       <p>
         Selling <strong>underlying</strong> BTC or MEZO does not swap the raw token on the pool.
@@ -364,7 +351,7 @@ export function SwapFlowsContent() {
 
       <h2>Flow 4 — Swap Ledger tranches (wrap then swap)</h2>
       <p>
-        <strong>Status:</strong> Verified (tx) · UI-supported
+        <strong>Status:</strong> Supported
       </p>
       <p>
         Sell ERC-1155 tranche shares you already hold. The zap router wraps them to the matching
@@ -428,7 +415,7 @@ export function SwapFlowsContent() {
 
       <h2>Flow 5 — Partial veNFT exit (Earn deposit + tranche swap)</h2>
       <p>
-        <strong>Status:</strong> Verified as two composed steps (Earn deposit + Flow 4) · Not a
+        <strong>Status:</strong> Supported as two composed steps (Earn deposit + Flow 4) · Not a
         single Swap button that sells “part of a veNFT” directly
       </p>
       <p>
@@ -482,7 +469,7 @@ export function SwapFlowsContent() {
 
       <h2>Flow 6 — Swap an entire veNFT</h2>
       <p>
-        <strong>Status:</strong> Verified (tx) · UI-supported · exact-input only
+        <strong>Status:</strong> Supported · exact-input only
       </p>
       <p>
         Sell a full veBTC or veMEZO NFT in one transaction: deposit into the managed tranche, wrap,
