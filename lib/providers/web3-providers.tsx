@@ -11,6 +11,7 @@ import { getWagmiConfig } from "@/lib/config/wagmi";
 import contracts from "@/contracts/registry";
 import type { TxContractsDeclaration, TxIconState, TxNotifyApi } from "@/lib/tx-flow/types";
 import { PortfolioEventWatcher } from "@/features/portfolio";
+import { ensureDeterministicBurnerPrivateKey } from "@/lib/web3/burner-wallet";
 
 type TxFlowRuntimeValue = {
   contracts: TxContractsDeclaration;
@@ -48,10 +49,11 @@ export function Web3Providers({
   notify,
 }: Web3ProvidersProps) {
   const activeChain = getActiveChain();
-  const resolvedWagmiConfig = useMemo(
-    () => wagmiConfig ?? getWagmiConfig(activeChain),
-    [activeChain, wagmiConfig],
-  );
+  const resolvedWagmiConfig = useMemo(() => {
+    // Seed deterministic burner PK (E2E/local) before connectors initialize.
+    ensureDeterministicBurnerPrivateKey();
+    return wagmiConfig ?? getWagmiConfig(activeChain);
+  }, [activeChain, wagmiConfig]);
   const rainbowKitConfig = useMemo(
     () =>
       rainbowKit === false

@@ -8,25 +8,65 @@ import {
   safeWallet,
   walletConnectWallet,
 } from "@rainbow-me/rainbowkit/wallets";
+import { rainbowkitBurnerWallet } from "burner-connector";
 import type { Chain } from "viem";
 import { createConfig, http, type Config } from "wagmi";
 import { getRuntimeConfig } from "@/lib/config/env";
+import { shouldShowBurnerWallet } from "@/lib/config/scaffold";
+import { ensureDeterministicBurnerPrivateKey } from "@/lib/web3/burner-wallet";
 
 let wagmiConfig: Config | undefined;
 let wagmiConfigChainId: number | undefined;
 let serverWagmiConfig: Config | undefined;
 let serverWagmiConfigChainId: number | undefined;
 
-const walletList = [
-  {
-    groupName: "Recommended",
-    wallets: [injectedWallet, bitgetWallet, walletConnectWallet],
-  },
-  {
-    groupName: "Popular",
-    wallets: [safeWallet, rainbowWallet, baseAccount, metaMaskWallet],
-  },
-] satisfies Parameters<typeof getDefaultConfig>[0]["wallets"];
+type WalletList = NonNullable<Parameters<typeof getDefaultConfig>[0]["wallets"]>;
+
+function buildWalletList(activeChain: Chain): WalletList {
+  const recommended = [injectedWallet, bitgetWallet, walletConnectWallet];
+  const popular = [safeWallet, rainbowWallet, baseAccount, metaMaskWallet];
+
+  if (shouldShowBurnerWallet(activeChain.id)) {
+    // Optional: new burner key per tab (default persists across tabs via localStorage)
+    // rainbowkitBurnerWallet.useSessionStorage = true;
+
+    // Prefer chain RPC from app config when the connector builds its wallet client.
+    const rpcUrl = activeChain.rpcUrls.default.http[0]?.trim();
+    if (rpcUrl) {
+      rainbowkitBurnerWallet.rpcUrls = {
+        ...(rainbowkitBurnerWallet.rpcUrls ?? {}),
+        [activeChain.id]: rpcUrl,
+      };
+    }
+
+    // Local/dev group so burner is easy to find without replacing MetaMask.
+    return [
+      {
+        groupName: "Development",
+        wallets: [rainbowkitBurnerWallet],
+      },
+      {
+        groupName: "Recommended",
+        wallets: recommended,
+      },
+      {
+        groupName: "Popular",
+        wallets: popular,
+      },
+    ];
+  }
+
+  return [
+    {
+      groupName: "Recommended",
+      wallets: recommended,
+    },
+    {
+      groupName: "Popular",
+      wallets: popular,
+    },
+  ];
+}
 
 function getChainRpcUrl(chain: Chain): string {
   const rpcUrl = chain.rpcUrls.default.http[0]?.trim();
@@ -59,12 +99,15 @@ export function getWagmiConfig(activeChain: Chain): Config {
     return getServerWagmiConfig(activeChain);
   }
 
+  // Seed deterministic PK for E2E before the connector loads storage.
+  ensureDeterministicBurnerPrivateKey();
+
   if (!wagmiConfig || wagmiConfigChainId !== activeChain.id) {
     wagmiConfig = getDefaultConfig({
       appName: "Aurove",
       chains: [activeChain],
       multiInjectedProviderDiscovery: false,
-      wallets: walletList,
+      wallets: buildWalletList(activeChain),
       projectId: runtime.walletConnectProjectId,
       transports: {
         [activeChain.id]: http(getChainRpcUrl(activeChain)),
