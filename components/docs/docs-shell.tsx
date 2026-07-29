@@ -65,7 +65,7 @@ export function DocsShell({
         </div>
       </header>
 
-      <div className="relative z-10 mx-auto flex w-full max-w-7xl gap-8 px-4 py-6 md:px-6 md:py-8">
+      <div className="relative z-10 mx-auto flex w-full max-w-[90rem] gap-6 px-4 py-6 md:gap-8 md:px-6 md:py-8">
         <DocsSidebar />
         <div className="min-w-0 flex-1">
           <DocsMobileNav />
