@@ -15,10 +15,25 @@ import { Callout } from "@/components/docs/callout";
 import { DocsContentFooter } from "@/components/docs/docs-content-footer";
 import { DocsProse } from "@/components/docs/prose";
 import { StatusBadge } from "@/components/docs/status-badge";
+import { JsonLd } from "@/components/site/json-ld";
+import { getBreadcrumbJsonLd, getWebPageJsonLd } from "@/lib/seo/json-ld";
 
 export default function DocsHomePage() {
+  const webPageJsonLd = getWebPageJsonLd({
+    path: "/docs",
+    title: "Documentation · Aurove Docs",
+    description:
+      "Aurove Protocol Documentation — learn how Aurove transforms locked veBTC and veMEZO positions into liquid yield assets on Mezo.",
+  });
+  const breadcrumbJsonLd = getBreadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Docs", path: "/docs" },
+  ]);
+
   return (
     <div className="h-full min-h-0 overflow-y-auto overscroll-contain">
+    <JsonLd data={webPageJsonLd} />
+    <JsonLd data={breadcrumbJsonLd} />
     <div className="mx-auto max-w-3xl pb-4">
       <div className="mb-8 rounded-3xl border border-white/10 bg-gradient-to-b from-[#d2a45f]/10 via-white/[0.02] to-transparent px-6 py-8 sm:px-8">
         <div className="flex flex-wrap items-center gap-2">

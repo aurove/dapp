@@ -10,7 +10,8 @@ import {
 import { FaXTwitter } from "react-icons/fa6";
 import { EcosystemPartnersCarousel } from "@/components/marketing/ecosystem-partners-carousel";
 import { SwapPage } from "@/components/features/swap";
-import { getHomeJsonLd, serializeJsonLd } from "@/lib/seo/json-ld";
+import { JsonLd } from "@/components/site/json-ld";
+import { getHomeJsonLd } from "@/lib/seo/json-ld";
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_KEYWORDS,
@@ -62,14 +63,9 @@ const footerLinks: FooterLink[] = [
 ];
 
 export default function HomePage() {
-  const jsonLd = getHomeJsonLd();
-
   return (
     <main className="landing-page">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
-      />
+      <JsonLd data={getHomeJsonLd()} />
       <section className="landing-hero">
         <div className="landing-hero__backdrop" aria-hidden="true">
           <div className="landing-hero__ring landing-hero__ring--large" />

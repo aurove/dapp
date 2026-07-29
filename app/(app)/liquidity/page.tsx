@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import { LiquidityPage } from "@/components/features/liquidity";
+import { ProductSeo } from "@/components/site/product-seo";
 import { createPageMetadata } from "@/lib/seo/site";
 
+const TITLE = "Provide Liquidity for Liquid ve-Yield";
+const DESCRIPTION =
+  "Supply liquidity with locked BTC and MEZO exposure. Earn swap fees on Aurove pools while Mezo Earn positions keep working underneath.";
+
 export const metadata: Metadata = createPageMetadata({
-  title: "Provide Liquidity for Liquid ve-Yield",
-  description:
-    "Supply liquidity with locked BTC and MEZO exposure. Earn swap fees on Aurove pools while Mezo Earn positions keep working underneath.",
+  title: TITLE,
+  description: DESCRIPTION,
   path: "/liquidity",
   keywords: [
     "Aurove liquidity",
@@ -18,5 +22,26 @@ export const metadata: Metadata = createPageMetadata({
 });
 
 export default function AppLiquidityPage() {
-  return <LiquidityPage />;
+  return (
+    <div className="space-y-6">
+      <ProductSeo
+        path="/liquidity"
+        title={TITLE}
+        description={DESCRIPTION}
+        bullets={[
+          "Add concentrated liquidity to supported Aurove pools such as MUSD/avBTCm.",
+          "Fund positions with liquid Aurove assets and compatible zap sources.",
+          "Collect swap fees when trades pass through your active price range.",
+          "Manage, increase, or remove liquidity from your position NFTs.",
+        ]}
+        relatedLinks={[
+          { href: "/docs/liquidity/providing-liquidity", label: "Providing liquidity" },
+          { href: "/docs/liquidity/concentrated-liquidity", label: "Concentrated liquidity" },
+          { href: "/liquidity/add/btc", label: "Add BTC pool liquidity" },
+          { href: "/docs/swap/overview", label: "Swap overview" },
+        ]}
+      />
+      <LiquidityPage />
+    </div>
+  );
 }

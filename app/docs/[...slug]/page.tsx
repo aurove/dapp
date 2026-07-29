@@ -5,8 +5,14 @@ import { DocsPageTracker } from "@/components/docs/docs-page-tracker";
 import { DocsPagination } from "@/components/docs/docs-pagination";
 import { DocsProse } from "@/components/docs/prose";
 import { StatusBadge } from "@/components/docs/status-badge";
+import { JsonLd } from "@/components/site/json-ld";
 import { getAllDocSlugs, getDocPage } from "@/content/docs/pages";
 import { getDocSectionTitle } from "@/lib/docs/navigation";
+import {
+  AUROVE_FAQ_ITEMS,
+  getDocArticleJsonLd,
+  getFaqPageJsonLd,
+} from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/site";
 
 type PageProps = {
@@ -25,18 +31,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const page = getDocPage(slug);
   if (!page) {
     return createPageMetadata({
-      title: "Documentation",
+      title: "Documentation · Aurove Docs",
       description: "Aurove protocol documentation.",
       path: "/docs",
+      absoluteTitle: true,
       noIndex: true,
     });
   }
 
   return createPageMetadata({
-    title: page.title,
+    title: `${page.title} · Aurove Docs`,
     description: page.description,
     path: `/docs/${page.slug}`,
     keywords: page.tags,
+    absoluteTitle: true,
   });
 }
 
@@ -48,9 +56,26 @@ export default async function DocArticlePage({ params }: PageProps) {
 
   const section = getDocSectionTitle(page.slug);
   const Content = page.Content;
+  const articleJsonLd = getDocArticleJsonLd({
+    slug: page.slug,
+    title: page.title,
+    description: page.description,
+    section,
+  });
+  const faqJsonLd =
+    page.slug === "faq"
+      ? getFaqPageJsonLd({
+          path: `/docs/${page.slug}`,
+          title: page.title,
+          description: page.description,
+          items: AUROVE_FAQ_ITEMS,
+        })
+      : null;
 
   return (
     <article className="h-full min-h-0 w-full min-w-0">
+      <JsonLd data={articleJsonLd} />
+      {faqJsonLd ? <JsonLd data={faqJsonLd} /> : null}
       <DocsPageTracker slug={page.slug} title={page.title} />
       <DocsArticle
         header={

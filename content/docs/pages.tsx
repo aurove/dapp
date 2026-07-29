@@ -19,6 +19,7 @@ import {
 } from "@/lib/docs/contracts-reference";
 import { getDocSectionTitle } from "@/lib/docs/navigation";
 import type { DocFrontmatter, DocSearchDocument } from "@/lib/docs/types";
+import { AUROVE_FAQ_ITEMS } from "@/lib/seo/json-ld";
 import { SwapFlowsContent } from "@/content/docs/swap-flows-page";
 
 export type DocPageDefinition = DocFrontmatter & {
@@ -1981,39 +1982,33 @@ open https://explorer.test.mezo.org/address/0xE276fB7B0376aBbb1a11B14f31E3773C33
     Content: () => (
       <>
         <h1>FAQ</h1>
+        <p>
+          Short answers to the issues users hit most often in the live Aurove interface. For deeper
+          product guides, start with{" "}
+          <DocRouteLink href="/docs/getting-started/connect-wallet">Getting started</DocRouteLink>{" "}
+          or the <DocRouteLink href="/docs/swap/flows">Swap flows guide</DocRouteLink>.
+        </p>
         <h2>Wallet & network</h2>
         <h3>Why do I only see Connect Wallet?</h3>
-        <p>You are disconnected. Connect via the header and approve in your wallet.</p>
+        <p>{AUROVE_FAQ_ITEMS[0].answer}</p>
         <h3>What does Wrong Network mean?</h3>
-        <p>
-          Your wallet chain is not the deployment’s expected chain. Click <strong>Wrong Network</strong>{" "}
-          and approve the switch.
-        </p>
+        <p>{AUROVE_FAQ_ITEMS[1].answer}</p>
         <h3>What is Sign In for?</h3>
-        <p>
-          A signed session for Academy personalization (points, referral link). Earn/Swap/LP primarily
-          need a connected wallet.
-        </p>
+        <p>{AUROVE_FAQ_ITEMS[2].answer}</p>
         <h2>Earn</h2>
         <h3>No liquid positions yet</h3>
-        <p>Deposit BTC/MEZO or a veNFT via Create Position, or acquire liquid assets via Swap.</p>
+        <p>{AUROVE_FAQ_ITEMS[3].answer}</p>
         <h3>Await redemption window</h3>
-        <p>
-          Redemptions only during the weekly window: opens 10 hours into each epoch, lasts 6 hours.
-        </p>
+        <p>{AUROVE_FAQ_ITEMS[4].answer}</p>
         <h2>Swap</h2>
         <h3>No route available / Insufficient liquidity</h3>
-        <p>
-          The registry could not find a CL path for that pair/amount. Try another asset or reduce size.
-        </p>
+        <p>{AUROVE_FAQ_ITEMS[5].answer}</p>
         <h2>Liquidity</h2>
         <h3>Unsupported source combo</h3>
-        <p>Selected funding sources cannot be combined for the zap plan — change sources or pool.</p>
+        <p>{AUROVE_FAQ_ITEMS[6].answer}</p>
         <h2>Academy</h2>
         <h3>Points show “Visible after wallet authentication”</h3>
-        <p>
-          Connect and Sign In. Without a session, personalized Academy stats stay locked.
-        </p>
+        <p>{AUROVE_FAQ_ITEMS[7].answer}</p>
       </>
     ),
   },

@@ -4,10 +4,11 @@ import { getDocSearchDocuments } from "@/content/docs/pages";
 import { createPageMetadata } from "@/lib/seo/site";
 
 export const metadata = createPageMetadata({
-  title: "Documentation",
+  title: "Documentation · Aurove Docs",
   description:
     "Aurove Protocol Documentation — learn how Aurove transforms locked veBTC and veMEZO positions into liquid yield assets on Mezo.",
   path: "/docs",
+  absoluteTitle: true,
   keywords: [
     "Aurove docs",
     "protocol documentation",

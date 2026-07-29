@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AcademyDashboard } from "@/components/features/academy/academy-dashboard";
+import { ProductSeo } from "@/components/site/product-seo";
 import { createAcademyService } from "@/lib/academy/server";
 import { getCurrentWalletAuthContextFromCookies } from "@/lib/auth/current";
 import { getRequestOrigin } from "@/lib/auth/utils";
@@ -8,10 +9,13 @@ import { createPageMetadata } from "@/lib/seo/site";
 import { cookies } from "next/headers";
 import { headers } from "next/headers";
 
+const TITLE = "Academy Points & Leaderboard";
+const DESCRIPTION =
+  "Earn Aurove Academy points as you swap, provide liquidity, and stay active. Track your score, referrals, and leaderboard rank across seasons.";
+
 export const metadata: Metadata = createPageMetadata({
-  title: "Academy Points & Leaderboard",
-  description:
-    "Earn Aurove Academy points as you swap, provide liquidity, and stay active. Track your score, referrals, and leaderboard rank across seasons.",
+  title: TITLE,
+  description: DESCRIPTION,
   path: "/academy",
   keywords: [
     "Aurove Academy",
@@ -71,10 +75,29 @@ export default async function AcademyPage({ searchParams }: AcademyPageProps) {
     initialLeaderboard.items.find((entry) => entry.isCurrentUser) ?? null;
 
   return (
-    <AcademyDashboard
-      initialLeaderboard={initialLeaderboard}
-      initialSummary={initialSummary}
-      initialCurrentUserLeaderboardEntry={initialCurrentUserLeaderboardEntry}
-    />
+    <div className="space-y-6">
+      <ProductSeo
+        path="/academy"
+        title={TITLE}
+        description={DESCRIPTION}
+        bullets={[
+          "Earn task points from qualifying swaps and liquidity fee collection.",
+          "Track season score, rank, and leaderboard after wallet Sign In.",
+          "Share a referral link so new users can join your Academy network.",
+          "Learn Mezo Earn concepts while staying active across Aurove.",
+        ]}
+        relatedLinks={[
+          { href: "/docs/academy/points", label: "Points docs" },
+          { href: "/docs/academy/quests", label: "Quests & tasks" },
+          { href: "/docs/academy/referrals", label: "Referrals" },
+          { href: "/#swap-interface", label: "Open Swap" },
+        ]}
+      />
+      <AcademyDashboard
+        initialLeaderboard={initialLeaderboard}
+        initialSummary={initialSummary}
+        initialCurrentUserLeaderboardEntry={initialCurrentUserLeaderboardEntry}
+      />
+    </div>
   );
 }
