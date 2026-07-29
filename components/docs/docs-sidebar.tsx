@@ -4,7 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ChevronDown, Menu } from "lucide-react";
-import { cn, ScrollArea, Sheet, SheetContent, SheetTrigger, buttonVariants } from "@ui";
+import {
+  cn,
+  ScrollArea,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+  buttonVariants,
+} from "@ui";
 import { DOCS_NAV } from "@/lib/docs/navigation";
 import { StatusBadge } from "./status-badge";
 
@@ -127,9 +136,11 @@ export function DocsMobileNav() {
           Menu
         </SheetTrigger>
         <SheetContent side="left" className="w-[min(100%,20rem)] border-white/10 bg-[#0a0f15] p-0">
-          <div className="border-b border-white/10 px-4 py-4">
-            <p className="text-sm font-semibold text-white">Documentation</p>
-            <p className="mt-0.5 text-xs text-white/45">Browse topics</p>
+          <div className="border-b border-white/10 px-4 py-4 pr-12">
+            <SheetTitle className="text-sm font-semibold text-white">Documentation</SheetTitle>
+            <SheetDescription className="mt-0.5 text-xs text-white/45">
+              Browse topics
+            </SheetDescription>
           </div>
           <ScrollArea className="h-[calc(100vh-5rem)] px-3 py-3">
             <NavTree onNavigate={() => setOpen(false)} />
