@@ -8,8 +8,8 @@ import { GenericContractsDeclaration } from "./types";
 const contracts = {
   31337: {
     AuroveZapRouter: {
-      address: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
-      deploymentBlock: 10781326,
+      address: "0xAA292E8611aDF267e563f334Ee42320aC96D0463",
+      deploymentBlock: 10781589,
       abi: [
         {
           inputs: [
@@ -1521,14 +1521,14 @@ const contracts = {
       ],
     },
     "avBTCm-avMEZOm": {
-      address: "0x67369b60B97fCf5AA7F646215115356Aca2484e9",
-      deploymentBlock: 10781330,
+      address: "0xAcd81ac815E654061b2fD9E38a5D4ec98e504C2F",
+      deploymentBlock: 10781593,
       linkedData: {
         contractName: "CLPool",
-        tokenA: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
-        tokenB: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
+        tokenA: "0xeb221B91642a102CaaBC75Ab3589cF5864CA6ecA",
+        tokenB: "0x73cBB44dc54e56ED0878a4Cf2A8F2b3442717cC1",
         tickSpacing: 200,
-        sqrtPriceX96: "210668129674128780671750515257759",
+        sqrtPriceX96: "29696226003228872266140585",
       },
       abi: [
         {
@@ -2079,342 +2079,14 @@ const contracts = {
         },
       ],
     },
-    "avBTCm-avMEZOmGauge": {
-      address: "0xCd1b3cAB8715e66a5c00F420C84742f6406059eF",
-      deploymentBlock: 10781390,
-      linkedData: {
-        contractName: "CLGauge",
-        poolKey: "avBTCm-avMEZOm",
-        pool: "0x67369b60B97fCf5AA7F646215115356Aca2484e9",
-        network: "localhost",
-        chainId: "31337",
-        tokenA: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
-        tokenB: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
-        tickSpacing: 200,
-        voter: "0x48233cCC97B87Ba93bCA212cbEe48e3210211f03",
-        factoryRegistry: "0x04B94f55780682478c8D8329368AAAfD320F4D32",
-        votingRewardsFactory: "0x30019D85a86ABD3cDA1167F4C052690c32FBDEc2",
-        gaugeFactory: "0xfc41E1AAe0e58E8bDC32e85d8C995A902FEdEb13",
-        rewardToken: "0x7B7c000000000000000000000000000000000001",
-        feeVotingReward: "0x1f8CBEF5016D063e2CFCef0ce58dD51f21F998a1",
-        bribeVotingReward: "0xfC391ba6B7820288405Eca09a7a36583B23fb21f",
-      },
-      abi: [
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "from", type: "address" },
-            { indexed: false, internalType: "uint256", name: "claimed0", type: "uint256" },
-            { indexed: false, internalType: "uint256", name: "claimed1", type: "uint256" },
-          ],
-          name: "ClaimFees",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "from", type: "address" },
-            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
-          ],
-          name: "ClaimRewards",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "user", type: "address" },
-            { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
-            { indexed: true, internalType: "uint128", name: "liquidityToStake", type: "uint128" },
-          ],
-          name: "Deposit",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "from", type: "address" },
-            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
-          ],
-          name: "NotifyReward",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "user", type: "address" },
-            { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
-            { indexed: true, internalType: "uint128", name: "liquidityToStake", type: "uint128" },
-          ],
-          name: "Withdraw",
-          type: "event",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
-          name: "deposit",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "address", name: "account", type: "address" },
-            { internalType: "uint256", name: "tokenId", type: "uint256" },
-          ],
-          name: "earned",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "fees0",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "fees1",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "feesVotingReward",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "gaugeFactory",
-          outputs: [{ internalType: "contract ICLGaugeFactory", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
-          name: "getReward",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "account", type: "address" }],
-          name: "getReward",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "address", name: "_pool", type: "address" },
-            { internalType: "address", name: "_feesVotingReward", type: "address" },
-            { internalType: "address", name: "_rewardToken", type: "address" },
-            { internalType: "address", name: "_voter", type: "address" },
-            { internalType: "address", name: "_nft", type: "address" },
-            { internalType: "address", name: "_token0", type: "address" },
-            { internalType: "address", name: "_token1", type: "address" },
-            { internalType: "int24", name: "_tickSpacing", type: "int24" },
-            { internalType: "bool", name: "_isPool", type: "bool" },
-          ],
-          name: "initialize",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "isPool",
-          outputs: [{ internalType: "bool", name: "", type: "bool" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          name: "lastUpdateTime",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "left",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "nft",
-          outputs: [
-            { internalType: "contract INonfungiblePositionManager", name: "", type: "address" },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_amount", type: "uint256" }],
-          name: "notifyRewardAmount",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_amount", type: "uint256" }],
-          name: "notifyRewardWithoutClaim",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "address", name: "", type: "address" },
-            { internalType: "address", name: "", type: "address" },
-            { internalType: "uint256", name: "", type: "uint256" },
-            { internalType: "bytes", name: "", type: "bytes" },
-          ],
-          name: "onERC721Received",
-          outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "periodFinish",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "pool",
-          outputs: [{ internalType: "contract ICLPool", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          name: "rewardGrowthInside",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "rewardRate",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          name: "rewardRateByEpoch",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "rewardToken",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          name: "rewards",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          name: "rewardsByEpoch",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "address", name: "depositor", type: "address" },
-            { internalType: "uint256", name: "index", type: "uint256" },
-          ],
-          name: "stakedByIndex",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "address", name: "depositor", type: "address" },
-            { internalType: "uint256", name: "tokenId", type: "uint256" },
-          ],
-          name: "stakedContains",
-          outputs: [{ internalType: "bool", name: "", type: "bool" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "depositor", type: "address" }],
-          name: "stakedLength",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "depositor", type: "address" }],
-          name: "stakedValues",
-          outputs: [{ internalType: "uint256[]", name: "staked", type: "uint256[]" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "tickSpacing",
-          outputs: [{ internalType: "int24", name: "", type: "int24" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "token0",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "token1",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "voter",
-          outputs: [{ internalType: "contract IVoter", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
-          name: "withdraw",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-      ],
-    },
     avBTCmGauge: {
-      address: "0xe4c278D321184BBFFB72e4e59e16a953b6863BEF",
-      deploymentBlock: 10314249,
+      address: "0x5A432d8e06E9C69ddD3Fca94a69D052d62D69032",
+      deploymentBlock: 10781590,
       linkedData: {
         contractName: "Id20Gauge",
         sourceName: "src/Id20Gauge.sol",
         trancheId: "65540",
-        wrapper: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
+        wrapper: "0xeb221B91642a102CaaBC75Ab3589cF5864CA6ecA",
       },
       abi: [
         {
@@ -2611,8 +2283,8 @@ const contracts = {
       ],
     },
     avBTCmId20: {
-      address: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
-      deploymentBlock: 10314249,
+      address: "0xeb221B91642a102CaaBC75Ab3589cF5864CA6ecA",
+      deploymentBlock: 10781590,
       linkedData: {
         contractName: "AuroveId20",
         sourceName: "src/aurove/AuroveId20.sol",
@@ -3555,13 +3227,13 @@ const contracts = {
       ],
     },
     avMEZOmGauge: {
-      address: "0xf80a256dD56D523F304be32435A492EF1D3F3Fe3",
-      deploymentBlock: 10314250,
+      address: "0x62f76A165F4816AcB987D1439b4b93179c4737C5",
+      deploymentBlock: 10781591,
       linkedData: {
         contractName: "Id20Gauge",
         sourceName: "src/Id20Gauge.sol",
         trancheId: "131280",
-        wrapper: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
+        wrapper: "0x73cBB44dc54e56ED0878a4Cf2A8F2b3442717cC1",
       },
       abi: [
         {
@@ -3758,8 +3430,8 @@ const contracts = {
       ],
     },
     avMEZOmId20: {
-      address: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
-      deploymentBlock: 10314250,
+      address: "0x73cBB44dc54e56ED0878a4Cf2A8F2b3442717cC1",
+      deploymentBlock: 10781591,
       linkedData: {
         contractName: "AuroveId20",
         sourceName: "src/aurove/AuroveId20.sol",
@@ -5739,8 +5411,8 @@ const contracts = {
       ],
     },
     Id20Factory: {
-      address: "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
-      deploymentBlock: 10781325,
+      address: "0xf953b3A269d80e3eB0F2947630Da976B896A8C5b",
+      deploymentBlock: 10781588,
       abi: [
         {
           inputs: [{ internalType: "contract ILedger", name: "assetLedger_", type: "address" }],
@@ -5822,10 +5494,7 @@ const contracts = {
             "https://api.aurove.xyz/tranches/{id}.json",
           ],
         },
-        lastOperation: {
-          action: "deployed",
-          transactionHash: "0xcca2136d9337af63fc9ed99e7e8412c94e1fc29c2a56d35fdbb547aac6ebeeaa",
-        },
+        lastOperation: { action: "unchanged" },
       },
       abi: [
         {
@@ -5999,6 +5668,11 @@ const contracts = {
         { inputs: [], name: "ZeroAddress", type: "error" },
         { inputs: [], name: "ZeroAmount", type: "error" },
         {
+          inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+          name: "ZeroLockAmount",
+          type: "error",
+        },
+        {
           anonymous: false,
           inputs: [
             { indexed: true, internalType: "address", name: "account", type: "address" },
@@ -6006,6 +5680,17 @@ const contracts = {
             { indexed: false, internalType: "bool", name: "approved", type: "bool" },
           ],
           name: "ApprovalForAll",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "depositor", type: "address" },
+            { indexed: true, internalType: "uint256", name: "oldTokenId", type: "uint256" },
+            { indexed: true, internalType: "uint256", name: "newTokenId", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "ExpiredVeNftRelocked",
           type: "event",
         },
         {
@@ -6542,14 +6227,14 @@ const contracts = {
       ],
     },
     "MUSD-avBTCm": {
-      address: "0x28885d38F8fD0c79BE0640974A60EB9510E81482",
-      deploymentBlock: 10781329,
+      address: "0x339BD09841b0453EAB437690F37d597924558400",
+      deploymentBlock: 10781592,
       linkedData: {
         contractName: "CLPool",
         tokenA: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
-        tokenB: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
+        tokenB: "0xeb221B91642a102CaaBC75Ab3589cF5864CA6ecA",
         tickSpacing: 200,
-        sqrtPriceX96: "20218584973241512439307814553544",
+        sqrtPriceX96: "312068713247205040671926300",
       },
       abi: [
         {
@@ -7100,334 +6785,6 @@ const contracts = {
         },
       ],
     },
-    "MUSD-avBTCmGauge": {
-      address: "0xC5d9ddC440759CCe340c745a6133c7A29E90cF94",
-      deploymentBlock: 10781389,
-      linkedData: {
-        contractName: "CLGauge",
-        poolKey: "MUSD-avBTCm",
-        pool: "0x28885d38F8fD0c79BE0640974A60EB9510E81482",
-        network: "localhost",
-        chainId: "31337",
-        tokenA: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
-        tokenB: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
-        tickSpacing: 200,
-        voter: "0x48233cCC97B87Ba93bCA212cbEe48e3210211f03",
-        factoryRegistry: "0x04B94f55780682478c8D8329368AAAfD320F4D32",
-        votingRewardsFactory: "0x30019D85a86ABD3cDA1167F4C052690c32FBDEc2",
-        gaugeFactory: "0xfc41E1AAe0e58E8bDC32e85d8C995A902FEdEb13",
-        rewardToken: "0x7B7c000000000000000000000000000000000001",
-        feeVotingReward: "0xfDa0c394a517feb99B6e255e7e34D98fc3149eb3",
-        bribeVotingReward: "0xcc862BA4713d9030cF3ee03E8C7bD11DEab59Ac5",
-      },
-      abi: [
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "from", type: "address" },
-            { indexed: false, internalType: "uint256", name: "claimed0", type: "uint256" },
-            { indexed: false, internalType: "uint256", name: "claimed1", type: "uint256" },
-          ],
-          name: "ClaimFees",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "from", type: "address" },
-            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
-          ],
-          name: "ClaimRewards",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "user", type: "address" },
-            { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
-            { indexed: true, internalType: "uint128", name: "liquidityToStake", type: "uint128" },
-          ],
-          name: "Deposit",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "from", type: "address" },
-            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
-          ],
-          name: "NotifyReward",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "user", type: "address" },
-            { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
-            { indexed: true, internalType: "uint128", name: "liquidityToStake", type: "uint128" },
-          ],
-          name: "Withdraw",
-          type: "event",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
-          name: "deposit",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "address", name: "account", type: "address" },
-            { internalType: "uint256", name: "tokenId", type: "uint256" },
-          ],
-          name: "earned",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "fees0",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "fees1",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "feesVotingReward",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "gaugeFactory",
-          outputs: [{ internalType: "contract ICLGaugeFactory", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
-          name: "getReward",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "account", type: "address" }],
-          name: "getReward",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "address", name: "_pool", type: "address" },
-            { internalType: "address", name: "_feesVotingReward", type: "address" },
-            { internalType: "address", name: "_rewardToken", type: "address" },
-            { internalType: "address", name: "_voter", type: "address" },
-            { internalType: "address", name: "_nft", type: "address" },
-            { internalType: "address", name: "_token0", type: "address" },
-            { internalType: "address", name: "_token1", type: "address" },
-            { internalType: "int24", name: "_tickSpacing", type: "int24" },
-            { internalType: "bool", name: "_isPool", type: "bool" },
-          ],
-          name: "initialize",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "isPool",
-          outputs: [{ internalType: "bool", name: "", type: "bool" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          name: "lastUpdateTime",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "left",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "nft",
-          outputs: [
-            { internalType: "contract INonfungiblePositionManager", name: "", type: "address" },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_amount", type: "uint256" }],
-          name: "notifyRewardAmount",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "_amount", type: "uint256" }],
-          name: "notifyRewardWithoutClaim",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "address", name: "", type: "address" },
-            { internalType: "address", name: "", type: "address" },
-            { internalType: "uint256", name: "", type: "uint256" },
-            { internalType: "bytes", name: "", type: "bytes" },
-          ],
-          name: "onERC721Received",
-          outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "periodFinish",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "pool",
-          outputs: [{ internalType: "contract ICLPool", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          name: "rewardGrowthInside",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "rewardRate",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          name: "rewardRateByEpoch",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "rewardToken",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          name: "rewards",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          name: "rewardsByEpoch",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "address", name: "depositor", type: "address" },
-            { internalType: "uint256", name: "index", type: "uint256" },
-          ],
-          name: "stakedByIndex",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            { internalType: "address", name: "depositor", type: "address" },
-            { internalType: "uint256", name: "tokenId", type: "uint256" },
-          ],
-          name: "stakedContains",
-          outputs: [{ internalType: "bool", name: "", type: "bool" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "depositor", type: "address" }],
-          name: "stakedLength",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "depositor", type: "address" }],
-          name: "stakedValues",
-          outputs: [{ internalType: "uint256[]", name: "staked", type: "uint256[]" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "tickSpacing",
-          outputs: [{ internalType: "int24", name: "", type: "int24" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "token0",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "token1",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "voter",
-          outputs: [{ internalType: "contract IVoter", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
-          name: "withdraw",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-      ],
-    },
     NonfungiblePositionManager: {
       address: "0x509bc221df2b83927c695fa0bb0f5b21053c874c",
       deploymentBlock: 6025761,
@@ -7972,10 +7329,7 @@ const contracts = {
         contractName: "Vault",
         proxyKind: "uups",
         initializer: { name: "initialize", args: ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"] },
-        lastOperation: {
-          action: "deployed",
-          transactionHash: "0x1f71b1f8e781ede4c4c1ccfd2bd0f852dface755239c7a9582fc7bbb30221b75",
-        },
+        lastOperation: { action: "unchanged" },
       },
       abi: [
         {
@@ -10847,8 +10201,8 @@ const contracts = {
   },
   31611: {
     AuroveZapRouter: {
-      address: "0xDC49CF19e824e614fa4a8E2d451ce1e633270CD5",
-      deploymentBlock: 14455844,
+      address: "0x174C2C74cC3C1a4a4b8d1d62c2597D8E7467aC7B",
+      deploymentBlock: 14626369,
       abi: [
         {
           inputs: [
@@ -12360,14 +11714,14 @@ const contracts = {
       ],
     },
     "avBTCm-avMEZOm": {
-      address: "0x56543F5E69B610c44aD1089B695B5dED095FB6bd",
-      deploymentBlock: 14397463,
+      address: "0x81a369A10217b760e8499a0Eb2de930Df10eBE4d",
+      deploymentBlock: 14626380,
       linkedData: {
         contractName: "CLPool",
-        tokenA: "0x185E70EbFB606Ea8F3365A2952AD3aA677210366",
-        tokenB: "0x99DBba550D4bFD8c83fFaE9711b243B5ef6Ef082",
+        tokenA: "0xf2aeB53d71CD541EFeaA37788F0841D7d21612F9",
+        tokenB: "0x0aeDdEaB271Bc032d6758c34Dc8356632D6F812e",
         tickSpacing: 200,
-        sqrtPriceX96: "194150579054831796179851932154713",
+        sqrtPriceX96: "29696226003228872266140585",
       },
       abi: [
         {
@@ -12919,13 +12273,13 @@ const contracts = {
       ],
     },
     avBTCmGauge: {
-      address: "0x6764de0fF406E677673cC07e6220c581E3004087",
-      deploymentBlock: 14397455,
+      address: "0xA283116a40ea16389EDe116Ea6E7B45965eAd00B",
+      deploymentBlock: 14626372,
       linkedData: {
         contractName: "Id20Gauge",
         sourceName: "src/Id20Gauge.sol",
         trancheId: "65540",
-        wrapper: "0x185E70EbFB606Ea8F3365A2952AD3aA677210366",
+        wrapper: "0xf2aeB53d71CD541EFeaA37788F0841D7d21612F9",
       },
       abi: [
         {
@@ -13122,8 +12476,8 @@ const contracts = {
       ],
     },
     avBTCmId20: {
-      address: "0x185E70EbFB606Ea8F3365A2952AD3aA677210366",
-      deploymentBlock: 14397455,
+      address: "0xf2aeB53d71CD541EFeaA37788F0841D7d21612F9",
+      deploymentBlock: 14626372,
       linkedData: {
         contractName: "AuroveId20",
         sourceName: "src/aurove/AuroveId20.sol",
@@ -14066,13 +13420,13 @@ const contracts = {
       ],
     },
     avMEZOmGauge: {
-      address: "0x9D3D130b7b4835911141F6F80A92c88a7a7265F6",
-      deploymentBlock: 14397457,
+      address: "0xd7611077D3C6434a0C219bE60f2d922a949044c7",
+      deploymentBlock: 14626375,
       linkedData: {
         contractName: "Id20Gauge",
         sourceName: "src/Id20Gauge.sol",
         trancheId: "131280",
-        wrapper: "0x99DBba550D4bFD8c83fFaE9711b243B5ef6Ef082",
+        wrapper: "0x0aeDdEaB271Bc032d6758c34Dc8356632D6F812e",
       },
       abi: [
         {
@@ -14269,8 +13623,8 @@ const contracts = {
       ],
     },
     avMEZOmId20: {
-      address: "0x99DBba550D4bFD8c83fFaE9711b243B5ef6Ef082",
-      deploymentBlock: 14397457,
+      address: "0x0aeDdEaB271Bc032d6758c34Dc8356632D6F812e",
+      deploymentBlock: 14626375,
       linkedData: {
         contractName: "AuroveId20",
         sourceName: "src/aurove/AuroveId20.sol",
@@ -16250,8 +15604,8 @@ const contracts = {
       ],
     },
     Id20Factory: {
-      address: "0xf2aeA42373818D32e20d4F901C870277fBf7E3cE",
-      deploymentBlock: 14397449,
+      address: "0x110103473E2EB3e131F2910C398eb95d7833D20d",
+      deploymentBlock: 14626366,
       abi: [
         {
           inputs: [{ internalType: "contract ILedger", name: "assetLedger_", type: "address" }],
@@ -16333,7 +15687,10 @@ const contracts = {
             "https://api.aurove.xyz/tranches/{id}.json",
           ],
         },
-        lastOperation: { action: "unchanged" },
+        lastOperation: {
+          action: "upgraded",
+          transactionHash: "0xb39b68b15566fd6eed49546ef53c9c2126909017d50d3b9115a348daea943bdf",
+        },
       },
       abi: [
         {
@@ -16507,6 +15864,11 @@ const contracts = {
         { inputs: [], name: "ZeroAddress", type: "error" },
         { inputs: [], name: "ZeroAmount", type: "error" },
         {
+          inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+          name: "ZeroLockAmount",
+          type: "error",
+        },
+        {
           anonymous: false,
           inputs: [
             { indexed: true, internalType: "address", name: "account", type: "address" },
@@ -16514,6 +15876,17 @@ const contracts = {
             { indexed: false, internalType: "bool", name: "approved", type: "bool" },
           ],
           name: "ApprovalForAll",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            { indexed: true, internalType: "address", name: "depositor", type: "address" },
+            { indexed: true, internalType: "uint256", name: "oldTokenId", type: "uint256" },
+            { indexed: true, internalType: "uint256", name: "newTokenId", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "ExpiredVeNftRelocked",
           type: "event",
         },
         {
@@ -17050,14 +16423,14 @@ const contracts = {
       ],
     },
     "MUSD-avBTCm": {
-      address: "0x7CB429Fb07574e9b379fa847aCCEBf5D83885D5A",
-      deploymentBlock: 14397461,
+      address: "0x0Ed7a98157Dd7DDAB6eA51D477eA933AA911b850",
+      deploymentBlock: 14626378,
       linkedData: {
         contractName: "CLPool",
         tokenA: "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
-        tokenB: "0x185E70EbFB606Ea8F3365A2952AD3aA677210366",
+        tokenB: "0xf2aeB53d71CD541EFeaA37788F0841D7d21612F9",
         tickSpacing: 200,
-        sqrtPriceX96: "312225867748282828828544211",
+        sqrtPriceX96: "312068713247205040671926300",
       },
       abi: [
         {
