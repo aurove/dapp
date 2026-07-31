@@ -91,14 +91,21 @@ function PositionCardContent({
   const selectedRedemptionPositions = product.redeemInventory.filter((position) =>
     selectedRedemptionKeysResolved.includes(position.key),
   );
+  /** Selected inventory free size after withdrawManaged (weight + locked-managed rewards). */
   const selectedRedemptionTotalRaw = selectedRedemptionPositions.reduce(
     (total, position) => total + position.lockedAmountRaw,
     0n,
   );
   const isActionWindowOpen = isSettlementWindowOpen;
   const actionControlId = `redeem-amount-${product.id}`;
+  // MEZO amount is auto weight+earned of the selection (same basis as inventory display / free size).
+  // BTC uses a user-entered exact share amount.
   const redemptionAmountRaw =
     product.variant === "veMEZO" ? selectedRedemptionTotalRaw : parsedWithdraw ?? 0n;
+  const mezoInventoryExceedsBalance =
+    product.variant === "veMEZO" &&
+    selectedRedemptionTotalRaw > 0n &&
+    selectedRedemptionTotalRaw > product.userAvailableBalanceRaw;
   const canSubmit =
     isActionWindowOpen &&
     selectedRedemptionPositions.length > 0 &&
@@ -137,9 +144,33 @@ function PositionCardContent({
     validationSchema: Yup.object({
       amount: Yup.string()
         .required("Enter a redemption amount.")
-        .test("valid-amount", "Enter a valid redemption amount.", (value) => {
+        .test("valid-amount", function validateRedeemAmount(value) {
+          if (product.variant === "veMEZO") {
+            if (selectedRedemptionPositions.length === 0) {
+              return this.createError({ message: "Select at least one vault veNFT." });
+            }
+            if (selectedRedemptionTotalRaw <= 0n) {
+              return this.createError({
+                message: "Selected veNFTs have no redeemable size yet (still loading or empty).",
+              });
+            }
+            if (selectedRedemptionTotalRaw > product.userAvailableBalanceRaw) {
+              return this.createError({
+                message: `Selected inventory (${formatAmount(selectedRedemptionTotalRaw, product.decimals, product.symbol)}) exceeds your redeemable balance (${formatAmount(product.userAvailableBalanceRaw, product.decimals, product.symbol)}). Select fewer or smaller veNFTs.`,
+              });
+            }
+            return true;
+          }
           const parsed = value ? parseAmountRaw(value, product.decimals) : null;
-          return parsed !== null && parsed > 0n && parsed <= product.userAvailableBalanceRaw;
+          if (parsed === null || parsed <= 0n) {
+            return this.createError({ message: "Enter a valid redemption amount." });
+          }
+          if (parsed > product.userAvailableBalanceRaw) {
+            return this.createError({
+              message: `Amount exceeds your redeemable balance (${formatAmount(product.userAvailableBalanceRaw, product.decimals, product.symbol)}).`,
+            });
+          }
+          return true;
         }),
       redemptionKeys: Yup.array(Yup.string().required()).min(1, "Select at least one veNFT."),
     }),
@@ -223,6 +254,9 @@ function PositionCardContent({
                 ) : (
                   product.redeemInventory.map((position) => {
                     const selected = selectedRedemptionKeysResolved.includes(position.key);
+                    const aloneExceedsBalance =
+                      product.variant === "veMEZO" &&
+                      position.lockedAmountRaw > product.userAvailableBalanceRaw;
 
                     return (
                       <label
@@ -232,6 +266,7 @@ function PositionCardContent({
                           selected
                             ? "border-[var(--accent)]/50 bg-[rgba(196,160,106,0.08)] text-white"
                             : "border-white/10 bg-[#080c12]/60 text-white/70 hover:border-white/20",
+                          aloneExceedsBalance && "opacity-60",
                         )}
                       >
                         <input
@@ -251,6 +286,7 @@ function PositionCardContent({
                           <p className="font-medium text-white">#{position.tokenId.toString()}</p>
                           <p className="text-xs text-white/45">
                             {formatAmount(position.lockedAmountRaw, product.decimals, copy.asset)}
+                            {aloneExceedsBalance ? " · exceeds your balance" : ""}
                           </p>
                         </div>
                       </label>
@@ -258,6 +294,23 @@ function PositionCardContent({
                   })
                 )}
               </div>
+              {mezoInventoryExceedsBalance ? (
+                <p role="alert" className="text-xs text-red-200">
+                  Selected inventory exceeds your redeemable{" "}
+                  {formatAmount(
+                    product.userAvailableBalanceRaw,
+                    product.decimals,
+                    product.symbol,
+                  )}
+                  . Uncheck larger veNFTs so the selected total fits your balance
+                  {(() => {
+                    const fit = product.redeemInventory.find(
+                      (item) => item.lockedAmountRaw <= product.userAvailableBalanceRaw,
+                    );
+                    return fit ? ` (e.g. #${fit.tokenId.toString()} alone).` : ".";
+                  })()}
+                </p>
+              ) : null}
             </div>
 
             {product.variant === "veMEZO" ? (

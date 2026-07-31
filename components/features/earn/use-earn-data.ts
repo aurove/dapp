@@ -44,7 +44,16 @@ export type EarnRedeemInventory = {
   key: string;
   veNft: Address;
   tokenId: bigint;
+  /**
+   * Withdrawable free size after withdrawManaged (deposit weight + locked-managed
+   * rewards). Used for display and BTC inventory capacity.
+   */
   lockedAmountRaw: bigint;
+  /**
+   * Share-basis size for MEZO whole-NFT burn accounting (deposit weight only while
+   * managed; equals lockedAmountRaw for free locks).
+   */
+  shareAmountRaw: bigint;
   unlockTime: bigint | null;
 };
 
@@ -132,7 +141,22 @@ const totalSupplyAtBlockCache = new Map<string, Promise<bigint | null>>();
 /** Per-product static multicall layout: totalSupply, isSettlementWindowOpen, rewardReserve. */
 const PRODUCT_STATIC_READS = 3;
 const PRODUCT_POSITION_READS = 1;
-const REDEEM_INVENTORY_READS = 1;
+/** Per inventory tokenId: locked() then idToManaged(). */
+const REDEEM_INVENTORY_META_READS = 2;
+
+/** Mezo LockedManagedReward.earned(token, tokenId) — minimal surface for inventory sizing. */
+const LOCKED_MANAGED_REWARD_ABI = [
+  {
+    type: "function",
+    name: "earned",
+    stateMutability: "view",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "tokenId", type: "uint256" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+] as const satisfies Abi;
 
 function getFundingScanCache(chainId: number): FundingScanCache {
   const existing = fundingScanCacheByChain.get(chainId);
@@ -874,10 +898,17 @@ export function useEarnProductDetails(
 
   const inventoryTokenIds = useMemo(() => {
     if (!inventoryReads.data?.[0]) return [] as bigint[];
-    return parseTokenIdList(inventoryReads.data[0].result);
+    // useReadContracts with allowFailure wraps each entry; only use successful results.
+    const entry = inventoryReads.data[0];
+    if (entry && "status" in entry && entry.status === "failure") return [] as bigint[];
+    return parseTokenIdList(entry?.result);
   }, [inventoryReads.data]);
 
-  const lockContracts = useMemo(() => {
+  // Vault custodies free veNFTs via depositManaged. While deposited:
+  //   locked(tokenId).amount == 0
+  //   withdrawable size on redeem ≈ weights(tokenId, mTokenId) + lockedManagedReward.earned
+  // Free (non-deposited) locks still report via locked().
+  const inventoryMetaContracts = useMemo(() => {
     const veNftAddress = product.veNFT;
     if (!enabled || !veNftAddress || !veNftAbi || inventoryTokenIds.length === 0) {
       return [] as Array<{
@@ -889,20 +920,152 @@ export function useEarnProductDetails(
       }>;
     }
 
-    return inventoryTokenIds.map((tokenId) => ({
-      address: veNftAddress,
-      abi: veNftAbi,
-      functionName: "locked",
-      args: [tokenId],
-      chainId,
-    }));
+    return inventoryTokenIds.flatMap((tokenId) => [
+      {
+        address: veNftAddress,
+        abi: veNftAbi,
+        functionName: "locked",
+        args: [tokenId],
+        chainId,
+      },
+      {
+        address: veNftAddress,
+        abi: veNftAbi,
+        functionName: "idToManaged",
+        args: [tokenId],
+        chainId,
+      },
+    ]);
   }, [chainId, enabled, inventoryTokenIds, product.veNFT, veNftAbi]);
 
-  const lockReads = useReadContracts({
+  const inventoryMetaReads = useReadContracts({
     allowFailure: true,
-    contracts: lockContracts,
+    contracts: inventoryMetaContracts,
     query: {
-      enabled: lockContracts.length > 0,
+      enabled: inventoryMetaContracts.length > 0,
+      ...detailReadQueryOptions,
+    },
+  });
+
+  const weightTargets = useMemo(() => {
+    if (!product.veNFT || inventoryTokenIds.length === 0 || !inventoryMetaReads.data) {
+      return [] as Array<{ tokenId: bigint; managedTokenId: bigint }>;
+    }
+
+    return inventoryTokenIds.flatMap((tokenId, index) => {
+      const base = index * REDEEM_INVENTORY_META_READS;
+      const lock = parseLockedValue(inventoryMetaReads.data?.[base]?.result);
+      if (lock.amount > 0n) return [];
+      const managedTokenId = readBigint(inventoryMetaReads.data?.[base + 1]?.result);
+      if (!managedTokenId || managedTokenId === 0n) return [];
+      return [{ tokenId, managedTokenId }];
+    });
+  }, [inventoryMetaReads.data, inventoryTokenIds, product.veNFT]);
+
+  const uniqueManagedTokenIds = useMemo(() => {
+    const seen = new Set<string>();
+    const ids: bigint[] = [];
+    for (const target of weightTargets) {
+      const key = target.managedTokenId.toString();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ids.push(target.managedTokenId);
+    }
+    return ids;
+  }, [weightTargets]);
+
+  const managedRewardContracts = useMemo(() => {
+    const veNftAddress = product.veNFT;
+    if (!enabled || !veNftAddress || !veNftAbi || uniqueManagedTokenIds.length === 0) {
+      return [] as Array<{
+        address: Address;
+        abi: Abi;
+        functionName: string;
+        args?: readonly unknown[];
+        chainId: number;
+      }>;
+    }
+
+    return uniqueManagedTokenIds.map((managedTokenId) => ({
+      address: veNftAddress,
+      abi: veNftAbi,
+      functionName: "managedToLocked",
+      args: [managedTokenId],
+      chainId,
+    }));
+  }, [chainId, enabled, product.veNFT, uniqueManagedTokenIds, veNftAbi]);
+
+  const managedRewardReads = useReadContracts({
+    allowFailure: true,
+    contracts: managedRewardContracts,
+    query: {
+      enabled: managedRewardContracts.length > 0,
+      ...detailReadQueryOptions,
+    },
+  });
+
+  const lockedRewardByManagedId = useMemo(() => {
+    const map = new Map<string, Address>();
+    uniqueManagedTokenIds.forEach((managedTokenId, index) => {
+      const address = readAddress(managedRewardReads.data?.[index]?.result);
+      if (address && !/^0x0{40}$/i.test(address)) {
+        map.set(managedTokenId.toString(), address);
+      }
+    });
+    return map;
+  }, [managedRewardReads.data, uniqueManagedTokenIds]);
+
+  const weightAndEarnedContracts = useMemo(() => {
+    const veNftAddress = product.veNFT;
+    const rewardToken = product.rewardAsset;
+    if (!enabled || !veNftAddress || !veNftAbi || weightTargets.length === 0) {
+      return [] as Array<{
+        address: Address;
+        abi: Abi;
+        functionName: string;
+        args?: readonly unknown[];
+        chainId: number;
+      }>;
+    }
+
+    return weightTargets.flatMap(({ tokenId, managedTokenId }) => {
+      const weightCall = {
+        address: veNftAddress,
+        abi: veNftAbi,
+        functionName: "weights",
+        args: [tokenId, managedTokenId],
+        chainId,
+      };
+      const rewardContract = lockedRewardByManagedId.get(managedTokenId.toString());
+      if (!rewardContract || !rewardToken) {
+        return [weightCall];
+      }
+      return [
+        weightCall,
+        {
+          address: rewardContract,
+          abi: LOCKED_MANAGED_REWARD_ABI as Abi,
+          functionName: "earned",
+          args: [rewardToken, tokenId],
+          chainId,
+        },
+      ];
+    });
+  }, [
+    chainId,
+    enabled,
+    lockedRewardByManagedId,
+    product.rewardAsset,
+    product.veNFT,
+    veNftAbi,
+    weightTargets,
+  ]);
+
+  const weightAndEarnedReads = useReadContracts({
+    allowFailure: true,
+    contracts: weightAndEarnedContracts,
+    query: {
+      enabled: weightAndEarnedContracts.length > 0,
       ...detailReadQueryOptions,
     },
   });
@@ -910,24 +1073,68 @@ export function useEarnProductDetails(
   const redeemInventory = useMemo<EarnRedeemInventory[]>(() => {
     if (!product.veNFT || inventoryTokenIds.length === 0) return [];
 
+    // weightAndEarnedContracts is ordered as [weights, earned?] per weightTarget.
+    const managedSizeByTokenId = new Map<string, { weight: bigint; withdrawable: bigint }>();
+    let cursor = 0;
+    for (const target of weightTargets) {
+      const weight = readBigint(weightAndEarnedReads.data?.[cursor]?.result) ?? 0n;
+      cursor += 1;
+      const rewardContract = lockedRewardByManagedId.get(target.managedTokenId.toString());
+      let earned = 0n;
+      if (rewardContract && product.rewardAsset) {
+        earned = readBigint(weightAndEarnedReads.data?.[cursor]?.result) ?? 0n;
+        cursor += 1;
+      }
+      if (earned < 0n) earned = 0n;
+      const withdrawable = weight + earned;
+      if (withdrawable > 0n || weight > 0n) {
+        managedSizeByTokenId.set(target.tokenId.toString(), { weight, withdrawable });
+      }
+    }
+
     const positions: EarnRedeemInventory[] = [];
 
     for (let index = 0; index < inventoryTokenIds.length; index += 1) {
       const tokenId = inventoryTokenIds[index]!;
-      const lock = parseLockedValue(lockReads.data?.[index * REDEEM_INVENTORY_READS]?.result);
-      if (lock.amount <= 0n) continue;
+      const base = index * REDEEM_INVENTORY_META_READS;
+      const lock = parseLockedValue(inventoryMetaReads.data?.[base]?.result);
+      let lockedAmountRaw = lock.amount;
+      let shareAmountRaw = lock.amount;
+      let unlockTime = lock.end;
+
+      if (lockedAmountRaw <= 0n) {
+        const managed = managedSizeByTokenId.get(tokenId.toString());
+        // Display / capacity: free size after withdrawManaged (weight + locked rewards).
+        lockedAmountRaw = managed?.withdrawable ?? 0n;
+        // MEZO share burn: deposit weight only (shares were minted on deposit weight).
+        shareAmountRaw = managed?.weight ?? 0n;
+        unlockTime = null;
+      }
+
+      if (lockedAmountRaw <= 0n && shareAmountRaw <= 0n) continue;
+      if (shareAmountRaw <= 0n) shareAmountRaw = lockedAmountRaw;
+      if (lockedAmountRaw <= 0n) lockedAmountRaw = shareAmountRaw;
 
       positions.push({
         key: `${product.veNFT}-${tokenId.toString()}`,
         veNft: product.veNFT,
         tokenId,
-        lockedAmountRaw: lock.amount,
-        unlockTime: lock.end,
+        lockedAmountRaw,
+        shareAmountRaw,
+        unlockTime,
       });
     }
 
     return positions;
-  }, [inventoryTokenIds, lockReads.data, product.veNFT]);
+  }, [
+    inventoryMetaReads.data,
+    inventoryTokenIds,
+    lockedRewardByManagedId,
+    product.rewardAsset,
+    product.veNFT,
+    weightAndEarnedReads.data,
+    weightTargets,
+  ]);
 
   const hydratedProduct = useMemo<EarnProduct>(() => {
     const baseProduct =
@@ -951,23 +1158,34 @@ export function useEarnProductDetails(
   function refresh() {
     snapshot.refresh();
     void inventoryReads.refetch();
-    void lockReads.refetch();
+    void inventoryMetaReads.refetch();
+    void managedRewardReads.refetch();
+    void weightAndEarnedReads.refetch();
     void queryClient.invalidateQueries({ queryKey: [EARN_APY_QUERY_PREFIX] });
   }
 
   return {
     product: hydratedProduct,
     isLoading:
-      snapshot.isLoading || inventoryReads.isLoading || lockReads.isLoading || apyQuery.isLoading,
+      snapshot.isLoading ||
+      inventoryReads.isLoading ||
+      inventoryMetaReads.isLoading ||
+      managedRewardReads.isLoading ||
+      weightAndEarnedReads.isLoading ||
+      apyQuery.isLoading,
     isFetching:
       snapshot.isFetching ||
       inventoryReads.isFetching ||
-      lockReads.isFetching ||
+      inventoryMetaReads.isFetching ||
+      managedRewardReads.isFetching ||
+      weightAndEarnedReads.isFetching ||
       apyQuery.isFetching,
     error:
       snapshot.error ||
       (inventoryReads.error as Error | null) ||
-      (lockReads.error as Error | null) ||
+      (inventoryMetaReads.error as Error | null) ||
+      (managedRewardReads.error as Error | null) ||
+      (weightAndEarnedReads.error as Error | null) ||
       (apyQuery.error as Error | null) ||
       null,
     refresh,

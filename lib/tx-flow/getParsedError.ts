@@ -179,6 +179,10 @@ function formatKnownCustomError(errorName: string, args: readonly unknown[]): st
       return "That action cannot be used for this tranche.";
     case "InsufficientRedeemInventory":
       return "The tranche vault does not have enough inventory to satisfy this redeem.";
+    case "SplitNotAllowed":
+      return "BTC exact-amount redeem must split vault inventory (inventory free size is often larger than share weight after locked rewards). Mezo veBTC has not allowed the vault to split — on localhost re-run seed, or call toggleSplit(vault, true) as the veBTC team.";
+    case "AlreadyVotedOrDeposited":
+      return "That veNFT was deposited or voted in the current epoch, so Mezo blocks withdraw/redeem until the next epoch.";
     case "LockedVaultAlreadySet":
       return "The locked vault has already been configured.";
     case "RewardFeeTooHigh":
