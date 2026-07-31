@@ -9,7 +9,7 @@ const contracts = {
   31337: {
     AuroveZapRouter: {
       address: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
-      deploymentBlock: 10314248,
+      deploymentBlock: 10781326,
       abi: [
         {
           inputs: [
@@ -1522,13 +1522,13 @@ const contracts = {
     },
     "avBTCm-avMEZOm": {
       address: "0x67369b60B97fCf5AA7F646215115356Aca2484e9",
-      deploymentBlock: 10314252,
+      deploymentBlock: 10781330,
       linkedData: {
         contractName: "CLPool",
         tokenA: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tokenB: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
         tickSpacing: 200,
-        sqrtPriceX96: "205244590734286990044841425684215",
+        sqrtPriceX96: "210668129674128780671750515257759",
       },
       abi: [
         {
@@ -5412,7 +5412,7 @@ const contracts = {
     },
     Id20Factory: {
       address: "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
-      deploymentBlock: 10314247,
+      deploymentBlock: 10781325,
       abi: [
         {
           inputs: [{ internalType: "contract ILedger", name: "assetLedger_", type: "address" }],
@@ -5483,7 +5483,7 @@ const contracts = {
     },
     Ledger: {
       address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-      deploymentBlock: 10314239,
+      deploymentBlock: 10781317,
       linkedData: {
         contractName: "Ledger",
         proxyKind: "uups",
@@ -5496,7 +5496,7 @@ const contracts = {
         },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x8e279050e4ce3562644f75080e717a815f9d4ecd4fbe9b34beb3cf76a5a20fcc",
+          transactionHash: "0xcca2136d9337af63fc9ed99e7e8412c94e1fc29c2a56d35fdbb547aac6ebeeaa",
         },
       },
       abi: [
@@ -6215,13 +6215,13 @@ const contracts = {
     },
     "MUSD-avBTCm": {
       address: "0x28885d38F8fD0c79BE0640974A60EB9510E81482",
-      deploymentBlock: 10314251,
+      deploymentBlock: 10781329,
       linkedData: {
         contractName: "CLPool",
         tokenA: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
         tokenB: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tickSpacing: 200,
-        sqrtPriceX96: "20147354737882222418903391268084",
+        sqrtPriceX96: "20218584973241512439307814553544",
       },
       abi: [
         {
@@ -7311,14 +7311,14 @@ const contracts = {
     },
     Vault: {
       address: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
-      deploymentBlock: 10314245,
+      deploymentBlock: 10781323,
       linkedData: {
         contractName: "Vault",
         proxyKind: "uups",
         initializer: { name: "initialize", args: ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"] },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x54adba90a3cbb0c11a5ec0584d68553120e6b10ff4d72ec17d34e8cb1e53c2d3",
+          transactionHash: "0x1f71b1f8e781ede4c4c1ccfd2bd0f852dface755239c7a9582fc7bbb30221b75",
         },
       },
       abi: [
@@ -15677,10 +15677,7 @@ const contracts = {
             "https://api.aurove.xyz/tranches/{id}.json",
           ],
         },
-        lastOperation: {
-          action: "upgraded",
-          transactionHash: "0xe1db08dc39f60ab1151116e68f93d3c50120562941c271baecb046b8b5f6b35f",
-        },
+        lastOperation: { action: "unchanged" },
       },
       abi: [
         {
@@ -17499,10 +17496,7 @@ const contracts = {
         contractName: "Vault",
         proxyKind: "uups",
         initializer: { name: "initialize", args: ["0x6E1126EA838DA392A55D8DdeD9bADEccA5835114"] },
-        lastOperation: {
-          action: "upgraded",
-          transactionHash: "0xe457c90398a8514cc4094cf06569ebf2418ba6a4eca0aa61e3574a4c8dda0706",
-        },
+        lastOperation: { action: "unchanged" },
       },
       abi: [
         {

@@ -50,13 +50,73 @@ export function getSwapAssets(chainId: number): SwapAsset[] {
   }));
 }
 
-function allCanonicalTranches() {
-  return (["veBTC", "veMEZO"] as const).flatMap((variant) =>
-    Array.from({ length: MAX_EPOCHS_BY_VARIANT[variant] }, (_, index) => {
-      const epochs = index + 1;
-      return { variant, variantId: variant === "veBTC" ? 1 : 2, epochs, trancheId: deriveTrancheId(variant, epochs) };
-    }),
+type ManagedWrapper = {
+  variant: CanonicalAssetVariant;
+  variantId: number;
+  epochs: number;
+  trancheId: bigint;
+  address: Address;
+};
+
+const MANAGED_ID20_CONTRACTS = [
+  { variant: "veBTC" as const, contractName: "avBTCmId20" as const },
+  { variant: "veMEZO" as const, contractName: "avMEZOmId20" as const },
+] as const;
+
+function managedTrancheDefinitions() {
+  return (["veBTC", "veMEZO"] as const).map((variant) => {
+    const epochs = MAX_EPOCHS_BY_VARIANT[variant];
+    return {
+      variant,
+      variantId: variant === "veBTC" ? 1 : 2,
+      epochs,
+      trancheId: deriveTrancheId(variant, epochs),
+    };
+  });
+}
+
+function knownManagedWrappers(chainId: number): ManagedWrapper[] {
+  return MANAGED_ID20_CONTRACTS.flatMap(({ variant, contractName }) => {
+    const contract = getContractConfig(chainId, contractName);
+    if (!contract?.address || contract.address.toLowerCase() === zeroAddress) return [];
+    const epochs = MAX_EPOCHS_BY_VARIANT[variant];
+    return [{
+      variant,
+      variantId: variant === "veBTC" ? 1 : 2,
+      epochs,
+      trancheId: deriveTrancheId(variant, epochs),
+      address: contract.address,
+    }];
+  });
+}
+
+function mergeManagedWrappers(primary: ManagedWrapper[], fallback: ManagedWrapper[]): ManagedWrapper[] {
+  const byTranche = new Map<string, ManagedWrapper>();
+  for (const wrapper of [...fallback, ...primary]) {
+    if (!wrapper.address || wrapper.address.toLowerCase() === zeroAddress) continue;
+    byTranche.set(wrapper.trancheId.toString(), wrapper);
+  }
+  return [...byTranche.values()];
+}
+
+function resolveManagedWrapperAddress(
+  registry: SwapRegistry,
+  variant: CanonicalAssetVariant,
+): { address: Address; trancheId: bigint; epochs: number; variantId: number } | null {
+  const epochs = MAX_EPOCHS_BY_VARIANT[variant];
+  const variantId = variant === "veBTC" ? 1 : 2;
+  const trancheId = deriveTrancheId(variant, epochs);
+  const fromAssets = registry.assets.find(
+    (asset) => asset.form === "id20" && asset.trancheId === trancheId && Boolean(asset.address),
   );
+  if (fromAssets?.address) {
+    return { address: fromAssets.address, trancheId, epochs, variantId };
+  }
+
+  const contractName = variant === "veBTC" ? "avBTCmId20" : "avMEZOmId20";
+  const contract = getContractConfig(registry.chainId, contractName);
+  if (!contract?.address || contract.address.toLowerCase() === zeroAddress) return null;
+  return { address: contract.address, trancheId, epochs, variantId };
 }
 
 export async function loadSwapRegistry(client: PublicClient, chainId: number): Promise<SwapRegistry> {
@@ -92,15 +152,26 @@ export async function loadSwapRegistry(client: PublicClient, chainId: number): P
   });
   const portfolio = getPortfolioRegistry(chainId);
   const configuredAssets = getSwapAssets(chainId);
-  const trancheDefinitions = allCanonicalTranches();
+  // Managed products only (max epochs). Avoid scanning every week tranche (4 + 208) —
+  // a partial/failed multicall previously could omit avMEZOm and hide all veMEZO sells.
+  const trancheDefinitions = managedTrancheDefinitions();
   const wrapperResults = await client.multicall({ allowFailure: true, contracts: trancheDefinitions.map((tranche) => ({
     address: id20Factory.address!, abi: id20Factory.abi, functionName: "getId20", args: [tranche.trancheId],
   })) }) as ReadResult[];
-  const deployedWrappers = trancheDefinitions.flatMap((tranche, index) => {
+  const factoryWrappers = trancheDefinitions.flatMap((tranche, index) => {
     const result = wrapperResults[index];
     const address = result?.status === "success" && typeof result.result === "string" ? result.result as Address : zeroAddress;
     return address.toLowerCase() === zeroAddress ? [] : [{ ...tranche, address }];
   });
+  const portfolioWrappers: ManagedWrapper[] = (portfolio?.id20s ?? []).flatMap((item) => {
+    const match = trancheDefinitions.find((tranche) => tranche.trancheId === item.trancheId);
+    if (!match || !item.address || item.address.toLowerCase() === zeroAddress) return [];
+    return [{ ...match, address: item.address }];
+  });
+  const deployedWrappers = mergeManagedWrappers(factoryWrappers, [
+    ...knownManagedWrappers(chainId),
+    ...portfolioWrappers,
+  ]);
   const wrapperAssets: SwapAsset[] = deployedWrappers.map((wrapper) => ({
     id: `id20:${wrapper.address.toLowerCase()}`, chainId, address: wrapper.address, executableAddress: wrapper.address,
     symbol: symbolOf(wrapper.variant, wrapper.epochs), name: nameOf(wrapper.variant, wrapper.epochs), decimals: 18,
@@ -173,10 +244,7 @@ export function withWalletVeNfts(registry: SwapRegistry | undefined, wallet: Wal
   const veNftAssets = Object.entries(wallet.veCollections).flatMap(([key, collection]) => {
     if (key !== "veBTC" && key !== "veMEZO") return [];
     const variant = key as CanonicalAssetVariant;
-    const variantId = variant === "veBTC" ? 1 : 2;
-    const epochs = MAX_EPOCHS_BY_VARIANT[variant];
-    const trancheId = deriveTrancheId(variant, epochs);
-    const wrapper = marketAssets.find((asset) => asset.form === "id20" && asset.trancheId === trancheId);
+    const wrapper = resolveManagedWrapperAddress(registry, variant);
     if (!wrapper) return [];
     return collection.tokenIds.flatMap((tokenId): SwapAsset[] => {
       const position = collection.positions[tokenId.toString()];
@@ -192,9 +260,9 @@ export function withWalletVeNfts(registry: SwapRegistry | undefined, wallet: Wal
         form: "venft",
         balanceDomain: "wallet",
         balanceKey: `${key}:${tokenId}`,
-        trancheId,
-        variant: variantId,
-        epochs: BigInt(epochs),
+        trancheId: wrapper.trancheId,
+        variant: wrapper.variantId,
+        epochs: BigInt(wrapper.epochs),
         wrapperAddress: wrapper.address,
         tokenId,
         fixedInputAmount: position.lockAmountRaw,

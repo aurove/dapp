@@ -9,12 +9,14 @@ const successBigint = (result: Result | undefined) => result?.status === "succes
 const failure = (key: string, address: Address, fn: string, result: Result | undefined): PortfolioReadFailure => ({ key, contract: address, functionName: fn, reason: result?.status === "failure" ? reason(result.error) : "Malformed contract result" });
 function decodeLockedBalance(value: unknown): { amount: bigint; end: bigint; isPermanent: boolean } | null {
   if (Array.isArray(value) && typeof value[0] === "bigint" && typeof value[1] === "bigint") {
-    return { amount: value[0], end: value[1], isPermanent: Boolean(value[2]) };
+    const amount = value[0] < 0n ? -value[0] : value[0];
+    return { amount, end: value[1], isPermanent: Boolean(value[2]) };
   }
   if (value && typeof value === "object") {
     const locked = value as { amount?: unknown; end?: unknown; isPermanent?: unknown };
     if (typeof locked.amount === "bigint" && typeof locked.end === "bigint") {
-      return { amount: locked.amount, end: locked.end, isPermanent: Boolean(locked.isPermanent) };
+      const amount = locked.amount < 0n ? -locked.amount : locked.amount;
+      return { amount, end: locked.end, isPermanent: Boolean(locked.isPermanent) };
     }
   }
   return null;

@@ -5,7 +5,8 @@ import { getContractConfig } from "@/contracts/shared";
 import type { SwapAsset, SwapPool, SwapRegistry } from "../domain";
 import { getSwapPoolAbi, getSwapRoutingConfig } from "./swap-registry";
 
-const CACHE_VERSION = 3;
+// v4: managed ID20 discovery no longer depends on scanning all week tranches.
+const CACHE_VERSION = 4;
 const CACHE_PREFIX = "aurove:swap-markets";
 
 type CachedAsset = Omit<SwapAsset, "trancheId" | "epochs" | "tokenId" | "fixedInputAmount"> & {
