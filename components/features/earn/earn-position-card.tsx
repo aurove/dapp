@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
-import { formatUnits, type Address } from "viem";
+import { formatUnits, type Abi, type Address } from "viem";
 import { useFormik } from "formik";
 import * as Yup from "yup";
+import { useAccount, useChainId } from "wagmi";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
+import { getEarnProtocolConfig } from "@/contracts/earn";
+import {
+  makeId20GaugeClaimStep,
+  useId20GaugePositions,
+} from "@/components/features/id20/use-id20-gauges";
 import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
-import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
+import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import {
   type EarnApyBasisMap,
@@ -74,11 +80,18 @@ function PositionCardContent({
   onError: (message: string) => void;
 }) {
   const transactionRef = useRef<TransactionFlowButtonHandle>(null);
+  const unwrapTransactionRef = useRef<TransactionFlowButtonHandle>(null);
+  const chainId = useChainId();
+  const earnContracts = useMemo(() => getEarnProtocolConfig(chainId), [chainId]);
+  const id20Abi = (
+    product.variant === "veBTC" ? earnContracts.auroveId20 : earnContracts.mezoAuroveId20
+  )?.abi as Abi | undefined;
   const copy = variantCopy(product.variant);
   const apyEstimate = estimateTrancheApy(product);
   const parsedWithdraw = parseAmountRaw(withdrawAmount, product.decimals);
   const isSettlementWindowOpen = resolveSettlementWindowOpen(product, chainTimestamp);
   const isExpired = isTrancheExpired(product, chainTimestamp);
+  const [unwrapAmount, setUnwrapAmount] = useState("");
   const [selectedRedemptionKeys, setSelectedRedemptionKeys] = useState<string[]>([]);
   const selectedRedemptionKeysResolved = useMemo(() => {
     const availableKeys = new Set(product.redeemInventory.map((position) => position.key));
@@ -198,6 +211,10 @@ function PositionCardContent({
             label="Total Balance"
             value={formatAmount(product.userBalanceRaw, product.decimals, product.symbol)}
           />
+          <InfoTile
+            label="ID20 Balance"
+            value={formatAmount(product.id20BalanceRaw, product.decimals, product.symbol)}
+          />
           <InfoTile label="Tranche APY" value={formatApyPercent(apyEstimate?.apyPercent)} />
           <InfoTile
             label="Rewards Deposited"
@@ -208,6 +225,18 @@ function PositionCardContent({
             )}
           />
         </div>
+
+        {product.id20Address && id20Abi ? (
+          <Id20ExitPanel
+            product={product}
+            id20Abi={id20Abi}
+            unwrapAmount={unwrapAmount}
+            setUnwrapAmount={setUnwrapAmount}
+            transactionRef={unwrapTransactionRef}
+            onSuccess={onSuccess}
+            onError={onError}
+          />
+        ) : null}
 
         <details className="group rounded-xl border border-white/10 bg-white/[0.025] p-3">
           <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
@@ -424,6 +453,183 @@ function PositionCardShell({ product }: { product: EarnProduct }) {
         <Skeleton className="h-32 rounded-xl" />
       </CardContent>
     </Card>
+  );
+}
+
+function Id20ExitPanel({
+  product,
+  id20Abi,
+  unwrapAmount,
+  setUnwrapAmount,
+  transactionRef,
+  onSuccess,
+  onError,
+}: {
+  product: EarnProduct;
+  id20Abi: Abi;
+  unwrapAmount: string;
+  setUnwrapAmount: (value: string) => void;
+  transactionRef: React.RefObject<TransactionFlowButtonHandle | null>;
+  onSuccess: (message: string) => void;
+  onError: (message: string) => void;
+}) {
+  const chainId = useChainId();
+  const { address } = useAccount();
+  const id20Address = product.id20Address;
+  const gauges = useId20GaugePositions(chainId, address);
+  const gaugePosition = useMemo(
+    () =>
+      gauges.positions.find(
+        (position) =>
+          product.id20Address !== null &&
+          position.id20Address.toLowerCase() === product.id20Address.toLowerCase(),
+      ) ?? null,
+    [gauges.positions, product.id20Address],
+  );
+  const gaugeClaimableRaw = gaugePosition?.claimableRaw ?? 0n;
+  const parsedUnwrap = parseAmountRaw(unwrapAmount, product.decimals);
+  const canUnwrap =
+    Boolean(id20Address) &&
+    parsedUnwrap !== null &&
+    parsedUnwrap > 0n &&
+    parsedUnwrap <= product.id20BalanceRaw;
+
+  const formik = useFormik({
+    initialValues: { amount: unwrapAmount },
+    enableReinitialize: true,
+    validationSchema: Yup.object({
+      amount: Yup.string()
+        .required("Enter an amount.")
+        .test("valid-unwrap", function validateUnwrap(value) {
+          const parsed = value ? parseAmountRaw(value, product.decimals) : null;
+          if (parsed === null || parsed <= 0n) {
+            return this.createError({ message: "Enter a valid unwrap amount." });
+          }
+          if (parsed > product.id20BalanceRaw) {
+            return this.createError({
+              message: `Amount exceeds your ID20 balance (${formatAmount(product.id20BalanceRaw, product.decimals, product.symbol)}).`,
+            });
+          }
+          return true;
+        }),
+    }),
+    onSubmit: async () => transactionRef.current?.run(),
+  });
+
+  if (!id20Address) return null;
+
+  return (
+    <details className="group rounded-xl border border-white/10 bg-white/[0.025] p-3">
+      <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-white">Exit ID20 to tranche</p>
+            <p className="text-xs text-white/45">
+              Unwrap liquid {product.symbol} ID20 back to ERC-1155 tranche units (1:1).
+            </p>
+          </div>
+          <span
+            aria-hidden="true"
+            className="text-white/45 transition group-open:rotate-45 group-open:text-white"
+          >
+            +
+          </span>
+        </div>
+      </summary>
+
+      <form onSubmit={formik.handleSubmit} noValidate className="space-y-3 pt-3">
+        <div className="flex items-center justify-between gap-3 text-xs text-white/45">
+          <span>ID20 balance</span>
+          <span className="tabular-nums text-white/70">
+            {formatAmount(product.id20BalanceRaw, product.decimals, product.symbol)}
+          </span>
+        </div>
+        {gaugeClaimableRaw > 0n ? (
+          <p className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+            Unclaimed ID20 gauge rewards (
+            {formatAmount(gaugeClaimableRaw, product.decimals, product.symbol)}) will be claimed
+            before unwrap so they are not left stranded after exit.
+          </p>
+        ) : null}
+        <div className="flex gap-2">
+          <Input
+            id={`unwrap-amount-${product.id}`}
+            name="amount"
+            inputMode="decimal"
+            placeholder="0.00"
+            value={unwrapAmount}
+            onBlur={formik.handleBlur}
+            onChange={(event) => {
+              setUnwrapAmount(event.target.value);
+              void formik.setFieldValue("amount", event.target.value);
+            }}
+            disabled={product.id20BalanceRaw <= 0n}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              const max = formatUnits(product.id20BalanceRaw, product.decimals);
+              setUnwrapAmount(max);
+              void formik.setFieldValue("amount", max);
+            }}
+            disabled={product.id20BalanceRaw <= 0n}
+          >
+            Max
+          </Button>
+        </div>
+        {formik.touched.amount && formik.errors.amount ? (
+          <p role="alert" className="text-xs text-red-200">
+            {formik.errors.amount}
+          </p>
+        ) : null}
+        <TransactionFlowButton
+          ref={transactionRef}
+          type="submit"
+          className="w-full"
+          variant="secondary"
+          disabled={!canUnwrap}
+          steps={({ account }) => {
+            if (!id20Address || !parsedUnwrap || parsedUnwrap <= 0n) return [];
+            const steps: TxStep[] = [];
+            // Claim gauge rewards first when present so exit does not leave unclaimed rewards behind.
+            if (gaugePosition && gaugePosition.isActive && gaugePosition.claimableRaw > 0n) {
+              steps.push(makeId20GaugeClaimStep(gaugePosition, account, true) as unknown as TxStep);
+            }
+            steps.push(
+              makeAddressWriteStep({
+                key: "unwrap-id20",
+                label: "Exit to tranche",
+                displayLabelBtn: true,
+                address: id20Address,
+                abi: id20Abi,
+                variables: {
+                  functionName: "unwrap",
+                  args: [parsedUnwrap, account],
+                },
+              }) as unknown as TxStep,
+            );
+            return steps;
+          }}
+          onComplete={() => {
+            setUnwrapAmount("");
+            void formik.setFieldValue("amount", "");
+            onSuccess(
+              gaugeClaimableRaw > 0n
+                ? `${product.symbol} gauge rewards claimed and ID20 unwrapped to ERC-1155 tranche.`
+                : `${product.symbol} unwrapped to ERC-1155 tranche.`,
+            );
+          }}
+          onError={txError(onError)}
+        >
+          {product.id20BalanceRaw <= 0n
+            ? "No ID20 balance"
+            : gaugeClaimableRaw > 0n
+              ? "Claim rewards & exit"
+              : "Exit to tranche"}
+        </TransactionFlowButton>
+      </form>
+    </details>
   );
 }
 

@@ -20,7 +20,7 @@ import {
   sameAddress,
 } from "@/lib/web3/value-parsers";
 import { findLatestEventLogByChunks, type CachedEventLog } from "@/lib/web3/event-cache";
-import { useRewardsPortfolio, useTranchePortfolio } from "@/features/portfolio";
+import { useId20Portfolio, useRewardsPortfolio, useTranchePortfolio } from "@/features/portfolio";
 import {
   MAX_EPOCHS_BY_VARIANT,
   deriveTrancheId,
@@ -82,6 +82,10 @@ export type EarnProduct = {
   rewardSinkAddress: Address | null;
   isSettlementWindowOpen: boolean;
   redeemInventory: EarnRedeemInventory[];
+  /** Liquid ID20 wrapper for this managed product (avBTCm / avMEZOm), if deployed. */
+  id20Address: Address | null;
+  /** Wallet ERC-20 balance of the ID20 wrapper. */
+  id20BalanceRaw: bigint;
 };
 
 export type EarnApyBasisMap = Record<
@@ -201,6 +205,8 @@ function emptyProductCore(core: ManagedTrancheCore, userBalanceRaw = 0n): EarnPr
     rewardSinkAddress: null,
     isSettlementWindowOpen: false,
     redeemInventory: [],
+    id20Address: null,
+    id20BalanceRaw: 0n,
   };
 }
 
@@ -419,6 +425,7 @@ export function useEarnSnapshot() {
   const veMezo = earnContracts.veMezo;
   const tranchePortfolio = useTranchePortfolio();
   const rewardsPortfolio = useRewardsPortfolio();
+  const id20Portfolio = useId20Portfolio();
 
   const supportedVeNfts = useMemo(
     () =>
@@ -733,6 +740,14 @@ export function useEarnSnapshot() {
       const rewardMeta = rewardAsset
         ? rewardTokenMeta.metadataByAddress[rewardAsset.toLowerCase()]
         : undefined;
+      const id20Key = product.variant === "veBTC" ? "avBTCm" : "avMEZOm";
+      const id20Balance = id20Portfolio.data?.balances[id20Key];
+      const id20Address =
+        id20Balance?.address ??
+        (product.variant === "veBTC"
+          ? earnContracts.auroveId20?.address
+          : earnContracts.mezoAuroveId20?.address) ??
+        null;
 
       return {
         ...product,
@@ -748,10 +763,15 @@ export function useEarnSnapshot() {
         userAvailableBalanceRaw,
         userBalanceRaw,
         redeemInventory: [],
+        id20Address: id20Address ?? null,
+        id20BalanceRaw: id20Balance?.rawBalance ?? 0n,
       };
     });
   }, [
     baseProducts,
+    earnContracts.auroveId20?.address,
+    earnContracts.mezoAuroveId20?.address,
+    id20Portfolio.data,
     productAccountReads.data,
     productStaticReads.data,
     rewardSinkAddresses,
@@ -766,7 +786,9 @@ export function useEarnSnapshot() {
     return {
       products,
       liveProductCount: products.length,
-      userPositions: products.filter((product) => product.userBalanceRaw > 0n),
+      userPositions: products.filter(
+        (product) => product.userBalanceRaw > 0n || product.id20BalanceRaw > 0n,
+      ),
       tokens,
       supportedVeNfts,
     };
@@ -779,9 +801,12 @@ export function useEarnSnapshot() {
     rewardTokenMeta.isLoading ||
     veBtcTokenBalance.isChecking ||
     veMezoTokenBalance.isChecking;
-  const portfolioLoading = tranchePortfolio.isLoading || rewardsPortfolio.isLoading;
-  const positionsLoading = protocolReads.isLoading || tranchePortfolio.isLoading;
-  const positionsFetching = protocolReads.isFetching || tranchePortfolio.isFetching;
+  const portfolioLoading =
+    tranchePortfolio.isLoading || rewardsPortfolio.isLoading || id20Portfolio.isLoading;
+  const positionsLoading =
+    protocolReads.isLoading || tranchePortfolio.isLoading || id20Portfolio.isLoading;
+  const positionsFetching =
+    protocolReads.isFetching || tranchePortfolio.isFetching || id20Portfolio.isFetching;
 
   const isFetching =
     protocolReads.isFetching ||
@@ -791,7 +816,8 @@ export function useEarnSnapshot() {
     veBtcTokenBalance.isChecking ||
     veMezoTokenBalance.isChecking ||
     tranchePortfolio.isFetching ||
-    rewardsPortfolio.isFetching;
+    rewardsPortfolio.isFetching ||
+    id20Portfolio.isFetching;
 
   const error =
     (protocolReads.error as Error | null) ||
@@ -802,6 +828,7 @@ export function useEarnSnapshot() {
     (veMezoTokenBalance.error as Error | null) ||
     (tranchePortfolio.error as Error | null) ||
     (rewardsPortfolio.error as Error | null) ||
+    (id20Portfolio.error as Error | null) ||
     null;
 
   function refresh() {
@@ -814,6 +841,7 @@ export function useEarnSnapshot() {
       veMezoTokenBalance.refresh(),
       tranchePortfolio.refetch(),
       rewardsPortfolio.refetch(),
+      id20Portfolio.refetch(),
     ]);
     void queryClient.invalidateQueries({ queryKey: [EARN_APY_QUERY_PREFIX] });
   }
