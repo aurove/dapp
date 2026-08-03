@@ -1,20 +1,22 @@
 import "server-only";
 
 import {
-  erc20Abi,
   getAddress,
   type Abi,
   type Address,
   type PublicClient,
   parseAbiItem,
 } from "viem";
+import { sql } from "drizzle-orm";
 
 import { getEarnProtocolAddresses } from "@/contracts/earn";
 import { getContractConfig, getContractsByChainId } from "@/contracts/shared";
-import { deriveTrancheId } from "@/components/features/earn/utils/tranche";
-import { getKnownMezoTokenConfig } from "@/components/shared/known-mezo-tokens";
+import {
+  deriveTrancheId,
+  MAX_EPOCHS_BY_VARIANT,
+  type CanonicalAssetVariant,
+} from "@/components/features/earn/utils/tranche";
 import { getAuroveSupportedPools } from "@/lib/config/supported-liquidity-pools";
-import { getKnownMusdConfig } from "@/lib/config/musd";
 import { getMarketChainId } from "@/lib/market/config";
 import { fetchHermesLatestPrices } from "@/lib/market/pyth";
 import { getServerPublicClient } from "@/lib/web3/server-chain-time";
@@ -88,20 +90,6 @@ function isUserWallet(address: string, protocol: Set<string>): boolean {
   return address !== ZERO && !protocol.has(address);
 }
 
-function applyErc20Transfer(
-  balances: Map<string, bigint>,
-  from: string,
-  to: string,
-  value: bigint,
-) {
-  if (from !== ZERO) {
-    balances.set(from, (balances.get(from) ?? 0n) - value);
-  }
-  if (to !== ZERO) {
-    balances.set(to, (balances.get(to) ?? 0n) + value);
-  }
-}
-
 async function scanLogsInChunks(
   client: StatsClient,
   params: {
@@ -158,29 +146,16 @@ async function scanLogsInChunks(
   return logs;
 }
 
-type OnChainAudience = {
-  /** Distinct EOAs/contracts that touched Aurove ledger or id20 transfers (excl. protocol). */
-  uniqueWallets: number;
-  /** Distinct non-protocol owners with any positive ledger ERC-1155 balance. */
-  ledgerHolders: number;
-  /** Distinct non-protocol owners with any positive avBTCm / avMEZOm balance. */
-  id20Holders: number;
-};
-
 /**
- * Single on-chain pass over Ledger + managed id20 Transfer logs.
- *
- * Invariants enforced:
- * - uniqueWallets = |all user addresses seen on transfers| (historical interactors)
- * - ledgerHolders / id20Holders = current positive balances among users
- * - holders ⊆ interactors ⇒ holders ≤ uniqueWallets
+ * Distinct user addresses that touched Aurove ledger or id20 transfers
+ * (historical interactors; protocol contracts excluded).
  */
-async function scanOnChainAudience(
+async function scanUniqueWallets(
   client: StatsClient,
   chainId: number,
   fromBlock: bigint,
   toBlock: bigint,
-): Promise<OnChainAudience | null> {
+): Promise<number | null> {
   const addresses = getEarnProtocolAddresses(chainId);
   const ledger = addresses.ledgerAddress;
   const id20s = [addresses.auroveId20Address, addresses.mezoAuroveId20Address].filter(
@@ -191,8 +166,6 @@ async function scanOnChainAudience(
 
   const protocol = collectProtocolAddresses(chainId);
   const interactors = new Set<string>();
-  const ledgerBalances = new Map<string, bigint>(); // key owner:id
-  const id20Balances = new Map<string, bigint>(); // key owner (aggregated across id20s)
 
   const remember = (raw: string | undefined | null) => {
     if (typeof raw !== "string") return;
@@ -223,64 +196,13 @@ async function scanOnChainAudience(
           ]);
 
           for (const log of singles) {
-            const from = typeof log.args?.from === "string" ? log.args.from : null;
-            const to = typeof log.args?.to === "string" ? log.args.to : null;
-            const id = log.args?.id;
-            const value = log.args?.value;
-            remember(from);
-            remember(to);
-            if (
-              typeof from !== "string" ||
-              typeof to !== "string" ||
-              typeof id !== "bigint" ||
-              typeof value !== "bigint"
-            ) {
-              continue;
-            }
-            const idKey = id.toString();
-            const fromN = normalizeAddress(from) ?? from.toLowerCase();
-            const toN = normalizeAddress(to) ?? to.toLowerCase();
-            if (fromN !== ZERO) {
-              const key = `${fromN}:${idKey}`;
-              ledgerBalances.set(key, (ledgerBalances.get(key) ?? 0n) - value);
-            }
-            if (toN !== ZERO) {
-              const key = `${toN}:${idKey}`;
-              ledgerBalances.set(key, (ledgerBalances.get(key) ?? 0n) + value);
-            }
+            remember(typeof log.args?.from === "string" ? log.args.from : null);
+            remember(typeof log.args?.to === "string" ? log.args.to : null);
           }
 
           for (const log of batches) {
-            const from = typeof log.args?.from === "string" ? log.args.from : null;
-            const to = typeof log.args?.to === "string" ? log.args.to : null;
-            const ids = log.args?.ids;
-            const values = log.args?.values;
-            remember(from);
-            remember(to);
-            if (
-              typeof from !== "string" ||
-              typeof to !== "string" ||
-              !Array.isArray(ids) ||
-              !Array.isArray(values)
-            ) {
-              continue;
-            }
-            const fromN = normalizeAddress(from) ?? from.toLowerCase();
-            const toN = normalizeAddress(to) ?? to.toLowerCase();
-            for (let i = 0; i < ids.length; i += 1) {
-              const id = ids[i];
-              const value = values[i];
-              if (typeof id !== "bigint" || typeof value !== "bigint") continue;
-              const idKey = id.toString();
-              if (fromN !== ZERO) {
-                const key = `${fromN}:${idKey}`;
-                ledgerBalances.set(key, (ledgerBalances.get(key) ?? 0n) - value);
-              }
-              if (toN !== ZERO) {
-                const key = `${toN}:${idKey}`;
-                ledgerBalances.set(key, (ledgerBalances.get(key) ?? 0n) + value);
-              }
-            }
+            remember(typeof log.args?.from === "string" ? log.args.from : null);
+            remember(typeof log.args?.to === "string" ? log.args.to : null);
           }
         })(),
       );
@@ -296,188 +218,105 @@ async function scanOnChainAudience(
             toBlock,
           });
           for (const log of logs) {
-            const from = typeof log.args?.from === "string" ? log.args.from : null;
-            const to = typeof log.args?.to === "string" ? log.args.to : null;
-            const value = log.args?.value;
-            remember(from);
-            remember(to);
-            if (
-              typeof from !== "string" ||
-              typeof to !== "string" ||
-              typeof value !== "bigint"
-            ) {
-              continue;
-            }
-            const fromN = normalizeAddress(from) ?? from.toLowerCase();
-            const toN = normalizeAddress(to) ?? to.toLowerCase();
-            applyErc20Transfer(id20Balances, fromN, toN, value);
+            remember(typeof log.args?.from === "string" ? log.args.from : null);
+            remember(typeof log.args?.to === "string" ? log.args.to : null);
           }
         })(),
       );
     }
 
     await Promise.all(jobs);
-
-    // Current holders (user wallets only).
-    const ledgerOwners = new Set<string>();
-    for (const [key, value] of ledgerBalances) {
-      if (value <= 0n) continue;
-      const owner = key.split(":")[0]!;
-      if (isUserWallet(owner, protocol)) {
-        ledgerOwners.add(owner);
-        // Holders are always interactors (transfers created the balance).
-        interactors.add(owner);
-      }
-    }
-
-    const id20Owners = new Set<string>();
-    for (const [owner, value] of id20Balances) {
-      if (value <= 0n) continue;
-      if (isUserWallet(owner, protocol)) {
-        id20Owners.add(owner);
-        interactors.add(owner);
-      }
-    }
-
-    const ledgerHolders = ledgerOwners.size;
-    const id20Holders = id20Owners.size;
-    // Unique wallets = all historical interactors; must be ≥ any current holder set.
-    const uniqueWallets = Math.max(
-      interactors.size,
-      ledgerHolders,
-      id20Holders,
-      // union of current holders in case log scan missed an edge interactor entry
-      new Set([...ledgerOwners, ...id20Owners]).size,
-    );
-
-    return {
-      uniqueWallets,
-      ledgerHolders,
-      id20Holders,
-    };
+    return interactors.size;
   } catch {
     return null;
   }
 }
 
-type AmountBucket =
-  | { kind: "btc"; amount: bigint }
-  | { kind: "mezo"; amount: bigint }
-  | { kind: "musd"; amount: bigint };
+/**
+ * Total Academy points events = count of `points_ledger_entries` rows.
+ * Each row is one scored activity (swap, fees, referral, etc.).
+ */
+async function countAcademyPointsEvents(): Promise<number | null> {
+  try {
+    // Lazy import so RPC-only / misconfigured DB paths don't fail module load.
+    const { db } = await import("@/lib/db");
+    const rows = await db.execute<{ total: string | number | bigint }>(sql`
+      select count(*)::bigint as total
+      from public.points_ledger_entries
+    `);
+    const raw = rows[0]?.total;
+    if (typeof raw === "bigint") return Number(raw);
+    if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+    if (typeof raw === "string" && raw.trim().length > 0) {
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+type TrancheAssetKind = "btc" | "mezo";
 
 function human18(amount: bigint): number {
   return Number(amount) / 1e18;
 }
 
+/** Every valid ledger tranche id (veBTC 1..4, veMEZO 1..208). */
+function allLedgerTrancheSpecs(): Array<{ trancheId: bigint; kind: TrancheAssetKind }> {
+  const specs: Array<{ trancheId: bigint; kind: TrancheAssetKind }> = [];
+  const variants: Array<{ variant: CanonicalAssetVariant; kind: TrancheAssetKind }> = [
+    { variant: "veBTC", kind: "btc" },
+    { variant: "veMEZO", kind: "mezo" },
+  ];
+  for (const { variant, kind } of variants) {
+    const max = MAX_EPOCHS_BY_VARIANT[variant];
+    for (let epochs = 1; epochs <= max; epochs += 1) {
+      specs.push({ trancheId: deriveTrancheId(variant, epochs), kind });
+    }
+  }
+  return specs;
+}
+
+/**
+ * TVL = Σ (ledger.totalSupply(trancheId) × underlying USD price).
+ * veBTC tranches priced as BTC; veMEZO as MEZO. No pool or id20 supply mixing.
+ */
 async function readTvlUsd(client: StatsClient, chainId: number): Promise<number | null> {
-  const addresses = getEarnProtocolAddresses(chainId);
-  const musd = getKnownMusdConfig(chainId);
-  const btc = getKnownMezoTokenConfig(chainId, "BTC");
-  const mezo = getKnownMezoTokenConfig(chainId, "MEZO");
-  const pools = getAuroveSupportedPools(chainId);
   const ledger = getContractConfig(chainId, "Ledger");
+  if (!ledger?.address || !ledger.abi) return null;
 
-  type Call = {
-    address: Address;
-    abi: Abi;
-    functionName: string;
-    args?: readonly unknown[];
-    map: (value: bigint) => AmountBucket | null;
-  };
-
-  const calls: Call[] = [];
-
-  if (addresses.auroveId20Address) {
-    calls.push({
-      address: addresses.auroveId20Address,
-      abi: erc20Abi,
-      functionName: "totalSupply",
-      map: (amount) => ({ kind: "btc", amount }),
-    });
-  }
-  if (addresses.mezoAuroveId20Address) {
-    calls.push({
-      address: addresses.mezoAuroveId20Address,
-      abi: erc20Abi,
-      functionName: "totalSupply",
-      map: (amount) => ({ kind: "mezo", amount }),
-    });
-  }
-
-  // Ledger managed supplies only if id20 wrappers are missing (id20 is 1:1 backed by ledger).
-  if (
-    ledger?.address &&
-    ledger.abi &&
-    !addresses.auroveId20Address &&
-    !addresses.mezoAuroveId20Address
-  ) {
-    const managed = [
-      { id: deriveTrancheId("veBTC", 4), kind: "btc" as const },
-      { id: deriveTrancheId("veMEZO", 208), kind: "mezo" as const },
-    ];
-    for (const item of managed) {
-      calls.push({
-        address: ledger.address,
-        abi: ledger.abi as Abi,
-        functionName: "totalSupply",
-        args: [item.id],
-        map: (amount) => ({ kind: item.kind, amount }),
-      });
-    }
-  }
-
-  // Pool balances of base assets (not id20 wrappers) — avoids double-counting
-  // wrappers that already appear in totalSupply.
-  for (const pool of pools) {
-    const tokenSpecs: Array<{ address: Address; kind: AmountBucket["kind"] }> = [];
-    if (musd) tokenSpecs.push({ address: musd.address, kind: "musd" });
-    if (btc) tokenSpecs.push({ address: btc.address, kind: "btc" });
-    if (mezo) tokenSpecs.push({ address: mezo.address, kind: "mezo" });
-    for (const token of tokenSpecs) {
-      calls.push({
-        address: token.address,
-        abi: erc20Abi,
-        functionName: "balanceOf",
-        args: [pool.address],
-        map: (amount) => ({ kind: token.kind, amount }),
-      });
-    }
-  }
-
-  if (calls.length === 0) return null;
+  const specs = allLedgerTrancheSpecs();
+  if (specs.length === 0) return null;
 
   try {
     const results = await client.multicall({
       allowFailure: true,
-      contracts: calls.map((call) => ({
-        address: call.address,
-        abi: call.abi,
-        functionName: call.functionName,
-        args: call.args,
+      contracts: specs.map((spec) => ({
+        address: ledger.address as Address,
+        abi: ledger.abi as Abi,
+        functionName: "totalSupply",
+        args: [spec.trancheId],
       })),
     });
 
-    const prices = await fetchHermesLatestPrices().catch(() => []);
+    const prices = await fetchHermesLatestPrices(["BTC_USD", "MEZO_USD"]).catch(() => []);
     const btcUsd = prices.find((p) => p.feed === "BTC_USD")?.priceUsd ?? null;
     const mezoUsd = prices.find((p) => p.feed === "MEZO_USD")?.priceUsd ?? null;
-    const musdUsd = prices.find((p) => p.feed === "MUSD_USD")?.priceUsd ?? 1;
 
     let btcAmt = 0;
     let mezoAmt = 0;
-    let musdAmt = 0;
     let saw = false;
-    for (let i = 0; i < calls.length; i += 1) {
+    for (let i = 0; i < specs.length; i += 1) {
       const result = results[i];
       if (!result || result.status !== "success" || typeof result.result !== "bigint") continue;
       if (result.result <= 0n) continue;
-      const mapped = calls[i]!.map(result.result);
-      if (!mapped) continue;
-      const value = human18(mapped.amount);
+      const value = human18(result.result);
       if (!Number.isFinite(value) || value <= 0) continue;
       saw = true;
-      if (mapped.kind === "btc") btcAmt += value;
-      else if (mapped.kind === "mezo") mezoAmt += value;
-      else musdAmt += value;
+      if (specs[i]!.kind === "btc") btcAmt += value;
+      else mezoAmt += value;
     }
 
     if (!saw) return null;
@@ -485,7 +324,6 @@ async function readTvlUsd(client: StatsClient, chainId: number): Promise<number 
     let tvl = 0;
     if (btcUsd) tvl += btcAmt * btcUsd;
     if (mezoUsd) tvl += mezoAmt * mezoUsd;
-    if (musdUsd) tvl += musdAmt * musdUsd;
 
     return tvl > 0 ? tvl : null;
   } catch {
@@ -515,12 +353,11 @@ function earliestDeploymentBlock(chainId: number): bigint {
 /**
  * Aggregate protocol stats for the homepage.
  *
- * Audience metrics (unique wallets / holders) come from a single on-chain transfer
- * scan over Ledger + managed id20s. Unique wallets are historical interactors;
- * holders are current positive balances. Protocol contracts are excluded so
- * holders ≤ unique wallets always holds.
+ * - Unique wallets: on-chain transfer interactors (Ledger + managed id20s).
+ * - Transaction count: total Academy points ledger entries (scored events).
+ * - TVL: sum of ledger tranche totalSupply × BTC/MEZO Pyth prices.
  *
- * TVL from multicall supplies/balances × Pyth. Cached ~10 min in-process + HTTP.
+ * Cached ~10 min in-process + HTTP.
  */
 export async function fetchProtocolStatsSnapshot(): Promise<ProtocolStatsSnapshot> {
   const chainId = getMarketChainId();
@@ -533,15 +370,18 @@ export async function fetchProtocolStatsSnapshot(): Promise<ProtocolStatsSnapsho
   const notes: string[] = [];
   const client = getServerPublicClient(chainId) as StatsClient | null;
   if (!client) {
+    const transactionCount = await countAcademyPointsEvents();
     return {
       chainId,
       fetchedAt: Date.now(),
       tvlUsd: null,
       uniqueWallets: null,
-      ledgerHolders: null,
-      id20Holders: null,
-      notes: ["RPC unavailable for active chain"],
-      healthy: false,
+      transactionCount,
+      notes: [
+        "RPC unavailable for active chain",
+        ...(transactionCount == null ? ["Academy transaction count unavailable."] : []),
+      ],
+      healthy: transactionCount != null,
     };
   }
 
@@ -549,45 +389,24 @@ export async function fetchProtocolStatsSnapshot(): Promise<ProtocolStatsSnapsho
   const fromBlock = earliestDeploymentBlock(chainId);
   const toBlock = latestBlock;
 
-  const [tvlUsd, audience] = await Promise.all([
+  const [tvlUsd, uniqueWallets, transactionCount] = await Promise.all([
     readTvlUsd(client, chainId),
-    scanOnChainAudience(client, chainId, fromBlock, toBlock),
+    scanUniqueWallets(client, chainId, fromBlock, toBlock),
+    countAcademyPointsEvents(),
   ]);
 
-  const uniqueWallets = audience?.uniqueWallets ?? null;
-  const ledgerHolders = audience?.ledgerHolders ?? null;
-  const id20Holders = audience?.id20Holders ?? null;
-
-  if (audience == null) notes.push("Audience scan incomplete (ledger/id20 transfers).");
+  if (uniqueWallets == null) notes.push("Unique wallets scan incomplete (ledger/id20 transfers).");
+  if (transactionCount == null) notes.push("Academy transaction count unavailable.");
   if (tvlUsd == null) notes.push("TVL unavailable.");
-
-  // Defensive invariant for any partial scan edge cases.
-  const safeUnique =
-    uniqueWallets == null
-      ? null
-      : Math.max(uniqueWallets, ledgerHolders ?? 0, id20Holders ?? 0);
-  const safeLedger =
-    ledgerHolders == null
-      ? null
-      : safeUnique == null
-        ? ledgerHolders
-        : Math.min(ledgerHolders, safeUnique);
-  const safeId20 =
-    id20Holders == null
-      ? null
-      : safeUnique == null
-        ? id20Holders
-        : Math.min(id20Holders, safeUnique);
 
   const snapshot: ProtocolStatsSnapshot = {
     chainId,
     fetchedAt: Date.now(),
     tvlUsd,
-    uniqueWallets: safeUnique,
-    ledgerHolders: safeLedger,
-    id20Holders: safeId20,
+    uniqueWallets,
+    transactionCount,
     notes: notes.length ? notes : undefined,
-    healthy: [tvlUsd, safeUnique, safeLedger, safeId20].some((v) => v != null),
+    healthy: [tvlUsd, uniqueWallets, transactionCount].some((v) => v != null),
   };
 
   cache.set(chainId, {

@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useEffect, useMemo, useState, type ComponentType } from "react";
-import { Layers, Lock, Users, Wallet } from "lucide-react";
+import { Activity, Lock, Wallet } from "lucide-react";
 import { Skeleton } from "@ui";
 
 import { MarketErrorBoundary } from "@/components/market/market-error-boundary";
@@ -13,15 +13,14 @@ import {
 } from "@/lib/market/format";
 
 type StatDefinition = {
-  key: "tvl" | "wallets" | "ledger" | "id20";
+  key: "tvl" | "wallets" | "transactions";
   label: string;
   icon: ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
   format: (value: number | null | undefined) => string;
   select: (data: {
     tvlUsd: number | null;
     uniqueWallets: number | null;
-    ledgerHolders: number | null;
-    id20Holders: number | null;
+    transactionCount: number | null;
   } | null | undefined) => number | null;
 };
 
@@ -42,18 +41,11 @@ const STATS: readonly StatDefinition[] = [
     select: (data) => data?.uniqueWallets ?? null,
   },
   {
-    key: "ledger",
-    label: "Ledger holders",
-    icon: Layers,
+    key: "transactions",
+    label: "Transactions",
+    icon: Activity,
     format: formatCompactCount,
-    select: (data) => data?.ledgerHolders ?? null,
-  },
-  {
-    key: "id20",
-    label: "id20 holders",
-    icon: Users,
-    format: formatCompactCount,
-    select: (data) => data?.id20Holders ?? null,
+    select: (data) => data?.transactionCount ?? null,
   },
 ] as const;
 

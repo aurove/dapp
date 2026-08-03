@@ -335,7 +335,7 @@ a {
   color: rgba(232, 230, 225, 0.58);
 }
 
-/* Same gap language as .feature-grid; 4 metrics instead of 3 features. */
+/* Same gap language as .feature-grid; three protocol metrics. */
 .protocol-stats-grid {
   margin-top: 32px;
   display: grid;
@@ -356,7 +356,7 @@ a {
 
 @media (min-width: 1024px) {
   .protocol-stats-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
