@@ -12,7 +12,6 @@ import {
 } from "react";
 import { useAccount, useChainId, useSignMessage } from "wagmi";
 
-import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import {
   fetchWalletAuthSession,
   logoutWalletAuthSession,
@@ -79,7 +78,6 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   const inFlightRef = useRef(false);
-  const autoSignInAttemptedWalletKeyRef = useRef<string | null>(null);
   const suppressedWalletKeyRef = useRef<string | null>(null);
 
   const walletAddress = address ?? null;
@@ -87,10 +85,8 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
     () => (walletAddress ? normalizeWalletAddress(walletAddress) : null),
     [walletAddress],
   );
-  const expectedChain = useMemo(() => getActiveChain(resolveAppEnvironment()), []);
   const walletLabel = walletAddress ? shortenWalletAddress(walletAddress) : null;
   const walletKey = walletAddressNormalized && chainId ? `${walletAddressNormalized}:${chainId}` : null;
-  const isOnExpectedChain = chainId === expectedChain.id;
 
   const isAuthenticated =
     Boolean(user) &&
@@ -148,8 +144,6 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
       notifyWalletAuthInfo("Connect your wallet", "Connect a wallet before signing in.");
       return;
     }
-
-    autoSignInAttemptedWalletKeyRef.current = walletKey;
 
     if (!options?.force && suppressedWalletKeyRef.current === walletKey) {
       try {
@@ -210,7 +204,6 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
     try {
       await logoutWalletAuthSession();
       clearLocalAuthState();
-      autoSignInAttemptedWalletKeyRef.current = walletKey;
       suppressedWalletKeyRef.current = walletKey;
       inFlightRef.current = false;
       setIsAuthenticating(false);
@@ -229,7 +222,6 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
         clearLocalAuthState();
         inFlightRef.current = false;
         setIsAuthenticating(false);
-        autoSignInAttemptedWalletKeyRef.current = null;
         suppressedWalletKeyRef.current = null;
       });
       return;
@@ -241,33 +233,6 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
       });
     });
   }, [chainId, clearLocalAuthState, isConnected, refreshSession, walletAddress]);
-
-  useEffect(() => {
-    if (!isConnected || !walletAddress || !chainId || !isOnExpectedChain) {
-      return;
-    }
-
-    if (isAuthenticated || isAuthenticating) {
-      return;
-    }
-
-    if (walletKey && autoSignInAttemptedWalletKeyRef.current === walletKey) {
-      return;
-    }
-
-    void loginWithWallet().catch(() => {
-      // loginWithWallet already surfaces failures through notifications.
-    });
-  }, [
-    chainId,
-    isAuthenticated,
-    isAuthenticating,
-    isConnected,
-    isOnExpectedChain,
-    loginWithWallet,
-    walletKey,
-    walletAddress,
-  ]);
 
   useEffect(() => {
     if (!isConnected || !walletAddress || !chainId) {
