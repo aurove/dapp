@@ -102,16 +102,147 @@ function collectableFromFeeGrowth(params: {
   };
 }
 export async function readLiquidityPortfolio(client: PublicClient, chainId: number, owner: Address, registry: PortfolioRegistry): Promise<LiquidityPortfolio> {
-  const blockNumber = await client.getBlockNumber(); const failures: PortfolioReadFailure[] = []; const positions: LiquidityPortfolio["positions"] = {}; const manager = registry.positionManager;
+  const blockNumber = await client.getBlockNumber();
+  const failures: PortfolioReadFailure[] = [];
+  const positions: LiquidityPortfolio["positions"] = {};
+  const manager = registry.positionManager;
   if (!manager) return { meta: meta(chainId, owner, blockNumber, failures), positionIds: [], positions };
-  const countResult = await client.readContract({ address: manager.address, abi: manager.abi as Abi, functionName: "balanceOf", args: [owner], blockNumber }).catch((error: unknown) => { failures.push({ key: "position-count", contract: manager.address, functionName: "balanceOf", reason: reason(error) }); return 0n; });
+
+  const countResult = await client.readContract({
+    address: manager.address,
+    abi: manager.abi as Abi,
+    functionName: "balanceOf",
+    args: [owner],
+    blockNumber,
+  }).catch((error: unknown) => {
+    failures.push({ key: "position-count", contract: manager.address, functionName: "balanceOf", reason: reason(error) });
+    return 0n;
+  });
   const count = typeof countResult === "bigint" ? countResult : 0n;
-  const idResults = await client.multicall({ allowFailure: true, blockNumber, contracts: Array.from({ length: Number(count) }, (_, index) => ({ address: manager.address, abi: manager.abi as Abi, functionName: "tokenOfOwnerByIndex", args: [owner, BigInt(index)] })) }) as Result[];
-  const positionIds = idResults.flatMap((result, index) => { const id = successBigint(result); if (id === undefined) { failures.push(failure(`position-index-${index}`, manager.address, "tokenOfOwnerByIndex", result)); return []; } return [id]; });
-  const detailResults = await client.multicall({ allowFailure: true, blockNumber, contracts: positionIds.map((id) => ({ address: manager.address, abi: manager.abi as Abi, functionName: "positions", args: [id] })) }) as Result[];
-  const decoded = positionIds.flatMap((tokenId, index) => { const result = detailResults[index]; const values = result?.status === "success" ? tuple(result.result) : null; if (!values || values.length < 12) { failures.push(failure(tokenId.toString(), manager.address, "positions", result)); return []; } return [{ tokenId, values, token0: values[2] as Address, token1: values[3] as Address, tickSpacing: Number(values[4]) }]; });
-  const poolResults = registry.factory ? await client.multicall({ allowFailure: true, blockNumber, contracts: decoded.map((item) => ({ address: registry.factory!.address, abi: registry.factory!.abi as Abi, functionName: "getPool", args: [item.token0, item.token1, item.tickSpacing] })) }) as Result[] : [];
-  const supported = decoded.flatMap((item, index) => { const poolResult = poolResults[index]; const pool = poolResult?.status === "success" && typeof poolResult.result === "string" ? poolResult.result as Address : "0x0000000000000000000000000000000000000000" as Address; if (registry.factory && poolResult?.status !== "success") failures.push(failure(`${item.tokenId}-pool`, registry.factory.address, "getPool", poolResult)); const config = registry.supportedPools.find((candidate) => candidate.address.toLowerCase() === pool.toLowerCase()); return config ? [{ item, pool, config }] : []; });
+  const idResults = await client.multicall({
+    allowFailure: true,
+    blockNumber,
+    contracts: Array.from({ length: Number(count) }, (_, index) => ({
+      address: manager.address,
+      abi: manager.abi as Abi,
+      functionName: "tokenOfOwnerByIndex",
+      args: [owner, BigInt(index)],
+    })),
+  }) as Result[];
+  const walletPositionIds = idResults.flatMap((result, index) => {
+    const id = successBigint(result);
+    if (id === undefined) {
+      failures.push(failure(`position-index-${index}`, manager.address, "tokenOfOwnerByIndex", result));
+      return [];
+    }
+    return [id];
+  });
+
+  // Positions deposited in CL gauges are owned by the gauge, not the wallet.
+  const stakedByTokenId = new Map<string, {
+    gaugeAddress: Address;
+    poolKey: string;
+    pool: Address;
+    rewardToken?: Address;
+  }>();
+  if (registry.clGauges.length > 0) {
+    const stakedValueResults = await client.multicall({
+      allowFailure: true,
+      blockNumber,
+      contracts: registry.clGauges.map((gauge) => ({
+        address: gauge.address,
+        abi: gauge.abi as Abi,
+        functionName: "stakedValues",
+        args: [owner],
+      })),
+    }) as Result[];
+    registry.clGauges.forEach((gauge, index) => {
+      const result = stakedValueResults[index];
+      if (result?.status !== "success" || !Array.isArray(result.result)) {
+        if (result?.status === "failure") {
+          failures.push(failure(`${gauge.key}:staked`, gauge.address, "stakedValues", result));
+        }
+        return;
+      }
+      for (const tokenId of result.result) {
+        if (typeof tokenId !== "bigint") continue;
+        stakedByTokenId.set(tokenId.toString(), {
+          gaugeAddress: gauge.address,
+          poolKey: gauge.poolKey,
+          pool: gauge.pool,
+          rewardToken: gauge.rewardToken,
+        });
+      }
+    });
+  }
+
+  const positionIds = [
+    ...walletPositionIds,
+    ...[...stakedByTokenId.keys()]
+      .map((id) => BigInt(id))
+      .filter((id) => !walletPositionIds.some((walletId) => walletId === id)),
+  ];
+
+  const detailResults = await client.multicall({
+    allowFailure: true,
+    blockNumber,
+    contracts: positionIds.map((id) => ({
+      address: manager.address,
+      abi: manager.abi as Abi,
+      functionName: "positions",
+      args: [id],
+    })),
+  }) as Result[];
+  const decoded = positionIds.flatMap((tokenId, index) => {
+    const result = detailResults[index];
+    const values = result?.status === "success" ? tuple(result.result) : null;
+    if (!values || values.length < 12) {
+      failures.push(failure(tokenId.toString(), manager.address, "positions", result));
+      return [];
+    }
+    return [{
+      tokenId,
+      values,
+      token0: values[2] as Address,
+      token1: values[3] as Address,
+      tickSpacing: Number(values[4]),
+      staked: stakedByTokenId.get(tokenId.toString()),
+    }];
+  });
+
+  const poolResults = registry.factory
+    ? await client.multicall({
+      allowFailure: true,
+      blockNumber,
+      contracts: decoded.map((item) => ({
+        address: registry.factory!.address,
+        abi: registry.factory!.abi as Abi,
+        functionName: "getPool",
+        args: [item.token0, item.token1, item.tickSpacing],
+      })),
+    }) as Result[]
+    : [];
+
+  const supported = decoded.flatMap((item, index) => {
+    const staked = item.staked;
+    let pool = staked?.pool;
+    if (!pool) {
+      const poolResult = poolResults[index];
+      pool = poolResult?.status === "success" && typeof poolResult.result === "string"
+        ? poolResult.result as Address
+        : "0x0000000000000000000000000000000000000000" as Address;
+      if (registry.factory && poolResult?.status !== "success") {
+        failures.push(failure(`${item.tokenId}-pool`, registry.factory.address, "getPool", poolResult));
+      }
+    }
+    const config = registry.supportedPools.find(
+      (candidate) => candidate.address.toLowerCase() === pool!.toLowerCase(),
+    ) ?? (staked
+      ? registry.supportedPools.find((candidate) => candidate.key === staked.poolKey)
+      : undefined);
+    return config ? [{ item, pool: pool!, config, staked }] : [];
+  });
+
   const stateResults = await client.multicall({
     allowFailure: true,
     blockNumber,
@@ -124,7 +255,9 @@ export async function readLiquidityPortfolio(client: PublicClient, chainId: numb
       { address: pool, abi: config.abi as Abi, functionName: "ticks", args: [Number(item.values[6])] },
     ]),
   }) as Result[];
-  const collectResults = await Promise.allSettled(supported.map(({ item }) => client.simulateContract({
+
+  const unstakedSupported = supported.filter(({ staked }) => !staked);
+  const collectResults = await Promise.allSettled(unstakedSupported.map(({ item }) => client.simulateContract({
     account: owner,
     address: manager.address,
     abi: manager.abi as Abi,
@@ -132,7 +265,28 @@ export async function readLiquidityPortfolio(client: PublicClient, chainId: numb
     args: [{ tokenId: item.tokenId, recipient: owner, amount0Max: UINT128_MAX, amount1Max: UINT128_MAX }],
     blockNumber,
   })));
-  supported.forEach(({ item, pool, config }, index) => {
+  const collectIndexByTokenId = new Map(
+    unstakedSupported.map((entry, index) => [entry.item.tokenId.toString(), index]),
+  );
+
+  const stakedSupported = supported.filter(({ staked }) => Boolean(staked));
+  const earnedResults = stakedSupported.length > 0
+    ? await client.multicall({
+      allowFailure: true,
+      blockNumber,
+      contracts: stakedSupported.map(({ item, staked }) => ({
+        address: staked!.gaugeAddress,
+        abi: registry.clGauges.find((gauge) => gauge.address.toLowerCase() === staked!.gaugeAddress.toLowerCase())!.abi as Abi,
+        functionName: "earned",
+        args: [owner, item.tokenId],
+      })),
+    }) as Result[]
+    : [];
+  const earnedByTokenId = new Map(
+    stakedSupported.map((entry, index) => [entry.item.tokenId.toString(), successBigint(earnedResults[index])]),
+  );
+
+  supported.forEach(({ item, pool, config, staked }, index) => {
     const state = stateResults.slice(index * 6, index * 6 + 6);
     const slotValues = state[0]?.status === "success" ? tuple(state[0].result) : null;
     const sqrtPriceX96 = slotValues && typeof slotValues[0] === "bigint" ? slotValues[0] : undefined;
@@ -158,55 +312,63 @@ export async function readLiquidityPortfolio(client: PublicClient, chainId: numb
       }
     }
 
-    const collect = collectResults[index];
-    const collectTuple = collect?.status === "fulfilled" ? tuple(collect.value.result) : null;
-    let collectible0 = collectTuple && typeof collectTuple[0] === "bigint" ? collectTuple[0] : undefined;
-    let collectible1 = collectTuple && typeof collectTuple[1] === "bigint" ? collectTuple[1] : undefined;
-    if (collectible0 === undefined || collectible1 === undefined) {
-      const lowerTick = state[4]?.status === "success" ? tuple(state[4].result) : null;
-      const upperTick = state[5]?.status === "success" ? tuple(state[5].result) : null;
-      const global0 = successBigint(state[2]);
-      const global1 = successBigint(state[3]);
-      if (
-        currentTick !== undefined
-        && global0 !== undefined
-        && global1 !== undefined
-        && lowerTick
-        && upperTick
-        && typeof lowerTick[2] === "bigint"
-        && typeof lowerTick[3] === "bigint"
-        && typeof upperTick[2] === "bigint"
-        && typeof upperTick[3] === "bigint"
-        && typeof item.values[8] === "bigint"
-        && typeof item.values[9] === "bigint"
-      ) {
-        const fallback = collectableFromFeeGrowth({
-          currentTick,
-          tickLower,
-          tickUpper,
-          liquidity,
-          global0,
-          global1,
-          lowerOutside0: lowerTick[2],
-          lowerOutside1: lowerTick[3],
-          upperOutside0: upperTick[2],
-          upperOutside1: upperTick[3],
-          lastInside0: item.values[8],
-          lastInside1: item.values[9],
-          storedOwed0: item.values[10] as bigint,
-          storedOwed1: item.values[11] as bigint,
-        });
-        collectible0 = fallback.amount0;
-        collectible1 = fallback.amount1;
-      } else {
-        failures.push({
-          key: `${item.tokenId}-collectable-fees`,
-          contract: manager.address,
-          functionName: "collect",
-          reason: collect?.status === "rejected" ? reason(collect.reason) : "Collect simulation and fee-growth fallback failed",
-        });
+    let collectible0 = 0n;
+    let collectible1 = 0n;
+    if (!staked) {
+      const collectIndex = collectIndexByTokenId.get(item.tokenId.toString());
+      const collect = collectIndex === undefined ? undefined : collectResults[collectIndex];
+      const collectTuple = collect?.status === "fulfilled" ? tuple(collect.value.result) : null;
+      let amount0 = collectTuple && typeof collectTuple[0] === "bigint" ? collectTuple[0] : undefined;
+      let amount1 = collectTuple && typeof collectTuple[1] === "bigint" ? collectTuple[1] : undefined;
+      if (amount0 === undefined || amount1 === undefined) {
+        const lowerTick = state[4]?.status === "success" ? tuple(state[4].result) : null;
+        const upperTick = state[5]?.status === "success" ? tuple(state[5].result) : null;
+        const global0 = successBigint(state[2]);
+        const global1 = successBigint(state[3]);
+        if (
+          currentTick !== undefined
+          && global0 !== undefined
+          && global1 !== undefined
+          && lowerTick
+          && upperTick
+          && typeof lowerTick[2] === "bigint"
+          && typeof lowerTick[3] === "bigint"
+          && typeof upperTick[2] === "bigint"
+          && typeof upperTick[3] === "bigint"
+          && typeof item.values[8] === "bigint"
+          && typeof item.values[9] === "bigint"
+        ) {
+          const fallback = collectableFromFeeGrowth({
+            currentTick,
+            tickLower,
+            tickUpper,
+            liquidity,
+            global0,
+            global1,
+            lowerOutside0: lowerTick[2],
+            lowerOutside1: lowerTick[3],
+            upperOutside0: upperTick[2],
+            upperOutside1: upperTick[3],
+            lastInside0: item.values[8],
+            lastInside1: item.values[9],
+            storedOwed0: item.values[10] as bigint,
+            storedOwed1: item.values[11] as bigint,
+          });
+          amount0 = fallback.amount0;
+          amount1 = fallback.amount1;
+        } else {
+          failures.push({
+            key: `${item.tokenId}-collectable-fees`,
+            contract: manager.address,
+            functionName: "collect",
+            reason: collect?.status === "rejected" ? reason(collect.reason) : "Collect simulation and fee-growth fallback failed",
+          });
+        }
       }
+      collectible0 = amount0 ?? 0n;
+      collectible1 = amount1 ?? 0n;
     }
+
     positions[item.tokenId.toString()] = {
       tokenId: item.tokenId,
       pool,
@@ -220,11 +382,20 @@ export async function readLiquidityPortfolio(client: PublicClient, chainId: numb
       poolLiquidity,
       currentTick,
       sqrtPriceX96,
-      tokensOwed0: collectible0 ?? 0n,
-      tokensOwed1: collectible1 ?? 0n,
+      tokensOwed0: collectible0,
+      tokensOwed1: collectible1,
       rawAmount0,
       rawAmount1,
+      isStaked: Boolean(staked),
+      gaugeAddress: staked?.gaugeAddress,
+      gaugeEarnedRaw: staked ? earnedByTokenId.get(item.tokenId.toString()) : undefined,
+      rewardToken: staked?.rewardToken,
     };
   });
-  return { meta: meta(chainId, owner, blockNumber, failures), positionIds: supported.map(({ item }) => item.tokenId), positions };
+
+  return {
+    meta: meta(chainId, owner, blockNumber, failures),
+    positionIds: supported.map(({ item }) => item.tokenId),
+    positions,
+  };
 }

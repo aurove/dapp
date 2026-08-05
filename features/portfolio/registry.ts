@@ -1,9 +1,14 @@
-import type { Abi } from "viem";
-import { getContractConfig, getContractsByChainId } from "@/contracts/shared";
+import type { Abi, Address } from "viem";
+import { getContractConfig, getContractsByChainId, type RegistryContractName } from "@/contracts/shared";
 import { getKnownMezoTokenConfigs } from "@/components/shared/known-mezo-tokens";
 import { deriveTrancheId, MAX_EPOCHS_BY_VARIANT, symbolOf } from "@/components/features/earn/utils/tranche";
-import { getAuroveSupportedPools } from "@/lib/config/supported-liquidity-pools";
+import { getAuroveSupportedPools, type AuroveSupportedPoolKey } from "@/lib/config/supported-liquidity-pools";
 import type { PortfolioRegistry } from "./types";
+
+const CL_GAUGE_BY_POOL: Record<AuroveSupportedPoolKey, RegistryContractName> = {
+  "MUSD-avBTCm": "MUSD-avBTCmGauge",
+  "avBTCm-avMEZOm": "avBTCm-avMEZOmGauge",
+};
 
 export function getPortfolioRegistry(chainId: number): PortfolioRegistry | null {
   if (!getContractsByChainId(chainId)) return null;
@@ -37,7 +42,25 @@ export function getPortfolioRegistry(chainId: number): PortfolioRegistry | null 
     { key: "veBTC", contract: getContractConfig(chainId, "VeBTC") },
     { key: "veMEZO", contract: getContractConfig(chainId, "VeMEZO") },
   ].flatMap(({ key, contract }) => contract?.address ? [{ key, address: contract.address, symbol: key, abi: contract.abi as Abi }] : []);
-  const revisionParts = [ledger.address, ...tranches.map((item) => item.trancheId.toString()), ...walletAssets.map((a) => a.address), ...id20s.map((a) => a.address), ...rewardSources.map((a) => a.address), ...veCollections.map((a) => a.address), ...supportedPools.map((pool) => pool.address), positionManager?.address].filter(Boolean);
+  const clGauges = supportedPools.flatMap((pool) => {
+    const gaugeName = CL_GAUGE_BY_POOL[pool.key];
+    if (!gaugeName) return [];
+    const gauge = getContractConfig(chainId, gaugeName);
+    if (!gauge?.address) return [];
+    const linked = gauge.linkedData as { rewardToken?: string } | undefined;
+    const rewardToken = typeof linked?.rewardToken === "string" && linked.rewardToken.startsWith("0x")
+      ? linked.rewardToken as Address
+      : undefined;
+    return [{
+      key: String(gaugeName),
+      poolKey: pool.key,
+      pool: pool.address,
+      address: gauge.address,
+      abi: gauge.abi as Abi,
+      rewardToken,
+    }];
+  });
+  const revisionParts = [ledger.address, ...tranches.map((item) => item.trancheId.toString()), ...walletAssets.map((a) => a.address), ...id20s.map((a) => a.address), ...rewardSources.map((a) => a.address), ...veCollections.map((a) => a.address), ...supportedPools.map((pool) => pool.address), ...clGauges.map((gauge) => gauge.address), positionManager?.address].filter(Boolean);
 
   return {
     revision: revisionParts.map((value) => String(value).toLowerCase()).join(":"),
@@ -53,5 +76,6 @@ export function getPortfolioRegistry(chainId: number): PortfolioRegistry | null 
     positionManager: positionManager?.address ? { address: positionManager.address, abi: positionManager.abi as Abi } : undefined,
     factory: factory?.address ? { address: factory.address, abi: factory.abi as Abi } : undefined,
     supportedPools,
+    clGauges,
   };
 }

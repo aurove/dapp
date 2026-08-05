@@ -903,7 +903,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
     tags: ["liquidity", "pools", "fees", "lp"],
     status: "live",
     searchText:
-      "providing liquidity musd avbtcm avmezom add liquidity collect fees remove increase burn nft",
+      "providing liquidity musd avbtcm avmezom add liquidity collect fees remove increase burn nft stake unstake gauge adjust",
     Content: () => (
       <>
         <h1>Providing liquidity</h1>
@@ -968,9 +968,16 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         </ul>
         <h2>Managing positions</h2>
         <ul>
-          <li>Collect fees (per position or Collect all)</li>
-          <li>Increase / remove liquidity with slippage controls</li>
-          <li>Burn empty NFTs when liquidity is zero and nothing is owed</li>
+          <li>Collect fees (per position or Collect all) for unstaked NFTs</li>
+          <li>
+            <strong>Adjust</strong> — increase or remove liquidity with slippage controls; burn empty NFTs
+          </li>
+          <li>
+            <strong>Stake</strong> — deposit the position NFT into the pool CL gauge for emissions
+          </li>
+          <li>
+            <strong>Unstake</strong> — withdraw from the gauge (optionally claim emissions) before adjusting
+          </li>
         </ul>
       </>
     ),

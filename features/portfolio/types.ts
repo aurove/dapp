@@ -41,10 +41,35 @@ export interface RewardsPortfolio {
   meta: PortfolioDomainMeta;
   rewards: Record<string, { assetId: string; token: Address; symbol: string; decimals: number; rawClaimable: bigint; source: Address }>;
 }
+export interface LiquidityPosition {
+  tokenId: bigint;
+  pool: Address;
+  poolKey: string;
+  token0: Address;
+  token1: Address;
+  tickSpacing: number;
+  tickLower: number;
+  tickUpper: number;
+  liquidity: bigint;
+  poolLiquidity?: bigint;
+  currentTick?: number;
+  sqrtPriceX96?: bigint;
+  tokensOwed0: bigint;
+  tokensOwed1: bigint;
+  rawAmount0?: bigint;
+  rawAmount1?: bigint;
+  /** True when the position NFT is deposited in the pool's CL gauge. */
+  isStaked: boolean;
+  gaugeAddress?: Address;
+  /** Gauge emissions claimable for this position (reward token raw units). */
+  gaugeEarnedRaw?: bigint;
+  rewardToken?: Address;
+}
+
 export interface LiquidityPortfolio {
   meta: PortfolioDomainMeta;
   positionIds: readonly bigint[];
-  positions: Record<string, { tokenId: bigint; pool: Address; poolKey: string; token0: Address; token1: Address; tickSpacing: number; tickLower: number; tickUpper: number; liquidity: bigint; poolLiquidity?: bigint; currentTick?: number; sqrtPriceX96?: bigint; tokensOwed0: bigint; tokensOwed1: bigint; rawAmount0?: bigint; rawAmount1?: bigint }>;
+  positions: Record<string, LiquidityPosition>;
 }
 export interface PortfolioSummary {
   owner: Address;
@@ -73,4 +98,13 @@ export interface PortfolioRegistry {
   positionManager?: { address: Address; abi: readonly unknown[] };
   factory?: { address: Address; abi: readonly unknown[] };
   supportedPools: readonly { key: string; address: Address; abi: readonly unknown[] }[];
+  /** CL gauges keyed by pool key (e.g. MUSD-avBTCm → MUSD-avBTCmGauge). */
+  clGauges: readonly {
+    key: string;
+    poolKey: string;
+    pool: Address;
+    address: Address;
+    abi: readonly unknown[];
+    rewardToken?: Address;
+  }[];
 }

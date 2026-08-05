@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useMemo, useRef, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { ChevronDown, ChevronUp, Coins, Droplets, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Coins, Droplets, Lock, Plus, RefreshCw, Trash2, Unlock } from "lucide-react";
 import { encodeFunctionData, formatUnits, type Abi, type Address } from "viem";
 import { useAccount, useChainId } from "wagmi";
 import { Badge, Button, Card, CardContent, CardDescription, CardTitle, Input, Skeleton, cn } from "@ui";
@@ -14,9 +14,9 @@ import {
   useId20GaugePositions,
 } from "@/components/features/id20/use-id20-gauges";
 import { getContractConfig } from "@/contracts/shared";
-import { getPortfolioRegistry, usePortfolioSummary, type LiquidityPortfolio, type PortfolioDomain, type PortfolioSummary, type WalletPortfolio } from "@/features/portfolio";
+import { getPortfolioRegistry, usePortfolioSummary, type LiquidityPortfolio, type PortfolioDomain, type PortfolioRegistry, type PortfolioSummary, type WalletPortfolio } from "@/features/portfolio";
 import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
-import { makeAddressWriteStep, type TxStep } from "@/lib/tx-flow";
+import { makeAddressWriteStep, makeTokenApprovalStep, type TxStep } from "@/lib/tx-flow";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import {
   formatPriceLabel,
@@ -41,6 +41,8 @@ const DEFAULT_SLIPPAGE_BPS = 50;
 
 type Position = LiquidityPortfolio["positions"][string];
 type TokenMeta = { symbol: string; decimals: number; address: Address; rawBalance: bigint };
+type ClGauge = PortfolioRegistry["clGauges"][number];
+type ManageTab = "adjust" | "stake" | "unstake";
 
 function withDomains(step: TxStep, domains: readonly PortfolioDomain[]) {
   if (step.type === "write") step.portfolioDomains = domains;
@@ -120,11 +122,87 @@ function TokenPair({ token0, token1 }: { token0?: TokenMeta; token1?: TokenMeta 
 
 function statusOf(position: Position) {
   if (position.liquidity === 0n) return { label: "Closed", help: "Closed — no active liquidity", tone: "border-white/15 bg-white/5 text-white/60" };
+  if (position.isStaked) {
+    if (position.currentTick === undefined) {
+      return { label: "Staked", help: "Staked in gauge — earning emissions", tone: "border-sky-300/25 bg-sky-300/10 text-sky-100" };
+    }
+    const active = position.currentTick >= position.tickLower && position.currentTick < position.tickUpper;
+    return active
+      ? { label: "Staked · In range", help: "Staked and in range — earning swap fees and gauge emissions", tone: "border-sky-300/25 bg-sky-300/10 text-sky-100" }
+      : { label: "Staked · Out of range", help: "Staked but out of range — still earning gauge emissions", tone: "border-sky-300/25 bg-sky-300/10 text-sky-100" };
+  }
   if (position.currentTick === undefined) return { label: "Unavailable", help: "Pool status is temporarily unavailable", tone: "border-white/15 bg-white/5 text-white/60" };
   const active = position.currentTick >= position.tickLower && position.currentTick < position.tickUpper;
   return active
     ? { label: "In range", help: "In range — earning swap fees", tone: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100" }
     : { label: "Out of range", help: "Out of range — not currently earning swap fees", tone: "border-amber-300/25 bg-amber-300/10 text-amber-100" };
+}
+
+function resolveGaugeForPosition(position: Position, gauges: readonly ClGauge[]): ClGauge | null {
+  if (position.gaugeAddress) {
+    return gauges.find((gauge) => gauge.address.toLowerCase() === position.gaugeAddress!.toLowerCase()) ?? null;
+  }
+  return gauges.find((gauge) => gauge.poolKey === position.poolKey) ?? null;
+}
+
+function ManageTabBar({
+  active,
+  onChange,
+  isStaked,
+  hasGauge,
+}: {
+  active: ManageTab;
+  onChange: (tab: ManageTab) => void;
+  isStaked: boolean;
+  hasGauge: boolean;
+}) {
+  const tabs: { id: ManageTab; label: string; disabled?: boolean; title?: string }[] = [
+    { id: "adjust", label: "Adjust" },
+    {
+      id: "stake",
+      label: "Stake",
+      disabled: !hasGauge || isStaked,
+      title: !hasGauge
+        ? "No gauge is configured for this pool"
+        : isStaked
+          ? "Already staked in the gauge"
+          : "Deposit this position NFT into the pool gauge",
+    },
+    {
+      id: "unstake",
+      label: "Unstake",
+      disabled: !isStaked,
+      title: isStaked ? "Withdraw this position NFT from the gauge" : "Stake this position before unstaking",
+    },
+  ];
+  return (
+    <div
+      className="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-white/[0.025] p-1"
+      role="tablist"
+      aria-label="Liquidity management actions"
+    >
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={active === tab.id}
+          disabled={tab.disabled}
+          title={tab.title}
+          onClick={() => onChange(tab.id)}
+          className={cn(
+            "rounded-xl px-3 py-2 text-sm font-medium transition",
+            active === tab.id
+              ? "bg-white/10 text-white shadow-sm"
+              : "text-white/55 hover:text-white/80",
+            tab.disabled && "cursor-not-allowed opacity-40 hover:text-white/55",
+          )}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function ActionMessage({ success, error }: { success: string | null; error: string | null }) {
@@ -145,7 +223,7 @@ function AggregateFeeCollection({
 }) {
   const { address } = useAccount();
   const collectablePositions = useMemo(
-    () => positions.filter((position) => position.tokensOwed0 > 0n || position.tokensOwed1 > 0n),
+    () => positions.filter((position) => !position.isStaked && (position.tokensOwed0 > 0n || position.tokensOwed1 > 0n)),
     [positions],
   );
   const feeTotals = useMemo(() => {
@@ -237,6 +315,8 @@ function PositionActions({
   ledgerAddress,
   portfolio,
   veCollections,
+  clGauges,
+  rewardTokenMeta,
 }: {
   position: Position;
   token0?: TokenMeta;
@@ -249,13 +329,20 @@ function PositionActions({
   ledgerAddress: Address;
   portfolio?: PortfolioSummary;
   veCollections: WalletPortfolio["veCollections"];
+  clGauges: readonly ClGauge[];
+  rewardTokenMeta?: TokenMeta;
 }) {
   const { address } = useAccount();
   const chainId = useChainId();
   const id20Gauges = useId20GaugePositions(chainId, address);
+  const gauge = resolveGaugeForPosition(position, clGauges);
+  const [tab, setTab] = useState<ManageTab>(position.isStaked ? "unstake" : "adjust");
   const removeTransactionRef = useRef<TransactionFlowButtonHandle>(null);
   const increaseTransactionRef = useRef<TransactionFlowButtonHandle>(null);
   const burnTransactionRef = useRef<TransactionFlowButtonHandle>(null);
+  const stakeTransactionRef = useRef<TransactionFlowButtonHandle>(null);
+  const unstakeTransactionRef = useRef<TransactionFlowButtonHandle>(null);
+  const claimTransactionRef = useRef<TransactionFlowButtonHandle>(null);
   const [percent, setPercent] = useState("25");
   const [slippage, setSlippage] = useState((DEFAULT_SLIPPAGE_BPS / 100).toString());
   const [increaseSlippage, setIncreaseSlippage] = useState((DEFAULT_SLIPPAGE_BPS / 100).toString());
@@ -263,6 +350,7 @@ function PositionActions({
   const [increaseDrafts, setIncreaseDrafts] = useState<Record<SlipstreamLiquiditySide, string>>({ assetA: "", assetB: "" });
   const [increaseSourceIds, setIncreaseSourceIds] = useState<Record<SlipstreamLiquiditySide, string | null>>({ assetA: null, assetB: null });
   const [collectAfter, setCollectAfter] = useState(true);
+  const [claimOnUnstake, setClaimOnUnstake] = useState(true);
   const [burnConfirmed, setBurnConfirmed] = useState(false);
   const [deadline] = useState(() => BigInt(Math.floor(Date.now() / 1000) + 86_400));
   const [success, setSuccess] = useState<string | null>(null);
@@ -274,7 +362,7 @@ function PositionActions({
   const slippageBps = BigInt(Math.min(5_000, Math.max(0, Math.round((Number(slippage) || 0) * 100))));
   const min0 = estimated0 === undefined ? 0n : estimated0 * (10_000n - slippageBps) / 10_000n;
   const min1 = estimated1 === undefined ? 0n : estimated1 * (10_000n - slippageBps) / 10_000n;
-  const canBurn = position.liquidity === 0n && position.tokensOwed0 === 0n && position.tokensOwed1 === 0n;
+  const canBurn = !position.isStaked && position.liquidity === 0n && position.tokensOwed0 === 0n && position.tokensOwed1 === 0n;
   const estimatedAmounts = displayInverted
     ? [[estimated1, token1], [estimated0, token0]] as const
     : [[estimated0, token0], [estimated1, token1]] as const;
@@ -334,7 +422,7 @@ function PositionActions({
     );
   }, [id20Gauges.gauges, requiredId20Gauges]);
   const increaseSteps: TxStep[] = requiredId20Gauges.flatMap(makeId20ActivationGuardSteps);
-  if (increaseQuote.status === "ok" && increaseQuote.routerPlan && increaseRouterCall && routerSupportsIncrease && increaseSourceA && increaseSourceB) {
+  if (!position.isStaked && increaseQuote.status === "ok" && increaseQuote.routerPlan && increaseRouterCall && routerSupportsIncrease && increaseSourceA && increaseSourceB) {
     const approvalA = buildLiquidityApprovalStep({
       source: increaseSourceA,
       input: increaseQuote.routerPlan.inputA,
@@ -359,8 +447,64 @@ function PositionActions({
     }) as TxStep, ["liquidity", "wallet", "tranches", "id20", "rewards"]));
   }
 
-  const collectSteps = address ? [withDomains(makeAddressWriteStep({ key: "liquidity-collect-fees", label: "Collect fees", displayLabelBtn: true, address: managerAddress, abi: managerAbi, variables: { functionName: "collect", args: [{ tokenId: position.tokenId, recipient: address, amount0Max: UINT128_MAX, amount1Max: UINT128_MAX }] } }) as TxStep, ["liquidity", "wallet", "id20"])] : [];
-  const removeSteps = address && removeLiquidity > 0n ? [withDomains(makeAddressWriteStep({ key: "liquidity-remove", label: numericPercent === 100 ? "Remove all liquidity" : "Remove liquidity", displayLabelBtn: true, address: managerAddress, abi: managerAbi, variables: { functionName: "decreaseLiquidity", args: [{ tokenId: position.tokenId, liquidity: removeLiquidity, amount0Min: min0, amount1Min: min1, deadline }] } }) as TxStep, ["liquidity", "wallet", "id20"]), ...(collectAfter ? collectSteps : [])] : [];
+  const collectSteps = address && !position.isStaked ? [withDomains(makeAddressWriteStep({ key: "liquidity-collect-fees", label: "Collect fees", displayLabelBtn: true, address: managerAddress, abi: managerAbi, variables: { functionName: "collect", args: [{ tokenId: position.tokenId, recipient: address, amount0Max: UINT128_MAX, amount1Max: UINT128_MAX }] } }) as TxStep, ["liquidity", "wallet", "id20"])] : [];
+  const removeSteps = address && !position.isStaked && removeLiquidity > 0n ? [withDomains(makeAddressWriteStep({ key: "liquidity-remove", label: numericPercent === 100 ? "Remove all liquidity" : "Remove liquidity", displayLabelBtn: true, address: managerAddress, abi: managerAbi, variables: { functionName: "decreaseLiquidity", args: [{ tokenId: position.tokenId, liquidity: removeLiquidity, amount0Min: min0, amount1Min: min1, deadline }] } }) as TxStep, ["liquidity", "wallet", "id20"]), ...(collectAfter ? collectSteps : [])] : [];
+
+  const stakeSteps: TxStep[] = [];
+  if (address && gauge && !position.isStaked && position.liquidity > 0n) {
+    stakeSteps.push(withDomains(makeTokenApprovalStep({
+      key: `liquidity-stake-approve-${position.tokenId}`,
+      label: "Approve position NFT for gauge",
+      displayLabelBtn: true,
+      approval: {
+        standard: "erc721",
+        token: managerAddress,
+        operator: gauge.address,
+        scope: { kind: "token", tokenId: position.tokenId },
+      },
+    }) as TxStep, ["liquidity"]));
+    stakeSteps.push(withDomains(makeAddressWriteStep({
+      key: `liquidity-stake-${position.tokenId}`,
+      label: "Stake position in gauge",
+      displayLabelBtn: true,
+      address: gauge.address,
+      abi: gauge.abi as Abi,
+      variables: { functionName: "deposit", args: [position.tokenId] },
+    }) as TxStep, ["liquidity", "rewards"]));
+  }
+
+  const unstakeSteps: TxStep[] = [];
+  if (address && gauge && position.isStaked) {
+    if (claimOnUnstake) {
+      unstakeSteps.push(withDomains(makeAddressWriteStep({
+        key: `liquidity-claim-before-unstake-${position.tokenId}`,
+        label: "Claim gauge rewards",
+        displayLabelBtn: true,
+        address: gauge.address,
+        abi: gauge.abi as Abi,
+        variables: { functionName: "getReward", args: [position.tokenId] },
+      }) as TxStep, ["liquidity", "rewards", "wallet"]));
+    }
+    unstakeSteps.push(withDomains(makeAddressWriteStep({
+      key: `liquidity-unstake-${position.tokenId}`,
+      label: "Unstake position from gauge",
+      displayLabelBtn: true,
+      address: gauge.address,
+      abi: gauge.abi as Abi,
+      variables: { functionName: "withdraw", args: [position.tokenId] },
+    }) as TxStep, ["liquidity", "rewards"]));
+  }
+
+  const claimOnlySteps: TxStep[] = address && gauge && position.isStaked
+    ? [withDomains(makeAddressWriteStep({
+      key: `liquidity-claim-rewards-${position.tokenId}`,
+      label: "Claim gauge rewards",
+      displayLabelBtn: true,
+      address: gauge.address,
+      abi: gauge.abi as Abi,
+      variables: { functionName: "getReward", args: [position.tokenId] },
+    }) as TxStep, ["liquidity", "rewards", "wallet"])]
+    : [];
 
   const complete = (message: string) => () => {
     setError(null);
@@ -431,76 +575,208 @@ function PositionActions({
     ? ["assetB", "assetA"]
     : ["assetA", "assetB"];
 
-  return <div className="grid items-start gap-5 pt-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-    <form onSubmit={removeFormik.handleSubmit} noValidate className="space-y-2.5 rounded-2xl border border-white/15 bg-black/10 p-4">
-      <div><h4 className="font-medium text-white">Remove liquidity</h4><p className="text-xs text-white/50">Partially or fully withdraw the active position.</p></div>
-      <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_6.5rem] xl:items-end">
-        <label className="block text-xs text-white/60">
-          <span className="flex items-center justify-between gap-3"><span>Percentage</span><span className="font-medium text-white">{numericPercent}%</span></span>
-          <input
-            aria-label="Percentage of liquidity to remove"
-            name="percent"
-            type="range"
-            min={1}
-            max={100}
-            step={1}
-            value={Math.max(1, numericPercent)}
-            onBlur={removeFormik.handleBlur}
-            onChange={(event) => {
-              setPercent(event.target.value);
-              void removeFormik.setFieldValue("percent", event.target.value);
-            }}
-            className="mt-2 w-full accent-[var(--accent)]"
-          />
-        </label>
-        <label className="block text-xs text-white/60">Slippage (%)<Input name="slippage" value={slippage} onBlur={removeFormik.handleBlur} onChange={(event) => { setSlippage(event.target.value); void removeFormik.setFieldValue("slippage", event.target.value); }} inputMode="decimal" className="mt-1 h-9" /></label>
-      </div>
-      <div className="grid grid-cols-2 gap-1.5 text-xs">{estimatedAmounts.map(([raw, token], index) => <span key={index} className="truncate rounded-lg bg-white/5 px-2.5 py-2">Est. {amount(raw, token)}</span>)}</div>
-      <label className="flex items-center gap-2 border-t border-white/[0.07] pt-2.5 text-xs text-white/65"><input name="collectAfter" type="checkbox" checked={collectAfter} onChange={(event) => { setCollectAfter(event.target.checked); void removeFormik.setFieldValue("collectAfter", event.target.checked); }} /> Collect owed tokens after removal</label>
-      {removeFormik.submitCount > 0 && (removeFormik.errors.percent || removeFormik.errors.slippage) ? <p role="alert" className="text-xs text-red-200">{removeFormik.errors.percent ?? removeFormik.errors.slippage}</p> : null}
-      <TransactionFlowButton ref={removeTransactionRef} type="submit" className="w-full" steps={removeSteps} disabled={removeLiquidity <= 0n} onComplete={complete(numericPercent === 100 ? "Liquidity fully removed. The NFT was not burned." : "Liquidity partially removed.")} onError={failed}>Preview and remove</TransactionFlowButton>
-    </form>
-    <div className="space-y-3 rounded-2xl border border-white/15 bg-black/10 p-5">
-      <form onSubmit={increaseFormik.handleSubmit} noValidate className="space-y-3">
-        <div><h4 className="font-medium text-white">Increase liquidity</h4><p className="text-xs text-white/50">Add more liquidity to this position within its exact range.</p></div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {increaseDisplaySides.map((side) => {
-            const token = side === "assetA" ? token0 : token1;
-            const sources = side === "assetA" ? increaseSources.assetA : increaseSources.assetB;
-            const source = side === "assetA" ? increaseSourceA : increaseSourceB;
-            return <LiquidityTokenInput
-              key={side}
-              id={`increase-${position.tokenId}-${side}`}
-              actionLabel="Supply"
-              tokenSymbol={token?.symbol ?? null}
-              value={increaseValue(side)}
-              balanceLabel={source ? formatCompactRawTokenAmount(source.balanceRaw, source.decimals, null) : "Unavailable"}
-              isEditing={increaseActiveSide === side && source?.kind !== "venft"}
-              disabled={!token || sources.length === 0}
-              loading={!portfolio}
-              insufficientBalance={increaseQuote.status === "insufficient-balance"}
-              canMax={Boolean(source && source.balanceRaw > 0n)}
-              sources={sources}
-              selectedSource={source}
-              onFocus={() => { if (source?.kind !== "venft") setIncreaseActiveSide(side); }}
-              onChange={(value) => updateIncreaseAmount(side, value)}
-              onMax={() => maxIncreaseSource(side)}
-              onSelectSource={(sourceId) => selectIncreaseSource(side, sourceId)}
-            />;
-          })}
+  const activeTab = tab === "stake" && (position.isStaked || !gauge)
+    ? "adjust"
+    : tab === "unstake" && !position.isStaked
+      ? "adjust"
+      : tab;
+
+  const earnedLabel = position.gaugeEarnedRaw !== undefined
+    ? amount(position.gaugeEarnedRaw, rewardTokenMeta ?? (position.rewardToken
+      ? { symbol: "MEZO", decimals: 18, address: position.rewardToken, rawBalance: 0n }
+      : undefined))
+    : "Unavailable";
+
+  return (
+    <div className="space-y-4 pt-2">
+      <ManageTabBar
+        active={activeTab}
+        onChange={setTab}
+        isStaked={position.isStaked}
+        hasGauge={Boolean(gauge)}
+      />
+
+      {activeTab === "adjust" ? (
+        position.isStaked ? (
+          <div className="rounded-2xl border border-sky-300/20 bg-sky-300/10 p-5">
+            <h4 className="font-medium text-sky-50">Unstake to adjust</h4>
+            <p className="mt-1 text-sm text-sky-100/80">
+              This position NFT is deposited in the pool gauge. Unstake it before increasing, removing, or burning liquidity.
+            </p>
+            <Button className="mt-4" variant="secondary" size="sm" onClick={() => setTab("unstake")}>
+              Go to Unstake
+            </Button>
+          </div>
+        ) : (
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+            <form onSubmit={removeFormik.handleSubmit} noValidate className="space-y-2.5 rounded-2xl border border-white/15 bg-black/10 p-4">
+              <div><h4 className="font-medium text-white">Remove liquidity</h4><p className="text-xs text-white/50">Partially or fully withdraw the active position.</p></div>
+              <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_6.5rem] xl:items-end">
+                <label className="block text-xs text-white/60">
+                  <span className="flex items-center justify-between gap-3"><span>Percentage</span><span className="font-medium text-white">{numericPercent}%</span></span>
+                  <input
+                    aria-label="Percentage of liquidity to remove"
+                    name="percent"
+                    type="range"
+                    min={1}
+                    max={100}
+                    step={1}
+                    value={Math.max(1, numericPercent)}
+                    onBlur={removeFormik.handleBlur}
+                    onChange={(event) => {
+                      setPercent(event.target.value);
+                      void removeFormik.setFieldValue("percent", event.target.value);
+                    }}
+                    className="mt-2 w-full accent-[var(--accent)]"
+                  />
+                </label>
+                <label className="block text-xs text-white/60">Slippage (%)<Input name="slippage" value={slippage} onBlur={removeFormik.handleBlur} onChange={(event) => { setSlippage(event.target.value); void removeFormik.setFieldValue("slippage", event.target.value); }} inputMode="decimal" className="mt-1 h-9" /></label>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 text-xs">{estimatedAmounts.map(([raw, token], index) => <span key={index} className="truncate rounded-lg bg-white/5 px-2.5 py-2">Est. {amount(raw, token)}</span>)}</div>
+              <label className="flex items-center gap-2 border-t border-white/[0.07] pt-2.5 text-xs text-white/65"><input name="collectAfter" type="checkbox" checked={collectAfter} onChange={(event) => { setCollectAfter(event.target.checked); void removeFormik.setFieldValue("collectAfter", event.target.checked); }} /> Collect owed tokens after removal</label>
+              {removeFormik.submitCount > 0 && (removeFormik.errors.percent || removeFormik.errors.slippage) ? <p role="alert" className="text-xs text-red-200">{removeFormik.errors.percent ?? removeFormik.errors.slippage}</p> : null}
+              <TransactionFlowButton ref={removeTransactionRef} type="submit" className="w-full" steps={removeSteps} disabled={removeLiquidity <= 0n} onComplete={complete(numericPercent === 100 ? "Liquidity fully removed. The NFT was not burned." : "Liquidity partially removed.")} onError={failed}>Preview and remove</TransactionFlowButton>
+            </form>
+            <div className="space-y-3 rounded-2xl border border-white/15 bg-black/10 p-5">
+              <form onSubmit={increaseFormik.handleSubmit} noValidate className="space-y-3">
+                <div><h4 className="font-medium text-white">Increase liquidity</h4><p className="text-xs text-white/50">Add more liquidity to this position within its exact range.</p></div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {increaseDisplaySides.map((side) => {
+                    const token = side === "assetA" ? token0 : token1;
+                    const sources = side === "assetA" ? increaseSources.assetA : increaseSources.assetB;
+                    const source = side === "assetA" ? increaseSourceA : increaseSourceB;
+                    return <LiquidityTokenInput
+                      key={side}
+                      id={`increase-${position.tokenId}-${side}`}
+                      actionLabel="Supply"
+                      tokenSymbol={token?.symbol ?? null}
+                      value={increaseValue(side)}
+                      balanceLabel={source ? formatCompactRawTokenAmount(source.balanceRaw, source.decimals, null) : "Unavailable"}
+                      isEditing={increaseActiveSide === side && source?.kind !== "venft"}
+                      disabled={!token || sources.length === 0}
+                      loading={!portfolio}
+                      insufficientBalance={increaseQuote.status === "insufficient-balance"}
+                      canMax={Boolean(source && source.balanceRaw > 0n)}
+                      sources={sources}
+                      selectedSource={source}
+                      onFocus={() => { if (source?.kind !== "venft") setIncreaseActiveSide(side); }}
+                      onChange={(value) => updateIncreaseAmount(side, value)}
+                      onMax={() => maxIncreaseSource(side)}
+                      onSelectSource={(sourceId) => selectIncreaseSource(side, sourceId)}
+                    />;
+                  })}
+                </div>
+                {inactiveRequiredId20s.length > 0 ? <p role="status" className="rounded-lg border border-sky-300/20 bg-sky-300/10 px-3 py-2 text-xs text-sky-100">Activate {inactiveRequiredId20s.map((item) => item.symbol).join(" and ")} rewards first. The activation step is included and these increase-liquidity inputs will be preserved.</p> : null}
+                {increaseRouterCall && !routerSupportsIncrease ? <p role="status" className="text-xs text-amber-100">The configured zap router does not yet expose position-aware increase methods. Deploy and sync the updated router before using this action.</p> : null}
+                {increaseFormik.submitCount > 0 && (increaseFormik.errors.amount || increaseFormik.errors.slippage) ? <p role="alert" className="text-xs text-red-200">{increaseFormik.errors.amount ?? increaseFormik.errors.slippage}</p> : null}
+                <div className="grid gap-2 lg:grid-cols-[minmax(7.5rem,1fr)_5fr] lg:items-end">
+                  <label className="block text-xs text-white/60">Slippage (%)<Input name="slippage" value={increaseSlippage} onBlur={increaseFormik.handleBlur} onChange={(event) => { setIncreaseSlippage(event.target.value); void increaseFormik.setFieldValue("slippage", event.target.value); }} inputMode="decimal" className="mt-1 h-10" /></label>
+                  <TransactionFlowButton ref={increaseTransactionRef} type="submit" className="h-10 w-full" variant="secondary" steps={increaseSteps} disabled={increaseQuote.status !== "ok" || !routerSupportsIncrease} icon={<Plus className="h-4 w-4" />} onComplete={complete("Liquidity increased.")} onError={failed}>Preview and increase</TransactionFlowButton>
+                </div>
+              </form>
+              {canBurn ? <form onSubmit={burnFormik.handleSubmit} noValidate className="border-t border-white/10 pt-3"><label className="flex items-start gap-2 text-xs text-white/65"><input name="burnConfirmed" type="checkbox" checked={burnConfirmed} onChange={(event) => { setBurnConfirmed(event.target.checked); void burnFormik.setFieldValue("burnConfirmed", event.target.checked); }} /> I confirm this empty NFT should be permanently burned.</label>{burnFormik.submitCount > 0 && burnFormik.errors.burnConfirmed ? <p role="alert" className="mt-2 text-xs text-red-200">{burnFormik.errors.burnConfirmed}</p> : null}<TransactionFlowButton ref={burnTransactionRef} type="submit" className="mt-2 w-full" variant="secondary" disabled={!burnConfirmed} steps={[withDomains(makeAddressWriteStep({ key: "liquidity-burn-position", label: "Burn empty position NFT", address: managerAddress, abi: managerAbi, variables: { functionName: "burn", args: [position.tokenId] } }) as TxStep, ["liquidity"])]} onComplete={complete("Empty position NFT burned.")} onError={failed}><Trash2 className="h-4 w-4" /> Burn empty NFT</TransactionFlowButton></form> : null}
+            </div>
+          </div>
+        )
+      ) : null}
+
+      {activeTab === "stake" ? (
+        <div className="space-y-4 rounded-2xl border border-white/15 bg-black/10 p-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sky-300/10 text-sky-100"><Lock className="h-4 w-4" /></span>
+            <div>
+              <h4 className="font-medium text-white">Stake liquidity</h4>
+              <p className="mt-1 text-sm text-white/55">
+                Deposit position NFT #{position.tokenId.toString()} into the {position.poolKey} gauge to earn emissions. Swap fees continue while the range is active; unstake before adjusting liquidity.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
+              <p className="text-xs text-white/45">Position</p>
+              <p className="mt-1 text-sm font-medium text-white">NFT #{position.tokenId.toString()}</p>
+            </div>
+            <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
+              <p className="text-xs text-white/45">Gauge</p>
+              <p className="mt-1 truncate text-sm font-medium text-white">{gauge?.key ?? "Unavailable"}</p>
+            </div>
+          </div>
+          {!gauge ? (
+            <p role="status" className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">No CL gauge is configured for this pool on the current network.</p>
+          ) : position.liquidity <= 0n ? (
+            <p role="status" className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">Add liquidity before staking this empty position.</p>
+          ) : (
+            <TransactionFlowButton
+              ref={stakeTransactionRef}
+              className="w-full"
+              steps={stakeSteps}
+              disabled={!address || stakeSteps.length === 0}
+              icon={<Lock className="h-4 w-4" />}
+              onComplete={complete("Position staked in the gauge.")}
+              onError={failed}
+            >
+              Preview and stake
+            </TransactionFlowButton>
+          )}
         </div>
-        {inactiveRequiredId20s.length > 0 ? <p role="status" className="rounded-lg border border-sky-300/20 bg-sky-300/10 px-3 py-2 text-xs text-sky-100">Activate {inactiveRequiredId20s.map((item) => item.symbol).join(" and ")} rewards first. The activation step is included and these increase-liquidity inputs will be preserved.</p> : null}
-        {increaseRouterCall && !routerSupportsIncrease ? <p role="status" className="text-xs text-amber-100">The configured zap router does not yet expose position-aware increase methods. Deploy and sync the updated router before using this action.</p> : null}
-        {increaseFormik.submitCount > 0 && (increaseFormik.errors.amount || increaseFormik.errors.slippage) ? <p role="alert" className="text-xs text-red-200">{increaseFormik.errors.amount ?? increaseFormik.errors.slippage}</p> : null}
-        <div className="grid gap-2 lg:grid-cols-[minmax(7.5rem,1fr)_5fr] lg:items-end">
-          <label className="block text-xs text-white/60">Slippage (%)<Input name="slippage" value={increaseSlippage} onBlur={increaseFormik.handleBlur} onChange={(event) => { setIncreaseSlippage(event.target.value); void increaseFormik.setFieldValue("slippage", event.target.value); }} inputMode="decimal" className="mt-1 h-10" /></label>
-          <TransactionFlowButton ref={increaseTransactionRef} type="submit" className="h-10 w-full" variant="secondary" steps={increaseSteps} disabled={increaseQuote.status !== "ok" || !routerSupportsIncrease} icon={<Plus className="h-4 w-4" />} onComplete={complete("Liquidity increased.")} onError={failed}>Preview and increase</TransactionFlowButton>
+      ) : null}
+
+      {activeTab === "unstake" ? (
+        <div className="space-y-4 rounded-2xl border border-white/15 bg-black/10 p-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300/10 text-emerald-100"><Unlock className="h-4 w-4" /></span>
+            <div>
+              <h4 className="font-medium text-white">Unstake liquidity</h4>
+              <p className="mt-1 text-sm text-white/55">
+                Withdraw NFT #{position.tokenId.toString()} from the gauge so you can adjust or remove liquidity. Optionally claim accrued emissions in the same flow.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
+              <p className="text-xs text-white/45">Claimable emissions</p>
+              <p className="mt-1 text-sm font-medium text-white">{earnedLabel}</p>
+            </div>
+            <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
+              <p className="text-xs text-white/45">Gauge</p>
+              <p className="mt-1 truncate text-sm font-medium text-white">{gauge?.key ?? "Unavailable"}</p>
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-white/65">
+            <input type="checkbox" checked={claimOnUnstake} onChange={(event) => setClaimOnUnstake(event.target.checked)} />
+            Claim gauge rewards when unstaking
+          </label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <TransactionFlowButton
+              ref={claimTransactionRef}
+              className="w-full"
+              variant="secondary"
+              steps={claimOnlySteps}
+              disabled={!address || claimOnlySteps.length === 0 || (position.gaugeEarnedRaw ?? 0n) <= 0n}
+              icon={<Coins className="h-4 w-4" />}
+              onComplete={complete("Gauge rewards claimed.")}
+              onError={failed}
+            >
+              Claim rewards
+            </TransactionFlowButton>
+            <TransactionFlowButton
+              ref={unstakeTransactionRef}
+              className="w-full"
+              steps={unstakeSteps}
+              disabled={!address || unstakeSteps.length === 0}
+              icon={<Unlock className="h-4 w-4" />}
+              onComplete={complete(claimOnUnstake ? "Position unstaked and rewards claimed." : "Position unstaked from the gauge.")}
+              onError={failed}
+            >
+              Preview and unstake
+            </TransactionFlowButton>
+          </div>
         </div>
-      </form>
-      {canBurn ? <form onSubmit={burnFormik.handleSubmit} noValidate className="border-t border-white/10 pt-3"><label className="flex items-start gap-2 text-xs text-white/65"><input name="burnConfirmed" type="checkbox" checked={burnConfirmed} onChange={(event) => { setBurnConfirmed(event.target.checked); void burnFormik.setFieldValue("burnConfirmed", event.target.checked); }} /> I confirm this empty NFT should be permanently burned.</label>{burnFormik.submitCount > 0 && burnFormik.errors.burnConfirmed ? <p role="alert" className="mt-2 text-xs text-red-200">{burnFormik.errors.burnConfirmed}</p> : null}<TransactionFlowButton ref={burnTransactionRef} type="submit" className="mt-2 w-full" variant="secondary" disabled={!burnConfirmed} steps={[withDomains(makeAddressWriteStep({ key: "liquidity-burn-position", label: "Burn empty position NFT", address: managerAddress, abi: managerAbi, variables: { functionName: "burn", args: [position.tokenId] } }) as TxStep, ["liquidity"])]} onComplete={complete("Empty position NFT burned.")} onError={failed}><Trash2 className="h-4 w-4" /> Burn empty NFT</TransactionFlowButton></form> : null}
+      ) : null}
+
       <ActionMessage success={success} error={error} />
     </div>
-  </div>;
+  );
 }
 
 function PositionRange({
@@ -560,9 +836,10 @@ function PositionRange({
   </div>;
 }
 
-function LiquidityPositionCard({ position, tokens, managerAddress, managerAbi, routerAddress, routerAbi, ledgerAddress, portfolio, veCollections, defaultOpen = false }: { position: Position; tokens: Map<string, TokenMeta>; managerAddress: Address; managerAbi: Abi; routerAddress: Address; routerAbi: Abi; ledgerAddress: Address; portfolio?: PortfolioSummary; veCollections: WalletPortfolio["veCollections"]; defaultOpen?: boolean }) {
+function LiquidityPositionCard({ position, tokens, managerAddress, managerAbi, routerAddress, routerAbi, ledgerAddress, portfolio, veCollections, clGauges, defaultOpen = false }: { position: Position; tokens: Map<string, TokenMeta>; managerAddress: Address; managerAbi: Abi; routerAddress: Address; routerAbi: Abi; ledgerAddress: Address; portfolio?: PortfolioSummary; veCollections: WalletPortfolio["veCollections"]; clGauges: readonly ClGauge[]; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const token0 = tokens.get(position.token0.toLowerCase()); const token1 = tokens.get(position.token1.toLowerCase());
+  const rewardTokenMeta = position.rewardToken ? tokens.get(position.rewardToken.toLowerCase()) : undefined;
   const status = statusOf(position);
   const poolState: SlipstreamPoolState = { chainId: 0, address: position.pool, token0: token0 ? { ...token0, name: token0.symbol } : null, token1: token1 ? { ...token1, name: token1.symbol } : null, currentTick: position.currentTick ?? null, sqrtPriceX96: position.sqrtPriceX96 ?? null, tickSpacing: position.tickSpacing };
   const displayTokenOrientation = getDisplayTokenOrientation(poolState);
@@ -584,13 +861,28 @@ function LiquidityPositionCard({ position, tokens, managerAddress, managerAbi, r
           <div>
             <CardTitle className="text-xl">{displayToken0?.symbol ?? "Token 0"} / {displayToken1?.symbol ?? "Token 1"}</CardTitle>
             <CardDescription className="mt-1">{position.poolKey} · Tick spacing {position.tickSpacing} · NFT #{position.tokenId.toString()}</CardDescription>
-            <Badge className={cn("mt-3", status.tone)}>{status.label}</Badge>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Badge className={cn(status.tone)}>{status.label}</Badge>
+              {position.isStaked ? <Badge className="border-sky-300/25 bg-sky-300/10 text-sky-100">Gauge</Badge> : null}
+            </div>
           </div>
           <span className="absolute right-0 top-1 text-white/65">{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <div className="min-w-0 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3"><p className="text-xs text-white/45">Deposited</p>{depositedAmounts.map(([raw, token], index) => <p key={index} className={cn("truncate text-sm font-medium text-white", index === 0 && "mt-1")}>{amount(raw, token)}</p>)}</div>
-          <div className="min-w-0 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3"><p className="text-xs text-white/45">Available fees</p>{feeAmounts.map(([raw, token], index) => <p key={index} className={cn("truncate text-sm font-medium text-white", index === 0 && "mt-1")}>{amount(raw, token)}</p>)}</div>
+          <div className="min-w-0 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3">
+            <p className="text-xs text-white/45">{position.isStaked ? "Gauge emissions" : "Available fees"}</p>
+            {position.isStaked ? (
+              <p className="mt-1 truncate text-sm font-medium text-white">
+                {amount(
+                  position.gaugeEarnedRaw,
+                  rewardTokenMeta ?? (position.rewardToken
+                    ? { symbol: "MEZO", decimals: 18, address: position.rewardToken, rawBalance: 0n }
+                    : undefined),
+                )}
+              </p>
+            ) : feeAmounts.map(([raw, token], index) => <p key={index} className={cn("truncate text-sm font-medium text-white", index === 0 && "mt-1")}>{amount(raw, token)}</p>)}
+          </div>
           <div className="min-w-0 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3"><p className="text-xs text-white/45">Current price</p><p className="mt-1 text-sm font-medium text-white">{position.currentTick === undefined ? "Unavailable" : formatPriceLabel({ pool: poolState, tick: position.currentTick })}</p></div>
           <div className="min-w-0 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3"><p className="text-xs text-white/45">Pool share</p><p className="mt-1 text-sm font-medium text-white">{formatPercentage(share)}</p></div>
         </div>
@@ -599,7 +891,7 @@ function LiquidityPositionCard({ position, tokens, managerAddress, managerAbi, r
     {open ? (
       <CardContent className="space-y-5 border-t border-white/10 px-5 py-5 sm:px-6">
         <PositionRange position={position} poolState={poolState} lowTick={lowTick} highTick={highTick} displayInverted={displayTokenOrientation.inverted} />
-        <PositionActions position={position} token0={token0} token1={token1} displayInverted={displayTokenOrientation.inverted} managerAddress={managerAddress} managerAbi={managerAbi} routerAddress={routerAddress} routerAbi={routerAbi} ledgerAddress={ledgerAddress} portfolio={portfolio} veCollections={veCollections} />
+        <PositionActions position={position} token0={token0} token1={token1} displayInverted={displayTokenOrientation.inverted} managerAddress={managerAddress} managerAbi={managerAbi} routerAddress={routerAddress} routerAbi={routerAbi} ledgerAddress={ledgerAddress} portfolio={portfolio} veCollections={veCollections} clGauges={clGauges} rewardTokenMeta={rewardTokenMeta} />
       </CardContent>
     ) : null}
   </Card>;
@@ -611,6 +903,7 @@ export function LiquidityPositions() {
   const router = getContractConfig(chainId, "AuroveZapRouter");
   const positions = useMemo(
     () => Object.values(liquidity.data?.positions ?? {}).sort((a, b) => {
+      if (a.isStaked !== b.isStaked) return a.isStaked ? -1 : 1;
       if (a.liquidity === 0n && b.liquidity !== 0n) return 1;
       if (a.liquidity !== 0n && b.liquidity === 0n) return -1;
       return 0;
@@ -618,10 +911,16 @@ export function LiquidityPositions() {
     [liquidity.data],
   );
   const tokens = useMemo(() => { const map = new Map<string, TokenMeta>(); [...Object.values(portfolio.data?.walletAssets ?? {}), ...Object.values(portfolio.data?.id20Balances ?? {})].forEach((token) => map.set(token.address.toLowerCase(), token)); return map; }, [portfolio.data]);
-  const feeCount = positions.filter((position) => position.tokensOwed0 > 0n || position.tokensOwed1 > 0n).length;
+  const feeCount = positions.filter((position) => !position.isStaked && (position.tokensOwed0 > 0n || position.tokensOwed1 > 0n)).length;
+  const stakedCount = positions.filter((position) => position.isStaked).length;
   const scrollToAdd = () => document.getElementById("available-pools")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  return <section className="space-y-4" aria-labelledby="liquidity-positions-title"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 id="liquidity-positions-title" className="text-2xl font-semibold text-white">Your liquidity positions</h2><p className="mt-1 text-sm text-white/55">{positions.length} position{positions.length === 1 ? "" : "s"} · {feeCount} with uncollected fees</p></div><Button variant="secondary" size="sm" onClick={() => void liquidity.refetch()} disabled={liquidity.isFetching}><RefreshCw className={cn("h-4 w-4", liquidity.isFetching && "animate-spin")} /> Refresh</Button></div>
-    {liquidity.isLoading ? <div className="grid gap-4"><Skeleton className="h-48 rounded-xl" /><Skeleton className="h-48 rounded-xl" /></div> : positions.length === 0 ? <Card className="border-dashed border-white/15 bg-white/[0.025]"><CardContent className="flex min-h-56 flex-col items-center justify-center text-center"><span className="grid h-12 w-12 place-items-center rounded-full bg-white/5"><Droplets className="h-6 w-6 text-white/55" /></span><h3 className="mt-4 text-lg font-semibold text-white">No liquidity positions</h3><p className="mt-1 max-w-sm text-sm text-white/55">Add liquidity to an Aurove pool to start earning swap fees.</p><Button className="mt-5" onClick={scrollToAdd}>Add liquidity</Button></CardContent></Card> : registry?.positionManager && router?.address ? <div className="grid gap-4"><AggregateFeeCollection positions={positions} tokens={tokens} managerAddress={registry.positionManager.address} managerAbi={registry.positionManager.abi as Abi} />{positions.map((position, index) => <LiquidityPositionCard key={position.tokenId.toString()} position={position} tokens={tokens} managerAddress={registry.positionManager!.address} managerAbi={registry.positionManager!.abi as Abi} routerAddress={router.address!} routerAbi={router.abi as Abi} ledgerAddress={registry.ledger} portfolio={portfolio.data} veCollections={portfolio.domains.wallet.data?.veCollections ?? {}} defaultOpen={index === 0} />)}</div> : <p className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">Position management is not configured on this network.</p>}
+  const summaryParts = [
+    `${positions.length} position${positions.length === 1 ? "" : "s"}`,
+    feeCount > 0 ? `${feeCount} with uncollected fees` : null,
+    stakedCount > 0 ? `${stakedCount} staked` : null,
+  ].filter(Boolean);
+  return <section className="space-y-4" aria-labelledby="liquidity-positions-title"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 id="liquidity-positions-title" className="text-2xl font-semibold text-white">Your liquidity positions</h2><p className="mt-1 text-sm text-white/55">{summaryParts.join(" · ")}</p></div><Button variant="secondary" size="sm" onClick={() => void liquidity.refetch()} disabled={liquidity.isFetching}><RefreshCw className={cn("h-4 w-4", liquidity.isFetching && "animate-spin")} /> Refresh</Button></div>
+    {liquidity.isLoading ? <div className="grid gap-4"><Skeleton className="h-48 rounded-xl" /><Skeleton className="h-48 rounded-xl" /></div> : positions.length === 0 ? <Card className="border-dashed border-white/15 bg-white/[0.025]"><CardContent className="flex min-h-56 flex-col items-center justify-center text-center"><span className="grid h-12 w-12 place-items-center rounded-full bg-white/5"><Droplets className="h-6 w-6 text-white/55" /></span><h3 className="mt-4 text-lg font-semibold text-white">No liquidity positions</h3><p className="mt-1 max-w-sm text-sm text-white/55">Add liquidity to an Aurove pool to start earning swap fees.</p><Button className="mt-5" onClick={scrollToAdd}>Add liquidity</Button></CardContent></Card> : registry?.positionManager && router?.address ? <div className="grid gap-4"><AggregateFeeCollection positions={positions} tokens={tokens} managerAddress={registry.positionManager.address} managerAbi={registry.positionManager.abi as Abi} />{positions.map((position, index) => <LiquidityPositionCard key={position.tokenId.toString()} position={position} tokens={tokens} managerAddress={registry.positionManager!.address} managerAbi={registry.positionManager!.abi as Abi} routerAddress={router.address!} routerAbi={router.abi as Abi} ledgerAddress={registry.ledger} portfolio={portfolio.data} veCollections={portfolio.domains.wallet.data?.veCollections ?? {}} clGauges={registry.clGauges} defaultOpen={index === 0} />)}</div> : <p className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">Position management is not configured on this network.</p>}
     {liquidity.data?.meta.failures.length ? <p className="text-xs text-amber-100/65">Some position details are temporarily unavailable. Confirmed values remain visible.</p> : null}
   </section>;
 }
