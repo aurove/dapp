@@ -21,11 +21,23 @@ const ID20_CONTRACTS = [
 
 /** Cap repeated settle txs for a single exit flow (one loan per step). */
 const MAX_CREDIT_SETTLE_STEPS = 8;
-const CREDIT_ISSUED_LOG_CHUNK = 50_000n;
+/**
+ * Mezo public RPCs enforce a small eth_getLogs window
+ * (`maximum [from, to] blocks distance: 10000`). Stay at/under that limit.
+ */
+const CREDIT_ISSUED_LOG_CHUNK = 10_000n;
+/** Reuse loan-pair discovery across settle shouldSkip/prepare within a short window. */
+const CREDIT_PAIR_CACHE_TTL_MS = 120_000;
 
 const creditIssuedEvent = parseAbiItem(
   "event CreditIssued(address indexed lender, address indexed borrower, uint256 amount)",
 );
+
+type CreditPair = { lender: Address; borrower: Address };
+const creditIssuedPairCache = new Map<
+  string,
+  { pairs: CreditPair[]; expiresAt: number }
+>();
 
 export type Id20GaugeDescriptor = {
   key: string;
@@ -255,14 +267,20 @@ function burnableFromMetadata(metadata: GaugeMetadata, balance: bigint): bigint 
 async function collectCreditIssuedPairs(
   ctx: Pick<TxFlowRuntimeContext, "publicClient" | "account" | "chainId">,
   position: Id20GaugePosition,
-): Promise<{ lender: Address; borrower: Address }[]> {
+): Promise<CreditPair[]> {
+  const cacheKey = `${ctx.chainId}:${position.gaugeAddress.toLowerCase()}:${ctx.account.toLowerCase()}`;
+  const cached = creditIssuedPairCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.pairs;
+  }
+
   const latest = await ctx.publicClient.getBlockNumber();
   const gaugeContractName =
     ID20_CONTRACTS.find((item) => item.key === position.key)?.gaugeName ?? "avBTCmGauge";
   const deployment = getContractDeploymentBlock(ctx.chainId, gaugeContractName) ?? 0;
   const fromBlock = deployment > 0 ? BigInt(deployment) : 0n;
 
-  const pairs = new Map<string, { lender: Address; borrower: Address }>();
+  const pairs = new Map<string, CreditPair>();
 
   const appendLogs = (logs: readonly { args?: unknown }[]) => {
     for (const log of logs) {
@@ -277,30 +295,94 @@ async function collectCreditIssuedPairs(
   };
 
   // Loans are recorded as CreditIssued(lender=receiver, borrower=sender).
-  for (let start = fromBlock; start <= latest; start += CREDIT_ISSUED_LOG_CHUNK) {
+  // Chunk at ≤10k blocks for Mezo RPC limits (distance is inclusive of both ends).
+  for (let start = fromBlock; start <= latest; ) {
     const end =
-      start + CREDIT_ISSUED_LOG_CHUNK - 1n > latest ? latest : start + CREDIT_ISSUED_LOG_CHUNK - 1n;
-    const [asLender, asBorrower] = await Promise.all([
-      ctx.publicClient.getLogs({
-        address: position.gaugeAddress,
-        event: creditIssuedEvent,
-        args: { lender: ctx.account },
-        fromBlock: start,
-        toBlock: end,
-      }),
-      ctx.publicClient.getLogs({
-        address: position.gaugeAddress,
-        event: creditIssuedEvent,
-        args: { borrower: ctx.account },
-        fromBlock: start,
-        toBlock: end,
-      }),
-    ]);
-    appendLogs(asLender);
-    appendLogs(asBorrower);
+      start + CREDIT_ISSUED_LOG_CHUNK - 1n > latest
+        ? latest
+        : start + CREDIT_ISSUED_LOG_CHUNK - 1n;
+    try {
+      const [asLender, asBorrower] = await Promise.all([
+        ctx.publicClient.getLogs({
+          address: position.gaugeAddress,
+          event: creditIssuedEvent,
+          args: { lender: ctx.account },
+          fromBlock: start,
+          toBlock: end,
+        }),
+        ctx.publicClient.getLogs({
+          address: position.gaugeAddress,
+          event: creditIssuedEvent,
+          args: { borrower: ctx.account },
+          fromBlock: start,
+          toBlock: end,
+        }),
+      ]);
+      appendLogs(asLender);
+      appendLogs(asBorrower);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // If a provider still rejects the window, halve and retry once for this range.
+      if (
+        message.includes("blocks distance") ||
+        message.includes("block range") ||
+        message.includes("eth_getLogs")
+      ) {
+        const mid = start + (end - start) / 2n;
+        if (mid > start && mid < end) {
+          const [leftLender, leftBorrower, rightLender, rightBorrower] = await Promise.all([
+            ctx.publicClient.getLogs({
+              address: position.gaugeAddress,
+              event: creditIssuedEvent,
+              args: { lender: ctx.account },
+              fromBlock: start,
+              toBlock: mid,
+            }),
+            ctx.publicClient.getLogs({
+              address: position.gaugeAddress,
+              event: creditIssuedEvent,
+              args: { borrower: ctx.account },
+              fromBlock: start,
+              toBlock: mid,
+            }),
+            ctx.publicClient.getLogs({
+              address: position.gaugeAddress,
+              event: creditIssuedEvent,
+              args: { lender: ctx.account },
+              fromBlock: mid + 1n,
+              toBlock: end,
+            }),
+            ctx.publicClient.getLogs({
+              address: position.gaugeAddress,
+              event: creditIssuedEvent,
+              args: { borrower: ctx.account },
+              fromBlock: mid + 1n,
+              toBlock: end,
+            }),
+          ]);
+          appendLogs(leftLender);
+          appendLogs(leftBorrower);
+          appendLogs(rightLender);
+          appendLogs(rightBorrower);
+        } else {
+          throw new Error(
+            `Failed to scan ${position.symbol} CreditIssued logs (${start}–${end}): ${message}`,
+          );
+        }
+      } else {
+        throw error;
+      }
+    }
+    if (end >= latest) break;
+    start = end + 1n;
   }
 
-  return [...pairs.values()];
+  const result = [...pairs.values()];
+  creditIssuedPairCache.set(cacheKey, {
+    pairs: result,
+    expiresAt: Date.now() + CREDIT_PAIR_CACHE_TTL_MS,
+  });
+  return result;
 }
 
 export type SettleableCreditPair = {
@@ -348,6 +430,9 @@ export function makeId20SettleCreditStep(
   index: number,
   displayLabelBtn = false,
 ): TxPreparedWriteStep {
+  // Share one discovery result between shouldSkip and prepare for this step.
+  let resolvedPair: SettleableCreditPair | null | undefined;
+
   return {
     type: "write",
     key: `id20-settle-credit-${position.key}-${index}`,
@@ -355,16 +440,21 @@ export function makeId20SettleCreditStep(
     displayLabelBtn,
     portfolioDomains: ["id20", "rewards"],
     shouldSkip: async (ctx) => {
+      resolvedPair = undefined;
       const metadata = await readAccountMetadata(ctx, position);
       if (!metadata) return true;
       const balance = await readId20Balance(ctx, position);
       if (burnableFromMetadata(metadata, balance) >= requiredAmount) return true;
       if (metadata.credit <= 0n || !metadata.isActive) return true;
-      const next = await findNextSettleableCreditPair(ctx, position);
-      return next === null;
+      resolvedPair = await findNextSettleableCreditPair(ctx, position);
+      return resolvedPair === null;
     },
     prepare: async (ctx) => {
-      const next = await findNextSettleableCreditPair(ctx, position);
+      const next =
+        resolvedPair !== undefined
+          ? resolvedPair
+          : await findNextSettleableCreditPair(ctx, position);
+      resolvedPair = undefined;
       if (!next) {
         throw new Error(
           `No settleable ${position.symbol} credit found. Settle outstanding credit before unwrapping.`,
