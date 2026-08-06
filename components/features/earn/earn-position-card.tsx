@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
+import Select, { type MultiValue, type StylesConfig } from "react-select";
 import { formatUnits, type Abi, type Address } from "viem";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { useAccount, useChainId } from "wagmi";
-import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton, cn } from "@ui";
+import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Skeleton } from "@ui";
 import { getEarnProtocolConfig } from "@/contracts/earn";
 import {
+  id20ExitNeedsCreditSettlement,
+  makeId20CreditSettlementSteps,
   makeId20GaugeClaimStep,
   useId20GaugePositions,
 } from "@/components/features/id20/use-id20-gauges";
@@ -25,6 +28,101 @@ import { estimateTrancheApy, formatApyPercent } from "./utils/apy";
 const WEEK_SECONDS = 7n * 24n * 60n * 60n;
 const SETTLEMENT_WINDOW_START_SECONDS = 10n * 60n * 60n;
 const SETTLEMENT_WINDOW_DURATION_SECONDS = 6n * 60n * 60n;
+
+type VenftSelectOption = {
+  value: string;
+  label: string;
+  tokenId: string;
+  amountLabel: string;
+  exceedsBalance: boolean;
+};
+
+const venftSelectStyles: StylesConfig<VenftSelectOption, true> = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: 48,
+    borderRadius: 12,
+    borderColor: state.isFocused ? "var(--accent)" : "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(8, 12, 18, 0.85)",
+    boxShadow: state.isFocused ? "0 0 0 1px var(--accent)" : "none",
+    ":hover": {
+      borderColor: state.isFocused ? "var(--accent)" : "rgba(255, 255, 255, 0.2)",
+    },
+  }),
+  menu: (base) => ({
+    ...base,
+    zIndex: 40,
+    borderRadius: 12,
+    overflow: "hidden",
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    backgroundColor: "#0d1219",
+  }),
+  menuList: (base) => ({
+    ...base,
+    padding: 4,
+    maxHeight: 240,
+  }),
+  option: (base, state) => ({
+    ...base,
+    borderRadius: 8,
+    cursor: state.isDisabled ? "not-allowed" : "pointer",
+    backgroundColor: state.isSelected
+      ? "rgba(196, 160, 106, 0.22)"
+      : state.isFocused
+        ? "rgba(255, 255, 255, 0.06)"
+        : "transparent",
+    color: state.isDisabled ? "rgba(255, 255, 255, 0.35)" : "#f6f3ef",
+    opacity: state.isDisabled ? 0.7 : 1,
+  }),
+  multiValue: (base) => ({
+    ...base,
+    borderRadius: 8,
+    backgroundColor: "rgba(196, 160, 106, 0.16)",
+  }),
+  multiValueLabel: (base) => ({
+    ...base,
+    color: "#f6f3ef",
+    fontSize: 12,
+  }),
+  multiValueRemove: (base) => ({
+    ...base,
+    color: "rgba(255, 255, 255, 0.55)",
+    ":hover": {
+      backgroundColor: "rgba(196, 160, 106, 0.28)",
+      color: "#fff",
+    },
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: "rgba(255, 255, 255, 0.4)",
+  }),
+  singleValue: (base) => ({
+    ...base,
+    color: "#f6f3ef",
+  }),
+  input: (base) => ({
+    ...base,
+    color: "#f6f3ef",
+  }),
+  indicatorSeparator: (base) => ({
+    ...base,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  }),
+  dropdownIndicator: (base) => ({
+    ...base,
+    color: "rgba(255, 255, 255, 0.45)",
+    ":hover": { color: "rgba(255, 255, 255, 0.75)" },
+  }),
+  clearIndicator: (base) => ({
+    ...base,
+    color: "rgba(255, 255, 255, 0.45)",
+    ":hover": { color: "rgba(255, 255, 255, 0.75)" },
+  }),
+  noOptionsMessage: (base) => ({
+    ...base,
+    color: "rgba(255, 255, 255, 0.45)",
+  }),
+};
 
 export function EarnPositionCard({
   product: initialProduct,
@@ -108,6 +206,42 @@ function PositionCardContent({
   const selectedRedemptionTotalRaw = selectedRedemptionPositions.reduce(
     (total, position) => total + position.lockedAmountRaw,
     0n,
+  );
+  const venftSelectOptions = useMemo<VenftSelectOption[]>(
+    () =>
+      product.redeemInventory.map((position) => {
+        const exceedsBalance =
+          product.variant === "veMEZO" &&
+          position.lockedAmountRaw > product.userAvailableBalanceRaw;
+        const amountLabel = formatAmount(
+          position.lockedAmountRaw,
+          product.decimals,
+          copy.asset,
+        );
+        return {
+          value: position.key,
+          label: `#${position.tokenId.toString()} · ${amountLabel}${
+            exceedsBalance ? " · exceeds balance" : ""
+          }`,
+          tokenId: position.tokenId.toString(),
+          amountLabel,
+          exceedsBalance,
+        };
+      }),
+    [
+      copy.asset,
+      product.decimals,
+      product.redeemInventory,
+      product.userAvailableBalanceRaw,
+      product.variant,
+    ],
+  );
+  const selectedVenftOptions = useMemo(
+    () =>
+      venftSelectOptions.filter((option) =>
+        selectedRedemptionKeysResolved.includes(option.value),
+      ),
+    [selectedRedemptionKeysResolved, venftSelectOptions],
   );
   const isActionWindowOpen = isSettlementWindowOpen;
   const actionControlId = `redeem-amount-${product.id}`;
@@ -272,57 +406,54 @@ function PositionCardContent({
             </div>
 
             <div className="space-y-2 pt-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-white">Select veNFTs to redeem</span>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {product.redeemInventory.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-3 py-2 text-sm text-white/45 sm:col-span-2">
-                    No vault inventory available for redemption yet.
-                  </div>
-                ) : (
-                  product.redeemInventory.map((position) => {
-                    const selected = selectedRedemptionKeysResolved.includes(position.key);
-                    const aloneExceedsBalance =
-                      product.variant === "veMEZO" &&
-                      position.lockedAmountRaw > product.userAvailableBalanceRaw;
-
-                    return (
-                      <label
-                        key={position.key}
-                        className={cn(
-                          "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 text-sm transition",
-                          selected
-                            ? "border-[var(--accent)]/50 bg-[rgba(196,160,106,0.08)] text-white"
-                            : "border-white/10 bg-[#080c12]/60 text-white/70 hover:border-white/20",
-                          aloneExceedsBalance && "opacity-60",
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 accent-[var(--accent)]"
-                          checked={selected}
-                          disabled={!isActionWindowOpen}
-                          onChange={(event) => {
-                            const next = event.target.checked
-                              ? [...selectedRedemptionKeys, position.key]
-                              : selectedRedemptionKeys.filter((key) => key !== position.key);
-                            setSelectedRedemptionKeys(next);
-                            void formik.setFieldValue("redemptionKeys", next);
-                          }}
-                        />
-                        <div className="min-w-0">
-                          <p className="font-medium text-white">#{position.tokenId.toString()}</p>
-                          <p className="text-xs text-white/45">
-                            {formatAmount(position.lockedAmountRaw, product.decimals, copy.asset)}
-                            {aloneExceedsBalance ? " · exceeds your balance" : ""}
-                          </p>
-                        </div>
-                      </label>
-                    );
-                  })
-                )}
-              </div>
+              <label
+                htmlFor={`redeem-venfts-${product.id}`}
+                className="text-sm font-medium text-white"
+              >
+                Select veNFTs to redeem
+              </label>
+              <Select<VenftSelectOption, true>
+                inputId={`redeem-venfts-${product.id}`}
+                instanceId={`redeem-venfts-${product.id}`}
+                isMulti
+                isSearchable
+                closeMenuOnSelect={false}
+                hideSelectedOptions={false}
+                isDisabled={!isActionWindowOpen || product.redeemInventory.length === 0}
+                options={venftSelectOptions}
+                value={selectedVenftOptions}
+                styles={venftSelectStyles}
+                placeholder={
+                  product.redeemInventory.length === 0
+                    ? "No vault inventory available yet"
+                    : "Select one or more veNFTs…"
+                }
+                noOptionsMessage={() => "No vault inventory available for redemption yet."}
+                isOptionDisabled={(option) => option.exceedsBalance}
+                formatOptionLabel={(option, { context }) =>
+                  context === "menu" ? (
+                    <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
+                      <span className="font-medium text-white">#{option.tokenId}</span>
+                      <span className="text-xs text-white/45">
+                        {option.amountLabel}
+                        {option.exceedsBalance ? " · exceeds your balance" : ""}
+                      </span>
+                    </div>
+                  ) : (
+                    <span>#{option.tokenId}</span>
+                  )
+                }
+                onChange={(next: MultiValue<VenftSelectOption>) => {
+                  const keys = next.map((option) => option.value);
+                  setSelectedRedemptionKeys(keys);
+                  void formik.setFieldValue("redemptionKeys", keys);
+                }}
+                onBlur={() => {
+                  void formik.setFieldTouched("redemptionKeys", true);
+                }}
+                classNamePrefix="venft-select"
+                className="w-full text-sm"
+              />
               {mezoInventoryExceedsBalance ? (
                 <p role="alert" className="text-xs text-red-200">
                   Selected inventory exceeds your redeemable{" "}
@@ -331,7 +462,7 @@ function PositionCardContent({
                     product.decimals,
                     product.symbol,
                   )}
-                  . Uncheck larger veNFTs so the selected total fits your balance
+                  . Remove larger veNFTs so the selected total fits your balance
                   {(() => {
                     const fit = product.redeemInventory.find(
                       (item) => item.lockedAmountRaw <= product.userAvailableBalanceRaw,
@@ -488,6 +619,11 @@ function Id20ExitPanel({
   );
   const gaugeClaimableRaw = gaugePosition?.claimableRaw ?? 0n;
   const parsedUnwrap = parseAmountRaw(unwrapAmount, product.decimals);
+  const needsCreditSettlement =
+    gaugePosition !== null &&
+    parsedUnwrap !== null &&
+    parsedUnwrap > 0n &&
+    id20ExitNeedsCreditSettlement(gaugePosition, parsedUnwrap);
   const canUnwrap =
     Boolean(id20Address) &&
     parsedUnwrap !== null &&
@@ -551,6 +687,13 @@ function Id20ExitPanel({
             before unwrap so they are not left stranded after exit.
           </p>
         ) : null}
+        {needsCreditSettlement ? (
+          <p className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+            This amount includes unsettled gauge credit (
+            {formatAmount(gaugePosition?.creditRaw ?? 0n, product.decimals, product.symbol)}). Credit
+            will be settled into reward weight before unwrapping to the tranche.
+          </p>
+        ) : null}
         <div className="flex gap-2">
           <Input
             id={`unwrap-amount-${product.id}`}
@@ -596,6 +739,15 @@ function Id20ExitPanel({
             if (gaugePosition && gaugePosition.isActive && gaugePosition.claimableRaw > 0n) {
               steps.push(makeId20GaugeClaimStep(gaugePosition, account, true) as unknown as TxStep);
             }
+            // Settle credit into weight when the unwrap amount exceeds burnable units.
+            // Must run after claim/activate path and before unwrap (gauge reverts UnsettledCredit otherwise).
+            if (gaugePosition && id20ExitNeedsCreditSettlement(gaugePosition, parsedUnwrap)) {
+              steps.push(
+                ...makeId20CreditSettlementSteps(gaugePosition, parsedUnwrap, {
+                  displayLabelBtn: true,
+                }),
+              );
+            }
             steps.push(
               makeAddressWriteStep({
                 key: "unwrap-id20",
@@ -614,19 +766,23 @@ function Id20ExitPanel({
           onComplete={() => {
             setUnwrapAmount("");
             void formik.setFieldValue("amount", "");
-            onSuccess(
-              gaugeClaimableRaw > 0n
-                ? `${product.symbol} gauge rewards claimed and ID20 unwrapped to ERC-1155 tranche.`
-                : `${product.symbol} unwrapped to ERC-1155 tranche.`,
-            );
+            const parts: string[] = [];
+            if (gaugeClaimableRaw > 0n) parts.push("gauge rewards claimed");
+            if (needsCreditSettlement) parts.push("credit settled");
+            parts.push("ID20 unwrapped to ERC-1155 tranche");
+            onSuccess(`${product.symbol}: ${parts.join(", ")}.`);
           }}
           onError={txError(onError)}
         >
           {product.id20BalanceRaw <= 0n
             ? "No ID20 balance"
-            : gaugeClaimableRaw > 0n
-              ? "Claim rewards & exit"
-              : "Exit to tranche"}
+            : needsCreditSettlement && gaugeClaimableRaw > 0n
+              ? "Claim, settle credit & exit"
+              : needsCreditSettlement
+                ? "Settle credit & exit"
+                : gaugeClaimableRaw > 0n
+                  ? "Claim rewards & exit"
+                  : "Exit to tranche"}
         </TransactionFlowButton>
       </form>
     </details>

@@ -2,9 +2,9 @@
 
 import { useCallback, useMemo } from "react";
 import { useReadContracts } from "wagmi";
-import type { Abi, Address } from "viem";
+import { parseAbiItem, type Abi, type Address } from "viem";
 
-import { getContractConfig } from "@/contracts/shared";
+import { getContractConfig, getContractDeploymentBlock } from "@/contracts/shared";
 import { useId20Portfolio } from "@/features/portfolio";
 import {
   makeAddressWriteStep,
@@ -18,6 +18,14 @@ const ID20_CONTRACTS = [
   { key: "avBTCm", id20Name: "avBTCmId20", gaugeName: "avBTCmGauge" },
   { key: "avMEZOm", id20Name: "avMEZOmId20", gaugeName: "avMEZOmGauge" },
 ] as const;
+
+/** Cap repeated settle txs for a single exit flow (one loan per step). */
+const MAX_CREDIT_SETTLE_STEPS = 8;
+const CREDIT_ISSUED_LOG_CHUNK = 50_000n;
+
+const creditIssuedEvent = parseAbiItem(
+  "event CreditIssued(address indexed lender, address indexed borrower, uint256 amount)",
+);
 
 export type Id20GaugeDescriptor = {
   key: string;
@@ -180,6 +188,245 @@ export function makeId20GaugeClaimStep(
   } as never) as unknown as TxPreparedWriteStep;
   step.portfolioDomains = ["wallet", "id20", "rewards", "liquidity"];
   return step;
+}
+
+/**
+ * Max ID20 that can be unwrapped/burned without settling credit first.
+ * Active: weight. Inactive: untracked balance (balance − credit).
+ */
+export function id20BurnableWithoutSettlement(
+  position: Pick<Id20GaugePosition, "isActive" | "weightRaw" | "creditRaw" | "balanceRaw">,
+): bigint {
+  if (position.isActive) return position.weightRaw;
+  return position.balanceRaw > position.creditRaw
+    ? position.balanceRaw - position.creditRaw
+    : 0n;
+}
+
+/** True when `amount` exceeds burnable units and credit must be settled (and possibly activated) first. */
+export function id20ExitNeedsCreditSettlement(
+  position: Pick<Id20GaugePosition, "isActive" | "weightRaw" | "creditRaw" | "balanceRaw">,
+  amount: bigint,
+): boolean {
+  if (amount <= 0n) return false;
+  if (position.creditRaw <= 0n) return false;
+  return amount > id20BurnableWithoutSettlement(position);
+}
+
+/** Inactive holders must activate before credit can be settled into weight. */
+export function id20ExitNeedsActivation(
+  position: Pick<Id20GaugePosition, "isActive" | "weightRaw" | "creditRaw" | "balanceRaw">,
+  amount: bigint,
+): boolean {
+  if (position.isActive) return false;
+  return id20ExitNeedsCreditSettlement(position, amount);
+}
+
+async function readAccountMetadata(
+  ctx: Pick<TxFlowRuntimeContext, "publicClient" | "account">,
+  position: Id20GaugePosition,
+): Promise<GaugeMetadata | null> {
+  const raw = await ctx.publicClient.readContract({
+    address: position.gaugeAddress,
+    abi: position.gaugeAbi,
+    functionName: "accountMetadata",
+    args: [ctx.account],
+  } as never);
+  return readGaugeMetadata(raw);
+}
+
+async function readId20Balance(
+  ctx: Pick<TxFlowRuntimeContext, "publicClient" | "account">,
+  position: Id20GaugePosition,
+): Promise<bigint> {
+  return ctx.publicClient.readContract({
+    address: position.id20Address,
+    abi: position.id20Abi,
+    functionName: "balanceOf",
+    args: [ctx.account],
+  } as never) as Promise<bigint>;
+}
+
+function burnableFromMetadata(metadata: GaugeMetadata, balance: bigint): bigint {
+  if (metadata.isActive) return metadata.weight;
+  return balance > metadata.credit ? balance - metadata.credit : 0n;
+}
+
+async function collectCreditIssuedPairs(
+  ctx: Pick<TxFlowRuntimeContext, "publicClient" | "account" | "chainId">,
+  position: Id20GaugePosition,
+): Promise<{ lender: Address; borrower: Address }[]> {
+  const latest = await ctx.publicClient.getBlockNumber();
+  const gaugeContractName =
+    ID20_CONTRACTS.find((item) => item.key === position.key)?.gaugeName ?? "avBTCmGauge";
+  const deployment = getContractDeploymentBlock(ctx.chainId, gaugeContractName) ?? 0;
+  const fromBlock = deployment > 0 ? BigInt(deployment) : 0n;
+
+  const pairs = new Map<string, { lender: Address; borrower: Address }>();
+
+  const appendLogs = (logs: readonly { args?: unknown }[]) => {
+    for (const log of logs) {
+      if (!log.args || typeof log.args !== "object" || Array.isArray(log.args)) continue;
+      const args = log.args as { lender?: Address; borrower?: Address };
+      if (!args.lender || !args.borrower) continue;
+      const lender = args.lender;
+      const borrower = args.borrower;
+      const key = `${lender.toLowerCase()}:${borrower.toLowerCase()}`;
+      pairs.set(key, { lender, borrower });
+    }
+  };
+
+  // Loans are recorded as CreditIssued(lender=receiver, borrower=sender).
+  for (let start = fromBlock; start <= latest; start += CREDIT_ISSUED_LOG_CHUNK) {
+    const end =
+      start + CREDIT_ISSUED_LOG_CHUNK - 1n > latest ? latest : start + CREDIT_ISSUED_LOG_CHUNK - 1n;
+    const [asLender, asBorrower] = await Promise.all([
+      ctx.publicClient.getLogs({
+        address: position.gaugeAddress,
+        event: creditIssuedEvent,
+        args: { lender: ctx.account },
+        fromBlock: start,
+        toBlock: end,
+      }),
+      ctx.publicClient.getLogs({
+        address: position.gaugeAddress,
+        event: creditIssuedEvent,
+        args: { borrower: ctx.account },
+        fromBlock: start,
+        toBlock: end,
+      }),
+    ]);
+    appendLogs(asLender);
+    appendLogs(asBorrower);
+  }
+
+  return [...pairs.values()];
+}
+
+export type SettleableCreditPair = {
+  lender: Address;
+  borrower: Address;
+  amount: bigint;
+};
+
+/** Find the next (lender, borrower) pair with positive maxSettleableCredit for the user. */
+export async function findNextSettleableCreditPair(
+  ctx: Pick<TxFlowRuntimeContext, "publicClient" | "account" | "chainId">,
+  position: Id20GaugePosition,
+): Promise<SettleableCreditPair | null> {
+  const metadata = await readAccountMetadata(ctx, position);
+  if (!metadata?.isActive || metadata.credit <= 0n) return null;
+
+  const candidates = await collectCreditIssuedPairs(ctx, position);
+  // Prefer pairs where the user is the lender (standard receive-from-active path).
+  const ordered = [
+    ...candidates.filter((pair) => pair.lender.toLowerCase() === ctx.account.toLowerCase()),
+    ...candidates.filter((pair) => pair.lender.toLowerCase() !== ctx.account.toLowerCase()),
+  ];
+
+  for (const pair of ordered) {
+    const amount = (await ctx.publicClient.readContract({
+      address: position.gaugeAddress,
+      abi: position.gaugeAbi,
+      functionName: "maxSettleableCredit",
+      args: [ctx.account, pair.lender, pair.borrower],
+    } as never)) as bigint;
+    if (amount > 0n) {
+      return { lender: pair.lender, borrower: pair.borrower, amount };
+    }
+  }
+  return null;
+}
+
+/**
+ * One settleCredit write. Skips when burnable weight already covers `requiredAmount`
+ * or when no settleable loan pair remains.
+ */
+export function makeId20SettleCreditStep(
+  position: Id20GaugePosition,
+  requiredAmount: bigint,
+  index: number,
+  displayLabelBtn = false,
+): TxPreparedWriteStep {
+  return {
+    type: "write",
+    key: `id20-settle-credit-${position.key}-${index}`,
+    label: `Settle ${position.symbol} credit`,
+    displayLabelBtn,
+    portfolioDomains: ["id20", "rewards"],
+    shouldSkip: async (ctx) => {
+      const metadata = await readAccountMetadata(ctx, position);
+      if (!metadata) return true;
+      const balance = await readId20Balance(ctx, position);
+      if (burnableFromMetadata(metadata, balance) >= requiredAmount) return true;
+      if (metadata.credit <= 0n || !metadata.isActive) return true;
+      const next = await findNextSettleableCreditPair(ctx, position);
+      return next === null;
+    },
+    prepare: async (ctx) => {
+      const next = await findNextSettleableCreditPair(ctx, position);
+      if (!next) {
+        throw new Error(
+          `No settleable ${position.symbol} credit found. Settle outstanding credit before unwrapping.`,
+        );
+      }
+      return {
+        contract: { address: position.gaugeAddress, abi: position.gaugeAbi },
+        request: {
+          functionName: "settleCredit",
+          args: [ctx.account, next.lender, next.borrower],
+        },
+      } as never;
+    },
+  };
+}
+
+/**
+ * Prepend activation (if needed) + up to N settleCredit steps before ID20 unwrap/exit.
+ * Call after claim, before unwrap so burn path has enough weight.
+ */
+export function makeId20CreditSettlementSteps(
+  position: Id20GaugePosition,
+  requiredAmount: bigint,
+  options?: { displayLabelBtn?: boolean },
+): TxStep[] {
+  if (requiredAmount <= 0n) return [];
+  if (!id20ExitNeedsCreditSettlement(position, requiredAmount)) return [];
+
+  const displayLabelBtn = options?.displayLabelBtn ?? true;
+  const steps: TxStep[] = [];
+
+  if (id20ExitNeedsActivation(position, requiredAmount)) {
+    steps.push(makeId20ActivationStep(position, displayLabelBtn));
+  }
+
+  for (let index = 0; index < MAX_CREDIT_SETTLE_STEPS; index += 1) {
+    steps.push(makeId20SettleCreditStep(position, requiredAmount, index, displayLabelBtn));
+  }
+
+  // Final guard so a missing counterpart surface as a clear error instead of UnsettledCredit on unwrap.
+  steps.push({
+    type: "custom",
+    key: `id20-verify-settlement-${position.key}`,
+    label: `Verify ${position.symbol} credit settlement`,
+    run: async (ctx) => {
+      const metadata = await readAccountMetadata(ctx, position);
+      if (!metadata) {
+        throw new Error(`${position.symbol} gauge account metadata could not be loaded.`);
+      }
+      const balance = await readId20Balance(ctx, position);
+      const burnable = burnableFromMetadata(metadata, balance);
+      if (burnable < requiredAmount) {
+        throw new Error(
+          `Settle outstanding ${position.symbol} credit before unwrapping. ` +
+            `Burnable ${burnable.toString()} is below requested ${requiredAmount.toString()}.`,
+        );
+      }
+      return "skip";
+    },
+  });
+
+  return steps;
 }
 
 export function useId20GaugePositions(chainId: number, account?: Address) {
