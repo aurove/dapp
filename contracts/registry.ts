@@ -9,7 +9,7 @@ const contracts = {
   31337: {
     AuroveZapRouter: {
       address: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
-      deploymentBlock: 10781326,
+      deploymentBlock: 10959271,
       abi: [
         {
           inputs: [
@@ -1522,13 +1522,13 @@ const contracts = {
     },
     "avBTCm-avMEZOm": {
       address: "0x67369b60B97fCf5AA7F646215115356Aca2484e9",
-      deploymentBlock: 10781330,
+      deploymentBlock: 10959275,
       linkedData: {
         contractName: "CLPool",
         tokenA: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tokenB: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
         tickSpacing: 200,
-        sqrtPriceX96: "211773713881809446359874001400155",
+        sqrtPriceX96: "233016634253187328057049227497824",
       },
       abi: [
         {
@@ -2081,7 +2081,7 @@ const contracts = {
     },
     "avBTCm-avMEZOmGauge": {
       address: "0xCd1b3cAB8715e66a5c00F420C84742f6406059eF",
-      deploymentBlock: 10781408,
+      deploymentBlock: 10959280,
       linkedData: {
         contractName: "CLGauge",
         poolKey: "avBTCm-avMEZOm",
@@ -2096,8 +2096,8 @@ const contracts = {
         votingRewardsFactory: "0x30019D85a86ABD3cDA1167F4C052690c32FBDEc2",
         gaugeFactory: "0xfc41E1AAe0e58E8bDC32e85d8C995A902FEdEb13",
         rewardToken: "0x7B7c000000000000000000000000000000000001",
-        feeVotingReward: "0x1f8CBEF5016D063e2CFCef0ce58dD51f21F998a1",
-        bribeVotingReward: "0xfC391ba6B7820288405Eca09a7a36583B23fb21f",
+        feeVotingReward: "0x85292D29D25775155ceb861C18AeA688fbcF2446",
+        bribeVotingReward: "0x633dd0c55Bb1966B4361cE1d76666499aaf0cab8",
       },
       abi: [
         {
@@ -5740,7 +5740,7 @@ const contracts = {
     },
     Id20Factory: {
       address: "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
-      deploymentBlock: 10781325,
+      deploymentBlock: 10959270,
       abi: [
         {
           inputs: [{ internalType: "contract ILedger", name: "assetLedger_", type: "address" }],
@@ -5811,7 +5811,7 @@ const contracts = {
     },
     Ledger: {
       address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-      deploymentBlock: 10781317,
+      deploymentBlock: 10959262,
       linkedData: {
         contractName: "Ledger",
         proxyKind: "uups",
@@ -5824,7 +5824,7 @@ const contracts = {
         },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x1efd3be8884fee9fd8a8a3104ad36fdf5744ead36d45e87cc2095d29239d0a40",
+          transactionHash: "0xb72ef28ee42c8876c1c829524c9742c9b2c97a817c5b22815cee571f5ccfd424",
         },
       },
       abi: [
@@ -6559,13 +6559,13 @@ const contracts = {
     },
     "MUSD-avBTCm": {
       address: "0x28885d38F8fD0c79BE0640974A60EB9510E81482",
-      deploymentBlock: 10781329,
+      deploymentBlock: 10959274,
       linkedData: {
         contractName: "CLPool",
         tokenA: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
         tokenB: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tickSpacing: 200,
-        sqrtPriceX96: "19950069914751509953609983365535",
+        sqrtPriceX96: "20265235329216581334335929767854",
       },
       abi: [
         {
@@ -7118,7 +7118,7 @@ const contracts = {
     },
     "MUSD-avBTCmGauge": {
       address: "0xC5d9ddC440759CCe340c745a6133c7A29E90cF94",
-      deploymentBlock: 10781407,
+      deploymentBlock: 10959279,
       linkedData: {
         contractName: "CLGauge",
         poolKey: "MUSD-avBTCm",
@@ -7133,8 +7133,8 @@ const contracts = {
         votingRewardsFactory: "0x30019D85a86ABD3cDA1167F4C052690c32FBDEc2",
         gaugeFactory: "0xfc41E1AAe0e58E8bDC32e85d8C995A902FEdEb13",
         rewardToken: "0x7B7c000000000000000000000000000000000001",
-        feeVotingReward: "0xfDa0c394a517feb99B6e255e7e34D98fc3149eb3",
-        bribeVotingReward: "0xcc862BA4713d9030cF3ee03E8C7bD11DEab59Ac5",
+        feeVotingReward: "0x8E11442A67394012155359F5a9bcEE2D0a33cA58",
+        bribeVotingReward: "0xAce0FC724776FD897497cAD7B78A37494980B44C",
       },
       abi: [
         {
@@ -7983,14 +7983,14 @@ const contracts = {
     },
     Vault: {
       address: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
-      deploymentBlock: 10781323,
+      deploymentBlock: 10959268,
       linkedData: {
         contractName: "Vault",
         proxyKind: "uups",
         initializer: { name: "initialize", args: ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"] },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x1114ca81243483c1cb8f66092a5614e0747750ee1c90b4777ef226b9450f38c4",
+          transactionHash: "0xceba221b4d04245683bd0794f7dcec901c8caef09e0a84b0a1fa629ba1b44e66",
         },
       },
       abi: [
