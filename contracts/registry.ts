@@ -1528,7 +1528,7 @@ const contracts = {
         tokenA: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tokenB: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
         tickSpacing: 200,
-        sqrtPriceX96: "233016634253187328057049227497824",
+        sqrtPriceX96: "234632563189966721088685689891854",
       },
       abi: [
         {
@@ -2409,7 +2409,7 @@ const contracts = {
     },
     avBTCmGauge: {
       address: "0xe4c278D321184BBFFB72e4e59e16a953b6863BEF",
-      deploymentBlock: 10781327,
+      deploymentBlock: 10959272,
       linkedData: {
         contractName: "Id20Gauge",
         sourceName: "src/Id20Gauge.sol",
@@ -2612,7 +2612,7 @@ const contracts = {
     },
     avBTCmId20: {
       address: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
-      deploymentBlock: 10781327,
+      deploymentBlock: 10959272,
       linkedData: {
         contractName: "AuroveId20",
         sourceName: "src/aurove/AuroveId20.sol",
@@ -2924,7 +2924,7 @@ const contracts = {
     },
     avBTCmManager: {
       address: "0x440C0fCDC317D69606eabc35C0F676D1a8251Ee1",
-      deploymentBlock: 10314245,
+      deploymentBlock: 10959268,
       linkedData: {
         contractName: "VeNftManager",
         sourceName: "contracts/tranche/VeNftManager.sol",
@@ -3289,7 +3289,7 @@ const contracts = {
     },
     avBTCmSink: {
       address: "0x9bd03768a7DCc129555dE410FF8E85528A4F88b5",
-      deploymentBlock: 10314245,
+      deploymentBlock: 10959268,
       linkedData: {
         contractName: "RewardSink",
         sourceName: "contracts/tranche/RewardSink.sol",
@@ -3556,7 +3556,7 @@ const contracts = {
     },
     avMEZOmGauge: {
       address: "0xf80a256dD56D523F304be32435A492EF1D3F3Fe3",
-      deploymentBlock: 10781328,
+      deploymentBlock: 10959273,
       linkedData: {
         contractName: "Id20Gauge",
         sourceName: "src/Id20Gauge.sol",
@@ -3759,7 +3759,7 @@ const contracts = {
     },
     avMEZOmId20: {
       address: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
-      deploymentBlock: 10781328,
+      deploymentBlock: 10959273,
       linkedData: {
         contractName: "AuroveId20",
         sourceName: "src/aurove/AuroveId20.sol",
@@ -4071,7 +4071,7 @@ const contracts = {
     },
     avMEZOmManager: {
       address: "0x0433d874a28147DB0b330C000fcC50C0f0BaF425",
-      deploymentBlock: 10314245,
+      deploymentBlock: 10959268,
       linkedData: {
         contractName: "VeNftManager",
         sourceName: "contracts/tranche/VeNftManager.sol",
@@ -4436,7 +4436,7 @@ const contracts = {
     },
     avMEZOmSink: {
       address: "0x80E2E2367C5E9D070Ae2d6d50bF0cdF6360a7151",
-      deploymentBlock: 10314245,
+      deploymentBlock: 10959268,
       linkedData: {
         contractName: "RewardSink",
         sourceName: "contracts/tranche/RewardSink.sol",
@@ -5824,7 +5824,7 @@ const contracts = {
         },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0xb72ef28ee42c8876c1c829524c9742c9b2c97a817c5b22815cee571f5ccfd424",
+          transactionHash: "0x9d0dd57b450d2e618ebabdf585769a9b04c27fa5844452cc55cde719df0fc57b",
         },
       },
       abi: [
@@ -6565,7 +6565,7 @@ const contracts = {
         tokenA: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
         tokenB: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tickSpacing: 200,
-        sqrtPriceX96: "20265235329216581334335929767854",
+        sqrtPriceX96: "20269278727264268084696176313582",
       },
       abi: [
         {
@@ -7990,7 +7990,7 @@ const contracts = {
         initializer: { name: "initialize", args: ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"] },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0xceba221b4d04245683bd0794f7dcec901c8caef09e0a84b0a1fa629ba1b44e66",
+          transactionHash: "0x68594851b907e0c7bfa82c08bb68bc2a876b87f701a05512fc81137521106b40",
         },
       },
       abi: [
