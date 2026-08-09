@@ -24,7 +24,7 @@ import {
 } from "@/components/features/id20/use-id20-gauges";
 import { getContractConfig } from "@/contracts/shared";
 import { usePortfolioSummary } from "@/features/portfolio";
-import { useChainTime } from "@/lib/web3/use-chain-time";
+import { useChainDeadline } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
 import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
@@ -76,7 +76,6 @@ type LiquidityPoolOption = {
 };
 
 const DEFAULT_SLIPPAGE_BPS = 50n;
-const DEFAULT_DEADLINE_WINDOW_SECONDS = 30n * 60n;
 
 function createInitialPoolFormState(): Record<LiquidityPoolKey, PoolFormState> {
   return {
@@ -178,7 +177,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
   const transactionRef = useRef<TransactionFlowButtonHandle>(null);
   const chainId = useChainId();
   const { address: account } = useAccount();
-  const { chainTimestamp } = useChainTime();
+  const { deadline } = useChainDeadline();
   const portfolio = usePortfolioSummary();
   const id20Gauges = useId20GaugePositions(chainId, account);
   const [selectedPoolState, setSelectedPoolState] = useState<LiquidityPoolKey>(initialPool);
@@ -247,7 +246,6 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
     [formState.selectedSourceIds.assetB, sourcesBySide.assetB],
   );
 
-  const deadline = chainTimestamp !== null ? chainTimestamp + DEFAULT_DEADLINE_WINDOW_SECONDS : null;
 
   const quote = useMemo<SlipstreamLiquidityQuote>(() => {
     const activeAmountText = formState.draftAmounts[formState.activeSide];

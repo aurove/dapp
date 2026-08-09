@@ -11,7 +11,8 @@ import {
   DialogHeader, DialogTitle, Input, ScrollArea, cn,
 } from "@ui";
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";
-import { useChainTime } from "@/lib/web3/use-chain-time";
+import { hasChainTimestampPassed } from "@/lib/web3/chain-time";
+import { useChainDeadline } from "@/lib/web3/use-chain-time";
 import { formatCompactDecimal, formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
 import {
   findClRoute, planSwap, useSwapApproval, useSwapAssets, useSwapExecution, useSwapNetworkFee, useSwapQuote,
@@ -233,7 +234,8 @@ export function SwapPage() {
     validationSchema: swapSchema,
     onSubmit: () => handleAction(),
   });
-  const { chainTimestamp, isChainTimeLoading } = useChainTime();
+  const deadlineWindowSeconds = BigInt(Math.round(deadlineMinutes * 60));
+  const { chainTimestamp, deadline, isChainTimeLoading } = useChainDeadline(deadlineWindowSeconds);
 
   const resolvedSellId = sellId ?? registry?.assets.find((asset) => asset.id === "erc20:MUSD")?.id ?? registry?.assets[0]?.id;
   const sell = registry?.assets.find((asset) => asset.id === resolvedSellId);
@@ -246,8 +248,7 @@ export function SwapPage() {
   const sellAssets = useSwapAssets(registry, buy, "sell");
   const buyAssets = useSwapAssets(registry, sell, "buy");
   const parsedAmount = safeParse(typedAmount, (tradeType === "exactInput" ? sell : buy)?.decimals ?? 18);
-  const deadline = chainTimestamp === null ? undefined : chainTimestamp + BigInt(Math.round(deadlineMinutes * 60));
-  const intent = useMemo<SwapIntent | undefined>(() => sell && buy && deadline !== undefined && parsedAmount !== null && parsedAmount > 0n ? {
+  const intent = useMemo<SwapIntent | undefined>(() => sell && buy && deadline !== null && parsedAmount !== null && parsedAmount > 0n ? {
     chainId: registry!.chainId, account: (account.address ?? zeroAddress) as Address,
     tokenIn: sell, tokenOut: buy, tradeType, amount: parsedAmount, slippageBps,
     recipient: (account.address ?? zeroAddress) as Address, deadline,
@@ -286,7 +287,9 @@ export function SwapPage() {
     ? `${formatCompactRawTokenAmount(quote.data.amountIn * (10n ** BigInt(buy.decimals)) / quote.data.amountOut, sell.decimals, null)} ${sell.symbol} per ${buy.symbol}` : "—";
   const routeSymbol = (token: Address) => registry?.assets.find((asset) => (asset.form === "erc20" || asset.form === "id20") && asset.executableAddress.toLowerCase() === token.toLowerCase())?.symbol ?? "Pool";
   const routeText = supportedPlan ? [routeSymbol(supportedPlan.hops[0].tokenIn), ...supportedPlan.hops.map((hop) => routeSymbol(hop.tokenOut))].join(" → ") : "—";
-  const quoteExpired = Boolean(quote.data && chainTimestamp !== null && chainTimestamp > quote.data.expiresAtBlockTimestamp);
+  const quoteExpired = Boolean(
+    quote.data && hasChainTimestampPassed(chainTimestamp, quote.data.expiresAtBlockTimestamp),
+  );
   const action = (() => {
     if (!registry && registryQuery.isLoading) return { label: "Loading markets…", disabled: true };
     if (!registry) return { label: registryQuery.isError ? "Unable to load markets" : "Unsupported network", disabled: true };

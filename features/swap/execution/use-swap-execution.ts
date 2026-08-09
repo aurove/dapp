@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Hash } from "viem";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { getParsedError } from "@/lib/tx-flow/getParsedError";
+import { hasChainTimestampPassed } from "@/lib/web3/chain-time";
 import { getPortfolioRegistry, invalidatePortfolioDomains } from "@/features/portfolio";
 import type { SwapExecutionPlan, SwapQuote } from "../domain";
 
@@ -26,8 +27,8 @@ export function useSwapExecution(params: { plan?: SwapExecutionPlan; quote?: Swa
     try {
       setError(undefined);
       const latestBlock = await client.getBlock({ blockTag: "latest" });
-      if (latestBlock.timestamp > params.quote.expiresAtBlockTimestamp) throw new Error("Quote expired. Refresh the quote before swapping.");
-      if (latestBlock.timestamp > plan.deadline) throw new Error("Swap deadline expired. Refresh the quote before swapping.");
+      if (hasChainTimestampPassed(latestBlock.timestamp, params.quote.expiresAtBlockTimestamp)) throw new Error("Quote expired. Refresh the quote before swapping.");
+      if (hasChainTimestampPassed(latestBlock.timestamp, plan.deadline)) throw new Error("Swap deadline expired. Refresh the quote before swapping.");
       if (!(await params.verifyApproval())) throw new Error("Approval is required before swapping.");
       setState("submitting");
       let simulation;

@@ -1,5 +1,6 @@
 import { TickMath, v3Swap, type TickDataProvider } from "@uniswap/v3-sdk";
 import type { Abi, Address, PublicClient } from "viem";
+import { hasChainTimestampPassed } from "@/lib/web3/chain-time";
 import type { SwapHop, SwapQuote, SwapRegistry, SwapRouteResult, SwapTradeType } from "../domain";
 import { discoverClRoutes, encodeClPath } from "../routing";
 
@@ -246,7 +247,7 @@ export async function quoteBestSwapRoute(params: {
     const best = quoted[0];
     const latestBlock = await client.getBlock({ blockTag: "latest" });
     const expiresAtBlockTimestamp = block.timestamp + registry.routing.quoteTtlSeconds;
-    if (latestBlock.timestamp > expiresAtBlockTimestamp) {
+    if (hasChainTimestampPassed(latestBlock.timestamp, expiresAtBlockTimestamp)) {
       return { status: "stale-quote", reason: "Pool state changed while routes were being evaluated", candidateCount: routes.length };
     }
     return {

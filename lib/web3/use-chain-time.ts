@@ -3,6 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 
+import {
+  DEFAULT_TRANSACTION_DEADLINE_WINDOW_SECONDS,
+  deriveChainDeadline,
+} from "./chain-time";
+
 const CHAIN_TIME_STALE_MS = 10_000;
 const CHAIN_TIME_REFETCH_MS = 15_000;
 
@@ -34,5 +39,19 @@ export function useChainTime() {
     chainTimestampNumber: block.data?.timestamp === undefined ? null : Number(block.data.timestamp),
     isChainTimeLoading: block.isLoading,
     refetchChainTime: block.refetch,
+  };
+}
+
+/**
+ * Derives a transaction deadline from the shared latest-block query. Multiple
+ * consumers on a page reuse the same React Query cache and polling request.
+ */
+export function useChainDeadline(
+  windowSeconds = DEFAULT_TRANSACTION_DEADLINE_WINDOW_SECONDS,
+) {
+  const chainTime = useChainTime();
+  return {
+    ...chainTime,
+    deadline: deriveChainDeadline(chainTime.chainTimestamp, windowSeconds),
   };
 }

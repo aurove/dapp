@@ -17,6 +17,7 @@ import { getContractConfig } from "@/contracts/shared";
 import { getPortfolioRegistry, usePortfolioSummary, type LiquidityPortfolio, type PortfolioDomain, type PortfolioRegistry, type PortfolioSummary, type WalletPortfolio } from "@/features/portfolio";
 import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeTokenApprovalStep, type TxStep } from "@/lib/tx-flow";
+import { useChainDeadline } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import {
   formatPriceLabel,
@@ -313,6 +314,7 @@ function PositionActions({
   routerAddress,
   routerAbi,
   ledgerAddress,
+  deadline,
   portfolio,
   veCollections,
   clGauges,
@@ -327,6 +329,7 @@ function PositionActions({
   routerAddress: Address;
   routerAbi: Abi;
   ledgerAddress: Address;
+  deadline: bigint | null;
   portfolio?: PortfolioSummary;
   veCollections: WalletPortfolio["veCollections"];
   clGauges: readonly ClGauge[];
@@ -352,7 +355,6 @@ function PositionActions({
   const [collectAfter, setCollectAfter] = useState(true);
   const [claimOnUnstake, setClaimOnUnstake] = useState(true);
   const [burnConfirmed, setBurnConfirmed] = useState(false);
-  const [deadline] = useState(() => BigInt(Math.floor(Date.now() / 1000) + 86_400));
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const numericPercent = Math.min(100, Math.max(0, Number(percent) || 0));
@@ -448,7 +450,7 @@ function PositionActions({
   }
 
   const collectSteps = address && !position.isStaked ? [withDomains(makeAddressWriteStep({ key: "liquidity-collect-fees", label: "Collect fees", displayLabelBtn: true, address: managerAddress, abi: managerAbi, variables: { functionName: "collect", args: [{ tokenId: position.tokenId, recipient: address, amount0Max: UINT128_MAX, amount1Max: UINT128_MAX }] } }) as TxStep, ["liquidity", "wallet", "id20"])] : [];
-  const removeSteps = address && !position.isStaked && removeLiquidity > 0n ? [withDomains(makeAddressWriteStep({ key: "liquidity-remove", label: numericPercent === 100 ? "Remove all liquidity" : "Remove liquidity", displayLabelBtn: true, address: managerAddress, abi: managerAbi, variables: { functionName: "decreaseLiquidity", args: [{ tokenId: position.tokenId, liquidity: removeLiquidity, amount0Min: min0, amount1Min: min1, deadline }] } }) as TxStep, ["liquidity", "wallet", "id20"]), ...(collectAfter ? collectSteps : [])] : [];
+  const removeSteps = address && deadline !== null && !position.isStaked && removeLiquidity > 0n ? [withDomains(makeAddressWriteStep({ key: "liquidity-remove", label: numericPercent === 100 ? "Remove all liquidity" : "Remove liquidity", displayLabelBtn: true, address: managerAddress, abi: managerAbi, variables: { functionName: "decreaseLiquidity", args: [{ tokenId: position.tokenId, liquidity: removeLiquidity, amount0Min: min0, amount1Min: min1, deadline }] } }) as TxStep, ["liquidity", "wallet", "id20"]), ...(collectAfter ? collectSteps : [])] : [];
 
   const stakeSteps: TxStep[] = [];
   if (address && gauge && !position.isStaked && position.liquidity > 0n) {
@@ -635,7 +637,7 @@ function PositionActions({
               <div className="grid grid-cols-2 gap-1.5 text-xs">{estimatedAmounts.map(([raw, token], index) => <span key={index} className="truncate rounded-lg bg-white/5 px-2.5 py-2">Est. {amount(raw, token)}</span>)}</div>
               <label className="flex items-center gap-2 border-t border-white/[0.07] pt-2.5 text-xs text-white/65"><input name="collectAfter" type="checkbox" checked={collectAfter} onChange={(event) => { setCollectAfter(event.target.checked); void removeFormik.setFieldValue("collectAfter", event.target.checked); }} /> Collect owed tokens after removal</label>
               {removeFormik.submitCount > 0 && (removeFormik.errors.percent || removeFormik.errors.slippage) ? <p role="alert" className="text-xs text-red-200">{removeFormik.errors.percent ?? removeFormik.errors.slippage}</p> : null}
-              <TransactionFlowButton ref={removeTransactionRef} type="submit" className="w-full" steps={removeSteps} disabled={removeLiquidity <= 0n} onComplete={complete(numericPercent === 100 ? "Liquidity fully removed. The NFT was not burned." : "Liquidity partially removed.")} onError={failed}>Preview and remove</TransactionFlowButton>
+              <TransactionFlowButton ref={removeTransactionRef} type="submit" className="w-full" steps={removeSteps} disabled={deadline === null || removeLiquidity <= 0n} onComplete={complete(numericPercent === 100 ? "Liquidity fully removed. The NFT was not burned." : "Liquidity partially removed.")} onError={failed}>Preview and remove</TransactionFlowButton>
             </form>
             <div className="space-y-3 rounded-2xl border border-white/15 bg-black/10 p-5">
               <form onSubmit={increaseFormik.handleSubmit} noValidate className="space-y-3">
@@ -836,7 +838,7 @@ function PositionRange({
   </div>;
 }
 
-function LiquidityPositionCard({ position, tokens, managerAddress, managerAbi, routerAddress, routerAbi, ledgerAddress, portfolio, veCollections, clGauges, defaultOpen = false }: { position: Position; tokens: Map<string, TokenMeta>; managerAddress: Address; managerAbi: Abi; routerAddress: Address; routerAbi: Abi; ledgerAddress: Address; portfolio?: PortfolioSummary; veCollections: WalletPortfolio["veCollections"]; clGauges: readonly ClGauge[]; defaultOpen?: boolean }) {
+function LiquidityPositionCard({ position, tokens, managerAddress, managerAbi, routerAddress, routerAbi, ledgerAddress, deadline, portfolio, veCollections, clGauges, defaultOpen = false }: { position: Position; tokens: Map<string, TokenMeta>; managerAddress: Address; managerAbi: Abi; routerAddress: Address; routerAbi: Abi; ledgerAddress: Address; deadline: bigint | null; portfolio?: PortfolioSummary; veCollections: WalletPortfolio["veCollections"]; clGauges: readonly ClGauge[]; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const token0 = tokens.get(position.token0.toLowerCase()); const token1 = tokens.get(position.token1.toLowerCase());
   const rewardTokenMeta = position.rewardToken ? tokens.get(position.rewardToken.toLowerCase()) : undefined;
@@ -891,7 +893,7 @@ function LiquidityPositionCard({ position, tokens, managerAddress, managerAbi, r
     {open ? (
       <CardContent className="space-y-5 border-t border-white/10 px-5 py-5 sm:px-6">
         <PositionRange position={position} poolState={poolState} lowTick={lowTick} highTick={highTick} displayInverted={displayTokenOrientation.inverted} />
-        <PositionActions position={position} token0={token0} token1={token1} displayInverted={displayTokenOrientation.inverted} managerAddress={managerAddress} managerAbi={managerAbi} routerAddress={routerAddress} routerAbi={routerAbi} ledgerAddress={ledgerAddress} portfolio={portfolio} veCollections={veCollections} clGauges={clGauges} rewardTokenMeta={rewardTokenMeta} />
+        <PositionActions position={position} token0={token0} token1={token1} displayInverted={displayTokenOrientation.inverted} managerAddress={managerAddress} managerAbi={managerAbi} routerAddress={routerAddress} routerAbi={routerAbi} ledgerAddress={ledgerAddress} deadline={deadline} portfolio={portfolio} veCollections={veCollections} clGauges={clGauges} rewardTokenMeta={rewardTokenMeta} />
       </CardContent>
     ) : null}
   </Card>;
@@ -899,6 +901,7 @@ function LiquidityPositionCard({ position, tokens, managerAddress, managerAbi, r
 
 export function LiquidityPositions() {
   const chainId = useChainId(); const portfolio = usePortfolioSummary(); const liquidity = portfolio.domains.liquidity;
+  const { deadline } = useChainDeadline();
   const registry = useMemo(() => getPortfolioRegistry(chainId), [chainId]);
   const router = getContractConfig(chainId, "AuroveZapRouter");
   const positions = useMemo(
@@ -920,7 +923,7 @@ export function LiquidityPositions() {
     stakedCount > 0 ? `${stakedCount} staked` : null,
   ].filter(Boolean);
   return <section className="space-y-4" aria-labelledby="liquidity-positions-title"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 id="liquidity-positions-title" className="text-2xl font-semibold text-white">Your liquidity positions</h2><p className="mt-1 text-sm text-white/55">{summaryParts.join(" · ")}</p></div><Button variant="secondary" size="sm" onClick={() => void liquidity.refetch()} disabled={liquidity.isFetching}><RefreshCw className={cn("h-4 w-4", liquidity.isFetching && "animate-spin")} /> Refresh</Button></div>
-    {liquidity.isLoading ? <div className="grid gap-4"><Skeleton className="h-48 rounded-xl" /><Skeleton className="h-48 rounded-xl" /></div> : positions.length === 0 ? <Card className="border-dashed border-white/15 bg-white/[0.025]"><CardContent className="flex min-h-56 flex-col items-center justify-center text-center"><span className="grid h-12 w-12 place-items-center rounded-full bg-white/5"><Droplets className="h-6 w-6 text-white/55" /></span><h3 className="mt-4 text-lg font-semibold text-white">No liquidity positions</h3><p className="mt-1 max-w-sm text-sm text-white/55">Add liquidity to an Aurove pool to start earning swap fees.</p><Button className="mt-5" onClick={scrollToAdd}>Add liquidity</Button></CardContent></Card> : registry?.positionManager && router?.address ? <div className="grid gap-4"><AggregateFeeCollection positions={positions} tokens={tokens} managerAddress={registry.positionManager.address} managerAbi={registry.positionManager.abi as Abi} />{positions.map((position, index) => <LiquidityPositionCard key={position.tokenId.toString()} position={position} tokens={tokens} managerAddress={registry.positionManager!.address} managerAbi={registry.positionManager!.abi as Abi} routerAddress={router.address!} routerAbi={router.abi as Abi} ledgerAddress={registry.ledger} portfolio={portfolio.data} veCollections={portfolio.domains.wallet.data?.veCollections ?? {}} clGauges={registry.clGauges} defaultOpen={index === 0} />)}</div> : <p className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">Position management is not configured on this network.</p>}
+    {liquidity.isLoading ? <div className="grid gap-4"><Skeleton className="h-48 rounded-xl" /><Skeleton className="h-48 rounded-xl" /></div> : positions.length === 0 ? <Card className="border-dashed border-white/15 bg-white/[0.025]"><CardContent className="flex min-h-56 flex-col items-center justify-center text-center"><span className="grid h-12 w-12 place-items-center rounded-full bg-white/5"><Droplets className="h-6 w-6 text-white/55" /></span><h3 className="mt-4 text-lg font-semibold text-white">No liquidity positions</h3><p className="mt-1 max-w-sm text-sm text-white/55">Add liquidity to an Aurove pool to start earning swap fees.</p><Button className="mt-5" onClick={scrollToAdd}>Add liquidity</Button></CardContent></Card> : registry?.positionManager && router?.address ? <div className="grid gap-4"><AggregateFeeCollection positions={positions} tokens={tokens} managerAddress={registry.positionManager.address} managerAbi={registry.positionManager.abi as Abi} />{positions.map((position, index) => <LiquidityPositionCard key={position.tokenId.toString()} position={position} tokens={tokens} managerAddress={registry.positionManager!.address} managerAbi={registry.positionManager!.abi as Abi} routerAddress={router.address!} routerAbi={router.abi as Abi} ledgerAddress={registry.ledger} deadline={deadline} portfolio={portfolio.data} veCollections={portfolio.domains.wallet.data?.veCollections ?? {}} clGauges={registry.clGauges} defaultOpen={index === 0} />)}</div> : <p className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">Position management is not configured on this network.</p>}
     {liquidity.data?.meta.failures.length ? <p className="text-xs text-amber-100/65">Some position details are temporarily unavailable. Confirmed values remain visible.</p> : null}
   </section>;
 }
