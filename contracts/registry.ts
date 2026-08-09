@@ -1528,7 +1528,7 @@ const contracts = {
         tokenA: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tokenB: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
         tickSpacing: 200,
-        sqrtPriceX96: "234421487033174885747139585754748",
+        sqrtPriceX96: "233580079379055355854784045211998",
       },
       abi: [
         {
@@ -6237,7 +6237,7 @@ const contracts = {
         tokenA: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
         tokenB: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tickSpacing: 200,
-        sqrtPriceX96: "20269278727264268084696176313582",
+        sqrtPriceX96: "20270664500447321172298540646818",
       },
       abi: [
         {
