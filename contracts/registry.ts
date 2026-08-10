@@ -1528,7 +1528,7 @@ const contracts = {
         tokenA: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tokenB: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
         tickSpacing: 200,
-        sqrtPriceX96: "233580079379055355854784045211998",
+        sqrtPriceX96: "227225646595169523726862113434033",
       },
       abi: [
         {
@@ -2081,7 +2081,7 @@ const contracts = {
     },
     "avBTCm-avMEZOmGauge": {
       address: "0xCd1b3cAB8715e66a5c00F420C84742f6406059eF",
-      deploymentBlock: 10959299,
+      deploymentBlock: 10959316,
       linkedData: {
         contractName: "CLGauge",
         poolKey: "avBTCm-avMEZOm",
@@ -3124,6 +3124,16 @@ const contracts = {
           inputs: [],
           name: "claimRebases",
           outputs: [{ internalType: "uint256", name: "claimed", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "contract INonStakingVoter", name: "voter", type: "address" },
+            { internalType: "address[]", name: "gauges", type: "address[]" },
+          ],
+          name: "claimRewards",
+          outputs: [],
           stateMutability: "nonpayable",
           type: "function",
         },
@@ -4271,6 +4281,16 @@ const contracts = {
           inputs: [],
           name: "claimRebases",
           outputs: [{ internalType: "uint256", name: "claimed", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "contract INonStakingVoter", name: "voter", type: "address" },
+            { internalType: "address[]", name: "gauges", type: "address[]" },
+          ],
+          name: "claimRewards",
+          outputs: [],
           stateMutability: "nonpayable",
           type: "function",
         },
@@ -5824,7 +5844,7 @@ const contracts = {
         },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x96357b854de0471d2be2c1badc78b0de5444b026d30e92185711c11a1638b294",
+          transactionHash: "0x88adf686d0a4a1da5b4ab808267b10c743556de9ba65f989015b0aabfe061654",
         },
       },
       abi: [
@@ -6565,7 +6585,7 @@ const contracts = {
         tokenA: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
         tokenB: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tickSpacing: 200,
-        sqrtPriceX96: "20270664500447321172298540646818",
+        sqrtPriceX96: "20274678159274110491181584631162",
       },
       abi: [
         {
@@ -7118,7 +7138,7 @@ const contracts = {
     },
     "MUSD-avBTCmGauge": {
       address: "0xC5d9ddC440759CCe340c745a6133c7A29E90cF94",
-      deploymentBlock: 10959298,
+      deploymentBlock: 10959315,
       linkedData: {
         contractName: "CLGauge",
         poolKey: "MUSD-avBTCm",
@@ -7990,7 +8010,7 @@ const contracts = {
         initializer: { name: "initialize", args: ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"] },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x1bbfd9b745685711effa99115e0defaf64f92902bedbe09b429ba6cb83b3c55e",
+          transactionHash: "0x2b5b344a99f29851af5942287cea181876f8f1982a507f9ce658f5f8010148b5",
         },
       },
       abi: [
@@ -18847,7 +18867,10 @@ const contracts = {
         contractName: "Vault",
         proxyKind: "uups",
         initializer: { name: "initialize", args: ["0x6E1126EA838DA392A55D8DdeD9bADEccA5835114"] },
-        lastOperation: { action: "unchanged" },
+        lastOperation: {
+          action: "upgraded",
+          transactionHash: "0x032d4095e805cfe5525a78800969b8553fb5668ac82cd20a9c17d23dbd7c289c",
+        },
       },
       abi: [
         {
