@@ -96,7 +96,7 @@ export function EarnFlowsContent() {
           },
           {
             label: "Your Liquid Positions",
-            value: "avBTCm / avMEZOm cards: balances, APY estimates, redemption controls",
+            value: "avBTCm / avMEZOm cards: balances, annualised APR, redemption controls",
           },
           {
             label: "Create Position",
@@ -243,7 +243,7 @@ export function EarnFlowsContent() {
       <h2>Flow 4 — Your liquid positions</h2>
       <p>
         After a successful deposit, positions appear under <strong>Your Liquid Positions</strong>{" "}
-        with balances, reward/APY fields, and redemption status.
+        with balances, reward and annualised APR fields, and redemption status.
       </p>
       <Shot
         src="/docs/earn-flows/05-earn-with-position.png"
@@ -260,7 +260,8 @@ export function EarnFlowsContent() {
           <strong>Total balance</strong> — full liquid product exposure held.
         </li>
         <li>
-          <strong>Tranche APY / Rewards deposited</strong> — estimates from reward funding history
+          <strong>Annualised APR / Rewards deposited</strong> — latest weekly funding rate
+          annualised without compounding
           when available.
         </li>
         <li>
@@ -385,7 +386,7 @@ export function EarnFlowsContent() {
         <li>Cannot redeem outside the settlement window.</li>
         <li>Partial veNFT exit without depositing first is a Swap-side flow (tranche sell), not Earn redeem.</li>
         <li>Gauge activation may require separate actions before gauge rewards accrue.</li>
-        <li>Estimated APY is UI guidance, not a guaranteed rate.</li>
+        <li>Annualised APR is based on the latest weekly funding and is not a guaranteed rate.</li>
       </ul>
 
       <h2>Related</h2>

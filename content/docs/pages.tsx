@@ -693,7 +693,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
     tags: ["earn", "yield", "rewards", "claim", "gauge"],
     status: "live",
     searchText:
-      "managed yield claimables reward sink id20 gauge claim all estimated APY create position",
+      "managed yield claimables reward sink id20 gauge claim all annualised APR create position",
     Content: () => (
       <>
         <h1>Managed yield</h1>
@@ -719,7 +719,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
             LP flows).
           </li>
           <li>
-            <strong>Estimated yield / Tranche APY</strong> — derived from reward funding history
+            <strong>Annualised APR</strong> — latest weekly funding rate annualised without compounding
             scans (UI estimates, not guarantees).
           </li>
         </ul>
