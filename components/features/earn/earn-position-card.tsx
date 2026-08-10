@@ -18,12 +18,12 @@ import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/t
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import {
-  type EarnApyBasisMap,
+  type EarnAprBasisMap,
   type EarnProduct,
   type EarnVariant,
   useEarnProductDetails,
 } from "./use-earn-data";
-import { estimateTrancheApy, formatApyPercent } from "./utils/apy";
+import { estimateTrancheApr, formatAprPercent } from "./utils/apr";
 
 const WEEK_SECONDS = 7n * 24n * 60n * 60n;
 const SETTLEMENT_WINDOW_START_SECONDS = 10n * 60n * 60n;
@@ -127,7 +127,7 @@ const venftSelectStyles: StylesConfig<VenftSelectOption, true> = {
 export function EarnPositionCard({
   product: initialProduct,
   chainTimestamp,
-  apyBasisMap,
+  aprBasisMap,
   withdrawAmount,
   setWithdrawAmount,
   onSuccess,
@@ -135,14 +135,14 @@ export function EarnPositionCard({
 }: {
   product: EarnProduct;
   chainTimestamp: bigint | null;
-  apyBasisMap?: EarnApyBasisMap | null;
+  aprBasisMap?: EarnAprBasisMap | null;
   withdrawAmount: string;
   setWithdrawAmount: (value: string) => void;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
 }) {
   const { ref, inView } = useInView<HTMLDivElement>();
-  const { product } = useEarnProductDetails(initialProduct, inView, apyBasisMap);
+  const { product } = useEarnProductDetails(initialProduct, inView, aprBasisMap);
 
   return (
     <div ref={ref} className="min-h-[30rem]">
@@ -185,7 +185,7 @@ function PositionCardContent({
     product.variant === "veBTC" ? earnContracts.auroveId20 : earnContracts.mezoAuroveId20
   )?.abi as Abi | undefined;
   const copy = variantCopy(product.variant);
-  const apyEstimate = estimateTrancheApy(product);
+  const aprEstimate = estimateTrancheApr(product);
   const parsedWithdraw = parseAmountRaw(withdrawAmount, product.decimals);
   const isSettlementWindowOpen = resolveSettlementWindowOpen(product, chainTimestamp);
   const isExpired = isTrancheExpired(product, chainTimestamp);
@@ -349,11 +349,14 @@ function PositionCardContent({
             label="ID20 Balance"
             value={formatAmount(product.id20BalanceRaw, product.decimals, product.symbol)}
           />
-          <InfoTile label="Tranche APY" value={formatApyPercent(apyEstimate?.apyPercent)} />
           <InfoTile
-            label="Rewards Deposited"
+            label="Annualised APR"
+            value={formatAprPercent(aprEstimate?.annualisedAprPercent)}
+          />
+          <InfoTile
+            label="Latest Weekly Rewards Funded"
             value={formatAmount(
-              product.apyRewardAmountRaw,
+              product.aprRewardAmountRaw,
               product.rewardDecimals,
               product.rewardSymbol,
             )}

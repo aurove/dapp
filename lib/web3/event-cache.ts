@@ -1,7 +1,7 @@
 import type { Address, Hex } from "viem";
 
 const CACHE_DB_NAME = "aurove_event_cache_v1";
-const CACHE_DB_VERSION = 1;
+const CACHE_DB_VERSION = 2;
 const EVENTS_STORE = "event_logs";
 const RANGES_STORE = "event_ranges";
 const BIGINT_MARKER = "__aurove_bigint__";
@@ -18,6 +18,8 @@ type EventRangeRecord = {
   eventName: string;
   argsKey: string;
   ranges: BlockRange[];
+  /** Block hashes anchoring the scanned ranges so resets and reorgs can be detected. */
+  anchors?: Record<string, Hex>;
   updatedAt: number;
 };
 
@@ -220,14 +222,46 @@ async function openCacheDatabase() {
   return databasePromise;
 }
 
-async function readQueryRanges(database: IDBDatabase, queryId: string) {
+async function readQueryRangeRecord(database: IDBDatabase, queryId: string) {
   const tx = database.transaction(RANGES_STORE, "readonly");
   const store = tx.objectStore(RANGES_STORE);
   const record = await requestToPromise(
     store.get(queryId) as IDBRequest<EventRangeRecord | undefined>,
   );
   await txDone(tx);
-  return normalizeRanges(record?.ranges ?? []);
+  return record
+    ? { ...record, ranges: normalizeRanges(record.ranges), anchors: record.anchors ?? {} }
+    : undefined;
+}
+
+async function clearQueryData(database: IDBDatabase, queryId: string) {
+  const tx = database.transaction([RANGES_STORE, EVENTS_STORE], "readwrite");
+  const rangesStore = tx.objectStore(RANGES_STORE);
+  const eventsStore = tx.objectStore(EVENTS_STORE);
+  const eventKeys = await requestToPromise(
+    eventsStore
+      .index("byQueryBlock")
+      .getAllKeys(IDBKeyRange.bound([queryId, 0], [queryId, Number.MAX_SAFE_INTEGER])),
+  );
+
+  rangesStore.delete(queryId);
+  eventKeys.forEach((key) => eventsStore.delete(key));
+  await txDone(tx);
+}
+
+async function isRangeRecordCanonical(
+  record: EventRangeRecord,
+  getBlockHash: (blockNumber: bigint) => Promise<Hex | null>,
+) {
+  const anchors = Object.entries(record.anchors ?? {})
+    .map(([blockNumber, blockHash]) => ({ blockNumber: BigInt(blockNumber), blockHash }))
+    .sort((left, right) => (left.blockNumber < right.blockNumber ? 1 : -1));
+  if (record.ranges.length > 0 && anchors.length === 0) return false;
+  if (anchors.length === 0) return true;
+
+  const latestAnchor = anchors[0];
+  const canonicalHash = await getBlockHash(latestAnchor.blockNumber).catch(() => null);
+  return canonicalHash?.toLowerCase() === latestAnchor.blockHash.toLowerCase();
 }
 
 async function readCachedLogs(database: IDBDatabase, queryId: string, from: number, to: number) {
@@ -256,6 +290,7 @@ async function persistFetchedData(params: {
   eventName: string;
   argsKey: string;
   scannedRanges: BlockRange[];
+  scannedAnchors: Record<string, Hex>;
   fetchedLogs: CachedEventLog[];
 }) {
   if (params.scannedRanges.length === 0 && params.fetchedLogs.length === 0) return;
@@ -274,6 +309,7 @@ async function persistFetchedData(params: {
     eventName: params.eventName,
     argsKey: params.argsKey,
     ranges: normalizeRanges([...(existingRecord?.ranges ?? []), ...params.scannedRanges]),
+    anchors: { ...(existingRecord?.anchors ?? {}), ...params.scannedAnchors },
     updatedAt: Date.now(),
   } satisfies EventRangeRecord);
 
@@ -305,6 +341,7 @@ export async function getEventLogsFromCacheOrFetch(params: {
   args?: Record<string, unknown>;
   fromBlock: bigint;
   toBlock: bigint;
+  getBlockHash?: (blockNumber: bigint) => Promise<Hex | null>;
   fetchRange: (fromBlock: bigint, toBlock: bigint) => Promise<CachedEventLog[]>;
 }) {
   if (params.toBlock < params.fromBlock) return [];
@@ -325,10 +362,18 @@ export async function getEventLogsFromCacheOrFetch(params: {
   });
 
   try {
-    const [ranges, cachedLogs] = await Promise.all([
-      readQueryRanges(database, queryId),
-      readCachedLogs(database, queryId, from, to),
-    ]);
+    let rangeRecord = await readQueryRangeRecord(database, queryId);
+    if (
+      rangeRecord &&
+      params.getBlockHash &&
+      !(await isRangeRecordCanonical(rangeRecord, params.getBlockHash))
+    ) {
+      await clearQueryData(database, queryId);
+      rangeRecord = undefined;
+    }
+
+    const ranges = rangeRecord?.ranges ?? [];
+    const cachedLogs = await readCachedLogs(database, queryId, from, to);
     const uncoveredRanges = missingRanges(from, to, ranges);
 
     if (uncoveredRanges.length === 0) return dedupeLogs(cachedLogs);
@@ -338,6 +383,18 @@ export async function getEventLogsFromCacheOrFetch(params: {
         uncoveredRanges.map((range) => params.fetchRange(BigInt(range.from), BigInt(range.to))),
       )
     ).flat();
+    const scannedAnchors = params.getBlockHash
+      ? Object.fromEntries(
+          (
+            await Promise.all(
+              uncoveredRanges.map(async (range) => [
+                String(range.to),
+                await params.getBlockHash!(BigInt(range.to)),
+              ] as const),
+            )
+          ).filter((entry): entry is readonly [string, Hex] => entry[1] !== null),
+        )
+      : {};
 
     await persistFetchedData({
       database,
@@ -347,6 +404,7 @@ export async function getEventLogsFromCacheOrFetch(params: {
       eventName: params.eventName,
       argsKey,
       scannedRanges: uncoveredRanges,
+      scannedAnchors,
       fetchedLogs,
     });
 
@@ -365,6 +423,7 @@ export async function scanEventLogsByChunks(params: {
   toBlock: bigint;
   chunkSize: bigint;
   direction?: "forward" | "backward";
+  getBlockHash?: (blockNumber: bigint) => Promise<Hex | null>;
   fetchRange: (fromBlock: bigint, toBlock: bigint) => Promise<CachedEventLog[]>;
 }) {
   if (params.toBlock < params.fromBlock) return [];
@@ -387,6 +446,7 @@ export async function scanEventLogsByChunks(params: {
           args: params.args,
           fromBlock,
           toBlock,
+          getBlockHash: params.getBlockHash,
           fetchRange: params.fetchRange,
         })),
       );
@@ -412,6 +472,7 @@ export async function scanEventLogsByChunks(params: {
         args: params.args,
         fromBlock,
         toBlock,
+        getBlockHash: params.getBlockHash,
         fetchRange: params.fetchRange,
       })),
     );
@@ -430,6 +491,7 @@ export async function findLatestEventLogByChunks(params: {
   fromBlock: bigint;
   toBlock: bigint;
   chunkSize: bigint;
+  getBlockHash?: (blockNumber: bigint) => Promise<Hex | null>;
   fetchRange: (fromBlock: bigint, toBlock: bigint) => Promise<CachedEventLog[]>;
 }) {
   if (params.toBlock < params.fromBlock) return null;
@@ -447,6 +509,7 @@ export async function findLatestEventLogByChunks(params: {
       args: params.args,
       fromBlock,
       toBlock,
+      getBlockHash: params.getBlockHash,
       fetchRange: params.fetchRange,
     });
     const sortedLogs = dedupeLogs(logs);

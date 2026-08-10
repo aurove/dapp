@@ -34,13 +34,13 @@ import { makeAddressWriteStep, makeContractWriteStep, makeTokenApprovalStep, typ
 import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/earn/hooks/use-user-ve-nfts";
-import { type EarnProduct, type EarnVariant, useApyBasis, useEarnSnapshot } from "./use-earn-data";
+import { type EarnProduct, type EarnVariant, useAprBasis, useEarnSnapshot } from "./use-earn-data";
 import { EarnPositionCard } from "./earn-position-card";
 import {
-  earnApyProductKey,
-  estimateTrancheApy,
-  summarizeEstimatedYield,
-} from "./utils/apy";
+  earnAprProductKey,
+  estimateTrancheApr,
+  summarizeAnnualisedApr,
+} from "./utils/apr";
 import { MAX_EPOCHS_BY_VARIANT, symbolOf } from "./utils/tranche";
 
 type ClaimableSummary = {
@@ -168,16 +168,16 @@ export function EarnPage() {
   const earnContracts = useMemo(() => getEarnProtocolConfig(chainId), [chainId]);
   const ledgerAbi = earnContracts.ledger?.abi;
   const rewardSinkAbi = getRewardSinkAbi(chainId);
-  const apyQuery = useApyBasis({
+  const aprQuery = useAprBasis({
     enabled: true,
     products: products,
     chainId,
     ledgerAbi,
   });
-  const apyBasisMap = useMemo(() => apyQuery.data ?? {}, [apyQuery.data]);
+  const aprBasisMap = useMemo(() => aprQuery.data ?? {}, [aprQuery.data]);
 
-  const estimatedYieldMetric = useMemo(() => {
-    if (apyQuery.isLoading || apyQuery.isFetching) {
+  const annualisedAprMetric = useMemo(() => {
+    if (aprQuery.isLoading || aprQuery.isFetching) {
       return {
         value: "Loading…",
         detail: "Scanning reward funding history for live Aurove assets.",
@@ -187,19 +187,19 @@ export function EarnPage() {
 
     const estimates = products
       .map((product) => {
-        const basis = apyBasisMap[earnApyProductKey(product)];
+        const basis = aprBasisMap[earnAprProductKey(product)];
         if (!basis) return null;
-        return estimateTrancheApy({
+        return estimateTrancheApr({
           ...product,
-          apyRewardAmountRaw: basis.rewardAmountRaw,
-          apyTotalSupplyAtFundingRaw: basis.totalSupplyAtFundingRaw,
-          apyFundingBlockNumber: basis.fundingBlockNumber,
+          aprRewardAmountRaw: basis.rewardAmountRaw,
+          aprTotalSupplyAtFundingRaw: basis.totalSupplyAtFundingRaw,
+          aprFundingBlockNumber: basis.fundingBlockNumber,
         });
       })
       .filter((estimate): estimate is NonNullable<typeof estimate> => Boolean(estimate));
 
-    return summarizeEstimatedYield(estimates);
-  }, [apyBasisMap, apyQuery.isFetching, apyQuery.isLoading, products]);
+    return summarizeAnnualisedApr(estimates);
+  }, [aprBasisMap, aprQuery.isFetching, aprQuery.isLoading, products]);
 
   function patchCreatePortfolioState() {
     // Confirmed portfolio state is refreshed from RPC after the receipt.
@@ -346,10 +346,10 @@ export function EarnPage() {
               }
             />
             <FeatureMetricCard
-              label="ESTIMATED YIELD"
-              value={estimatedYieldMetric.value}
-              detail={estimatedYieldMetric.detail}
-              subtle={estimatedYieldMetric.subtle}
+              label="ANNUALISED APR"
+              value={annualisedAprMetric.value}
+              detail={annualisedAprMetric.detail}
+              subtle={annualisedAprMetric.subtle}
             />
           </div>
         </div>
@@ -406,7 +406,7 @@ export function EarnPage() {
                   <EarnPositionCard
                     product={position}
                     chainTimestamp={chainTimestamp}
-                    apyBasisMap={apyBasisMap}
+                    aprBasisMap={aprBasisMap}
                     withdrawAmount={withdrawAmounts[position.id] ?? ""}
                     setWithdrawAmount={(value) =>
                       setWithdrawAmounts((prev) => ({ ...prev, [position.id]: value }))

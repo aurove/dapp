@@ -27,7 +27,7 @@ import {
   nameOf,
   symbolOf,
 } from "@/components/features/earn/utils/tranche";
-import { earnApyProductKey } from "@/components/features/earn/utils/apy";
+import { earnAprProductKey } from "@/components/features/earn/utils/apr";
 
 export type EarnVariant = "veBTC" | "veMEZO";
 
@@ -76,9 +76,9 @@ export type EarnProduct = {
   rewardSymbol: string | null;
   rewardDecimals: number;
   rewardReserveRaw: bigint | null;
-  apyRewardAmountRaw: bigint | null;
-  apyTotalSupplyAtFundingRaw: bigint | null;
-  apyFundingBlockNumber: bigint | null;
+  aprRewardAmountRaw: bigint | null;
+  aprTotalSupplyAtFundingRaw: bigint | null;
+  aprFundingBlockNumber: bigint | null;
   rewardSinkAddress: Address | null;
   isSettlementWindowOpen: boolean;
   redeemInventory: EarnRedeemInventory[];
@@ -88,7 +88,7 @@ export type EarnProduct = {
   id20BalanceRaw: bigint;
 };
 
-export type EarnApyBasisMap = Record<
+export type EarnAprBasisMap = Record<
   string,
   {
     rewardAmountRaw: bigint;
@@ -127,11 +127,11 @@ type FundingEventSnapshot = {
 
 type FundingScanCache = {
   latestByAddress: Map<string, FundingEventSnapshot>;
-  checkedTipByAddress: Map<string, bigint>;
+  checkedTipByAddress: Map<string, { blockNumber: bigint; blockHash: string }>;
   inFlight?: Promise<void>;
 };
 
-const EARN_APY_QUERY_PREFIX = "earn-apy-basis";
+const EARN_APR_QUERY_PREFIX = "earn-apr-basis";
 const REWARDS_FUNDED_SCAN_CHUNK_SIZE = 10_000n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
@@ -199,9 +199,9 @@ function emptyProductCore(core: ManagedTrancheCore, userBalanceRaw = 0n): EarnPr
     rewardSymbol: core.variant === "veBTC" ? "BTC" : "MEZO",
     rewardDecimals: 18,
     rewardReserveRaw: null,
-    apyRewardAmountRaw: null,
-    apyTotalSupplyAtFundingRaw: null,
-    apyFundingBlockNumber: null,
+    aprRewardAmountRaw: null,
+    aprTotalSupplyAtFundingRaw: null,
+    aprFundingBlockNumber: null,
     rewardSinkAddress: null,
     isSettlementWindowOpen: false,
     redeemInventory: [],
@@ -210,13 +210,13 @@ function emptyProductCore(core: ManagedTrancheCore, userBalanceRaw = 0n): EarnPr
   };
 }
 
-function earnApyBasisQueryKey(params: {
+function earnAprBasisQueryKey(params: {
   chainId: number;
   assetLedgerAddress: Address | null | undefined;
   productKeys: string[];
 }) {
   return [
-    EARN_APY_QUERY_PREFIX,
+    EARN_APR_QUERY_PREFIX,
     params.chainId,
     params.assetLedgerAddress?.toLowerCase() ?? null,
     [...new Set(params.productKeys)].sort(),
@@ -248,20 +248,39 @@ async function scanRewardsFundedEvents(params: {
   if (cache.inFlight) await cache.inFlight;
 
   const scanPromise = (async () => {
-    const latestBlock = await params.publicClient.getBlockNumber();
+    const latest = await params.publicClient.getBlock();
+    const latestBlock = latest.number;
 
     await Promise.all(
       [...uniqueTargets.values()].map(async (target) => {
         const key = target.key;
-        const checkedTip = cache.checkedTipByAddress.get(key);
-        if (checkedTip && checkedTip >= latestBlock) return;
+        let checkedTip = cache.checkedTipByAddress.get(key);
+        if (checkedTip) {
+          const canonicalTip =
+            checkedTip.blockNumber <= latestBlock
+              ? await params.publicClient
+                  .getBlock({ blockNumber: checkedTip.blockNumber })
+                  .catch(() => null)
+              : null;
+          if (canonicalTip?.hash.toLowerCase() !== checkedTip.blockHash.toLowerCase()) {
+            cache.latestByAddress.delete(key);
+            cache.checkedTipByAddress.delete(key);
+            checkedTip = undefined;
+          }
+        }
+        if (checkedTip && checkedTip.blockNumber >= latestBlock) return;
 
         const deploymentBlock = target.fromBlock > 0n ? target.fromBlock : 0n;
         const fromBlock =
-          checkedTip && checkedTip + 1n > deploymentBlock ? checkedTip + 1n : deploymentBlock;
+          checkedTip && checkedTip.blockNumber + 1n > deploymentBlock
+            ? checkedTip.blockNumber + 1n
+            : deploymentBlock;
 
         if (fromBlock > latestBlock) {
-          cache.checkedTipByAddress.set(key, latestBlock);
+          cache.checkedTipByAddress.set(key, {
+            blockNumber: latestBlock,
+            blockHash: latest.hash,
+          });
           return;
         }
 
@@ -272,6 +291,11 @@ async function scanRewardsFundedEvents(params: {
           fromBlock,
           toBlock: latestBlock,
           chunkSize: REWARDS_FUNDED_SCAN_CHUNK_SIZE,
+          getBlockHash: async (blockNumber) =>
+            params.publicClient
+              .getBlock({ blockNumber })
+              .then((block) => block.hash)
+              .catch(() => null),
           fetchRange: async (rangeFromBlock, rangeToBlock) => {
             const logs = await params.publicClient.getLogs({
               address: target.sinkAddress,
@@ -314,7 +338,10 @@ async function scanRewardsFundedEvents(params: {
           }
         }
 
-        cache.checkedTipByAddress.set(key, latestBlock);
+        cache.checkedTipByAddress.set(key, {
+          blockNumber: latestBlock,
+          blockHash: latest.hash,
+        });
       }),
     );
   })();
@@ -336,7 +363,7 @@ async function scanRewardsFundedEvents(params: {
   );
 }
 
-function readTotalSupplyAtBlock(params: {
+async function readTotalSupplyAtBlock(params: {
   publicClient: PublicClient;
   chainId: number;
   ledgerAbi: Abi;
@@ -344,11 +371,18 @@ function readTotalSupplyAtBlock(params: {
   trancheId: bigint;
   blockNumber: bigint;
 }) {
+  const blockHash = await params.publicClient
+    .getBlock({ blockNumber: params.blockNumber })
+    .then((block) => block.hash)
+    .catch(() => null);
+  if (!blockHash) return null;
+
   const cacheKey = [
     params.chainId,
     params.ledgerAddress.toLowerCase(),
     params.trancheId.toString(),
     params.blockNumber.toString(),
+    blockHash.toLowerCase(),
   ].join(":");
 
   const existing = totalSupplyAtBlockCache.get(cacheKey);
@@ -843,7 +877,7 @@ export function useEarnSnapshot() {
       rewardsPortfolio.refetch(),
       id20Portfolio.refetch(),
     ]);
-    void queryClient.invalidateQueries({ queryKey: [EARN_APY_QUERY_PREFIX] });
+    void queryClient.invalidateQueries({ queryKey: [EARN_APR_QUERY_PREFIX] });
   }
 
   return {
@@ -867,7 +901,7 @@ export function useEarnSnapshot() {
 export function useEarnProductDetails(
   product: EarnProduct,
   enabled: boolean,
-  apyBasisMapOverride?: EarnApyBasisMap | null,
+  aprBasisMapOverride?: EarnAprBasisMap | null,
 ) {
   const connectedChainId = useChainId();
   const queryClient = useQueryClient();
@@ -881,16 +915,16 @@ export function useEarnProductDetails(
 
   const snapshot = useEarnSnapshot();
 
-  const apyQuery = useApyBasis({
-    enabled: enabled && !apyBasisMapOverride,
+  const aprQuery = useAprBasis({
+    enabled: enabled && !aprBasisMapOverride,
     products: [product],
     chainId,
     ledgerAbi,
   });
 
-  const apyBasisMap = useMemo<EarnApyBasisMap>(
-    () => apyBasisMapOverride ?? apyQuery.data ?? {},
-    [apyBasisMapOverride, apyQuery.data],
+  const aprBasisMap = useMemo<EarnAprBasisMap>(
+    () => aprBasisMapOverride ?? aprQuery.data ?? {},
+    [aprBasisMapOverride, aprQuery.data],
   );
 
   const inventoryContracts = useMemo(() => {
@@ -1172,16 +1206,16 @@ export function useEarnProductDetails(
           entry.trancheId === product.trancheId,
       ) ?? product;
 
-    const apyBasis = apyBasisMap[earnApyProductKey(baseProduct)];
+    const aprBasis = aprBasisMap[earnAprProductKey(baseProduct)];
 
     return {
       ...baseProduct,
-      apyRewardAmountRaw: apyBasis?.rewardAmountRaw ?? null,
-      apyTotalSupplyAtFundingRaw: apyBasis?.totalSupplyAtFundingRaw ?? null,
-      apyFundingBlockNumber: apyBasis?.fundingBlockNumber ?? null,
+      aprRewardAmountRaw: aprBasis?.rewardAmountRaw ?? null,
+      aprTotalSupplyAtFundingRaw: aprBasis?.totalSupplyAtFundingRaw ?? null,
+      aprFundingBlockNumber: aprBasis?.fundingBlockNumber ?? null,
       redeemInventory,
     };
-  }, [apyBasisMap, product, redeemInventory, snapshot.products]);
+  }, [aprBasisMap, product, redeemInventory, snapshot.products]);
 
   function refresh() {
     snapshot.refresh();
@@ -1189,7 +1223,7 @@ export function useEarnProductDetails(
     void inventoryMetaReads.refetch();
     void managedRewardReads.refetch();
     void weightAndEarnedReads.refetch();
-    void queryClient.invalidateQueries({ queryKey: [EARN_APY_QUERY_PREFIX] });
+    void queryClient.invalidateQueries({ queryKey: [EARN_APR_QUERY_PREFIX] });
   }
 
   return {
@@ -1200,27 +1234,27 @@ export function useEarnProductDetails(
       inventoryMetaReads.isLoading ||
       managedRewardReads.isLoading ||
       weightAndEarnedReads.isLoading ||
-      apyQuery.isLoading,
+      aprQuery.isLoading,
     isFetching:
       snapshot.isFetching ||
       inventoryReads.isFetching ||
       inventoryMetaReads.isFetching ||
       managedRewardReads.isFetching ||
       weightAndEarnedReads.isFetching ||
-      apyQuery.isFetching,
+      aprQuery.isFetching,
     error:
       snapshot.error ||
       (inventoryReads.error as Error | null) ||
       (inventoryMetaReads.error as Error | null) ||
       (managedRewardReads.error as Error | null) ||
       (weightAndEarnedReads.error as Error | null) ||
-      (apyQuery.error as Error | null) ||
+      (aprQuery.error as Error | null) ||
       null,
     refresh,
   };
 }
 
-async function fetchApyBasisMap(params: {
+async function fetchAprBasisMap(params: {
   products: EarnProduct[];
   chainId: number;
   publicClient: PublicClient;
@@ -1246,7 +1280,7 @@ async function fetchApyBasisMap(params: {
   );
 
   const targets = validProducts.map((product) => ({
-    key: earnApyProductKey(product),
+    key: earnAprProductKey(product),
     sinkAddress: product.rewardSinkAddress as Address,
     fromBlock: product.variant === "veBTC" ? btcSinkFromBlock : mezoSinkFromBlock,
   }));
@@ -1257,11 +1291,11 @@ async function fetchApyBasisMap(params: {
     targets,
   });
 
-  const result: EarnApyBasisMap = {};
+  const result: EarnAprBasisMap = {};
 
   await Promise.all(
     validProducts.map(async (product) => {
-      const key = earnApyProductKey(product);
+      const key = earnAprProductKey(product);
       const latestFunding = latestFundings.get(key);
 
       if (!latestFunding) {
@@ -1295,7 +1329,7 @@ async function fetchApyBasisMap(params: {
   return result;
 }
 
-export function useApyBasis(params: {
+export function useAprBasis(params: {
   enabled: boolean;
   products: EarnProduct[];
   chainId: number;
@@ -1308,10 +1342,10 @@ export function useApyBasis(params: {
     (product) => product.rewardSinkAddress && product.rewardSinkAddress !== ZERO_ADDRESS,
   );
 
-  const queryKey = earnApyBasisQueryKey({
+  const queryKey = earnAprBasisQueryKey({
     chainId,
     assetLedgerAddress: assetLedger?.address,
-    productKeys: productsWithSinks.map((product) => earnApyProductKey(product)),
+    productKeys: productsWithSinks.map((product) => earnAprProductKey(product)),
   });
 
   return useQuery({
@@ -1326,7 +1360,7 @@ export function useApyBasis(params: {
         return {};
       }
 
-      return fetchApyBasisMap({
+      return fetchAprBasisMap({
         products: productsWithSinks,
         chainId,
         publicClient,
@@ -1334,8 +1368,8 @@ export function useApyBasis(params: {
     },
     staleTime: 60_000,
     gcTime: 10 * 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     retry: 1,
   });
 }
