@@ -1,7 +1,4 @@
-import type {
-  Abi,
-  ContractEventName as ViemContractEventName,
-} from "viem";
+import type { Abi, ContractEventName as ViemContractEventName } from "viem";
 
 import registry from "./registry";
 import type { AbiEventInputs, AbiInputsToNamedArgs } from "./types";
@@ -23,12 +20,14 @@ export type ContractEventArgs<
 
 export type ContractEventHandlerKey<
   TContractName extends ContractName = ContractName,
-  TEventName extends ContractEventNameForContract<TContractName> = ContractEventNameForContract<TContractName>,
+  TEventName extends ContractEventNameForContract<TContractName> =
+    ContractEventNameForContract<TContractName>,
 > = `${TContractName}.${TEventName}`;
 
 export type DecodedContractEvent<
   TContractName extends ContractName = ContractName,
-  TEventName extends ContractEventNameForContract<TContractName> = ContractEventNameForContract<TContractName>,
+  TEventName extends ContractEventNameForContract<TContractName> =
+    ContractEventNameForContract<TContractName>,
 > = {
   chainId: number;
   contractAddress: string;
@@ -56,6 +55,34 @@ export type DecodedContractEvent<
     data: string;
     removed?: boolean;
     provider?: string;
+    decoded: {
+      eventName: string;
+      args: unknown[];
+      namedArgs: Record<string, unknown>;
+    };
+    transaction: {
+      from: string;
+      status: "success" | "reverted";
+      primaryQualifyingSwapLogIndex: number | null;
+    };
+    position?: {
+      tokenId: string;
+      principalAmount0: string;
+      principalAmount1: string;
+      token0: string;
+      token1: string;
+      tickSpacing: number;
+      poolAddress: string;
+      owner: string;
+    };
+    valuationPools?: Array<{
+      address: string;
+      token0: string;
+      token1: string;
+      sqrtPriceX96: string;
+      tick: number;
+      liquidity: string;
+    }>;
   };
   fingerprint: string;
 };
@@ -88,7 +115,8 @@ export type ContractEventHandlerContext = {
 
 export type ContractEventPayloadValidator<
   TContractName extends ContractName = ContractName,
-  TEventName extends ContractEventNameForContract<TContractName> = ContractEventNameForContract<TContractName>,
+  TEventName extends ContractEventNameForContract<TContractName> =
+    ContractEventNameForContract<TContractName>,
 > = {
   validateSync(
     value: unknown,
@@ -101,7 +129,8 @@ export type ContractEventPayloadValidator<
 
 export type ContractEventHandlerDefinition<
   TContractName extends ContractName = ContractName,
-  TEventName extends ContractEventNameForContract<TContractName> = ContractEventNameForContract<TContractName>,
+  TEventName extends ContractEventNameForContract<TContractName> =
+    ContractEventNameForContract<TContractName>,
 > = {
   key: ContractEventHandlerKey<TContractName, TEventName>;
   description: string;
@@ -126,6 +155,9 @@ export type AnyContractEventHandlerDefinition = {
 export function buildHandlerKey<
   TContractName extends ContractName,
   TEventName extends ContractEventNameForContract<TContractName>,
->(contractName: TContractName, eventName: TEventName): ContractEventHandlerKey<TContractName, TEventName> {
+>(
+  contractName: TContractName,
+  eventName: TEventName,
+): ContractEventHandlerKey<TContractName, TEventName> {
   return `${contractName}.${eventName}` as ContractEventHandlerKey<TContractName, TEventName>;
 }

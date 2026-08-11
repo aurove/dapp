@@ -91,6 +91,95 @@ function toTopics(value: unknown): string[] | null {
   return topics as string[];
 }
 
+function toUnsignedIntegerString(value: unknown): string | null {
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
+  try {
+    return BigInt(value).toString();
+  } catch {
+    return null;
+  }
+}
+
+function parseDecodedEvent(value: unknown): RawContractEventInput["decoded"] | null {
+  if (!isPlainObject(value)) return null;
+  const eventName = toTrimmedString(value.eventName);
+  if (!eventName || !Array.isArray(value.args) || !isPlainObject(value.namedArgs)) return null;
+  return { eventName, args: value.args, namedArgs: value.namedArgs };
+}
+
+function parseTransactionContext(value: unknown): RawContractEventInput["transaction"] | null {
+  if (!isPlainObject(value)) return null;
+  const from = toAddress(value.from);
+  const status = value.status === "success" || value.status === "reverted" ? value.status : null;
+  const primaryLogIndex = value.primaryQualifyingSwapLogIndex;
+  if (
+    !from ||
+    !status ||
+    (primaryLogIndex !== null &&
+      (!Number.isInteger(primaryLogIndex) || Number(primaryLogIndex) < 0))
+  ) {
+    return null;
+  }
+  return {
+    from,
+    status,
+    primaryQualifyingSwapLogIndex: primaryLogIndex === null ? null : Number(primaryLogIndex),
+  };
+}
+
+function parsePositionContext(value: unknown): RawContractEventInput["position"] | null {
+  if (!isPlainObject(value)) return null;
+  const tokenId = toUnsignedIntegerString(value.tokenId);
+  const principalAmount0 = toUnsignedIntegerString(value.principalAmount0);
+  const principalAmount1 = toUnsignedIntegerString(value.principalAmount1);
+  const token0 = toAddress(value.token0);
+  const token1 = toAddress(value.token1);
+  const tickSpacing = toInteger(value.tickSpacing);
+  const poolAddress = toAddress(value.poolAddress);
+  const owner = toAddress(value.owner);
+  if (
+    tokenId == null ||
+    principalAmount0 == null ||
+    principalAmount1 == null ||
+    !token0 ||
+    !token1 ||
+    tickSpacing == null ||
+    !poolAddress ||
+    !owner
+  ) {
+    return null;
+  }
+  return {
+    tokenId,
+    principalAmount0,
+    principalAmount1,
+    token0,
+    token1,
+    tickSpacing,
+    poolAddress,
+    owner,
+  };
+}
+
+function parseValuationPools(value: unknown): RawContractEventInput["valuationPools"] | null {
+  if (!Array.isArray(value)) return null;
+  const pools = value.map((item) => {
+    if (!isPlainObject(item)) return null;
+    const address = toAddress(item.address);
+    const token0 = toAddress(item.token0);
+    const token1 = toAddress(item.token1);
+    const sqrtPriceX96 = toUnsignedIntegerString(item.sqrtPriceX96);
+    const tick = toInteger(item.tick);
+    const liquidity = toUnsignedIntegerString(item.liquidity);
+    return address && token0 && token1 && sqrtPriceX96 && tick != null && liquidity
+      ? { address, token0, token1, sqrtPriceX96, tick, liquidity }
+      : null;
+  });
+  return pools.some((pool) => pool == null)
+    ? null
+    : (pools as NonNullable<RawContractEventInput["valuationPools"]>);
+}
+
 function readValueAtPath(input: Record<string, unknown>, path: readonly string[]): unknown {
   let current: unknown = input;
 
@@ -105,7 +194,10 @@ function readValueAtPath(input: Record<string, unknown>, path: readonly string[]
   return current;
 }
 
-function readFirstValue(input: Record<string, unknown>, paths: readonly (readonly string[])[]): unknown {
+function readFirstValue(
+  input: Record<string, unknown>,
+  paths: readonly (readonly string[])[],
+): unknown {
   for (const path of paths) {
     const resolved = readValueAtPath(input, path);
     if (resolved !== undefined) {
@@ -116,7 +208,10 @@ function readFirstValue(input: Record<string, unknown>, paths: readonly (readonl
   return undefined;
 }
 
-function readFirstTrimmedString(input: Record<string, unknown>, paths: readonly (readonly string[])[]): string | null {
+function readFirstTrimmedString(
+  input: Record<string, unknown>,
+  paths: readonly (readonly string[])[],
+): string | null {
   for (const path of paths) {
     const resolved = toTrimmedString(readValueAtPath(input, path));
     if (resolved) {
@@ -127,7 +222,10 @@ function readFirstTrimmedString(input: Record<string, unknown>, paths: readonly 
   return null;
 }
 
-function readFirstInteger(input: Record<string, unknown>, paths: readonly (readonly string[])[]): number | null {
+function readFirstInteger(
+  input: Record<string, unknown>,
+  paths: readonly (readonly string[])[],
+): number | null {
   for (const path of paths) {
     const resolved = toInteger(readValueAtPath(input, path));
     if (resolved !== null) {
@@ -138,7 +236,10 @@ function readFirstInteger(input: Record<string, unknown>, paths: readonly (reado
   return null;
 }
 
-function readFirstBoolean(input: Record<string, unknown>, paths: readonly (readonly string[])[]): boolean | null {
+function readFirstBoolean(
+  input: Record<string, unknown>,
+  paths: readonly (readonly string[])[],
+): boolean | null {
   for (const path of paths) {
     const resolved = toBoolean(readValueAtPath(input, path));
     if (resolved !== null) {
@@ -174,9 +275,13 @@ function collectWebhookItems(input: unknown): unknown[] {
   return [input];
 }
 
-function parseRawContractEvent(input: Record<string, unknown>): RawContractEventNormalizationResult {
+function parseRawContractEvent(
+  input: Record<string, unknown>,
+): RawContractEventNormalizationResult {
   const chainId = readFirstInteger(input, [["chainId"], ["chain_id"]]);
-  const contractAddress = toAddress(readFirstValue(input, [["contractAddress"], ["contract_address"]]));
+  const contractAddress = toAddress(
+    readFirstValue(input, [["contractAddress"], ["contract_address"]]),
+  );
   const blockNumber = readFirstInteger(input, [["blockNumber"], ["block_number"]]);
   const blockHash = toHash(readFirstValue(input, [["blockHash"], ["block_hash"]]));
   const blockTimestamp = readFirstInteger(input, [["blockTimestamp"], ["block_timestamp"]]);
@@ -187,6 +292,13 @@ function parseRawContractEvent(input: Record<string, unknown>): RawContractEvent
   const data = toData(readFirstValue(input, [["data"]]));
   const removed = readFirstBoolean(input, [["removed"]]);
   const provider = readFirstTrimmedString(input, [["provider"], ["source"]]);
+  const decoded = parseDecodedEvent(input.decoded);
+  const transaction = parseTransactionContext(input.transaction);
+  const positionValue = input.position;
+  const position = positionValue === undefined ? undefined : parsePositionContext(positionValue);
+  const valuationPoolsValue = input.valuationPools;
+  const valuationPools =
+    valuationPoolsValue === undefined ? undefined : parseValuationPools(valuationPoolsValue);
 
   if (
     chainId == null ||
@@ -197,7 +309,11 @@ function parseRawContractEvent(input: Record<string, unknown>): RawContractEvent
     txHash == null ||
     logIndex == null ||
     topics == null ||
-    data == null
+    data == null ||
+    decoded == null ||
+    transaction == null ||
+    (positionValue !== undefined && position == null) ||
+    (valuationPoolsValue !== undefined && valuationPools == null)
   ) {
     return {
       ok: false,
@@ -225,7 +341,12 @@ function parseRawContractEvent(input: Record<string, unknown>): RawContractEvent
     transactionIndex: transactionIndex == null ? null : transactionIndex,
     topics,
     data,
+    decoded,
+    transaction,
   };
+
+  if (position) raw.position = position;
+  if (valuationPools) raw.valuationPools = valuationPools;
 
   if (removed !== null) {
     raw.removed = removed;

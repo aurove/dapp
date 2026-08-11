@@ -1,46 +1,9 @@
 import "server-only";
 
-import { decodeEventLog, toEventSelector, toEventSignature, type Abi, type AbiEvent, type Hex } from "viem";
+import { toEventSelector, toEventSignature, type AbiEvent } from "viem";
 
 import { buildInternalEventFingerprint } from "./fingerprint";
-import { toJsonSafeValue } from "./json-safe";
 import type { AnyContractEvent, RawContractEventInput, RegisteredContract } from "./types";
-
-function buildNamedArgs(parsedArgs: readonly unknown[], inputNames: readonly { name?: string }[]): Record<string, unknown> {
-  return inputNames.reduce<Record<string, unknown>>((accumulator, input, index) => {
-    const key = input.name?.trim() || String(index);
-    accumulator[key] = toJsonSafeValue(parsedArgs[index]);
-    return accumulator;
-  }, {});
-}
-
-function buildOrderedArgs(
-  parsedArgs: readonly unknown[] | Record<string, unknown> | undefined,
-  inputNames: readonly { name?: string }[],
-): unknown[] {
-  if (!parsedArgs) {
-    return [];
-  }
-
-  return inputNames.map((input, index) => {
-    if (Array.isArray(parsedArgs)) {
-      return toJsonSafeValue(parsedArgs[index]);
-    }
-
-    const recordArgs = parsedArgs as Record<string, unknown>;
-    const namedKey = input.name?.trim();
-    if (namedKey && namedKey in recordArgs) {
-      return toJsonSafeValue(recordArgs[namedKey]);
-    }
-
-    const positionalKey = String(index);
-    if (positionalKey in recordArgs) {
-      return toJsonSafeValue(recordArgs[positionalKey]);
-    }
-
-    return undefined;
-  });
-}
 
 export function decodeContractEvent(
   contract: RegisteredContract,
@@ -59,25 +22,25 @@ export function decodeContractEvent(
       return null;
     }
 
-    const parsed = decodeEventLog({
-      abi: contract.abi as Abi,
-      topics: raw.topics as [] | [signature: Hex, ...args: Hex[]],
-      data: raw.data as Hex,
-      strict: false,
-    });
-
-    if (String(parsed.eventName) !== eventAbi.name) {
+    if (raw.decoded.eventName !== eventAbi.name) {
       return null;
     }
 
     const inputs = eventAbi.inputs ?? [];
-    const args = buildOrderedArgs(parsed.args, inputs);
-    const namedArgs = buildNamedArgs(args, inputs);
+    if (
+      raw.decoded.args.length !== inputs.length ||
+      inputs.some((input, index) => {
+        const key = input.name?.trim() || String(index);
+        return !(key in raw.decoded.namedArgs);
+      })
+    ) {
+      return null;
+    }
 
     return {
       chainId: raw.chainId,
       contractAddress: contract.address,
-      eventName: parsed.eventName,
+      eventName: raw.decoded.eventName,
       eventSignature: toEventSignature(eventAbi),
       topic0: raw.topics[0] ?? "",
       blockNumber: raw.blockNumber,
@@ -86,8 +49,8 @@ export function decodeContractEvent(
       txHash: raw.txHash,
       logIndex: raw.logIndex,
       transactionIndex: raw.transactionIndex ?? null,
-      args,
-      namedArgs,
+      args: raw.decoded.args,
+      namedArgs: raw.decoded.namedArgs,
       raw,
       fingerprint: buildInternalEventFingerprint(raw),
     } as unknown as AnyContractEvent;

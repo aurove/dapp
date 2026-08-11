@@ -24,6 +24,34 @@ export type RawContractEventInput = {
   data: string;
   removed?: boolean;
   provider?: string;
+  decoded: {
+    eventName: string;
+    args: unknown[];
+    namedArgs: Record<string, unknown>;
+  };
+  transaction: {
+    from: string;
+    status: "success" | "reverted";
+    primaryQualifyingSwapLogIndex: number | null;
+  };
+  position?: {
+    tokenId: string;
+    principalAmount0: string;
+    principalAmount1: string;
+    token0: string;
+    token1: string;
+    tickSpacing: number;
+    poolAddress: string;
+    owner: string;
+  };
+  valuationPools?: Array<{
+    address: string;
+    token0: string;
+    token1: string;
+    sqrtPriceX96: string;
+    tick: number;
+    liquidity: string;
+  }>;
 };
 
 export type RegisteredContract = {
@@ -37,19 +65,22 @@ export type RegisteredContract = {
 
 export type DecodedContractEvent<
   TContractName extends ContractName = ContractName,
-  TEventName extends ContractEventNameForContract<TContractName> = ContractEventNameForContract<TContractName>,
+  TEventName extends ContractEventNameForContract<TContractName> =
+    ContractEventNameForContract<TContractName>,
 > = SharedDecodedContractEvent<TContractName, TEventName>;
 
 export type ContractEventHandlerContext = SharedContractEventHandlerContext;
 
 export type ContractEventPayloadValidator<
   TContractName extends ContractName = ContractName,
-  TEventName extends ContractEventNameForContract<TContractName> = ContractEventNameForContract<TContractName>,
+  TEventName extends ContractEventNameForContract<TContractName> =
+    ContractEventNameForContract<TContractName>,
 > = SharedContractEventPayloadValidator<TContractName, TEventName>;
 
 export type ContractEventHandlerDefinition<
   TContractName extends ContractName = ContractName,
-  TEventName extends ContractEventNameForContract<TContractName> = ContractEventNameForContract<TContractName>,
+  TEventName extends ContractEventNameForContract<TContractName> =
+    ContractEventNameForContract<TContractName>,
 > = SharedContractEventHandlerDefinition<TContractName, TEventName>;
 
 export type DecodedContractEventArgs<
