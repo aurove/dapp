@@ -42,7 +42,7 @@ export const TESTNET_CONTRACTS: ContractReference[] = [
         description: "Burn shares and release vault inventory during the weekly settlement window.",
       },
       {
-        name: "claimRebases(trancheIds)",
+        name: "claimRebases(trancheIds) [legacy no-op]; claimRebases(trancheId, tokenIds)",
         description: "Permissionlessly claim Mezo rebases into the tranche RewardSink.",
       },
       {
