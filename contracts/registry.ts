@@ -1528,7 +1528,7 @@ const contracts = {
         tokenA: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tokenB: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
         tickSpacing: 200,
-        sqrtPriceX96: "227225646595169523726862113434033",
+        sqrtPriceX96: "235596401040364632866571153684875",
       },
       abi: [
         {
@@ -2081,7 +2081,7 @@ const contracts = {
     },
     "avBTCm-avMEZOmGauge": {
       address: "0xCd1b3cAB8715e66a5c00F420C84742f6406059eF",
-      deploymentBlock: 10959316,
+      deploymentBlock: 10959279,
       linkedData: {
         contractName: "CLGauge",
         poolKey: "avBTCm-avMEZOm",
@@ -2418,10 +2418,7 @@ const contracts = {
       },
       abi: [
         {
-          inputs: [
-            { internalType: "contract IERC20", name: "id20_", type: "address" },
-            { internalType: "uint256", name: "rewardRate_", type: "uint256" },
-          ],
+          inputs: [{ internalType: "contract IERC20", name: "id20_", type: "address" }],
           stateMutability: "nonpayable",
           type: "constructor",
         },
@@ -2432,7 +2429,6 @@ const contracts = {
         },
         { inputs: [], name: "InsufficientSettleableCredit", type: "error" },
         { inputs: [], name: "NoRewards", type: "error" },
-        { inputs: [], name: "NoWeight", type: "error" },
         {
           inputs: [{ internalType: "address", name: "caller", type: "address" }],
           name: "NotId20",
@@ -2522,6 +2518,7 @@ const contracts = {
             {
               components: [
                 { internalType: "bool", name: "isActive", type: "bool" },
+                { internalType: "uint256", name: "units", type: "uint256" },
                 { internalType: "uint256", name: "weight", type: "uint256" },
                 { internalType: "uint256", name: "debt", type: "uint256" },
                 { internalType: "uint256", name: "credit", type: "uint256" },
@@ -2598,6 +2595,20 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "rewardRate",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardReserve",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             { internalType: "address", name: "account", type: "address" },
             { internalType: "address", name: "lender", type: "address" },
@@ -2606,6 +2617,31 @@ const contracts = {
           name: "settleCredit",
           outputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
           stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "address", name: "account", type: "address" },
+                { internalType: "address", name: "lender", type: "address" },
+                { internalType: "address", name: "borrower", type: "address" },
+              ],
+              internalType: "struct IId20Gauge.Settlement[]",
+              name: "settlements",
+              type: "tuple[]",
+            },
+          ],
+          name: "settleCredits",
+          outputs: [{ internalType: "uint256", name: "totalSettled", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "streamEpoch",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
           type: "function",
         },
       ],
@@ -3416,7 +3452,7 @@ const contracts = {
                 { internalType: "uint256", name: "claimable", type: "uint256" },
               ],
               internalType: "struct IRewardAccounting.AccountRewardView",
-              name: "view_",
+              name: "",
               type: "tuple",
             },
           ],
@@ -3522,7 +3558,21 @@ const contracts = {
         },
         {
           inputs: [],
+          name: "rewardRate",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "rewardReserve",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "streamEpoch",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
@@ -3575,10 +3625,7 @@ const contracts = {
       },
       abi: [
         {
-          inputs: [
-            { internalType: "contract IERC20", name: "id20_", type: "address" },
-            { internalType: "uint256", name: "rewardRate_", type: "uint256" },
-          ],
+          inputs: [{ internalType: "contract IERC20", name: "id20_", type: "address" }],
           stateMutability: "nonpayable",
           type: "constructor",
         },
@@ -3589,7 +3636,6 @@ const contracts = {
         },
         { inputs: [], name: "InsufficientSettleableCredit", type: "error" },
         { inputs: [], name: "NoRewards", type: "error" },
-        { inputs: [], name: "NoWeight", type: "error" },
         {
           inputs: [{ internalType: "address", name: "caller", type: "address" }],
           name: "NotId20",
@@ -3679,6 +3725,7 @@ const contracts = {
             {
               components: [
                 { internalType: "bool", name: "isActive", type: "bool" },
+                { internalType: "uint256", name: "units", type: "uint256" },
                 { internalType: "uint256", name: "weight", type: "uint256" },
                 { internalType: "uint256", name: "debt", type: "uint256" },
                 { internalType: "uint256", name: "credit", type: "uint256" },
@@ -3755,6 +3802,20 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "rewardRate",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "rewardReserve",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             { internalType: "address", name: "account", type: "address" },
             { internalType: "address", name: "lender", type: "address" },
@@ -3763,6 +3824,31 @@ const contracts = {
           name: "settleCredit",
           outputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
           stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                { internalType: "address", name: "account", type: "address" },
+                { internalType: "address", name: "lender", type: "address" },
+                { internalType: "address", name: "borrower", type: "address" },
+              ],
+              internalType: "struct IId20Gauge.Settlement[]",
+              name: "settlements",
+              type: "tuple[]",
+            },
+          ],
+          name: "settleCredits",
+          outputs: [{ internalType: "uint256", name: "totalSettled", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "streamEpoch",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
           type: "function",
         },
       ],
@@ -4573,7 +4659,7 @@ const contracts = {
                 { internalType: "uint256", name: "claimable", type: "uint256" },
               ],
               internalType: "struct IRewardAccounting.AccountRewardView",
-              name: "view_",
+              name: "",
               type: "tuple",
             },
           ],
@@ -4679,7 +4765,21 @@ const contracts = {
         },
         {
           inputs: [],
+          name: "rewardRate",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "rewardReserve",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "streamEpoch",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
@@ -5844,7 +5944,7 @@ const contracts = {
         },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x88adf686d0a4a1da5b4ab808267b10c743556de9ba65f989015b0aabfe061654",
+          transactionHash: "0x4ff0bbdd5f4b8e519733dc04a44de1d716e821be20368f624d3d3da3c5909581",
         },
       },
       abi: [
@@ -6012,8 +6112,18 @@ const contracts = {
           type: "error",
         },
         {
+          inputs: [{ internalType: "address", name: "operator", type: "address" }],
+          name: "UnauthorizedOperator",
+          type: "error",
+        },
+        {
           inputs: [{ internalType: "uint8", name: "variant", type: "uint8" }],
           name: "UnsupportedTrancheVariant",
+          type: "error",
+        },
+        {
+          inputs: [{ internalType: "address", name: "veNft", type: "address" }],
+          name: "UnsupportedVeNft",
           type: "error",
         },
         { inputs: [], name: "ZeroAddress", type: "error" },
@@ -6269,6 +6379,16 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "uint256[]", name: "tokenIds", type: "uint256[]" },
+          ],
+          name: "claimRebases",
+          outputs: [{ internalType: "uint256", name: "claimed", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
           inputs: [{ internalType: "uint256[]", name: "trancheIds", type: "uint256[]" }],
           name: "claimRebases",
           outputs: [{ internalType: "uint256[]", name: "amountsClaimed", type: "uint256[]" }],
@@ -6407,14 +6527,14 @@ const contracts = {
         },
         {
           inputs: [
-            { internalType: "address", name: "", type: "address" },
+            { internalType: "address", name: "operator", type: "address" },
             { internalType: "address", name: "", type: "address" },
             { internalType: "uint256", name: "", type: "uint256" },
             { internalType: "bytes", name: "", type: "bytes" },
           ],
           name: "onERC721Received",
           outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
-          stateMutability: "pure",
+          stateMutability: "view",
           type: "function",
         },
         {
@@ -6585,7 +6705,7 @@ const contracts = {
         tokenA: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
         tokenB: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tickSpacing: 200,
-        sqrtPriceX96: "20274678159274110491181584631162",
+        sqrtPriceX96: "20021797812823554034696220657824",
       },
       abi: [
         {
@@ -7138,7 +7258,7 @@ const contracts = {
     },
     "MUSD-avBTCmGauge": {
       address: "0xC5d9ddC440759CCe340c745a6133c7A29E90cF94",
-      deploymentBlock: 10959315,
+      deploymentBlock: 10959278,
       linkedData: {
         contractName: "CLGauge",
         poolKey: "MUSD-avBTCm",
@@ -8010,7 +8130,7 @@ const contracts = {
         initializer: { name: "initialize", args: ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"] },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x2b5b344a99f29851af5942287cea181876f8f1982a507f9ce658f5f8010148b5",
+          transactionHash: "0xa4eb6e8ffb36427560edbf05a64a6bb6c8b8d057e1612f30b499f7e858cd9cdf",
         },
       },
       abi: [
@@ -8152,6 +8272,17 @@ const contracts = {
         {
           anonymous: false,
           inputs: [
+            { indexed: true, internalType: "uint256", name: "trancheId", type: "uint256" },
+            { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "previousAssets", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "currentAssets", type: "uint256" },
+          ],
+          name: "InventoryGrowthAccounted",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
             { indexed: true, internalType: "uint8", name: "variant", type: "uint8" },
             { indexed: true, internalType: "uint256", name: "trancheId", type: "uint256" },
             { indexed: true, internalType: "address", name: "manager", type: "address" },
@@ -8245,6 +8376,33 @@ const contracts = {
           inputs: [],
           name: "VE_MEZO",
           outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "uint256[]", name: "tokenIds", type: "uint256[]" },
+          ],
+          name: "accountInventoryGrowth",
+          outputs: [{ internalType: "uint256", name: "growth", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "uint256", name: "tokenId", type: "uint256" },
+          ],
+          name: "accountedAssetsOf",
+          outputs: [{ internalType: "uint256", name: "assets", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
+          name: "accountedAssetsOfTranche",
+          outputs: [{ internalType: "uint256", name: "assets", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
@@ -14011,6 +14169,16 @@ const contracts = {
         },
         {
           inputs: [
+            { internalType: "contract INonStakingVoter", name: "voter", type: "address" },
+            { internalType: "address[]", name: "gauges", type: "address[]" },
+          ],
+          name: "claimRewards",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
             { internalType: "address", name: "boostVoter", type: "address" },
             { internalType: "address", name: "gaugeFactory", type: "address" },
             { internalType: "address[]", name: "tokens", type: "address[]" },
@@ -14276,6 +14444,15 @@ const contracts = {
           type: "event",
         },
         {
+          anonymous: false,
+          inputs: [
+            { indexed: false, internalType: "uint256", name: "burned", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "supplyAfter", type: "uint256" },
+          ],
+          name: "StreamingRewardsInitialized",
+          type: "event",
+        },
+        {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
           name: "accountRewardData",
           outputs: [
@@ -14288,7 +14465,7 @@ const contracts = {
                 { internalType: "uint256", name: "claimable", type: "uint256" },
               ],
               internalType: "struct IRewardAccounting.AccountRewardView",
-              name: "view_",
+              name: "",
               type: "tuple",
             },
           ],
@@ -14354,6 +14531,13 @@ const contracts = {
         },
         {
           inputs: [],
+          name: "initializeV2",
+          outputs: [{ internalType: "uint256", name: "burned", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "ledger",
           outputs: [{ internalType: "address", name: "", type: "address" }],
           stateMutability: "view",
@@ -14394,7 +14578,21 @@ const contracts = {
         },
         {
           inputs: [],
+          name: "rewardRate",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "rewardReserve",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "streamEpoch",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
@@ -15158,6 +15356,16 @@ const contracts = {
         },
         {
           inputs: [
+            { internalType: "contract INonStakingVoter", name: "voter", type: "address" },
+            { internalType: "address[]", name: "gauges", type: "address[]" },
+          ],
+          name: "claimRewards",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
             { internalType: "address", name: "boostVoter", type: "address" },
             { internalType: "address", name: "gaugeFactory", type: "address" },
             { internalType: "address[]", name: "tokens", type: "address[]" },
@@ -15423,6 +15631,15 @@ const contracts = {
           type: "event",
         },
         {
+          anonymous: false,
+          inputs: [
+            { indexed: false, internalType: "uint256", name: "burned", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "supplyAfter", type: "uint256" },
+          ],
+          name: "StreamingRewardsInitialized",
+          type: "event",
+        },
+        {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
           name: "accountRewardData",
           outputs: [
@@ -15435,7 +15652,7 @@ const contracts = {
                 { internalType: "uint256", name: "claimable", type: "uint256" },
               ],
               internalType: "struct IRewardAccounting.AccountRewardView",
-              name: "view_",
+              name: "",
               type: "tuple",
             },
           ],
@@ -15501,6 +15718,13 @@ const contracts = {
         },
         {
           inputs: [],
+          name: "initializeV2",
+          outputs: [{ internalType: "uint256", name: "burned", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "ledger",
           outputs: [{ internalType: "address", name: "", type: "address" }],
           stateMutability: "view",
@@ -15541,7 +15765,21 @@ const contracts = {
         },
         {
           inputs: [],
+          name: "rewardRate",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "rewardReserve",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "streamEpoch",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
           type: "function",
@@ -16871,8 +17109,18 @@ const contracts = {
           type: "error",
         },
         {
+          inputs: [{ internalType: "address", name: "operator", type: "address" }],
+          name: "UnauthorizedOperator",
+          type: "error",
+        },
+        {
           inputs: [{ internalType: "uint8", name: "variant", type: "uint8" }],
           name: "UnsupportedTrancheVariant",
+          type: "error",
+        },
+        {
+          inputs: [{ internalType: "address", name: "veNft", type: "address" }],
+          name: "UnsupportedVeNft",
           type: "error",
         },
         { inputs: [], name: "ZeroAddress", type: "error" },
@@ -17128,6 +17376,16 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "uint256[]", name: "tokenIds", type: "uint256[]" },
+          ],
+          name: "claimRebases",
+          outputs: [{ internalType: "uint256", name: "claimed", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
           inputs: [{ internalType: "uint256[]", name: "trancheIds", type: "uint256[]" }],
           name: "claimRebases",
           outputs: [{ internalType: "uint256[]", name: "amountsClaimed", type: "uint256[]" }],
@@ -17266,14 +17524,14 @@ const contracts = {
         },
         {
           inputs: [
-            { internalType: "address", name: "", type: "address" },
+            { internalType: "address", name: "operator", type: "address" },
             { internalType: "address", name: "", type: "address" },
             { internalType: "uint256", name: "", type: "uint256" },
             { internalType: "bytes", name: "", type: "bytes" },
           ],
           name: "onERC721Received",
           outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
-          stateMutability: "pure",
+          stateMutability: "view",
           type: "function",
         },
         {
@@ -18869,7 +19127,7 @@ const contracts = {
         initializer: { name: "initialize", args: ["0x6E1126EA838DA392A55D8DdeD9bADEccA5835114"] },
         lastOperation: {
           action: "upgraded",
-          transactionHash: "0x032d4095e805cfe5525a78800969b8553fb5668ac82cd20a9c17d23dbd7c289c",
+          transactionHash: "0x63e39f3c32aafb76b30abe355ad74d7697d015650d3de647d451d281cf4ad965",
         },
       },
       abi: [
@@ -19011,6 +19269,17 @@ const contracts = {
         {
           anonymous: false,
           inputs: [
+            { indexed: true, internalType: "uint256", name: "trancheId", type: "uint256" },
+            { indexed: true, internalType: "uint256", name: "tokenId", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "previousAssets", type: "uint256" },
+            { indexed: false, internalType: "uint256", name: "currentAssets", type: "uint256" },
+          ],
+          name: "InventoryGrowthAccounted",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
             { indexed: true, internalType: "uint8", name: "variant", type: "uint8" },
             { indexed: true, internalType: "uint256", name: "trancheId", type: "uint256" },
             { indexed: true, internalType: "address", name: "manager", type: "address" },
@@ -19104,6 +19373,33 @@ const contracts = {
           inputs: [],
           name: "VE_MEZO",
           outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "uint256[]", name: "tokenIds", type: "uint256[]" },
+          ],
+          name: "accountInventoryGrowth",
+          outputs: [{ internalType: "uint256", name: "growth", type: "uint256" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "trancheId", type: "uint256" },
+            { internalType: "uint256", name: "tokenId", type: "uint256" },
+          ],
+          name: "accountedAssetsOf",
+          outputs: [{ internalType: "uint256", name: "assets", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
+          name: "accountedAssetsOfTranche",
+          outputs: [{ internalType: "uint256", name: "assets", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
