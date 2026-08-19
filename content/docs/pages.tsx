@@ -1514,7 +1514,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
       "ERC1155 architecture for deposits, redemptions, managed epochs, and fee configuration.",
     tags: ["ledger", "erc1155", "deposits", "redeem"],
     status: "live",
-    searchText: "ledger depositErc20 depositVeNft redeem claimRebases fee config settlement",
+    searchText: "ledger depositErc20 depositVeNft redeem claimRebases fee config managed inventory",
     Content: () => (
       <>
         <h1>Ledger</h1>
@@ -1536,9 +1536,6 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
           <li>
             <code>claimRebases(trancheIds)</code>
           </li>
-          <li>
-            <code>redeemableBalanceOf(account, trancheId)</code>
-          </li>
         </ul>
         <h2>Managed epochs</h2>
         <p>
@@ -1556,9 +1553,6 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
           <li>
             <code>RebaseClaimed</code>
           </li>
-          <li>
-            <code>RedeemLockIncreased</code> / <code>Transferred</code> / <code>Cleared</code>
-          </li>
         </ul>
         <p>
           Testnet:{" "}
@@ -1573,7 +1567,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
     slug: "protocol/vaults",
     title: "Vaults",
     description:
-      "Vault custody, managed veNFT inventory, settlement releases, and manager/sink deployment.",
+      "Vault custody, managed veNFT inventory, redemption releases, and manager/sink deployment.",
     tags: ["vault", "custody", "inventory", "manager"],
     status: "live",
     searchText: "vault custody depositManaged releaseVeBtc releaseVeMezo manager sink beacon",

@@ -31,7 +31,6 @@ import { FeatureHeroSection, FeatureMetricCard, FeatureSplitGrid, FeatureStatusP
 import { getEarnProtocolConfig, getRewardSinkAbi } from "@/contracts/earn";
 import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, makeTokenApprovalStep, type TxStep } from "@/lib/tx-flow";
-import { useChainTime } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/earn/hooks/use-user-ve-nfts";
 import { type EarnProduct, type EarnVariant, useAprBasis, useEarnSnapshot } from "./use-earn-data";
@@ -87,7 +86,6 @@ function getTokenIconPath(variant: EarnVariant) {
 }
 
 export function EarnPage() {
-  const { chainTimestamp } = useChainTime();
   const {
     assetLedger,
     products,
@@ -405,7 +403,6 @@ export function EarnPage() {
                 >
                   <EarnPositionCard
                     product={position}
-                    chainTimestamp={chainTimestamp}
                     aprBasisMap={aprBasisMap}
                     withdrawAmount={withdrawAmounts[position.id] ?? ""}
                     setWithdrawAmount={(value) =>

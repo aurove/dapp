@@ -39,15 +39,11 @@ export const TESTNET_CONTRACTS: ContractReference[] = [
       },
       {
         name: "redeem(trancheId, amount, receiver, tokenIds)",
-        description: "Burn shares and release vault inventory during the weekly settlement window.",
+        description: "Burn shares and release vault inventory whenever Mezo permits managed withdrawal.",
       },
       {
         name: "claimRebases(trancheIds) [legacy no-op]; claimRebases(trancheId, tokenIds)",
         description: "Permissionlessly claim Mezo rebases into the tranche RewardSink.",
-      },
-      {
-        name: "redeemableBalanceOf(account, trancheId)",
-        description: "View redeemable balance after redeem locks.",
       },
     ],
     events: [
@@ -56,7 +52,7 @@ export const TESTNET_CONTRACTS: ContractReference[] = [
       { name: "RebaseClaimed", description: "Emitted when manager rebases are claimed and reward units minted." },
     ],
     permissions: [
-      "Anyone may deposit, redeem (in window), and claim rebases.",
+      "Anyone may deposit, redeem against Mezo-eligible inventory, and claim rebases.",
       "Owner configures vault and fee proposals.",
     ],
   },

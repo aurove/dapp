@@ -25,10 +25,6 @@ import {
 } from "./use-earn-data";
 import { estimateTrancheApr, formatAprPercent } from "./utils/apr";
 
-const WEEK_SECONDS = 7n * 24n * 60n * 60n;
-const SETTLEMENT_WINDOW_START_SECONDS = 10n * 60n * 60n;
-const SETTLEMENT_WINDOW_DURATION_SECONDS = 6n * 60n * 60n;
-
 type VenftSelectOption = {
   value: string;
   label: string;
@@ -126,7 +122,6 @@ const venftSelectStyles: StylesConfig<VenftSelectOption, true> = {
 
 export function EarnPositionCard({
   product: initialProduct,
-  chainTimestamp,
   aprBasisMap,
   withdrawAmount,
   setWithdrawAmount,
@@ -134,7 +129,6 @@ export function EarnPositionCard({
   onError,
 }: {
   product: EarnProduct;
-  chainTimestamp: bigint | null;
   aprBasisMap?: EarnAprBasisMap | null;
   withdrawAmount: string;
   setWithdrawAmount: (value: string) => void;
@@ -149,7 +143,6 @@ export function EarnPositionCard({
       {inView ? (
         <PositionCardContent
           product={product}
-          chainTimestamp={chainTimestamp}
           withdrawAmount={withdrawAmount}
           setWithdrawAmount={setWithdrawAmount}
           onSuccess={onSuccess}
@@ -164,14 +157,12 @@ export function EarnPositionCard({
 
 function PositionCardContent({
   product,
-  chainTimestamp,
   withdrawAmount,
   setWithdrawAmount,
   onSuccess,
   onError,
 }: {
   product: EarnProduct;
-  chainTimestamp: bigint | null;
   withdrawAmount: string;
   setWithdrawAmount: (value: string) => void;
   onSuccess: (message: string) => void;
@@ -187,8 +178,6 @@ function PositionCardContent({
   const copy = variantCopy(product.variant);
   const aprEstimate = estimateTrancheApr(product);
   const parsedWithdraw = parseAmountRaw(withdrawAmount, product.decimals);
-  const isSettlementWindowOpen = resolveSettlementWindowOpen(product, chainTimestamp);
-  const isExpired = isTrancheExpired(product, chainTimestamp);
   const [unwrapAmount, setUnwrapAmount] = useState("");
   const [selectedRedemptionKeys, setSelectedRedemptionKeys] = useState<string[]>([]);
   const selectedRedemptionKeysResolved = useMemo(() => {
@@ -243,7 +232,6 @@ function PositionCardContent({
       ),
     [selectedRedemptionKeysResolved, venftSelectOptions],
   );
-  const isActionWindowOpen = isSettlementWindowOpen;
   const actionControlId = `redeem-amount-${product.id}`;
   // MEZO amount is auto weight+earned of the selection (same basis as inventory display / free size).
   // BTC uses a user-entered exact share amount.
@@ -254,12 +242,10 @@ function PositionCardContent({
     selectedRedemptionTotalRaw > 0n &&
     selectedRedemptionTotalRaw > product.userAvailableBalanceRaw;
   const canSubmit =
-    isActionWindowOpen &&
     selectedRedemptionPositions.length > 0 &&
     redemptionAmountRaw > 0n &&
     redemptionAmountRaw <= product.userAvailableBalanceRaw;
   const actionLabel = "Redeem";
-  const actionUnavailableLabel = isExpired ? "Await claim window" : "Await redemption window";
   const actionSteps = (account: Address): TxStep[] => {
     return [
       makeContractWriteStep({
@@ -381,11 +367,7 @@ function PositionCardContent({
               <div className="min-w-0">
                 <p className="text-sm font-medium text-white">Redemption</p>
                 <p className="text-xs text-white/45">
-                  {isActionWindowOpen
-                    ? isExpired
-                      ? "Tranche expired"
-                      : "Redemption window open"
-                    : "Waiting for weekly settlement window"}
+                  Available whenever Mezo permits the selected managed inventory to withdraw
                 </p>
               </div>
               <span
@@ -422,7 +404,7 @@ function PositionCardContent({
                 isSearchable
                 closeMenuOnSelect={false}
                 hideSelectedOptions={false}
-                isDisabled={!isActionWindowOpen || product.redeemInventory.length === 0}
+                isDisabled={product.redeemInventory.length === 0}
                 options={venftSelectOptions}
                 value={selectedVenftOptions}
                 styles={venftSelectStyles}
@@ -505,7 +487,6 @@ function PositionCardContent({
                       setWithdrawAmount(event.target.value);
                       void formik.setFieldValue("amount", event.target.value);
                     }}
-                    disabled={!isActionWindowOpen}
                   />
                   <Button
                     type="button"
@@ -515,7 +496,6 @@ function PositionCardContent({
                       setWithdrawAmount(max);
                       void formik.setFieldValue("amount", max);
                     }}
-                    disabled={!isActionWindowOpen}
                   >
                     Max
                   </Button>
@@ -547,14 +527,8 @@ function PositionCardContent({
             }}
             onError={txError(onError)}
           >
-            {isActionWindowOpen ? actionLabel : actionUnavailableLabel}
+            {actionLabel}
           </TransactionFlowButton>
-          {!isSettlementWindowOpen ? (
-            <p className="text-xs text-amber-100/80">
-              Redemptions are only available during the weekly settlement window, which opens 10
-              hours into each epoch and lasts 6 hours.
-            </p>
-          ) : null}
           </form>
         </details>
       </CardContent>
@@ -831,25 +805,6 @@ function formatAmount(value: bigint | null | undefined, decimals = 18, symbol?: 
   return formatCompactRawTokenAmount(value, decimals, symbol ?? undefined);
 }
 
-function resolveSettlementWindowOpen(product: EarnProduct, blockchainNow: bigint | null): boolean {
-  if (blockchainNow === null) return product.isSettlementWindowOpen;
-  const epochStart = (blockchainNow / WEEK_SECONDS) * WEEK_SECONDS;
-  const epochElapsed = blockchainNow - epochStart;
-  return (
-    epochElapsed >= SETTLEMENT_WINDOW_START_SECONDS &&
-    epochElapsed < SETTLEMENT_WINDOW_START_SECONDS + SETTLEMENT_WINDOW_DURATION_SECONDS
-  );
-}
-
-function isTrancheExpired(product: EarnProduct, blockchainNow: bigint | null): boolean {
-  if (blockchainNow !== null) {
-    return product.redeemInventory.some(
-      (position) => position.unlockTime !== null && position.unlockTime <= blockchainNow,
-    );
-  }
-
-  return false;
-}
 
 function txError(handler: (message: string) => void) {
   return (err: string | SyntheticEvent<HTMLButtonElement>) => {

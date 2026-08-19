@@ -39,6 +39,7 @@ type AbiErrorFragment = {
 const KNOWN_CUSTOM_ERROR_SELECTORS: readonly KnownCustomErrorSelector[] = [
   { selector: "0x5a780bad", errorName: "DistributeWindow" },
   { selector: "0xcade311f", errorName: "AlreadyVotedOrDeposited" },
+  { selector: "0x7cfb3d6c", errorName: "SpecialVotingWindow" },
 ];
 
 const KNOWN_ERROR_ABIS = (() => {
@@ -167,22 +168,18 @@ function formatKnownCustomError(errorName: string, args: readonly unknown[]): st
       return "That veNFT is already tracked for this tranche.";
     case "InvalidRedeemAmount":
       return "Enter a valid redeem amount.";
-    case "RedemptionOutsideSettlementWindow":
-      return "Redeem is only available during the settlement window.";
-    case "InsufficientRedeemableBalance":
-      return `Not enough redeemable tranche units for ${formatRawUnits(args[2])}.`;
-    case "RedeemLockOverflow":
-      return "The redeem lock overflowed.";
-    case "RedeemLockEpochMismatch":
-      return "Those tranche units are locked by a different settlement epoch.";
     case "InvalidVariantForTranche":
       return "That action cannot be used for this tranche.";
     case "InsufficientRedeemInventory":
       return "The tranche vault does not have enough inventory to satisfy this redeem.";
     case "SplitNotAllowed":
       return "BTC exact-amount redeem must split vault inventory (inventory free size is often larger than share weight after locked rewards). Mezo veBTC has not allowed the vault to split — on localhost re-run seed, or call toggleSplit(vault, true) as the veBTC team.";
+    case "DistributeWindow":
+      return "Mezo blocks managed deposits and redemptions during the first hour of each epoch.";
     case "AlreadyVotedOrDeposited":
       return "That veNFT was deposited or voted in the current epoch, so Mezo blocks withdraw/redeem until the next epoch.";
+    case "SpecialVotingWindow":
+      return "Mezo blocks the managed redeposit needed for this BTC redemption during the final hour of the epoch.";
     case "LockedVaultAlreadySet":
       return "The locked vault has already been configured.";
     case "RewardFeeTooHigh":
@@ -262,9 +259,11 @@ function formatKnownCustomError(errorName: string, args: readonly unknown[]): st
         args[0],
       )}, required ${formatRawUnits(args[1])}.`;
     case "DistributeWindow":
-      return "Deposits are blocked during the distribution window.";
+      return "Mezo blocks managed deposits and redemptions during the first hour of each epoch.";
     case "AlreadyVotedOrDeposited":
       return "This veNFT has already voted or been deposited in the current epoch.";
+    case "SpecialVotingWindow":
+      return "Mezo blocks the managed redeposit needed for this action during the final hour of the epoch.";
     default:
       return undefined;
   }
