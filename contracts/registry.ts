@@ -3536,17 +3536,17 @@ const contracts = {
         },
         {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
-          name: "accountRewardData",
+          name: "accountRewardSnapshot",
           outputs: [
             {
               components: [
-                { internalType: "uint256", name: "creditPerUnitPaid", type: "uint256" },
-                { internalType: "uint256", name: "rewardDebtPerUnitIntegralPaid", type: "uint256" },
-                { internalType: "uint256", name: "credit", type: "uint256" },
-                { internalType: "uint256", name: "rewardDebt", type: "uint256" },
-                { internalType: "uint256", name: "claimable", type: "uint256" },
+                { internalType: "uint256", name: "rewardPerUnitCheckpoint", type: "uint256" },
+                { internalType: "uint256", name: "inactiveActivationEpoch", type: "uint256" },
+                { internalType: "uint256", name: "activeUnits", type: "uint256" },
+                { internalType: "uint256", name: "inactiveUnits", type: "uint256" },
+                { internalType: "uint256", name: "claimableRewards", type: "uint256" },
               ],
-              internalType: "struct IRewardAccounting.AccountRewardView",
+              internalType: "struct IRewardAccounting.AccountRewardSnapshot",
               name: "",
               type: "tuple",
             },
@@ -4867,17 +4867,17 @@ const contracts = {
         },
         {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
-          name: "accountRewardData",
+          name: "accountRewardSnapshot",
           outputs: [
             {
               components: [
-                { internalType: "uint256", name: "creditPerUnitPaid", type: "uint256" },
-                { internalType: "uint256", name: "rewardDebtPerUnitIntegralPaid", type: "uint256" },
-                { internalType: "uint256", name: "credit", type: "uint256" },
-                { internalType: "uint256", name: "rewardDebt", type: "uint256" },
-                { internalType: "uint256", name: "claimable", type: "uint256" },
+                { internalType: "uint256", name: "rewardPerUnitCheckpoint", type: "uint256" },
+                { internalType: "uint256", name: "inactiveActivationEpoch", type: "uint256" },
+                { internalType: "uint256", name: "activeUnits", type: "uint256" },
+                { internalType: "uint256", name: "inactiveUnits", type: "uint256" },
+                { internalType: "uint256", name: "claimableRewards", type: "uint256" },
               ],
-              internalType: "struct IRewardAccounting.AccountRewardView",
+              internalType: "struct IRewardAccounting.AccountRewardSnapshot",
               name: "",
               type: "tuple",
             },
@@ -14535,17 +14535,17 @@ const contracts = {
         },
         {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
-          name: "accountRewardData",
+          name: "accountRewardSnapshot",
           outputs: [
             {
               components: [
-                { internalType: "uint256", name: "creditPerUnitPaid", type: "uint256" },
-                { internalType: "uint256", name: "rewardDebtPerUnitIntegralPaid", type: "uint256" },
-                { internalType: "uint256", name: "credit", type: "uint256" },
-                { internalType: "uint256", name: "rewardDebt", type: "uint256" },
-                { internalType: "uint256", name: "claimable", type: "uint256" },
+                { internalType: "uint256", name: "rewardPerUnitCheckpoint", type: "uint256" },
+                { internalType: "uint256", name: "inactiveActivationEpoch", type: "uint256" },
+                { internalType: "uint256", name: "activeUnits", type: "uint256" },
+                { internalType: "uint256", name: "inactiveUnits", type: "uint256" },
+                { internalType: "uint256", name: "claimableRewards", type: "uint256" },
               ],
-              internalType: "struct IRewardAccounting.AccountRewardView",
+              internalType: "struct IRewardAccounting.AccountRewardSnapshot",
               name: "",
               type: "tuple",
             },
@@ -15751,17 +15751,17 @@ const contracts = {
         },
         {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
-          name: "accountRewardData",
+          name: "accountRewardSnapshot",
           outputs: [
             {
               components: [
-                { internalType: "uint256", name: "creditPerUnitPaid", type: "uint256" },
-                { internalType: "uint256", name: "rewardDebtPerUnitIntegralPaid", type: "uint256" },
-                { internalType: "uint256", name: "credit", type: "uint256" },
-                { internalType: "uint256", name: "rewardDebt", type: "uint256" },
-                { internalType: "uint256", name: "claimable", type: "uint256" },
+                { internalType: "uint256", name: "rewardPerUnitCheckpoint", type: "uint256" },
+                { internalType: "uint256", name: "inactiveActivationEpoch", type: "uint256" },
+                { internalType: "uint256", name: "activeUnits", type: "uint256" },
+                { internalType: "uint256", name: "inactiveUnits", type: "uint256" },
+                { internalType: "uint256", name: "claimableRewards", type: "uint256" },
               ],
-              internalType: "struct IRewardAccounting.AccountRewardView",
+              internalType: "struct IRewardAccounting.AccountRewardSnapshot",
               name: "",
               type: "tuple",
             },
