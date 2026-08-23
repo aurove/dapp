@@ -1528,7 +1528,7 @@ const contracts = {
         tokenA: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tokenB: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
         tickSpacing: 200,
-        sqrtPriceX96: "240306428517353794628958911891199",
+        sqrtPriceX96: "256481066494924107475575536481633",
       },
       abi: [
         {
@@ -2081,7 +2081,7 @@ const contracts = {
     },
     "avBTCm-avMEZOmGauge": {
       address: "0xCd1b3cAB8715e66a5c00F420C84742f6406059eF",
-      deploymentBlock: 10959279,
+      deploymentBlock: 10959303,
       linkedData: {
         contractName: "CLGauge",
         poolKey: "avBTCm-avMEZOm",
@@ -2661,8 +2661,15 @@ const contracts = {
         },
         {
           inputs: [],
+          name: "pendingRewards",
+          outputs: [{ internalType: "uint256", name: "pending", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "rewardPerUnit",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          outputs: [{ internalType: "uint256", name: "rewardPerUnit_", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
@@ -3661,6 +3668,13 @@ const contracts = {
         },
         {
           inputs: [],
+          name: "pendingRewards",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "rewardPerUnit",
           outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
           stateMutability: "view",
@@ -3978,8 +3992,15 @@ const contracts = {
         },
         {
           inputs: [],
+          name: "pendingRewards",
+          outputs: [{ internalType: "uint256", name: "pending", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "rewardPerUnit",
-          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          outputs: [{ internalType: "uint256", name: "rewardPerUnit_", type: "uint256" }],
           stateMutability: "view",
           type: "function",
         },
@@ -4974,6 +4995,13 @@ const contracts = {
           name: "onERC1155Received",
           outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
           stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "pendingRewards",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
           type: "function",
         },
         {
@@ -6164,7 +6192,7 @@ const contracts = {
         },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x502cf874825d79ced0b43043a9b0950d7d7c2e2fe9d6799752455a39cd1ad378",
+          transactionHash: "0x04950c6b6d2a1eb561a5731a854d09a5535fd93f64c1bf70eca74d54a5220b77",
         },
       },
       abi: [
@@ -6780,6 +6808,20 @@ const contracts = {
           type: "function",
         },
         {
+          inputs: [{ internalType: "address", name: "newImplementation", type: "address" }],
+          name: "upgradeManagerBeacon",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "newImplementation", type: "address" }],
+          name: "upgradeRewardSinkBeacon",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
           inputs: [
             { internalType: "address", name: "newImplementation", type: "address" },
             { internalType: "bytes", name: "data", type: "bytes" },
@@ -6806,7 +6848,7 @@ const contracts = {
         tokenA: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
         tokenB: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tickSpacing: 200,
-        sqrtPriceX96: "20255684681746369741321085104268",
+        sqrtPriceX96: "22017747387008083100080513625099",
       },
       abi: [
         {
@@ -7359,7 +7401,7 @@ const contracts = {
     },
     "MUSD-avBTCmGauge": {
       address: "0xC5d9ddC440759CCe340c745a6133c7A29E90cF94",
-      deploymentBlock: 10959278,
+      deploymentBlock: 10959302,
       linkedData: {
         contractName: "CLGauge",
         poolKey: "MUSD-avBTCm",
@@ -8228,10 +8270,10 @@ const contracts = {
       linkedData: {
         contractName: "Vault",
         proxyKind: "uups",
-        initializer: { name: "initialize", args: ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"] },
+        initializer: { name: "initialize", args: [] },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x25e5822adf0d66a751c37ce43952b836bfca765a1f63a5cf091c9aa649040a64",
+          transactionHash: "0xeeb927bff54758052ad6e9cd1e308b13ba1fe4c0dac142b2502d9d1102edd6c6",
         },
       },
       abi: [
@@ -8301,16 +8343,6 @@ const contracts = {
           type: "error",
         },
         { inputs: [], name: "NotInitializing", type: "error" },
-        {
-          inputs: [{ internalType: "address", name: "owner", type: "address" }],
-          name: "OwnableInvalidOwner",
-          type: "error",
-        },
-        {
-          inputs: [{ internalType: "address", name: "account", type: "address" }],
-          name: "OwnableUnauthorizedAccount",
-          type: "error",
-        },
         { inputs: [], name: "ReentrancyGuardReentrantCall", type: "error" },
         {
           inputs: [{ internalType: "address", name: "token", type: "address" }],
@@ -8331,6 +8363,11 @@ const contracts = {
         {
           inputs: [{ internalType: "address", name: "caller", type: "address" }],
           name: "UnauthorizedLedger",
+          type: "error",
+        },
+        {
+          inputs: [{ internalType: "address", name: "caller", type: "address" }],
+          name: "UnauthorizedLedgerOwner",
           type: "error",
         },
         {
@@ -8391,15 +8428,6 @@ const contracts = {
             { indexed: false, internalType: "address", name: "rewardSink", type: "address" },
           ],
           name: "ManagedManagerDeployed",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "previousOwner", type: "address" },
-            { indexed: true, internalType: "address", name: "newOwner", type: "address" },
-          ],
-          name: "OwnershipTransferred",
           type: "event",
         },
         {
@@ -8523,7 +8551,7 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [{ internalType: "address", name: "owner_", type: "address" }],
+          inputs: [],
           name: "initialize",
           outputs: [],
           stateMutability: "nonpayable",
@@ -8546,13 +8574,6 @@ const contracts = {
           name: "onERC721Received",
           outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
           stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "owner",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
           type: "function",
         },
         {
@@ -8586,13 +8607,6 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [],
-          name: "renounceOwnership",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
           inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
           name: "rewardSinkOfTranche",
           outputs: [{ internalType: "address", name: "rewardSink", type: "address" }],
@@ -8604,13 +8618,6 @@ const contracts = {
           name: "trancheAssets",
           outputs: [{ internalType: "uint256", name: "assets", type: "uint256" }],
           stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-          name: "transferOwnership",
-          outputs: [],
-          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -17067,10 +17074,7 @@ const contracts = {
             "https://api.aurove.xyz/tranches/{id}.json",
           ],
         },
-        lastOperation: {
-          action: "upgraded",
-          transactionHash: "0xcf8dd4390c2e7aef73c673f6e9020d0f2fd6999936eb829eb3a89ffd1c6da715",
-        },
+        lastOperation: { action: "unchanged" },
       },
       abi: [
         {
@@ -17680,6 +17684,20 @@ const contracts = {
         {
           inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
           name: "transferOwnership",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "newImplementation", type: "address" }],
+          name: "upgradeManagerBeacon",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "newImplementation", type: "address" }],
+          name: "upgradeRewardSinkBeacon",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
@@ -19133,10 +19151,10 @@ const contracts = {
       linkedData: {
         contractName: "Vault",
         proxyKind: "uups",
-        initializer: { name: "initialize", args: ["0x6E1126EA838DA392A55D8DdeD9bADEccA5835114"] },
+        initializer: { name: "initialize", args: [] },
         lastOperation: {
           action: "upgraded",
-          transactionHash: "0x8b6fbf66b00be35dfcf4a7b804b4026239b0be52745e4cff4cfa7cbcbf6566f1",
+          transactionHash: "0xde3379915eceb63ddda28c02fee9e9e704a01689a4e8b6e9b51ec2431480e7a8",
         },
       },
       abi: [
@@ -19206,16 +19224,6 @@ const contracts = {
           type: "error",
         },
         { inputs: [], name: "NotInitializing", type: "error" },
-        {
-          inputs: [{ internalType: "address", name: "owner", type: "address" }],
-          name: "OwnableInvalidOwner",
-          type: "error",
-        },
-        {
-          inputs: [{ internalType: "address", name: "account", type: "address" }],
-          name: "OwnableUnauthorizedAccount",
-          type: "error",
-        },
         { inputs: [], name: "ReentrancyGuardReentrantCall", type: "error" },
         {
           inputs: [{ internalType: "address", name: "token", type: "address" }],
@@ -19236,6 +19244,11 @@ const contracts = {
         {
           inputs: [{ internalType: "address", name: "caller", type: "address" }],
           name: "UnauthorizedLedger",
+          type: "error",
+        },
+        {
+          inputs: [{ internalType: "address", name: "caller", type: "address" }],
+          name: "UnauthorizedLedgerOwner",
           type: "error",
         },
         {
@@ -19296,15 +19309,6 @@ const contracts = {
             { indexed: false, internalType: "address", name: "rewardSink", type: "address" },
           ],
           name: "ManagedManagerDeployed",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            { indexed: true, internalType: "address", name: "previousOwner", type: "address" },
-            { indexed: true, internalType: "address", name: "newOwner", type: "address" },
-          ],
-          name: "OwnershipTransferred",
           type: "event",
         },
         {
@@ -19428,7 +19432,7 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [{ internalType: "address", name: "owner_", type: "address" }],
+          inputs: [],
           name: "initialize",
           outputs: [],
           stateMutability: "nonpayable",
@@ -19451,13 +19455,6 @@ const contracts = {
           name: "onERC721Received",
           outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
           stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "owner",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
           type: "function",
         },
         {
@@ -19491,13 +19488,6 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [],
-          name: "renounceOwnership",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
           inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
           name: "rewardSinkOfTranche",
           outputs: [{ internalType: "address", name: "rewardSink", type: "address" }],
@@ -19509,13 +19499,6 @@ const contracts = {
           name: "trancheAssets",
           outputs: [{ internalType: "uint256", name: "assets", type: "uint256" }],
           stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-          name: "transferOwnership",
-          outputs: [],
-          stateMutability: "nonpayable",
           type: "function",
         },
         {
