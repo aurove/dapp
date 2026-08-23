@@ -77,10 +77,10 @@ export function deriveTrancheSymbol(
 export function nameOf(variant: CanonicalAssetVariant, trancheNumber: number): string {
   const asset = variant === "veBTC" ? "BTC" : "MEZO";
   if (isManagedEpochs(variant, trancheNumber)) {
-    return `Aurove ${asset} - Managed`;
+    return `Liquid locked ${asset} - Managed`;
   }
 
-  return `Aurove ${asset} - ${trancheNumber} Week${trancheNumber > 1 ? "s" : ""}`;
+  return `Liquid locked ${asset} - ${trancheNumber} Week${trancheNumber > 1 ? "s" : ""}`;
 }
 
 export function symbolOf(variant: CanonicalAssetVariant, trancheNumber: number): string {
