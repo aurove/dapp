@@ -214,7 +214,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
   const inactiveRequiredId20s = useMemo(() => {
     const required = new Set(requiredId20Gauges.map((item) => item.id20Address.toLowerCase()));
     return id20Gauges.gauges.filter(
-      (item) => required.has(item.id20Address.toLowerCase()) && !item.isActive,
+      (item) => required.has(item.id20Address.toLowerCase()) && !item.isActivated,
     );
   }, [id20Gauges.gauges, requiredId20Gauges]);
   const routerAddress = getContractConfig(chainId, "AuroveZapRouter")?.address ?? null;

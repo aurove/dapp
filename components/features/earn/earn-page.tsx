@@ -472,7 +472,7 @@ function Id20GaugeRewardsPanel({
   const { address } = useAccount();
   const gauges = useId20GaugePositions(chainId, address);
   const claimablePositions = gauges.positions.filter(
-    (position) => position.isActive && position.claimableRaw > 0n,
+    (position) => position.isActivated && position.claimableRewardRaw > 0n,
   );
 
   const complete = async (message: string) => {
@@ -554,7 +554,7 @@ function Id20GaugeRewardCard({
   onComplete: (message: string) => Promise<void>;
   onError: (message: string) => void;
 }) {
-  const canClaim = Boolean(account && position.isActive && position.claimableRaw > 0n);
+  const canClaim = Boolean(account && position.isActivated && position.claimableRewardRaw > 0n);
   return (
     <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.025] p-4">
       <div className="flex items-start justify-between gap-3">
@@ -564,16 +564,16 @@ function Id20GaugeRewardCard({
             Reward token: {position.symbol}
           </p>
         </div>
-        <Badge className={position.isActive
+        <Badge className={position.isActivated
           ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
           : "border-amber-300/20 bg-amber-300/10 text-amber-100"}>
-          {position.isActive ? "Active" : "Activation required"}
+          {position.isActivated ? "Active" : "Activation required"}
         </Badge>
       </div>
       <div>
         <p className="text-xs text-white/42">Currently claimable</p>
         <p className="mt-1 break-words text-xl font-semibold text-white">
-          {formatCompactRawTokenAmount(position.claimableRaw, position.decimals, position.symbol)}
+          {formatCompactRawTokenAmount(position.claimableRewardRaw, position.decimals, position.symbol)}
         </p>
       </div>
       <TransactionFlowButton
@@ -585,7 +585,7 @@ function Id20GaugeRewardCard({
         onComplete={() => void onComplete(`${position.symbol} gauge rewards claimed successfully.`)}
         onError={txError(onError)}
       >
-        {position.claimableRaw > 0n ? `Claim ${position.symbol}` : "Nothing to claim"}
+        {position.claimableRewardRaw > 0n ? `Claim ${position.symbol}` : "Nothing to claim"}
       </TransactionFlowButton>
     </div>
   );

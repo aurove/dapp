@@ -594,7 +594,7 @@ function Id20ExitPanel({
       ) ?? null,
     [gauges.positions, product.id20Address],
   );
-  const gaugeClaimableRaw = gaugePosition?.claimableRaw ?? 0n;
+  const gaugeClaimableRaw = gaugePosition?.claimableRewardRaw ?? 0n;
   const parsedUnwrap = parseAmountRaw(unwrapAmount, product.decimals);
   const needsCreditSettlement =
     gaugePosition !== null &&
@@ -667,7 +667,7 @@ function Id20ExitPanel({
         {needsCreditSettlement ? (
           <p className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
             This amount includes unsettled gauge credit (
-            {formatAmount(gaugePosition?.creditRaw ?? 0n, product.decimals, product.symbol)}). Credit
+            {formatAmount(gaugePosition?.unsettledCreditRaw ?? 0n, product.decimals, product.symbol)}). Credit
             will be settled into reward weight before unwrapping to the tranche.
           </p>
         ) : null}
@@ -713,7 +713,7 @@ function Id20ExitPanel({
             if (!id20Address || !parsedUnwrap || parsedUnwrap <= 0n) return [];
             const steps: TxStep[] = [];
             // Claim gauge rewards first when present so exit does not leave unclaimed rewards behind.
-            if (gaugePosition && gaugePosition.isActive && gaugePosition.claimableRaw > 0n) {
+            if (gaugePosition && gaugePosition.isActivated && gaugePosition.claimableRewardRaw > 0n) {
               steps.push(makeId20GaugeClaimStep(gaugePosition, account, true) as unknown as TxStep);
             }
             // Settle credit into weight when the unwrap amount exceeds burnable units.

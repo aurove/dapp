@@ -420,7 +420,7 @@ function PositionActions({
   const inactiveRequiredId20s = useMemo(() => {
     const required = new Set(requiredId20Gauges.map((item) => item.id20Address.toLowerCase()));
     return id20Gauges.gauges.filter(
-      (item) => required.has(item.id20Address.toLowerCase()) && !item.isActive,
+      (item) => required.has(item.id20Address.toLowerCase()) && !item.isActivated,
     );
   }, [id20Gauges.gauges, requiredId20Gauges]);
   const increaseSteps: TxStep[] = requiredId20Gauges.flatMap(makeId20ActivationGuardSteps);

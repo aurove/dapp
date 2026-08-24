@@ -51,51 +51,56 @@ export type Id20GaugeDescriptor = {
 export type Id20GaugePosition = Id20GaugeDescriptor & {
   gaugeAddress: Address;
   balanceRaw: bigint;
-  isActive: boolean;
-  weightRaw: bigint;
-  debtRaw: bigint;
-  creditRaw: bigint;
-  lentRaw: bigint;
-  claimableRaw: bigint;
+  isActivated: boolean;
+  settledUnitsRaw: bigint;
+  rewardWeightRaw: bigint;
+  debtWeightRaw: bigint;
+  unsettledCreditRaw: bigint;
+  lentWeightRaw: bigint;
+  claimableRewardRaw: bigint;
 };
 
-type GaugeMetadata = {
-  isActive: boolean;
-  weight: bigint;
-  debt: bigint;
-  credit: bigint;
-  lent: bigint;
-  accruedReward: bigint;
+type GaugeAccountState = {
+  isActivated: boolean;
+  settledUnits: bigint;
+  rewardWeight: bigint;
+  debtWeight: bigint;
+  unsettledCredit: bigint;
+  lentWeight: bigint;
+  claimableReward: bigint;
 };
 
 function readAddress(value: unknown): Address | null {
   return typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value) ? value as Address : null;
 }
 
-function readGaugeMetadata(value: unknown): GaugeMetadata | null {
+function readGaugeAccountState(value: unknown): GaugeAccountState | null {
   if (Array.isArray(value)) {
-    const [isActive, weight, debt, credit, lent, accruedReward] = value;
+    const [isActivated, settledUnits, rewardWeight, debtWeight, unsettledCredit, lentWeight, claimableReward] = value;
     if (
-      typeof isActive !== "boolean" ||
-      ![weight, debt, credit, lent, accruedReward].every((item) => typeof item === "bigint")
+      typeof isActivated !== "boolean" ||
+      ![settledUnits, rewardWeight, debtWeight, unsettledCredit, lentWeight, claimableReward]
+        .every((item) => typeof item === "bigint")
     ) return null;
-    return { isActive, weight, debt, credit, lent, accruedReward };
+    return { isActivated, settledUnits, rewardWeight, debtWeight, unsettledCredit, lentWeight, claimableReward };
   }
 
   if (!value || typeof value !== "object") return null;
-  const metadata = value as Record<string, unknown>;
+  const state = value as Record<string, unknown>;
   if (
-    typeof metadata.isActive !== "boolean" ||
-    ![metadata.weight, metadata.debt, metadata.credit, metadata.lent, metadata.accruedReward]
+    typeof state.isActivated !== "boolean" ||
+    ![state.settledUnits, state.rewardWeight, state.debtWeight, state.unsettledCredit,
+      state.lentWeight, state.claimableReward]
       .every((item) => typeof item === "bigint")
   ) return null;
   return {
-    isActive: metadata.isActive,
-    weight: metadata.weight as bigint,
-    debt: metadata.debt as bigint,
-    credit: metadata.credit as bigint,
-    lent: metadata.lent as bigint,
-    accruedReward: metadata.accruedReward as bigint,
+    isActivated: state.isActivated,
+    settledUnits: state.settledUnits as bigint,
+    rewardWeight: state.rewardWeight as bigint,
+    debtWeight: state.debtWeight as bigint,
+    unsettledCredit: state.unsettledCredit as bigint,
+    lentWeight: state.lentWeight as bigint,
+    claimableReward: state.claimableReward as bigint,
   };
 }
 
@@ -134,15 +139,15 @@ async function resolveGaugeAddress(
   } as never) as Promise<Address>;
 }
 
-async function isGaugeActive(ctx: TxFlowRuntimeContext, descriptor: Id20GaugeDescriptor) {
+async function isGaugeActivated(ctx: TxFlowRuntimeContext, descriptor: Id20GaugeDescriptor) {
   const gaugeAddress = await resolveGaugeAddress(ctx, descriptor);
-  const metadata = await ctx.publicClient.readContract({
+  const accountState = await ctx.publicClient.readContract({
     address: gaugeAddress,
     abi: descriptor.gaugeAbi,
-    functionName: "accountMetadata",
+    functionName: "accountState",
     args: [ctx.account],
   } as never);
-  return readGaugeMetadata(metadata)?.isActive === true;
+  return readGaugeAccountState(accountState)?.isActivated === true;
 }
 
 export function makeId20ActivationStep(
@@ -155,7 +160,7 @@ export function makeId20ActivationStep(
     label: `Activate ${descriptor.symbol} rewards`,
     displayLabelBtn,
     portfolioDomains: ["id20", "rewards"],
-    shouldSkip: (ctx) => isGaugeActive(ctx, descriptor),
+    shouldSkip: (ctx) => isGaugeActivated(ctx, descriptor),
     prepare: async (ctx) => {
       const gaugeAddress = await resolveGaugeAddress(ctx, descriptor);
       return {
@@ -176,7 +181,7 @@ export function makeId20ActivationGuardSteps(
       key: `id20-verify-activation-${descriptor.key}`,
       label: `Verify ${descriptor.symbol} activation`,
       run: async (ctx) => {
-        if (!await isGaugeActive(ctx, descriptor)) {
+        if (!await isGaugeActivated(ctx, descriptor)) {
           throw new Error(`${descriptor.symbol} gauge activation could not be confirmed.`);
         }
         return "skip";
@@ -204,47 +209,47 @@ export function makeId20GaugeClaimStep(
 
 /**
  * Max ID20 that can be unwrapped/burned without settling credit first.
- * Active: weight. Inactive: untracked balance (balance − credit).
+ * Activated: settled units. Non-activated: untracked balance (balance − credit).
  */
 export function id20BurnableWithoutSettlement(
-  position: Pick<Id20GaugePosition, "isActive" | "weightRaw" | "creditRaw" | "balanceRaw">,
+  position: Pick<Id20GaugePosition, "isActivated" | "settledUnitsRaw" | "unsettledCreditRaw" | "balanceRaw">,
 ): bigint {
-  if (position.isActive) return position.weightRaw;
-  return position.balanceRaw > position.creditRaw
-    ? position.balanceRaw - position.creditRaw
+  if (position.isActivated) return position.settledUnitsRaw;
+  return position.balanceRaw > position.unsettledCreditRaw
+    ? position.balanceRaw - position.unsettledCreditRaw
     : 0n;
 }
 
 /** True when `amount` exceeds burnable units and credit must be settled (and possibly activated) first. */
 export function id20ExitNeedsCreditSettlement(
-  position: Pick<Id20GaugePosition, "isActive" | "weightRaw" | "creditRaw" | "balanceRaw">,
+  position: Pick<Id20GaugePosition, "isActivated" | "settledUnitsRaw" | "unsettledCreditRaw" | "balanceRaw">,
   amount: bigint,
 ): boolean {
   if (amount <= 0n) return false;
-  if (position.creditRaw <= 0n) return false;
+  if (position.unsettledCreditRaw <= 0n) return false;
   return amount > id20BurnableWithoutSettlement(position);
 }
 
 /** Inactive holders must activate before credit can be settled into weight. */
 export function id20ExitNeedsActivation(
-  position: Pick<Id20GaugePosition, "isActive" | "weightRaw" | "creditRaw" | "balanceRaw">,
+  position: Pick<Id20GaugePosition, "isActivated" | "settledUnitsRaw" | "unsettledCreditRaw" | "balanceRaw">,
   amount: bigint,
 ): boolean {
-  if (position.isActive) return false;
+  if (position.isActivated) return false;
   return id20ExitNeedsCreditSettlement(position, amount);
 }
 
-async function readAccountMetadata(
+async function readAccountState(
   ctx: Pick<TxFlowRuntimeContext, "publicClient" | "account">,
   position: Id20GaugePosition,
-): Promise<GaugeMetadata | null> {
+): Promise<GaugeAccountState | null> {
   const raw = await ctx.publicClient.readContract({
     address: position.gaugeAddress,
     abi: position.gaugeAbi,
-    functionName: "accountMetadata",
+    functionName: "accountState",
     args: [ctx.account],
   } as never);
-  return readGaugeMetadata(raw);
+  return readGaugeAccountState(raw);
 }
 
 async function readId20Balance(
@@ -259,9 +264,11 @@ async function readId20Balance(
   } as never) as Promise<bigint>;
 }
 
-function burnableFromMetadata(metadata: GaugeMetadata, balance: bigint): bigint {
-  if (metadata.isActive) return metadata.weight;
-  return balance > metadata.credit ? balance - metadata.credit : 0n;
+function burnableFromAccountState(accountState: GaugeAccountState, balance: bigint): bigint {
+  if (accountState.isActivated) return accountState.settledUnits;
+  return balance > accountState.unsettledCredit
+    ? balance - accountState.unsettledCredit
+    : 0n;
 }
 
 async function collectCreditIssuedPairs(
@@ -396,8 +403,8 @@ export async function findNextSettleableCreditPair(
   ctx: Pick<TxFlowRuntimeContext, "publicClient" | "account" | "chainId">,
   position: Id20GaugePosition,
 ): Promise<SettleableCreditPair | null> {
-  const metadata = await readAccountMetadata(ctx, position);
-  if (!metadata?.isActive || metadata.credit <= 0n) return null;
+  const accountState = await readAccountState(ctx, position);
+  if (!accountState?.isActivated || accountState.unsettledCredit <= 0n) return null;
 
   const candidates = await collectCreditIssuedPairs(ctx, position);
   // Prefer pairs where the user is the lender (standard receive-from-active path).
@@ -441,11 +448,11 @@ export function makeId20SettleCreditStep(
     portfolioDomains: ["id20", "rewards"],
     shouldSkip: async (ctx) => {
       resolvedPair = undefined;
-      const metadata = await readAccountMetadata(ctx, position);
-      if (!metadata) return true;
+      const accountState = await readAccountState(ctx, position);
+      if (!accountState) return true;
       const balance = await readId20Balance(ctx, position);
-      if (burnableFromMetadata(metadata, balance) >= requiredAmount) return true;
-      if (metadata.credit <= 0n || !metadata.isActive) return true;
+      if (burnableFromAccountState(accountState, balance) >= requiredAmount) return true;
+      if (accountState.unsettledCredit <= 0n || !accountState.isActivated) return true;
       resolvedPair = await findNextSettleableCreditPair(ctx, position);
       return resolvedPair === null;
     },
@@ -500,12 +507,12 @@ export function makeId20CreditSettlementSteps(
     key: `id20-verify-settlement-${position.key}`,
     label: `Verify ${position.symbol} credit settlement`,
     run: async (ctx) => {
-      const metadata = await readAccountMetadata(ctx, position);
-      if (!metadata) {
-        throw new Error(`${position.symbol} gauge account metadata could not be loaded.`);
+      const accountState = await readAccountState(ctx, position);
+      if (!accountState) {
+        throw new Error(`${position.symbol} gauge account state could not be loaded.`);
       }
       const balance = await readId20Balance(ctx, position);
-      const burnable = burnableFromMetadata(metadata, balance);
+      const burnable = burnableFromAccountState(accountState, balance);
       if (burnable < requiredAmount) {
         throw new Error(
           `Settle outstanding ${position.symbol} credit before unwrapping. ` +
@@ -539,14 +546,14 @@ export function useId20GaugePositions(chainId: number, account?: Address) {
     () => descriptors.map((_, index) => readAddress(sinkReads.data?.[index]?.result)),
     [descriptors, sinkReads.data],
   );
-  const metadataReads = useReadContracts({
+  const accountStateReads = useReadContracts({
     allowFailure: true,
     contracts: descriptors.flatMap((descriptor, index) => {
       const gaugeAddress = gaugeAddresses[index];
       return account && gaugeAddress ? [{
         address: gaugeAddress,
         abi: descriptor.gaugeAbi,
-        functionName: "accountMetadata",
+        functionName: "accountState",
         args: [account],
         chainId,
       }] : [];
@@ -558,12 +565,12 @@ export function useId20GaugePositions(chainId: number, account?: Address) {
   });
 
   const gauges = useMemo<Id20GaugePosition[]>(() => {
-    let metadataIndex = 0;
+    let accountStateIndex = 0;
     return descriptors.flatMap((descriptor, index) => {
       const gaugeAddress = gaugeAddresses[index];
       if (!account || !gaugeAddress) return [];
-      const metadata = readGaugeMetadata(metadataReads.data?.[metadataIndex++]?.result);
-      if (!metadata) return [];
+      const accountState = readGaugeAccountState(accountStateReads.data?.[accountStateIndex++]?.result);
+      if (!accountState) return [];
       const balance = Object.values(id20Portfolio.data?.balances ?? {}).find(
         (item) => item.address.toLowerCase() === descriptor.id20Address.toLowerCase(),
       );
@@ -574,31 +581,32 @@ export function useId20GaugePositions(chainId: number, account?: Address) {
         decimals: balance?.decimals ?? descriptor.decimals,
         gaugeAddress,
         balanceRaw,
-        isActive: metadata.isActive,
-        weightRaw: metadata.weight,
-        debtRaw: metadata.debt,
-        creditRaw: metadata.credit,
-        lentRaw: metadata.lent,
-        claimableRaw: metadata.accruedReward,
+        isActivated: accountState.isActivated,
+        settledUnitsRaw: accountState.settledUnits,
+        rewardWeightRaw: accountState.rewardWeight,
+        debtWeightRaw: accountState.debtWeight,
+        unsettledCreditRaw: accountState.unsettledCredit,
+        lentWeightRaw: accountState.lentWeight,
+        claimableRewardRaw: accountState.claimableReward,
       }];
     });
-  }, [account, descriptors, gaugeAddresses, id20Portfolio.data, metadataReads.data]);
+  }, [account, descriptors, gaugeAddresses, id20Portfolio.data, accountStateReads.data]);
   const positions = useMemo(
-    () => gauges.filter((item) => item.balanceRaw > 0n || item.weightRaw > 0n || item.debtRaw > 0n ||
-      item.creditRaw > 0n || item.lentRaw > 0n || item.claimableRaw > 0n),
+    () => gauges.filter((item) => item.balanceRaw > 0n || item.rewardWeightRaw > 0n || item.debtWeightRaw > 0n ||
+      item.unsettledCreditRaw > 0n || item.lentWeightRaw > 0n || item.claimableRewardRaw > 0n),
     [gauges],
   );
 
   const refresh = useCallback(async () => {
-    await Promise.all([sinkReads.refetch(), metadataReads.refetch(), id20Portfolio.refetch()]);
-  }, [id20Portfolio, metadataReads, sinkReads]);
+    await Promise.all([sinkReads.refetch(), accountStateReads.refetch(), id20Portfolio.refetch()]);
+  }, [id20Portfolio, accountStateReads, sinkReads]);
 
   return {
     gauges,
     positions,
-    isLoading: sinkReads.isLoading || metadataReads.isLoading || id20Portfolio.isLoading,
-    isFetching: sinkReads.isFetching || metadataReads.isFetching || id20Portfolio.isFetching,
-    error: sinkReads.error || metadataReads.error || id20Portfolio.error,
+    isLoading: sinkReads.isLoading || accountStateReads.isLoading || id20Portfolio.isLoading,
+    isFetching: sinkReads.isFetching || accountStateReads.isFetching || id20Portfolio.isFetching,
+    error: sinkReads.error || accountStateReads.error || id20Portfolio.error,
     refresh,
   };
 }

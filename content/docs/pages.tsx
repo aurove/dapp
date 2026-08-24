@@ -1808,7 +1808,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
                     Read <code>backingBalance</code> / <code>surplusBacking</code> for solvency views
                   </li>
                   <li>
-                    Use <code>accountMetadata</code> on gauges for off-chain previews when available
+                    Use <code>accountState</code> on gauges for off-chain previews when available
                   </li>
                   <li>
                     Prefer ZapRouter ordered liquidity methods for multi-asset entry
