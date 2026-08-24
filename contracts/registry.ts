@@ -1528,7 +1528,7 @@ const contracts = {
         tokenA: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tokenB: "0xe082b26cEf079a095147F35c9647eC97c2401B83",
         tickSpacing: 200,
-        sqrtPriceX96: "256481066494924107475575536481633",
+        sqrtPriceX96: "259221361743445330890060536733811",
       },
       abi: [
         {
@@ -2961,7 +2961,7 @@ const contracts = {
             { internalType: "address", name: "operator", type: "address" },
             { internalType: "address", name: "from", type: "address" },
             { internalType: "uint256", name: "receivedId", type: "uint256" },
-            { internalType: "uint256", name: "value", type: "uint256" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
             { internalType: "bytes", name: "data", type: "bytes" },
           ],
           name: "onERC1155Received",
@@ -3074,6 +3074,11 @@ const contracts = {
           type: "error",
         },
         {
+          inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
+          name: "InvalidTrancheId",
+          type: "error",
+        },
+        {
           inputs: [{ internalType: "uint256", name: "mTokenId", type: "uint256" }],
           name: "ManagedTokenAlreadySet",
           type: "error",
@@ -3104,6 +3109,11 @@ const contracts = {
         {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
           name: "UnauthorizedVoteMaintainer",
+          type: "error",
+        },
+        {
+          inputs: [{ internalType: "uint8", name: "variant", type: "uint8" }],
+          name: "UnsupportedTrancheVariant",
           type: "error",
         },
         {
@@ -3272,23 +3282,10 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [
-            { internalType: "address", name: "veNft_", type: "address" },
-            { internalType: "address", name: "ledger_", type: "address" },
-            { internalType: "address", name: "vault_", type: "address" },
-            { internalType: "address", name: "rewardSink_", type: "address" },
-            { internalType: "uint256", name: "trancheId_", type: "uint256" },
-          ],
+          inputs: [{ internalType: "uint256", name: "trancheId_", type: "uint256" }],
           name: "initialize",
           outputs: [],
           stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "ledger",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
           type: "function",
         },
         {
@@ -3308,13 +3305,6 @@ const contracts = {
           name: "onERC721Received",
           outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
           stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "rewardSink",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
           type: "function",
         },
         {
@@ -3463,18 +3453,18 @@ const contracts = {
           name: "InvalidRewardTrancheId",
           type: "error",
         },
+        {
+          inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
+          name: "InvalidTrancheId",
+          type: "error",
+        },
         { inputs: [], name: "NoRewardsToClaim", type: "error" },
         { inputs: [], name: "NotInitializing", type: "error" },
         { inputs: [], name: "ReentrancyGuardReentrantCall", type: "error" },
         { inputs: [], name: "RewardBatchTransfersNotSupported", type: "error" },
         {
-          inputs: [{ internalType: "address", name: "manager", type: "address" }],
-          name: "RewardSinkAlreadyLinked",
-          type: "error",
-        },
-        {
-          inputs: [{ internalType: "address", name: "caller", type: "address" }],
-          name: "UnauthorizedVault",
+          inputs: [{ internalType: "uint8", name: "variant", type: "uint8" }],
+          name: "UnsupportedTrancheVariant",
           type: "error",
         },
         { inputs: [], name: "ZeroAddress", type: "error" },
@@ -3608,36 +3598,10 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [
-            { internalType: "address", name: "veNft_", type: "address" },
-            { internalType: "address", name: "ledger_", type: "address" },
-            { internalType: "address", name: "vault_", type: "address" },
-            { internalType: "uint256", name: "trancheId_", type: "uint256" },
-          ],
+          inputs: [{ internalType: "uint256", name: "trancheId_", type: "uint256" }],
           name: "initialize",
           outputs: [],
           stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "manager_", type: "address" }],
-          name: "initializeManager",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "ledger",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "manager",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
           type: "function",
         },
         {
@@ -3725,13 +3689,6 @@ const contracts = {
         {
           inputs: [],
           name: "vault",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "veNft",
           outputs: [{ internalType: "address", name: "", type: "address" }],
           stateMutability: "view",
           type: "function",
@@ -4292,7 +4249,7 @@ const contracts = {
             { internalType: "address", name: "operator", type: "address" },
             { internalType: "address", name: "from", type: "address" },
             { internalType: "uint256", name: "receivedId", type: "uint256" },
-            { internalType: "uint256", name: "value", type: "uint256" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
             { internalType: "bytes", name: "data", type: "bytes" },
           ],
           name: "onERC1155Received",
@@ -4405,6 +4362,11 @@ const contracts = {
           type: "error",
         },
         {
+          inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
+          name: "InvalidTrancheId",
+          type: "error",
+        },
+        {
           inputs: [{ internalType: "uint256", name: "mTokenId", type: "uint256" }],
           name: "ManagedTokenAlreadySet",
           type: "error",
@@ -4435,6 +4397,11 @@ const contracts = {
         {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
           name: "UnauthorizedVoteMaintainer",
+          type: "error",
+        },
+        {
+          inputs: [{ internalType: "uint8", name: "variant", type: "uint8" }],
+          name: "UnsupportedTrancheVariant",
           type: "error",
         },
         {
@@ -4603,23 +4570,10 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [
-            { internalType: "address", name: "veNft_", type: "address" },
-            { internalType: "address", name: "ledger_", type: "address" },
-            { internalType: "address", name: "vault_", type: "address" },
-            { internalType: "address", name: "rewardSink_", type: "address" },
-            { internalType: "uint256", name: "trancheId_", type: "uint256" },
-          ],
+          inputs: [{ internalType: "uint256", name: "trancheId_", type: "uint256" }],
           name: "initialize",
           outputs: [],
           stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "ledger",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
           type: "function",
         },
         {
@@ -4639,13 +4593,6 @@ const contracts = {
           name: "onERC721Received",
           outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
           stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "rewardSink",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
           type: "function",
         },
         {
@@ -4794,18 +4741,18 @@ const contracts = {
           name: "InvalidRewardTrancheId",
           type: "error",
         },
+        {
+          inputs: [{ internalType: "uint256", name: "trancheId", type: "uint256" }],
+          name: "InvalidTrancheId",
+          type: "error",
+        },
         { inputs: [], name: "NoRewardsToClaim", type: "error" },
         { inputs: [], name: "NotInitializing", type: "error" },
         { inputs: [], name: "ReentrancyGuardReentrantCall", type: "error" },
         { inputs: [], name: "RewardBatchTransfersNotSupported", type: "error" },
         {
-          inputs: [{ internalType: "address", name: "manager", type: "address" }],
-          name: "RewardSinkAlreadyLinked",
-          type: "error",
-        },
-        {
-          inputs: [{ internalType: "address", name: "caller", type: "address" }],
-          name: "UnauthorizedVault",
+          inputs: [{ internalType: "uint8", name: "variant", type: "uint8" }],
+          name: "UnsupportedTrancheVariant",
           type: "error",
         },
         { inputs: [], name: "ZeroAddress", type: "error" },
@@ -4939,36 +4886,10 @@ const contracts = {
           type: "function",
         },
         {
-          inputs: [
-            { internalType: "address", name: "veNft_", type: "address" },
-            { internalType: "address", name: "ledger_", type: "address" },
-            { internalType: "address", name: "vault_", type: "address" },
-            { internalType: "uint256", name: "trancheId_", type: "uint256" },
-          ],
+          inputs: [{ internalType: "uint256", name: "trancheId_", type: "uint256" }],
           name: "initialize",
           outputs: [],
           stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [{ internalType: "address", name: "manager_", type: "address" }],
-          name: "initializeManager",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "ledger",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "manager",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
           type: "function",
         },
         {
@@ -5056,13 +4977,6 @@ const contracts = {
         {
           inputs: [],
           name: "vault",
-          outputs: [{ internalType: "address", name: "", type: "address" }],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "veNft",
           outputs: [{ internalType: "address", name: "", type: "address" }],
           stateMutability: "view",
           type: "function",
@@ -6192,7 +6106,7 @@ const contracts = {
         },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0x04950c6b6d2a1eb561a5731a854d09a5535fd93f64c1bf70eca74d54a5220b77",
+          transactionHash: "0xdaa0440af25839c9bd47f842541709ab1856274fc0a8e710085244564b29515e",
         },
       },
       abi: [
@@ -6293,7 +6207,6 @@ const contracts = {
         },
         { inputs: [], name: "InvalidVariantForTranche", type: "error" },
         { inputs: [], name: "LockedVaultAlreadySet", type: "error" },
-        { inputs: [], name: "ManagedTokenNotSet", type: "error" },
         { inputs: [], name: "NoPendingFeeConfig", type: "error" },
         { inputs: [], name: "NotInitializing", type: "error" },
         {
@@ -6616,8 +6529,8 @@ const contracts = {
           inputs: [],
           name: "feeConfig",
           outputs: [
-            { internalType: "uint256", name: "feeBps_", type: "uint256" },
-            { internalType: "address", name: "feeRecipient_", type: "address" },
+            { internalType: "uint256", name: "feeBps", type: "uint256" },
+            { internalType: "address", name: "feeRecipient", type: "address" },
           ],
           stateMutability: "view",
           type: "function",
@@ -6848,7 +6761,7 @@ const contracts = {
         tokenA: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
         tokenB: "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
         tickSpacing: 200,
-        sqrtPriceX96: "22017747387008083100080513625099",
+        sqrtPriceX96: "22116304705137860407479227266863",
       },
       abi: [
         {
@@ -8273,7 +8186,7 @@ const contracts = {
         initializer: { name: "initialize", args: [] },
         lastOperation: {
           action: "deployed",
-          transactionHash: "0xeeb927bff54758052ad6e9cd1e308b13ba1fe4c0dac142b2502d9d1102edd6c6",
+          transactionHash: "0xc4fd321c2627ffdb64f56dec93033365f5f59f583b723022d60e2d3debd98311",
         },
       },
       abi: [
@@ -8569,7 +8482,7 @@ const contracts = {
             { internalType: "address", name: "operator", type: "address" },
             { internalType: "address", name: "", type: "address" },
             { internalType: "uint256", name: "tokenId", type: "uint256" },
-            { internalType: "bytes", name: "data", type: "bytes" },
+            { internalType: "bytes", name: "", type: "bytes" },
           ],
           name: "onERC721Received",
           outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
@@ -14535,17 +14448,17 @@ const contracts = {
         },
         {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
-          name: "accountRewardSnapshot",
+          name: "accountRewardData",
           outputs: [
             {
               components: [
-                { internalType: "uint256", name: "rewardPerUnitCheckpoint", type: "uint256" },
-                { internalType: "uint256", name: "inactiveActivationEpoch", type: "uint256" },
-                { internalType: "uint256", name: "activeUnits", type: "uint256" },
-                { internalType: "uint256", name: "inactiveUnits", type: "uint256" },
-                { internalType: "uint256", name: "claimableRewards", type: "uint256" },
+                { internalType: "uint256", name: "creditPerUnitPaid", type: "uint256" },
+                { internalType: "uint256", name: "rewardDebtPerUnitIntegralPaid", type: "uint256" },
+                { internalType: "uint256", name: "credit", type: "uint256" },
+                { internalType: "uint256", name: "rewardDebt", type: "uint256" },
+                { internalType: "uint256", name: "claimable", type: "uint256" },
               ],
-              internalType: "struct IRewardAccounting.AccountRewardSnapshot",
+              internalType: "struct IRewardAccounting.AccountRewardView",
               name: "",
               type: "tuple",
             },
@@ -15751,17 +15664,17 @@ const contracts = {
         },
         {
           inputs: [{ internalType: "address", name: "account", type: "address" }],
-          name: "accountRewardSnapshot",
+          name: "accountRewardData",
           outputs: [
             {
               components: [
-                { internalType: "uint256", name: "rewardPerUnitCheckpoint", type: "uint256" },
-                { internalType: "uint256", name: "inactiveActivationEpoch", type: "uint256" },
-                { internalType: "uint256", name: "activeUnits", type: "uint256" },
-                { internalType: "uint256", name: "inactiveUnits", type: "uint256" },
-                { internalType: "uint256", name: "claimableRewards", type: "uint256" },
+                { internalType: "uint256", name: "creditPerUnitPaid", type: "uint256" },
+                { internalType: "uint256", name: "rewardDebtPerUnitIntegralPaid", type: "uint256" },
+                { internalType: "uint256", name: "credit", type: "uint256" },
+                { internalType: "uint256", name: "rewardDebt", type: "uint256" },
+                { internalType: "uint256", name: "claimable", type: "uint256" },
               ],
-              internalType: "struct IRewardAccounting.AccountRewardSnapshot",
+              internalType: "struct IRewardAccounting.AccountRewardView",
               name: "",
               type: "tuple",
             },
@@ -17174,7 +17087,6 @@ const contracts = {
         },
         { inputs: [], name: "InvalidVariantForTranche", type: "error" },
         { inputs: [], name: "LockedVaultAlreadySet", type: "error" },
-        { inputs: [], name: "ManagedTokenNotSet", type: "error" },
         { inputs: [], name: "NoPendingFeeConfig", type: "error" },
         { inputs: [], name: "NotInitializing", type: "error" },
         {
@@ -17497,8 +17409,8 @@ const contracts = {
           inputs: [],
           name: "feeConfig",
           outputs: [
-            { internalType: "uint256", name: "feeBps_", type: "uint256" },
-            { internalType: "address", name: "feeRecipient_", type: "address" },
+            { internalType: "uint256", name: "feeBps", type: "uint256" },
+            { internalType: "address", name: "feeRecipient", type: "address" },
           ],
           stateMutability: "view",
           type: "function",
@@ -19450,7 +19362,7 @@ const contracts = {
             { internalType: "address", name: "operator", type: "address" },
             { internalType: "address", name: "", type: "address" },
             { internalType: "uint256", name: "tokenId", type: "uint256" },
-            { internalType: "bytes", name: "data", type: "bytes" },
+            { internalType: "bytes", name: "", type: "bytes" },
           ],
           name: "onERC721Received",
           outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
