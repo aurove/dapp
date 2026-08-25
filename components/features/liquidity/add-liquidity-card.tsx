@@ -159,15 +159,17 @@ function QuoteStat({
   label,
   value,
   detail,
+  testId,
 }: {
   label: string;
   value: string;
   detail: string;
+  testId?: string;
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/42">{label}</p>
-      <p className="mt-2 text-lg font-semibold text-white">{value}</p>
+      <p data-testid={testId} className="mt-2 text-lg font-semibold text-white">{value}</p>
       <p className="mt-1 text-xs leading-5 text-white/48">{detail}</p>
     </div>
   );
@@ -813,6 +815,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
               label="Price"
               value={currentPriceText}
               detail={rangePresetLabel}
+              testId="add-liquidity-current-price"
             />
             <QuoteStat
               label="In range"

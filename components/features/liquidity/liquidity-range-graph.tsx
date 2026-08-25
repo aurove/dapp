@@ -1,37 +1,43 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
-import { erc20Abi, type Address } from "viem";
+import { erc20Abi, type Address, type PublicClient } from "viem";
 import { Badge, Button, cn } from "@ui";
 import { getContractConfig } from "@/contracts/shared";
-import { staticReadQueryOptions } from "@/lib/web3/read-query-options";
-import { readAddress, readNumber, readResult } from "@/lib/web3/value-parsers";
-import { useReadContracts } from "wagmi";
+import { heavyReadQueryOptions, staticReadQueryOptions } from "@/lib/web3/read-query-options";
+import { readNumber, readResult } from "@/lib/web3/value-parsers";
+import { usePublicClient, useReadContracts } from "wagmi";
 import {
-  buildFallbackLiquiditySeries,
-  buildLiquiditySeries,
   buildPresetRange,
   clampTickToBounds,
   formatDisplayPair,
   formatPriceLabel,
+  formatTickPrice,
+  getDisplayPriceOrientation,
   getDisplayPriceRangeTicks,
   getPoolTickBounds,
   getFullRangeHalfIntervals,
   getRangeMidpoint,
   getRangeTickCount,
-  SLIPSTREAM_POOL_READ_ABI,
   normalizeTickRange,
   resolveSlipstreamPoolContractName,
   SLIPSTREAM_RANGE_INTERVALS,
-  type SlipstreamLiquiditySeries,
   type SlipstreamPoolState,
   type SlipstreamPoolKey,
   type SlipstreamRangePreset,
   type SlipstreamTickRange,
   type SlipstreamTokenInfo,
 } from "./slipstream-adapter";
+import {
+  fetchSlipstreamLiquidityDepth,
+  formatRawLiquidity,
+  scaleLiquidityForChart,
+  type SlipstreamLiquidityInterval,
+} from "./slipstream-liquidity-depth";
+import { slipstreamLiquidityDepthKeys } from "./slipstream-liquidity-depth-keys";
 
 type LiquidityRangeGraphProps = {
   chainId: number;
@@ -94,66 +100,30 @@ function formatRangeText(range: SlipstreamTickRange, pool: SlipstreamPoolState) 
   return { lower, upper };
 }
 
-function readTupleTick(value: unknown) {
-  if (Array.isArray(value)) {
-    return {
-      sqrtPriceX96: value[0] as bigint | null,
-      tick: readNumber(value[1]) ?? null,
-    };
-  }
-
-  if (value && typeof value === "object") {
-    const tuple = value as { sqrtPriceX96?: unknown; tick?: unknown };
-    return {
-      sqrtPriceX96: typeof tuple.sqrtPriceX96 === "bigint" ? tuple.sqrtPriceX96 : null,
-      tick: readNumber(tuple.tick) ?? null,
-    };
-  }
-
-  return { sqrtPriceX96: null, tick: null };
-}
-
-export function useSlipstreamPoolState(chainId: number, poolKey: SlipstreamPoolKey) {
+function useSlipstreamPoolData(chainId: number, poolKey: SlipstreamPoolKey) {
   const contract = getContractConfig(chainId, resolveSlipstreamPoolContractName(poolKey));
   const poolAddress = contract?.address ?? null;
-
-  const poolReads = useReadContracts({
-    allowFailure: true,
-    contracts:
-      poolAddress
-        ? [
-            {
-              address: poolAddress,
-              abi: SLIPSTREAM_POOL_READ_ABI,
-              functionName: "token0",
-            },
-            {
-              address: poolAddress,
-              abi: SLIPSTREAM_POOL_READ_ABI,
-              functionName: "token1",
-            },
-            {
-              address: poolAddress,
-              abi: SLIPSTREAM_POOL_READ_ABI,
-              functionName: "slot0",
-            },
-            {
-              address: poolAddress,
-              abi: SLIPSTREAM_POOL_READ_ABI,
-              functionName: "tickSpacing",
-            },
-          ]
-        : [],
-    query: {
-      ...staticReadQueryOptions,
-      enabled: Boolean(poolAddress),
+  const publicClient = usePublicClient({ chainId });
+  const depthQuery = useQuery({
+    queryKey: poolAddress
+      ? slipstreamLiquidityDepthKeys.pool(chainId, poolAddress)
+      : [...slipstreamLiquidityDepthKeys.chain(chainId), poolKey, "unavailable"],
+    queryFn: () => {
+      if (!poolAddress || !contract?.abi || !publicClient) {
+        throw new Error("The concentrated-liquidity pool is unavailable on this network.");
+      }
+      return fetchSlipstreamLiquidityDepth({
+        client: publicClient as PublicClient,
+        chainId,
+        poolAddress,
+        poolAbi: contract.abi,
+      });
     },
+    ...heavyReadQueryOptions,
+    enabled: Boolean(poolAddress && contract?.abi && publicClient),
   });
-
-  const rawToken0 = readAddress(readResult(poolReads.data, 0));
-  const rawToken1 = readAddress(readResult(poolReads.data, 1));
-  const slot0 = readTupleTick(readResult(poolReads.data, 2));
-  const tickSpacing = readNumber(readResult(poolReads.data, 3));
+  const rawToken0 = depthQuery.data?.token0 ?? null;
+  const rawToken1 = depthQuery.data?.token1 ?? null;
 
   const tokenMetaReads = useReadContracts({
     allowFailure: true,
@@ -200,36 +170,46 @@ export function useSlipstreamPoolState(chainId: number, poolKey: SlipstreamPoolK
 
   const token0 = useMemo<SlipstreamTokenInfo | null>(() => {
     if (!rawToken0) return null;
+    const decimals = readNumber(readResult(tokenMetaReads.data, 2));
+    if (decimals === null) return null;
     return {
       address: rawToken0,
       symbol: (readResult<string>(tokenMetaReads.data, 0) ?? null)?.trim() || null,
       name: (readResult<string>(tokenMetaReads.data, 1) ?? null)?.trim() || null,
-      decimals: readNumber(readResult(tokenMetaReads.data, 2)) ?? 18,
+      decimals,
     };
   }, [rawToken0, tokenMetaReads.data]);
 
   const token1 = useMemo<SlipstreamTokenInfo | null>(() => {
     if (!rawToken1) return null;
+    const decimals = readNumber(readResult(tokenMetaReads.data, 5));
+    if (decimals === null) return null;
     return {
       address: rawToken1,
       symbol: (readResult<string>(tokenMetaReads.data, 3) ?? null)?.trim() || null,
       name: (readResult<string>(tokenMetaReads.data, 4) ?? null)?.trim() || null,
-      decimals: readNumber(readResult(tokenMetaReads.data, 5)) ?? 18,
+      decimals,
     };
   }, [rawToken1, tokenMetaReads.data]);
 
-  return useMemo<SlipstreamPoolState>(
+  const pool = useMemo<SlipstreamPoolState>(
     () => ({
       chainId,
       address: poolAddress ?? ("0x0000000000000000000000000000000000000000" as Address),
       token0,
       token1,
-      currentTick: slot0.tick,
-      sqrtPriceX96: slot0.sqrtPriceX96,
-      tickSpacing,
+      currentTick: depthQuery.data?.currentTick ?? null,
+      sqrtPriceX96: depthQuery.data?.sqrtPriceX96 ?? null,
+      tickSpacing: depthQuery.data?.tickSpacing ?? null,
     }),
-    [chainId, poolAddress, slot0.sqrtPriceX96, slot0.tick, tickSpacing, token0, token1],
+    [chainId, depthQuery.data, poolAddress, token0, token1],
   );
+
+  return { pool, depthQuery };
+}
+
+export function useSlipstreamPoolState(chainId: number, poolKey: SlipstreamPoolKey) {
+  return useSlipstreamPoolData(chainId, poolKey).pool;
 }
 
 function classForPreset(selected: boolean) {
@@ -245,13 +225,14 @@ export function LiquidityRangeGraph({
   selectedStrategy: controlledSelectedStrategy,
   onSelectionChange,
 }: LiquidityRangeGraphProps) {
-  const pool = useSlipstreamPoolState(chainId, poolKey);
+  const { pool, depthQuery } = useSlipstreamPoolData(chainId, poolKey);
   const { ref: chartRef, size } = useElementSize<HTMLDivElement>();
 
   const [strategy, setStrategy] = useState<SlipstreamRangePreset>("balanced");
   const [selection, setSelection] = useState<SlipstreamTickRange | null>(null);
   const [viewportCenterTick, setViewportCenterTick] = useState<number | null>(null);
   const [viewportHalfIntervals, setViewportHalfIntervals] = useState<number | null>(null);
+  const [hoveredInterval, setHoveredInterval] = useState<SlipstreamLiquidityInterval | null>(null);
   const defaultSelection = useMemo(() => {
     if (!pool.tickSpacing || pool.currentTick === null) return null;
     return buildPresetRange("balanced", pool.currentTick, pool.tickSpacing);
@@ -265,18 +246,30 @@ export function LiquidityRangeGraph({
   );
   const normalizedSelectedRange = useMemo(() => {
     if (!pool.tickSpacing || !selectedRange) return null;
-    return normalizeTickRange(selectedRange, pool.tickSpacing, bounds ?? getPoolTickBounds(pool.tickSpacing));
+    return normalizeTickRange(
+      selectedRange,
+      pool.tickSpacing,
+      bounds ?? getPoolTickBounds(pool.tickSpacing),
+    );
   }, [bounds, pool.tickSpacing, selectedRange]);
 
   const visibleRange = useMemo(() => {
     if (!pool.tickSpacing) return null;
-    const centerTick = viewportCenterTick ?? getRangeMidpoint(normalizedSelectedRange ?? defaultSelection ?? {
-      tickLower: 0,
-      tickUpper: pool.tickSpacing,
-    });
+    const centerTick =
+      viewportCenterTick ??
+      getRangeMidpoint(
+        normalizedSelectedRange ??
+          defaultSelection ?? {
+            tickLower: 0,
+            tickUpper: pool.tickSpacing,
+          },
+      );
     if (centerTick === null || !Number.isFinite(centerTick)) return null;
 
-    const halfIntervals = Math.max(MIN_VISIBLE_INTERVALS, viewportHalfIntervals ?? INITIAL_ZOOM_INTERVALS);
+    const halfIntervals = Math.max(
+      MIN_VISIBLE_INTERVALS,
+      viewportHalfIntervals ?? INITIAL_ZOOM_INTERVALS,
+    );
     const visible = normalizeTickRange(
       {
         tickLower: centerTick - halfIntervals * pool.tickSpacing,
@@ -287,90 +280,31 @@ export function LiquidityRangeGraph({
     );
 
     return visible;
-  }, [bounds, defaultSelection, normalizedSelectedRange, pool.tickSpacing, viewportCenterTick, viewportHalfIntervals]);
+  }, [
+    bounds,
+    defaultSelection,
+    normalizedSelectedRange,
+    pool.tickSpacing,
+    viewportCenterTick,
+    viewportHalfIntervals,
+  ]);
 
-  const sampleTicks = useMemo(() => {
-    if (!visibleRange || !pool.tickSpacing) return [];
-
-    const span = visibleRange.tickUpper - visibleRange.tickLower;
-    const desiredBars = Math.max(
-      2,
-      Math.min(64, Math.trunc(span / pool.tickSpacing) + 1),
+  const visibleIntervals = useMemo(() => {
+    if (!visibleRange || !depthQuery.data) return [];
+    return depthQuery.data.intervals.filter(
+      (interval) =>
+        interval.tickUpper > visibleRange.tickLower && interval.tickLower < visibleRange.tickUpper,
     );
-    const step = Math.max(
-      pool.tickSpacing,
-      Math.trunc((span / Math.max(desiredBars - 1, 1)) / pool.tickSpacing) * pool.tickSpacing,
-    );
-
-    const ticks: number[] = [];
-    for (let tick = visibleRange.tickLower; tick <= visibleRange.tickUpper; tick += step) {
-      ticks.push(clampTickToBounds(tick, visibleRange.tickLower, visibleRange.tickUpper));
-      if (ticks.length >= desiredBars) break;
-    }
-
-    if (ticks[ticks.length - 1] !== visibleRange.tickUpper) {
-      ticks.push(visibleRange.tickUpper);
-    }
-
-    return [...new Set(ticks)].sort((a, b) => a - b);
-  }, [pool.tickSpacing, visibleRange]);
-
-  const tickReads = useReadContracts({
-    allowFailure: true,
-    contracts:
-      pool.address && pool.tickSpacing && visibleRange
-        ? sampleTicks.map((tick) => ({
-            address: pool.address,
-            abi: SLIPSTREAM_POOL_READ_ABI,
-            functionName: "ticks",
-            args: [BigInt(tick)],
-          }))
-        : [],
-    query: {
-      ...staticReadQueryOptions,
-      enabled: Boolean(pool.address && pool.tickSpacing && visibleRange && sampleTicks.length > 0),
-    },
-  });
-
-  const liveLiquidityByTick = useMemo(() => {
-    const map = new Map<number, bigint | null>();
-
-    sampleTicks.forEach((tick, index) => {
-      const result = readResult(tickReads.data, index);
-      if (Array.isArray(result)) {
-        const liquidityGross = result[0];
-        map.set(tick, typeof liquidityGross === "bigint" ? liquidityGross : null);
-        return;
-      }
-
-      if (result && typeof result === "object") {
-        const maybe = result as { liquidityGross?: unknown };
-        map.set(tick, typeof maybe.liquidityGross === "bigint" ? maybe.liquidityGross : null);
-        return;
-      }
-
-      map.set(tick, null);
-    });
-
-    return map;
-  }, [sampleTicks, tickReads.data]);
-
-  const liquiditySeries = useMemo<SlipstreamLiquiditySeries>(() => {
-    if (!visibleRange || !pool.tickSpacing || pool.currentTick === null) {
-      return buildFallbackLiquiditySeries({
-        range: { tickLower: 0, tickUpper: 1 },
-        tickSpacing: 1,
-        currentTick: 0,
-      });
-    }
-
-    return buildLiquiditySeries({
-      range: visibleRange,
-      tickSpacing: pool.tickSpacing,
-      currentTick: pool.currentTick,
-      liveLiquidityByTick,
-    });
-  }, [liveLiquidityByTick, pool.currentTick, pool.tickSpacing, visibleRange]);
+  }, [depthQuery.data, visibleRange]);
+  const maxLiquidity = useMemo(
+    () =>
+      visibleIntervals.reduce(
+        (max, interval) => (interval.liquidity > max ? interval.liquidity : max),
+        0n,
+      ),
+    [visibleIntervals],
+  );
+  const priceOrientation = getDisplayPriceOrientation(pool);
 
   const innerWidth = Math.max(0, size.width - CHART_PADDING.left - CHART_PADDING.right);
   const innerHeight = Math.max(0, CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom);
@@ -379,19 +313,20 @@ export function LiquidityRangeGraph({
 
     return scaleLinear<number>({
       domain: [visibleRange.tickLower, visibleRange.tickUpper],
-      range: [CHART_PADDING.left, CHART_PADDING.left + innerWidth],
+      range: priceOrientation.inverted
+        ? [CHART_PADDING.left + innerWidth, CHART_PADDING.left]
+        : [CHART_PADDING.left, CHART_PADDING.left + innerWidth],
       clamp: true,
     });
-  }, [innerWidth, visibleRange]);
+  }, [innerWidth, priceOrientation.inverted, visibleRange]);
 
   const yScale = useMemo(() => {
     return scaleLinear<number>({
-      domain: [0, Math.max(liquiditySeries.maxLiquidity, 1)],
+      domain: [0, 1_000_000],
       range: [CHART_PADDING.top + innerHeight, CHART_PADDING.top],
       clamp: true,
-      nice: true,
     });
-  }, [innerHeight, liquiditySeries.maxLiquidity]);
+  }, [innerHeight]);
 
   const currentTick = pool.currentTick;
   const currentTickInRange =
@@ -401,8 +336,13 @@ export function LiquidityRangeGraph({
 
   const currentX = currentTick !== null && xScale ? xScale(currentTick) : null;
   const renderedRange = normalizedSelectedRange ?? selectedRange;
-  const selectedLowerX = renderedRange && xScale ? xScale(renderedRange.tickLower) : null;
-  const selectedUpperX = renderedRange && xScale ? xScale(renderedRange.tickUpper) : null;
+  const renderedDisplayTicks = renderedRange
+    ? getDisplayPriceRangeTicks(pool, renderedRange)
+    : null;
+  const selectedLowerX =
+    renderedDisplayTicks && xScale ? xScale(renderedDisplayTicks.lowTick) : null;
+  const selectedUpperX =
+    renderedDisplayTicks && xScale ? xScale(renderedDisplayTicks.highTick) : null;
   const fullRangeHalfIntervals = useMemo(
     () => (pool.tickSpacing ? getFullRangeHalfIntervals(pool.tickSpacing) : INITIAL_ZOOM_INTERVALS),
     [pool.tickSpacing],
@@ -420,7 +360,11 @@ export function LiquidityRangeGraph({
   function commitSelection(nextRange: SlipstreamTickRange, nextStrategy: SlipstreamRangePreset) {
     if (!pool.tickSpacing) return;
 
-    const normalized = normalizeTickRange(nextRange, pool.tickSpacing, bounds ?? getPoolTickBounds(pool.tickSpacing));
+    const normalized = normalizeTickRange(
+      nextRange,
+      pool.tickSpacing,
+      bounds ?? getPoolTickBounds(pool.tickSpacing),
+    );
     setSelection(normalized);
     setStrategy(nextStrategy);
     onSelectionChange?.({ range: normalized, strategy: nextStrategy });
@@ -429,13 +373,15 @@ export function LiquidityRangeGraph({
     const neededHalfIntervals = Math.ceil(getRangeTickCount(normalized, pool.tickSpacing) / 2) + 2;
     setViewportHalfIntervals((current) =>
       Math.max(
-        nextStrategy === "full-range" ? fullRangeHalfIntervals : current ?? INITIAL_ZOOM_INTERVALS,
+        nextStrategy === "full-range"
+          ? fullRangeHalfIntervals
+          : (current ?? INITIAL_ZOOM_INTERVALS),
         neededHalfIntervals,
       ),
     );
   }
 
-  function updateHandle(handle: "lower" | "upper", tick: number) {
+  function updateUnderlyingHandle(handle: "lower" | "upper", tick: number) {
     if (!pool.tickSpacing || !selectedRange) return;
 
     const usableTick = clampTickToBounds(
@@ -458,6 +404,15 @@ export function LiquidityRangeGraph({
     commitSelection(nextRange, "custom");
   }
 
+  function updateDisplayHandle(handle: "lower" | "upper", tick: number) {
+    const underlyingHandle = priceOrientation.inverted
+      ? handle === "lower"
+        ? "upper"
+        : "lower"
+      : handle;
+    updateUnderlyingHandle(underlyingHandle, tick);
+  }
+
   function handleRangeKeyDown(
     event: React.KeyboardEvent<HTMLButtonElement>,
     handle: "lower" | "upper",
@@ -465,27 +420,38 @@ export function LiquidityRangeGraph({
     if (!pool.tickSpacing || !selectedRange) return;
 
     const step = event.shiftKey ? pool.tickSpacing * 4 : pool.tickSpacing;
+    const underlyingHandle = priceOrientation.inverted
+      ? handle === "lower"
+        ? "upper"
+        : "lower"
+      : handle;
+    const currentHandleTick =
+      underlyingHandle === "lower" ? selectedRange.tickLower : selectedRange.tickUpper;
     let nextTick: number | null = null;
 
     if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
-      nextTick = handle === "lower" ? selectedRange.tickLower - step : selectedRange.tickUpper - step;
+      nextTick = currentHandleTick + (priceOrientation.inverted ? step : -step);
     } else if (event.key === "ArrowRight" || event.key === "ArrowUp") {
-      nextTick = handle === "lower" ? selectedRange.tickLower + step : selectedRange.tickUpper + step;
+      nextTick = currentHandleTick + (priceOrientation.inverted ? -step : step);
     } else if (event.key === "Home") {
-      nextTick = bounds?.minUsable ?? null;
+      nextTick = priceOrientation.inverted
+        ? (bounds?.maxUsable ?? null)
+        : (bounds?.minUsable ?? null);
     } else if (event.key === "End") {
-      nextTick = bounds?.maxUsable ?? null;
+      nextTick = priceOrientation.inverted
+        ? (bounds?.minUsable ?? null)
+        : (bounds?.maxUsable ?? null);
     }
 
     if (nextTick === null) return;
 
     event.preventDefault();
-    updateHandle(handle, nextTick);
+    updateDisplayHandle(handle, nextTick);
   }
 
   function onDragStart(handle: "lower" | "upper") {
     const tickSpacing = pool.tickSpacing;
-    if (!chartRef.current || !tickSpacing || !selectedRange || !visibleRange) return;
+    if (!chartRef.current || !tickSpacing || !selectedRange || !visibleRange || !xScale) return;
 
     const onPointerMove = (event: PointerEvent) => {
       const rect = chartRef.current?.getBoundingClientRect();
@@ -494,11 +460,10 @@ export function LiquidityRangeGraph({
       const innerLeft = rect.left + CHART_PADDING.left;
       const innerRight = rect.right - CHART_PADDING.right;
       const boundedX = Math.min(innerRight, Math.max(innerLeft, event.clientX));
-      const ratio = (boundedX - innerLeft) / Math.max(innerRight - innerLeft, 1);
-      const rawTick = visibleRange.tickLower + ratio * (visibleRange.tickUpper - visibleRange.tickLower);
+      const rawTick = xScale.invert(boundedX - rect.left);
       const snapped = Math.round(rawTick / tickSpacing) * tickSpacing;
 
-      updateHandle(handle, snapped);
+      updateDisplayHandle(handle, snapped);
     };
 
     const onPointerUp = () => {
@@ -543,6 +508,38 @@ export function LiquidityRangeGraph({
       ? formatPriceLabel({ pool, tick: currentTick })
       : null;
   const activeSelectedRange = renderedRange ?? visibleRange;
+  const depthError =
+    depthQuery.error instanceof Error
+      ? depthQuery.error.message
+      : depthQuery.error
+        ? "The pool liquidity snapshot could not be loaded."
+        : null;
+  const leftVisibleTick = visibleRange
+    ? priceOrientation.inverted
+      ? visibleRange.tickUpper
+      : visibleRange.tickLower
+    : null;
+  const rightVisibleTick = visibleRange
+    ? priceOrientation.inverted
+      ? visibleRange.tickLower
+      : visibleRange.tickUpper
+    : null;
+  const hasVisibleLiquidity = visibleIntervals.some((interval) => interval.liquidity > 0n);
+  const hoveredDisplayTicks = hoveredInterval
+    ? getDisplayPriceRangeTicks(pool, hoveredInterval)
+    : null;
+  const hoveredIsSelected = Boolean(
+    hoveredInterval &&
+    activeSelectedRange &&
+    hoveredInterval.tickUpper > activeSelectedRange.tickLower &&
+    hoveredInterval.tickLower < activeSelectedRange.tickUpper,
+  );
+  const hoveredIsCurrent = Boolean(
+    hoveredInterval &&
+    currentTick !== null &&
+    currentTick >= hoveredInterval.tickLower &&
+    currentTick < hoveredInterval.tickUpper,
+  );
 
   useEffect(() => {
     if (controlledSelectedRange !== null && controlledSelectedRange !== undefined) return;
@@ -552,7 +549,13 @@ export function LiquidityRangeGraph({
       range: defaultSelection,
       strategy: controlledSelectedStrategy ?? "balanced",
     });
-  }, [controlledSelectedRange, controlledSelectedStrategy, defaultSelection, onSelectionChange, selection]);
+  }, [
+    controlledSelectedRange,
+    controlledSelectedStrategy,
+    defaultSelection,
+    onSelectionChange,
+    selection,
+  ]);
 
   return (
     <div className="space-y-4 rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-5">
@@ -561,15 +564,23 @@ export function LiquidityRangeGraph({
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-medium text-white">Price range</p>
             <Badge className="border-white/10 bg-white/[0.04] text-white/70">{presetLabel}</Badge>
-            {liquiditySeries.hasLiveData ? (
-              <Badge className="border-emerald-400/20 bg-emerald-400/10 text-emerald-100">Live liquidity</Badge>
+            {depthQuery.data?.status === "complete" ? (
+              <Badge className="border-emerald-400/20 bg-emerald-400/10 text-emerald-100">
+                On-chain liquidity
+              </Badge>
+            ) : depthQuery.data?.status === "partial" ? (
+              <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-100">
+                Partial on-chain data
+              </Badge>
+            ) : depthError ? (
+              <Badge className="border-rose-300/20 bg-rose-300/10 text-rose-100">Unavailable</Badge>
             ) : (
-              <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-100">Fallback liquidity</Badge>
+              <Badge className="border-white/10 bg-white/[0.04] text-white/55">
+                Loading pool depth
+              </Badge>
             )}
           </div>
-          <p className="text-xs text-white/45">
-            {formatDisplayPair(pool)}
-          </p>
+          <p className="text-xs text-white/45">{formatDisplayPair(pool)}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -596,18 +607,29 @@ export function LiquidityRangeGraph({
         </div>
       </div>
 
-      <div ref={chartRef} className="relative h-[252px] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#090d13]">
-        {size.width > 0 && xScale !== null && yScale !== null && visibleRange !== null ? (
+      <div
+        ref={chartRef}
+        data-testid="cl-liquidity-depth-chart"
+        data-liquidity-source={depthQuery.data ? "on-chain" : "unavailable"}
+        data-snapshot-block={depthQuery.data?.blockNumber.toString()}
+        className="relative h-[252px] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#090d13]"
+      >
+        {size.width > 0 &&
+        xScale !== null &&
+        yScale !== null &&
+        visibleRange !== null &&
+        depthQuery.data ? (
           <>
-            <svg width={size.width} height={CHART_HEIGHT} role="img" aria-label="Concentrated liquidity distribution">
+            <svg
+              width={size.width}
+              height={CHART_HEIGHT}
+              role="img"
+              aria-label="Concentrated liquidity distribution"
+            >
               <defs>
                 <linearGradient id="liquidity-fill" x1="0" x2="0" y1="0" y2="1">
                   <stop offset="0%" stopColor="rgba(196,160,106,0.92)" />
                   <stop offset="100%" stopColor="rgba(196,160,106,0.06)" />
-                </linearGradient>
-                <linearGradient id="liquidity-selected" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="rgba(84,140,255,0.68)" />
-                  <stop offset="100%" stopColor="rgba(84,140,255,0.12)" />
                 </linearGradient>
               </defs>
 
@@ -621,28 +643,82 @@ export function LiquidityRangeGraph({
                   fill="rgba(255,255,255,0.02)"
                 />
 
-                {liquiditySeries.points.map((point, index) => {
-                  const nextTick = liquiditySeries.points[index + 1]?.tick ?? visibleRange.tickUpper;
-                  const x = xScale(point.tick);
-                  const nextX = xScale(nextTick);
-                  const width = Math.max(1, nextX - x);
-                  const barY = yScale(point.liquidityGross);
-                  const selectionLowerTick = activeSelectedRange?.tickLower ?? visibleRange.tickLower;
-                  const selectionUpperTick = activeSelectedRange?.tickUpper ?? visibleRange.tickUpper;
-                  const isInsideSelection =
-                    point.tick >= selectionLowerTick && point.tick <= selectionUpperTick;
+                {selectedLowerX !== null && selectedUpperX !== null ? (
+                  <rect
+                    data-testid="proposed-liquidity-range-overlay"
+                    x={Math.min(selectedLowerX, selectedUpperX)}
+                    y={CHART_PADDING.top}
+                    width={Math.abs(selectedUpperX - selectedLowerX)}
+                    height={innerHeight}
+                    fill="rgba(84,140,255,0.14)"
+                  />
+                ) : null}
+
+                {visibleIntervals.map((interval) => {
+                  const clippedLower = Math.max(interval.tickLower, visibleRange.tickLower);
+                  const clippedUpper = Math.min(interval.tickUpper, visibleRange.tickUpper);
+                  const lowerX = xScale(clippedLower);
+                  const upperX = xScale(clippedUpper);
+                  const x = Math.min(lowerX, upperX);
+                  const width = Math.max(1, Math.abs(upperX - lowerX));
+                  const chartLiquidity = scaleLiquidityForChart(interval.liquidity, maxLiquidity);
+                  const barY = yScale(chartLiquidity);
+                  const barHeight = Math.max(0, CHART_PADDING.top + innerHeight - barY);
+                  const intervalDisplayTicks = getDisplayPriceRangeTicks(pool, {
+                    tickLower: interval.tickLower,
+                    tickUpper: interval.tickUpper,
+                  });
+                  const isSelected = Boolean(
+                    activeSelectedRange &&
+                    interval.tickUpper > activeSelectedRange.tickLower &&
+                    interval.tickLower < activeSelectedRange.tickUpper,
+                  );
+                  const isCurrent =
+                    currentTick !== null &&
+                    currentTick >= interval.tickLower &&
+                    currentTick < interval.tickUpper;
+                  const accessibleLabel = [
+                    `Ticks ${interval.tickLower} to ${interval.tickUpper}`,
+                    `existing active pool liquidity ${interval.liquidity.toString()}`,
+                    `user-selected range ${isSelected ? "yes" : "no"}`,
+                    `current price interval ${isCurrent ? "yes" : "no"}`,
+                  ].join(", ");
 
                   return (
-                    <rect
-                      key={`${point.tick}-${index}`}
-                      x={x}
-                      y={barY}
-                      width={width}
-                      height={Math.max(0, CHART_PADDING.top + innerHeight - barY)}
-                      rx={2}
-                      fill={isInsideSelection ? "url(#liquidity-selected)" : "url(#liquidity-fill)"}
-                      opacity={point.liquidityGross > 0 ? (point.isLive ? 1 : 0.72) : 0.16}
-                    />
+                    <g
+                      key={`${interval.tickLower}-${interval.tickUpper}`}
+                      tabIndex={0}
+                      role="img"
+                      aria-label={accessibleLabel}
+                      onPointerEnter={() => setHoveredInterval(interval)}
+                      onPointerLeave={() => setHoveredInterval(null)}
+                      onFocus={() => setHoveredInterval(interval)}
+                      onBlur={() => setHoveredInterval(null)}
+                    >
+                      <title>{accessibleLabel}</title>
+                      <rect
+                        x={x}
+                        y={CHART_PADDING.top}
+                        width={width}
+                        height={innerHeight}
+                        fill="transparent"
+                      />
+                      {interval.liquidity > 0n ? (
+                        <rect
+                          x={x}
+                          y={barY}
+                          width={width}
+                          height={barHeight}
+                          fill="url(#liquidity-fill)"
+                          stroke="rgba(196,160,106,0.32)"
+                          strokeWidth={0.75}
+                        />
+                      ) : null}
+                      <desc>
+                        {formatPriceLabel({ pool, tick: intervalDisplayTicks.lowTick })} to{" "}
+                        {formatPriceLabel({ pool, tick: intervalDisplayTicks.highTick })}
+                      </desc>
+                    </g>
                   );
                 })}
 
@@ -683,6 +759,35 @@ export function LiquidityRangeGraph({
               </Group>
             </svg>
 
+            <div className="pointer-events-none absolute left-3 top-2 text-[10px] font-medium uppercase tracking-[0.12em] text-white/38">
+              Raw active liquidity
+            </div>
+
+            {hoveredInterval && hoveredDisplayTicks ? (
+              <div className="pointer-events-none absolute right-3 top-3 z-30 max-w-[min(19rem,calc(100%-1.5rem))] rounded-xl border border-white/12 bg-[#10151d]/95 px-3 py-2 text-[11px] leading-5 text-white/68 shadow-2xl backdrop-blur">
+                <p className="font-medium text-white">
+                  Tick {hoveredInterval.tickLower} → {hoveredInterval.tickUpper}
+                </p>
+                <p>
+                  Price: {formatPriceLabel({ pool, tick: hoveredDisplayTicks.lowTick })} →{" "}
+                  {formatPriceLabel({ pool, tick: hoveredDisplayTicks.highTick })}
+                </p>
+                <p>
+                  Existing active pool liquidity: {formatRawLiquidity(hoveredInterval.liquidity)}
+                </p>
+                <p>
+                  User-selected range:{" "}
+                  {hoveredIsSelected ? "overlaps this interval" : "outside this interval"}
+                </p>
+                <p>
+                  Current price:{" "}
+                  {hoveredIsCurrent
+                    ? (currentPriceText ?? "in this interval")
+                    : "not in this interval"}
+                </p>
+              </div>
+            ) : null}
+
             {selectedLowerX !== null && activeSelectedRange ? (
               <button
                 type="button"
@@ -690,8 +795,8 @@ export function LiquidityRangeGraph({
                 aria-label="Drag lower range handle"
                 aria-orientation="horizontal"
                 aria-valuemin={bounds?.minUsable ?? activeSelectedRange.tickLower}
-                aria-valuemax={(activeSelectedRange.tickUpper - (pool.tickSpacing ?? 1))}
-                aria-valuenow={activeSelectedRange.tickLower}
+                aria-valuemax={bounds?.maxUsable ?? activeSelectedRange.tickUpper}
+                aria-valuenow={renderedDisplayTicks?.lowTick ?? activeSelectedRange.tickLower}
                 aria-valuetext={rangeText?.lower ?? `${activeSelectedRange.tickLower}`}
                 className="absolute top-0 z-20 flex h-full w-10 -translate-x-1/2 items-center justify-center"
                 style={{ left: selectedLowerX }}
@@ -713,9 +818,9 @@ export function LiquidityRangeGraph({
                 role="slider"
                 aria-label="Drag upper range handle"
                 aria-orientation="horizontal"
-                aria-valuemin={(activeSelectedRange.tickLower + (pool.tickSpacing ?? 1))}
+                aria-valuemin={bounds?.minUsable ?? activeSelectedRange.tickLower}
                 aria-valuemax={bounds?.maxUsable ?? activeSelectedRange.tickUpper}
-                aria-valuenow={activeSelectedRange.tickUpper}
+                aria-valuenow={renderedDisplayTicks?.highTick ?? activeSelectedRange.tickUpper}
                 aria-valuetext={rangeText?.upper ?? `${activeSelectedRange.tickUpper}`}
                 className="absolute top-0 z-20 flex h-full w-10 -translate-x-1/2 items-center justify-center"
                 style={{ left: selectedUpperX }}
@@ -732,18 +837,40 @@ export function LiquidityRangeGraph({
             ) : null}
 
             <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between px-4 pb-3 text-[11px] text-white/40">
-              <span>{visibleRange.tickLower}</span>
-              <span className="text-white/55">
+              <span>
+                {leftVisibleTick === null
+                  ? "—"
+                  : (formatTickPrice({ pool, tick: leftVisibleTick }) ?? `Tick ${leftVisibleTick}`)}
+              </span>
+              <span data-testid="depth-chart-current-price" className="text-white/55">
                 {currentPriceText ?? "Current price unavailable"}
               </span>
-              <span>{visibleRange.tickUpper}</span>
+              <span>
+                {rightVisibleTick === null
+                  ? "—"
+                  : (formatTickPrice({ pool, tick: rightVisibleTick }) ??
+                    `Tick ${rightVisibleTick}`)}
+              </span>
             </div>
+
+            {!hasVisibleLiquidity ? (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-12 text-center text-xs text-white/48">
+                Zero active pool liquidity in this viewport.
+              </div>
+            ) : null}
           </>
         ) : null}
 
-        {size.width === 0 || !xScale || !yScale || !visibleRange ? (
+        {depthError ? (
+          <div
+            role="status"
+            className="flex h-full items-center justify-center px-6 text-center text-sm text-rose-100/78"
+          >
+            Pool liquidity data is unavailable. {depthError}
+          </div>
+        ) : size.width === 0 || !xScale || !yScale || !visibleRange || !depthQuery.data ? (
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/45">
-            Loading liquidity distribution...
+            Loading initialized ticks and active liquidity...
           </div>
         ) : null}
       </div>
@@ -762,9 +889,16 @@ export function LiquidityRangeGraph({
             </span>
           </div>
           <p className="text-xs leading-relaxed text-white/42">
-            Handles snap to pool tick spacing. Presets keep canonical tick bounds, while the zoom
-            buttons only change the visible chart window.
+            Gold depth is raw active pool liquidity reconstructed between initialized ticks. Blue is
+            only your proposed range. Handles snap to pool tick spacing; zoom changes only the
+            viewport.
           </p>
+          {depthQuery.data?.status === "partial" ? (
+            <p role="status" className="text-xs leading-relaxed text-amber-100/72">
+              Partial data: ticks outside {depthQuery.data.coverage.tickLower} to{" "}
+              {depthQuery.data.coverage.tickUpper} were not loaded and are not represented.
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-2">

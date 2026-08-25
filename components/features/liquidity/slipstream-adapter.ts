@@ -32,12 +32,6 @@ export type SlipstreamPoolState = {
   tickSpacing: number | null;
 };
 
-export type SlipstreamTickPoint = {
-  tick: number;
-  liquidityGross: number;
-  isLive: boolean;
-};
-
 export type SlipstreamTickRange = {
   tickLower: number;
   tickUpper: number;
@@ -49,79 +43,14 @@ export type SlipstreamDisplayPriceOrientation = {
   inverted: boolean;
 };
 
-export type SlipstreamLiquiditySeries = {
-  points: SlipstreamTickPoint[];
-  maxLiquidity: number;
-  hasLiveData: boolean;
-};
-
 export const SLIPSTREAM_RANGE_INTERVALS = {
   focused: 8,
   balanced: 24,
 } as const;
 
-export const SLIPSTREAM_LIVE_BAR_LIMIT = 72;
-export const SLIPSTREAM_FALLBACK_BAR_LIMIT = 48;
 export const SLIPSTREAM_POOL_CONTRACT_BY_KEY = Object.fromEntries(
   AUROVE_LIQUIDITY_PAIRS.map((pair) => [pair.key, pair.poolContractName]),
 ) as Record<SlipstreamPoolKey, SlipstreamPoolContractName>;
-// Mirrors the CL pool read surface from the contract registry's concentrated-liquidity pool entries.
-export const SLIPSTREAM_POOL_READ_ABI = [
-  {
-    inputs: [],
-    name: "slot0",
-    outputs: [
-      { internalType: "uint160", name: "sqrtPriceX96", type: "uint160" },
-      { internalType: "int24", name: "tick", type: "int24" },
-      { internalType: "uint16", name: "observationIndex", type: "uint16" },
-      { internalType: "uint16", name: "observationCardinality", type: "uint16" },
-      { internalType: "uint16", name: "observationCardinalityNext", type: "uint16" },
-      { internalType: "bool", name: "unlocked", type: "bool" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "tickSpacing",
-    outputs: [{ internalType: "int24", name: "", type: "int24" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "int24", name: "", type: "int24" }],
-    name: "ticks",
-    outputs: [
-      { internalType: "uint128", name: "liquidityGross", type: "uint128" },
-      { internalType: "int128", name: "liquidityNet", type: "int128" },
-      { internalType: "int128", name: "stakedLiquidityNet", type: "int128" },
-      { internalType: "uint256", name: "feeGrowthOutside0X128", type: "uint256" },
-      { internalType: "uint256", name: "feeGrowthOutside1X128", type: "uint256" },
-      { internalType: "uint256", name: "rewardGrowthOutsideX128", type: "uint256" },
-      { internalType: "int56", name: "tickCumulativeOutside", type: "int56" },
-      { internalType: "uint160", name: "secondsPerLiquidityOutsideX128", type: "uint160" },
-      { internalType: "uint32", name: "secondsOutside", type: "uint32" },
-      { internalType: "bool", name: "initialized", type: "bool" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "token0",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "token1",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
-
 export function resolveSlipstreamPoolContractName(
   key: SlipstreamPoolKey,
 ): SlipstreamPoolContractName {
@@ -236,35 +165,6 @@ export function getRangeMidpoint(range: SlipstreamTickRange) {
 
 export function getRangeTickCount(range: SlipstreamTickRange, tickSpacing: number) {
   return Math.max(1, Math.trunc((range.tickUpper - range.tickLower) / tickSpacing));
-}
-
-export function buildSampleTicks(
-  range: SlipstreamTickRange,
-  tickSpacing: number,
-  maxPoints = SLIPSTREAM_LIVE_BAR_LIMIT,
-) {
-  const spanTicks = Math.max(tickSpacing, range.tickUpper - range.tickLower);
-  const usableTickCount = Math.max(1, Math.trunc(spanTicks / tickSpacing));
-  const pointCount = Math.max(2, Math.min(maxPoints, usableTickCount + 1));
-  const step = Math.max(
-    tickSpacing,
-    Math.trunc(spanTicks / (pointCount - 1) / tickSpacing) * tickSpacing,
-  );
-  const ticks: number[] = [];
-
-  for (let tick = range.tickLower; tick <= range.tickUpper; tick += step) {
-    ticks.push(
-      clampTickToBounds(snapTickToSpacing(tick, tickSpacing), range.tickLower, range.tickUpper),
-    );
-    if (ticks.length >= pointCount) break;
-  }
-
-  const lastTick = ticks[ticks.length - 1];
-  if (lastTick !== range.tickUpper) {
-    ticks.push(range.tickUpper);
-  }
-
-  return [...new Set(ticks)].sort((a, b) => a - b);
 }
 
 function toToken(poolToken: SlipstreamTokenInfo, chainId: number) {
@@ -465,93 +365,6 @@ export function priceInputsForRange(params: {
     lower: formatPriceInputValue({ pool: params.pool, tick: lowTick }),
     upper: formatPriceInputValue({ pool: params.pool, tick: highTick }),
   };
-}
-
-export function buildFallbackLiquiditySeries(params: {
-  range: SlipstreamTickRange;
-  tickSpacing: number;
-  currentTick: number;
-  maxPoints?: number;
-}) {
-  const points = buildSampleTicks(
-    params.range,
-    params.tickSpacing,
-    params.maxPoints ?? SLIPSTREAM_FALLBACK_BAR_LIMIT,
-  );
-  const midpoint = getRangeMidpoint(params.range);
-  const sigma = Math.max(
-    params.tickSpacing * 6,
-    (params.range.tickUpper - params.range.tickLower) / 5,
-  );
-
-  const seriesPoints = points.map((tick, index) => {
-    const distance = Math.abs(tick - midpoint);
-    const wave = Math.exp(-((distance * distance) / (2 * sigma * sigma)));
-    const ripple = 0.92 + (index % 5) * 0.03;
-    const bias = 0.82 + (Math.abs(tick - params.currentTick) <= params.tickSpacing * 2 ? 0.55 : 0);
-
-    return {
-      tick,
-      liquidityGross: Math.max(1, Math.round(wave * ripple * bias * 100)),
-      isLive: false,
-    };
-  });
-
-  return {
-    points: seriesPoints,
-    maxLiquidity: Math.max(...seriesPoints.map((point) => point.liquidityGross), 1),
-    hasLiveData: false,
-  } satisfies SlipstreamLiquiditySeries;
-}
-
-export function buildLiquiditySeries(params: {
-  range: SlipstreamTickRange;
-  tickSpacing: number;
-  currentTick: number;
-  liveLiquidityByTick: Map<number, bigint | null>;
-  maxPoints?: number;
-}) {
-  const ticks = buildSampleTicks(
-    params.range,
-    params.tickSpacing,
-    params.maxPoints ?? SLIPSTREAM_LIVE_BAR_LIMIT,
-  );
-
-  if (ticks.length === 0) {
-    return buildFallbackLiquiditySeries({
-      range: params.range,
-      tickSpacing: params.tickSpacing,
-      currentTick: params.currentTick,
-      maxPoints: params.maxPoints,
-    });
-  }
-
-  const livePoints = ticks.map((tick) => {
-    const rawLiquidity = params.liveLiquidityByTick.get(tick);
-    return {
-      tick,
-      liquidityGross:
-        rawLiquidity === null || rawLiquidity === undefined ? 0 : Number(rawLiquidity),
-      isLive: rawLiquidity !== null && rawLiquidity !== undefined,
-    };
-  });
-
-  const maxLiquidity = livePoints.reduce((max, point) => Math.max(max, point.liquidityGross), 0);
-
-  if (maxLiquidity <= 0) {
-    return buildFallbackLiquiditySeries({
-      range: params.range,
-      tickSpacing: params.tickSpacing,
-      currentTick: params.currentTick,
-      maxPoints: params.maxPoints,
-    });
-  }
-
-  return {
-    points: livePoints,
-    maxLiquidity,
-    hasLiveData: true,
-  } satisfies SlipstreamLiquiditySeries;
 }
 
 export function shortenAddress(address?: Address | null) {

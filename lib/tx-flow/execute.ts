@@ -10,6 +10,7 @@ import type {
 } from "./types";
 import { Abi, ContractFunctionName } from "viem";
 import { getPortfolioRegistry, invalidatePortfolioDomains, type PortfolioDomain } from "@/features/portfolio";
+import { slipstreamLiquidityDepthKeys } from "@/components/features/liquidity/slipstream-liquidity-depth-keys";
 
 function inferredDomains(key: string): readonly PortfolioDomain[] {
   const value = key.toLowerCase();
@@ -94,6 +95,11 @@ export async function executePreparedWriteStep(
     const domains = step.portfolioDomains ?? inferredDomains(step.key);
     if (registry && domains.length > 0) {
       await invalidatePortfolioDomains({ queryClient: ctx.queryClient, chainId: ctx.chainId, owner: ctx.account, registryRevision: registry.revision, domains });
+    }
+    if (domains.includes("liquidity")) {
+      await ctx.queryClient.invalidateQueries({
+        queryKey: slipstreamLiquidityDepthKeys.chain(ctx.chainId),
+      });
     }
 
     if (lifecycle.onTransactionConfirmed) {
