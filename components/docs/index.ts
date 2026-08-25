@@ -8,6 +8,7 @@ export { DocsTabs } from "./docs-tabs";
 export { DocsTocNav, DocsTocSidebar } from "./docs-toc";
 export { DocsProse } from "./prose";
 export { StatusBadge } from "./status-badge";
+export { ExplorerContractLink, SourcifyAlsoLink, VerifiedTag } from "./verified-tag";
 export {
   ArchitectureDiagram,
   Diagram,

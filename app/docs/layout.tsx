@@ -6,7 +6,7 @@ import { createPageMetadata } from "@/lib/seo/site";
 export const metadata = createPageMetadata({
   title: "Documentation · Aurove Docs",
   description:
-    "Aurove Protocol Documentation — learn how Aurove transforms locked veBTC and veMEZO positions into liquid yield assets on Mezo.",
+    "Aurove documentation for the Mezo deployment — guides, protocol design, and canonical contract addresses.",
   path: "/docs",
   absoluteTitle: true,
   keywords: [

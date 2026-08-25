@@ -140,8 +140,8 @@ export function VaultLifecycleDiagram() {
         <Node tone="accent">Vault custody</Node>
         <Arrow label="depositManaged" />
         <Node>Mezo managed ve</Node>
-        <Arrow label="settlement window" />
-        <Node tone="accent">Redeem</Node>
+        <Arrow label="withdrawManaged" />
+        <Node tone="accent">Redeem veNFT</Node>
       </Row>
     </Diagram>
   );
@@ -157,7 +157,7 @@ export function LiquidityFlowDiagram() {
         <Arrow />
         <Node>CL mint</Node>
         <Arrow />
-        <Node>Fees + points</Node>
+        <Node>Swap fees</Node>
       </Row>
       <p className="mt-3 text-center text-[11px] text-white/40">
         Sources: ERC-20 · veNFT · tranche · ID20 · MUSD

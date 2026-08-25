@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "path";
+import { DOC_REDIRECTS } from "./lib/docs/redirects";
 
 const projectRoot = process.cwd();
 
@@ -9,6 +10,13 @@ const nextConfig: NextConfig = {
     // installs dependencies inside the cloned app, so its tracing and bundling
     // roots should both remain scoped to that app.
     root: process.env.VERCEL ? projectRoot : path.resolve(projectRoot, ".."),
+  },
+  async redirects() {
+    return DOC_REDIRECTS.map((redirect) => ({
+      source: redirect.source,
+      destination: redirect.destination,
+      permanent: true,
+    }));
   },
   async headers() {
     // Help crawlers (Google Search Console) treat these as static metadata,

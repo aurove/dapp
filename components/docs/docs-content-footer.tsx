@@ -5,7 +5,7 @@ export function DocsContentFooter() {
     <footer className="mt-12 border-t border-white/8 pb-2 pt-6 text-xs text-white/40">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p>
-          © {new Date().getFullYear()} Aurove. Protocol documentation for Mezo testnet deployments.
+          © {new Date().getFullYear()} Aurove. Protocol documentation for the Mezo deployment.
         </p>
         <div className="flex flex-wrap gap-4">
           <Link href="/docs" className="hover:text-white/70">

@@ -92,9 +92,9 @@ export default async function AcademyPage({ searchParams }: AcademyPageProps) {
           "Learn Mezo Earn concepts while staying active across Aurove.",
         ]}
         relatedLinks={[
-          { href: "/docs/academy/points", label: "Points docs" },
-          { href: "/docs/academy/quests", label: "Quests & tasks" },
-          { href: "/docs/academy/referrals", label: "Referrals" },
+          { href: "/docs/guides/academy", label: "Academy" },
+          { href: "/docs/guides/connect-wallet", label: "Connect a wallet" },
+          { href: "/docs/guides/what-is-aurove", label: "What is Aurove" },
           { href: "/#swap-interface", label: "Open Swap" },
         ]}
       />

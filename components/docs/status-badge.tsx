@@ -2,7 +2,7 @@ import { cn } from "@ui";
 import type { DocStatus } from "@/lib/docs/types";
 
 const LABELS: Record<DocStatus, string> = {
-  live: "Live on Testnet",
+  live: "Live",
   "in-development": "In Development",
   planned: "Planned",
 };

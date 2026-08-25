@@ -200,42 +200,42 @@ export const AUROVE_FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "Why do I only see Connect Wallet?",
     answer:
-      "You are disconnected. Connect via the header and approve the connection in your wallet.",
+      "You are disconnected. Click Connect Wallet in the header and approve the connection in your wallet.",
   },
   {
     question: "What does Wrong Network mean?",
     answer:
-      "Your wallet chain is not the deployment’s expected chain. Click Wrong Network and approve the network switch.",
+      "Your wallet is not on Mezo Mainnet (chain id 31612). Click Wrong Network and approve the switch. The header should then read Network Mezo Mainnet.",
   },
   {
     question: "What is Sign In for?",
     answer:
-      "A signed session for Academy personalization (points and referral link). Earn, Swap, and LP primarily need a connected wallet.",
+      "A signed session for Academy points, tasks, and your referral link. Earn, Swap, and Liquidity only need a connected wallet on Mezo Mainnet.",
   },
   {
     question: "Why do I have no liquid positions yet?",
     answer:
-      "Select avBTCm or avMEZOm on Earn, create a position by depositing BTC, MEZO, or a veNFT, or acquire liquid assets via Swap.",
+      "Earn mints avBTCm or avMEZOm only after a successful deposit, and Swap only after you buy those tokens. If a deposit reverts, the managers may still have mTokenId = 0, which blocks managed Mezo deposits.",
   },
   {
-    question: "What does Await redemption window mean?",
+    question: "Does Aurove use a weekly redemption window?",
     answer:
-      "Redemptions are only available during the weekly window: it opens 10 hours into each epoch and lasts 6 hours.",
+      "No. Aurove does not add a settlement window. Redeem burns ERC-1155 units and releases veNFT inventory whenever Mezo allows that managed withdraw. Mezo epoch rules can still cause a revert.",
   },
   {
     question: "Why is there no route or insufficient liquidity on Swap?",
     answer:
-      "The registry could not find a concentrated-liquidity path for that pair or amount. Try another asset or reduce the size.",
+      "The registry could not find a concentrated-liquidity path for that pair or amount, or the Aurove pools have no inventory yet. Try another asset or reduce the size.",
   },
   {
     question: "What does Unsupported source combo mean on Liquidity?",
     answer:
-      "Selected funding sources cannot be combined for the zap plan. Change sources or choose another pool.",
+      "The selected funding sources cannot be combined into a zap plan. Change sources or choose the other pool.",
   },
   {
     question: "Why do Academy points show “Visible after wallet authentication”?",
     answer:
-      "Connect your wallet and Sign In. Without a session, personalized Academy stats stay locked.",
+      "Connect your wallet and click Sign In. Without a session, personalized Academy stats stay locked.",
   },
 ] as const;
 

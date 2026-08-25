@@ -2,93 +2,49 @@ import type { DocNavSection, DocStatus } from "./types";
 
 export const DOCS_NAV: DocNavSection[] = [
   {
-    title: "Introduction",
+    title: "Guides",
     items: [
-      { title: "What is Aurove", slug: "introduction/what-is-aurove", status: "live" },
-      { title: "Why Aurove", slug: "introduction/why-aurove", status: "live" },
-      {
-        title: "Architecture overview",
-        slug: "introduction/architecture-overview",
-        status: "live",
-      },
-    ],
-  },
-  {
-    title: "Getting started",
-    items: [
-      { title: "Connect wallet", slug: "getting-started/connect-wallet", status: "live" },
-      { title: "Faucet & test tokens", slug: "getting-started/faucet", status: "live" },
-      {
-        title: "First transaction",
-        slug: "getting-started/first-transaction",
-        status: "live",
-      },
-    ],
-  },
-  {
-    title: "Swap",
-    items: [
-      { title: "Swap overview", slug: "swap/overview", status: "live" },
-      { title: "Swap flows guide", slug: "swap/flows", status: "live" },
-      { title: "Fractions", slug: "swap/fractions", status: "live" },
-    ],
-  },
-  {
-    title: "Earn",
-    items: [
-      { title: "Earn flows guide", slug: "earn/flows", status: "live" },
-      { title: "veBTC", slug: "earn/vebtc", status: "live" },
-      { title: "veMEZO", slug: "earn/vemezo", status: "live" },
-      { title: "Managed yield", slug: "earn/managed-yield", status: "live" },
-      { title: "Tranches", slug: "earn/tranches", status: "live" },
-    ],
-  },
-  {
-    title: "Liquidity",
-    items: [
-      {
-        title: "Providing liquidity",
-        slug: "liquidity/providing-liquidity",
-        status: "live",
-      },
-      {
-        title: "Concentrated liquidity",
-        slug: "liquidity/concentrated-liquidity",
-        status: "live",
-      },
-      { title: "Gauges", slug: "liquidity/gauges", status: "live" },
-    ],
-  },
-  {
-    title: "Academy",
-    items: [
-      { title: "Points", slug: "academy/points", status: "live" },
-      { title: "Quests & tasks", slug: "academy/quests", status: "live" },
-      { title: "Referrals", slug: "academy/referrals", status: "live" },
+      { title: "What is Aurove", slug: "guides/what-is-aurove" },
+      { title: "Prerequisites", slug: "guides/prerequisites" },
+      { title: "Connect a wallet", slug: "guides/connect-wallet" },
+      { title: "Create a liquid position", slug: "guides/create-position" },
+      { title: "Understand Aurove assets", slug: "guides/assets" },
+      { title: "View positions", slug: "guides/positions" },
+      { title: "Swap", slug: "guides/swap" },
+      { title: "Provide liquidity", slug: "guides/liquidity" },
+      { title: "Price ranges and fees", slug: "guides/price-range" },
+      { title: "Claim rewards", slug: "guides/rewards" },
+      { title: "Redeem", slug: "guides/redeem" },
+      { title: "Academy", slug: "guides/academy" },
+      { title: "Risks", slug: "guides/risks" },
     ],
   },
   {
     title: "Protocol",
     items: [
-      { title: "ID20", slug: "protocol/id20", status: "live" },
-      { title: "Ledger", slug: "protocol/ledger", status: "live" },
-      { title: "Vaults", slug: "protocol/vaults", status: "live" },
-      { title: "Rewards", slug: "protocol/rewards", status: "live" },
-      { title: "Security model", slug: "protocol/security-model", status: "live" },
+      { title: "How Aurove works", slug: "protocol/overview" },
+      { title: "Assets and representations", slug: "protocol/assets" },
+      { title: "Custody and redemption", slug: "protocol/custody" },
+      { title: "Rewards and epochs", slug: "protocol/rewards" },
+      { title: "Concentrated liquidity", slug: "protocol/liquidity" },
+      { title: "Upgradeability and roles", slug: "protocol/roles" },
+      { title: "Security and limitations", slug: "protocol/security" },
     ],
   },
   {
     title: "Developers",
     items: [
-      { title: "Contracts", slug: "developers/contracts", status: "live" },
-      { title: "Integrations", slug: "developers/integrations", status: "live" },
-      { title: "Events", slug: "developers/events", status: "live" },
-      { title: "API", slug: "developers/api", status: "live" },
+      { title: "Chain configuration", slug: "developers/chain" },
+      { title: "Deployment reference", slug: "developers/deployment" },
+      { title: "Architecture", slug: "developers/architecture" },
+      { title: "Earn integration", slug: "developers/earn" },
+      { title: "Swap and liquidity integration", slug: "developers/liquidity" },
+      { title: "Events, errors, and indexing", slug: "developers/events" },
     ],
   },
   {
     title: "Reference",
-    items: [{ title: "FAQ", slug: "faq", status: "live" }],
+    items: [{ title: "FAQ", slug: "faq" }],
   },
 ];
 

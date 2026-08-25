@@ -24,6 +24,10 @@ export type DocPage = DocFrontmatter & {
   content: ReactNode;
 };
 
+export type DocPageDefinition = DocFrontmatter & {
+  Content: () => ReactNode;
+};
+
 export type DocNavItem = {
   title: string;
   slug: string;

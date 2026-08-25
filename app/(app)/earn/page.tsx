@@ -25,15 +25,15 @@ export default function AppEarnPage() {
         bullets={[
           "Deposit BTC or MEZO to create managed liquid positions (avBTCm / avMEZOm).",
           "Deposit an existing veBTC or veMEZO NFT without fully unwinding the lock yourself.",
-          "Hold liquid inventory you can swap, use as LP funding, or redeem in settlement windows.",
+          "Hold liquid inventory you can swap, use as LP funding, or redeem for veNFT inventory.",
           "Claim tranche and gauge rewards from the Earn dashboard when available.",
         ]}
         relatedLinks={[
-          { href: "/docs/earn/managed-yield", label: "Managed yield docs" },
-          { href: "/docs/earn/vebtc", label: "veBTC guide" },
+          { href: "/docs/guides/create-position", label: "Create a liquid position" },
+          { href: "/docs/guides/assets", label: "Understand Aurove assets" },
           { href: "/earn/stake/btc", label: "Create avBTCm position" },
           { href: "/earn/stake/mezo", label: "Create avMEZOm position" },
-          { href: "/docs/swap/flows", label: "Swap flows" },
+          { href: "/docs/guides/swap", label: "Swap" },
           { href: "/liquidity", label: "Provide liquidity" },
         ]}
       />

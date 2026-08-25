@@ -36,10 +36,10 @@ export default function AppLiquidityPage() {
           "Manage, increase, or remove liquidity from your position NFTs.",
         ]}
         relatedLinks={[
-          { href: "/docs/liquidity/providing-liquidity", label: "Providing liquidity" },
-          { href: "/docs/liquidity/concentrated-liquidity", label: "Concentrated liquidity" },
+          { href: "/docs/guides/liquidity", label: "Provide liquidity" },
+          { href: "/docs/guides/price-range", label: "Price ranges and fees" },
           { href: "/liquidity/add/btc", label: "Add BTC pool liquidity" },
-          { href: "/docs/swap/overview", label: "Swap overview" },
+          { href: "/docs/guides/swap", label: "Swap" },
         ]}
       />
     </div>
