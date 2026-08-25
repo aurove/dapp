@@ -7,39 +7,39 @@ import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from
 import { TokenMarks } from "@/components/features/shared/token-marks";
 import { getContractConfig } from "@/contracts/shared";
 import {
+  AUROVE_LIQUIDITY_PAIRS,
+  type AuroveLiquidityPair,
+} from "@/lib/config/supported-liquidity-pools";
+import {
   formatPriceLabel,
   resolveSlipstreamPoolContractName,
   type SlipstreamPoolKey,
 } from "./slipstream-adapter";
 import { useSlipstreamPoolState } from "./liquidity-range-graph";
 
-const POOLS: readonly {
-  key: SlipstreamPoolKey;
-  title: string;
-  description: string;
-  marks: readonly string[];
-}[] = [
-  {
-    key: "BTC",
-    title: "MUSD / avBTCm",
+const POOL_CARD_DETAILS: Record<
+  SlipstreamPoolKey,
+  { description: string; marks: readonly string[] }
+> = {
+  BTC: {
     description: "Provide MUSD and liquid BTC Earn exposure.",
     marks: ["MUSD", "BTC"],
   },
-  {
-    key: "MEZO",
-    title: "avBTCm / avMEZOm",
+  MEZO: {
     description: "Provide liquidity across Aurove BTC and MEZO assets.",
     marks: ["BTC", "MEZO"],
   },
-];
+};
 
 function PoolCard({
   poolKey,
+  routeSlug,
   title,
   description,
   marks,
 }: {
   poolKey: SlipstreamPoolKey;
+  routeSlug: string;
   title: string;
   description: string;
   marks: readonly string[];
@@ -57,7 +57,7 @@ function PoolCard({
   if (!configured) return null;
   return (
     <Link
-      href={`/liquidity/add/${poolKey.toLowerCase()}`}
+      href={`/liquidity/add/${routeSlug}`}
       className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
     >
       <Card className="h-full border-white/10 bg-white/[0.035] transition duration-200 group-hover:-translate-y-0.5 group-hover:border-[var(--accent)]/35 group-hover:bg-white/[0.05]">
@@ -108,13 +108,14 @@ export function AvailableLiquidityPools() {
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        {POOLS.map((pool) => (
+        {AUROVE_LIQUIDITY_PAIRS.map((pair: AuroveLiquidityPair) => (
           <PoolCard
-            key={pool.key}
-            poolKey={pool.key}
-            title={pool.title}
-            description={pool.description}
-            marks={pool.marks}
+            key={pair.key}
+            poolKey={pair.key}
+            routeSlug={pair.routeSlug}
+            title={pair.pairLabel}
+            description={POOL_CARD_DETAILS[pair.key].description}
+            marks={POOL_CARD_DETAILS[pair.key].marks}
           />
         ))}
       </div>

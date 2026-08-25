@@ -4,11 +4,16 @@ import { Price, Token } from "@uniswap/sdk-core";
 import { TickMath, nearestUsableTick, priceToClosestTick, tickToPrice } from "@uniswap/v3-sdk";
 import { parseUnits, type Address } from "viem";
 
+import {
+  AUROVE_LIQUIDITY_PAIRS,
+  type AuroveLiquidityPairKey,
+  type AuroveLiquidityPoolContractName,
+} from "@/lib/config/supported-liquidity-pools";
 import { formatCompactDecimal } from "@/lib/web3/value-parsers";
 
 export type SlipstreamRangePreset = "focused" | "balanced" | "full-range" | "custom";
-export type SlipstreamPoolKey = "BTC" | "MEZO";
-export type SlipstreamPoolContractName = "MUSD-avBTCm" | "avBTCm-avMEZOm";
+export type SlipstreamPoolKey = AuroveLiquidityPairKey;
+export type SlipstreamPoolContractName = AuroveLiquidityPoolContractName;
 
 export type SlipstreamTokenInfo = {
   address: Address;
@@ -57,10 +62,9 @@ export const SLIPSTREAM_RANGE_INTERVALS = {
 
 export const SLIPSTREAM_LIVE_BAR_LIMIT = 72;
 export const SLIPSTREAM_FALLBACK_BAR_LIMIT = 48;
-export const SLIPSTREAM_POOL_CONTRACT_BY_KEY: Record<SlipstreamPoolKey, SlipstreamPoolContractName> = {
-  BTC: "MUSD-avBTCm",
-  MEZO: "avBTCm-avMEZOm",
-};
+export const SLIPSTREAM_POOL_CONTRACT_BY_KEY = Object.fromEntries(
+  AUROVE_LIQUIDITY_PAIRS.map((pair) => [pair.key, pair.poolContractName]),
+) as Record<SlipstreamPoolKey, SlipstreamPoolContractName>;
 // Mirrors the CL pool read surface from the contract registry's concentrated-liquidity pool entries.
 export const SLIPSTREAM_POOL_READ_ABI = [
   {
@@ -118,7 +122,9 @@ export const SLIPSTREAM_POOL_READ_ABI = [
   },
 ] as const;
 
-export function resolveSlipstreamPoolContractName(key: SlipstreamPoolKey): SlipstreamPoolContractName {
+export function resolveSlipstreamPoolContractName(
+  key: SlipstreamPoolKey,
+): SlipstreamPoolContractName {
   return SLIPSTREAM_POOL_CONTRACT_BY_KEY[key];
 }
 
@@ -143,11 +149,7 @@ export function getFullRangeHalfIntervals(tickSpacing: number) {
 
 export function snapTickToSpacing(tick: number, tickSpacing: number) {
   if (!Number.isFinite(tick) || !Number.isInteger(tickSpacing) || tickSpacing <= 0) return 0;
-  const boundedTick = clampTickToBounds(
-    Math.trunc(tick),
-    TickMath.MIN_TICK,
-    TickMath.MAX_TICK,
-  );
+  const boundedTick = clampTickToBounds(Math.trunc(tick), TickMath.MIN_TICK, TickMath.MAX_TICK);
   return nearestUsableTick(boundedTick, tickSpacing);
 }
 
@@ -162,22 +164,38 @@ export function normalizeTickRange(
 ): SlipstreamTickRange {
   const minTick = bounds.minUsable;
   const maxTick = bounds.maxUsable;
-  const snappedLower = clampTickToBounds(snapTickToSpacing(range.tickLower, tickSpacing), minTick, maxTick - tickSpacing);
-  const snappedUpper = clampTickToBounds(snapTickToSpacing(range.tickUpper, tickSpacing), minTick + tickSpacing, maxTick);
+  const snappedLower = clampTickToBounds(
+    snapTickToSpacing(range.tickLower, tickSpacing),
+    minTick,
+    maxTick - tickSpacing,
+  );
+  const snappedUpper = clampTickToBounds(
+    snapTickToSpacing(range.tickUpper, tickSpacing),
+    minTick + tickSpacing,
+    maxTick,
+  );
 
   if (snappedUpper > snappedLower) {
     return { tickLower: snappedLower, tickUpper: snappedUpper };
   }
 
   const fallbackLower = clampTickToBounds(snappedLower, minTick, maxTick - tickSpacing);
-  const fallbackUpper = clampTickToBounds(fallbackLower + tickSpacing, minTick + tickSpacing, maxTick);
+  const fallbackUpper = clampTickToBounds(
+    fallbackLower + tickSpacing,
+    minTick + tickSpacing,
+    maxTick,
+  );
 
   if (fallbackUpper > fallbackLower) {
     return { tickLower: fallbackLower, tickUpper: fallbackUpper };
   }
 
   const fallbackUpperFromTop = maxTick;
-  const fallbackLowerFromTop = clampTickToBounds(fallbackUpperFromTop - tickSpacing, minTick, maxTick - tickSpacing);
+  const fallbackLowerFromTop = clampTickToBounds(
+    fallbackUpperFromTop - tickSpacing,
+    minTick,
+    maxTick - tickSpacing,
+  );
   return {
     tickLower: fallbackLowerFromTop,
     tickUpper: fallbackUpperFromTop,
@@ -228,11 +246,16 @@ export function buildSampleTicks(
   const spanTicks = Math.max(tickSpacing, range.tickUpper - range.tickLower);
   const usableTickCount = Math.max(1, Math.trunc(spanTicks / tickSpacing));
   const pointCount = Math.max(2, Math.min(maxPoints, usableTickCount + 1));
-  const step = Math.max(tickSpacing, Math.trunc(spanTicks / (pointCount - 1) / tickSpacing) * tickSpacing);
+  const step = Math.max(
+    tickSpacing,
+    Math.trunc(spanTicks / (pointCount - 1) / tickSpacing) * tickSpacing,
+  );
   const ticks: number[] = [];
 
   for (let tick = range.tickLower; tick <= range.tickUpper; tick += step) {
-    ticks.push(clampTickToBounds(snapTickToSpacing(tick, tickSpacing), range.tickLower, range.tickUpper));
+    ticks.push(
+      clampTickToBounds(snapTickToSpacing(tick, tickSpacing), range.tickLower, range.tickUpper),
+    );
     if (ticks.length >= pointCount) break;
   }
 
@@ -245,7 +268,13 @@ export function buildSampleTicks(
 }
 
 function toToken(poolToken: SlipstreamTokenInfo, chainId: number) {
-  return new Token(chainId, poolToken.address, poolToken.decimals, poolToken.symbol ?? undefined, poolToken.name ?? undefined);
+  return new Token(
+    chainId,
+    poolToken.address,
+    poolToken.decimals,
+    poolToken.symbol ?? undefined,
+    poolToken.name ?? undefined,
+  );
 }
 
 function displayTokenPriority(token: SlipstreamTokenInfo | null) {
@@ -296,10 +325,7 @@ export function formatDisplayPair(pool: SlipstreamPoolState) {
   )}`;
 }
 
-export function getDisplayPriceRangeTicks(
-  pool: SlipstreamPoolState,
-  range: SlipstreamTickRange,
-) {
+export function getDisplayPriceRangeTicks(pool: SlipstreamPoolState, range: SlipstreamTickRange) {
   return getDisplayPriceOrientation(pool).inverted
     ? { lowTick: range.tickUpper, highTick: range.tickLower }
     : { lowTick: range.tickLower, highTick: range.tickUpper };
@@ -447,14 +473,21 @@ export function buildFallbackLiquiditySeries(params: {
   currentTick: number;
   maxPoints?: number;
 }) {
-  const points = buildSampleTicks(params.range, params.tickSpacing, params.maxPoints ?? SLIPSTREAM_FALLBACK_BAR_LIMIT);
+  const points = buildSampleTicks(
+    params.range,
+    params.tickSpacing,
+    params.maxPoints ?? SLIPSTREAM_FALLBACK_BAR_LIMIT,
+  );
   const midpoint = getRangeMidpoint(params.range);
-  const sigma = Math.max(params.tickSpacing * 6, (params.range.tickUpper - params.range.tickLower) / 5);
+  const sigma = Math.max(
+    params.tickSpacing * 6,
+    (params.range.tickUpper - params.range.tickLower) / 5,
+  );
 
   const seriesPoints = points.map((tick, index) => {
     const distance = Math.abs(tick - midpoint);
     const wave = Math.exp(-((distance * distance) / (2 * sigma * sigma)));
-    const ripple = 0.92 + ((index % 5) * 0.03);
+    const ripple = 0.92 + (index % 5) * 0.03;
     const bias = 0.82 + (Math.abs(tick - params.currentTick) <= params.tickSpacing * 2 ? 0.55 : 0);
 
     return {
@@ -478,7 +511,11 @@ export function buildLiquiditySeries(params: {
   liveLiquidityByTick: Map<number, bigint | null>;
   maxPoints?: number;
 }) {
-  const ticks = buildSampleTicks(params.range, params.tickSpacing, params.maxPoints ?? SLIPSTREAM_LIVE_BAR_LIMIT);
+  const ticks = buildSampleTicks(
+    params.range,
+    params.tickSpacing,
+    params.maxPoints ?? SLIPSTREAM_LIVE_BAR_LIMIT,
+  );
 
   if (ticks.length === 0) {
     return buildFallbackLiquiditySeries({
@@ -493,7 +530,8 @@ export function buildLiquiditySeries(params: {
     const rawLiquidity = params.liveLiquidityByTick.get(tick);
     return {
       tick,
-      liquidityGross: rawLiquidity === null || rawLiquidity === undefined ? 0 : Number(rawLiquidity),
+      liquidityGross:
+        rawLiquidity === null || rawLiquidity === undefined ? 0 : Number(rawLiquidity),
       isLive: rawLiquidity !== null && rawLiquidity !== undefined,
     };
   });
@@ -543,7 +581,11 @@ export function getLiquidityForAmount0(params: {
 }) {
   const { amount0, sqrtLowerX96, sqrtUpperX96 } = params;
   if (amount0 <= 0n || sqrtLowerX96 <= 0n || sqrtUpperX96 <= sqrtLowerX96) return 0n;
-  return mulDivFloor(mulDivFloor(amount0, sqrtLowerX96, 1n) * sqrtUpperX96, 1n, (sqrtUpperX96 - sqrtLowerX96) * SLIPSTREAM_Q96);
+  return mulDivFloor(
+    mulDivFloor(amount0, sqrtLowerX96, 1n) * sqrtUpperX96,
+    1n,
+    (sqrtUpperX96 - sqrtLowerX96) * SLIPSTREAM_Q96,
+  );
 }
 
 export function getLiquidityForAmount1(params: {
