@@ -71,11 +71,7 @@ export function getHomeJsonLd() {
 }
 
 /** WebPage graph for product surfaces (Earn, Liquidity, Academy, docs hub). */
-export function getWebPageJsonLd(input: {
-  path: string;
-  title: string;
-  description: string;
-}) {
+export function getWebPageJsonLd(input: { path: string; title: string; description: string }) {
   const url = absoluteUrl(input.path);
   const imageUrl = absoluteUrl(DEFAULT_OG_IMAGE_PATH);
 
@@ -219,7 +215,7 @@ export const AUROVE_FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "Why do I have no liquid positions yet?",
     answer:
-      "Deposit BTC or MEZO or a veNFT via Create Position on Earn, or acquire liquid assets via Swap.",
+      "Select avBTCm or avMEZOm on Earn, create a position by depositing BTC, MEZO, or a veNFT, or acquire liquid assets via Swap.",
   },
   {
     question: "What does Await redemption window mean?",

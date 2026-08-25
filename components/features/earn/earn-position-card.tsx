@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Select, { type MultiValue, type StylesConfig } from "react-select";
 import { formatUnits, type Abi, type Address } from "viem";
 import { useFormik } from "formik";
@@ -24,6 +24,7 @@ import {
   useEarnProductDetails,
 } from "./use-earn-data";
 import { estimateTrancheApr, formatAprPercent } from "./utils/apr";
+import { txError } from "./utils/tx-error";
 
 type VenftSelectOption = {
   value: string;
@@ -803,15 +804,6 @@ function InfoTile({ label, value }: { label: string; value: string }) {
 
 function formatAmount(value: bigint | null | undefined, decimals = 18, symbol?: string | null) {
   return formatCompactRawTokenAmount(value, decimals, symbol ?? undefined);
-}
-
-
-function txError(handler: (message: string) => void) {
-  return (err: string | SyntheticEvent<HTMLButtonElement>) => {
-    if (typeof err === "string") {
-      handler(err);
-    }
-  };
 }
 
 function variantCopy(variant: EarnVariant) {

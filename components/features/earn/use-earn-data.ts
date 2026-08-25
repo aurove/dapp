@@ -26,6 +26,7 @@ import {
   nameOf,
   symbolOf,
 } from "@/components/features/earn/utils/tranche";
+import { selectEarnUserPositions } from "@/components/features/earn/earn-asset";
 import { earnAprProductKey } from "@/components/features/earn/utils/apr";
 
 export type EarnVariant = "veBTC" | "veMEZO";
@@ -780,9 +781,7 @@ export function useEarnSnapshot() {
     return {
       products,
       liveProductCount: products.length,
-      userPositions: products.filter(
-        (product) => product.userBalanceRaw > 0n || product.id20BalanceRaw > 0n,
-      ),
+      userPositions: selectEarnUserPositions(products),
       tokens,
       supportedVeNfts,
     };

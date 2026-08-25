@@ -50,8 +50,64 @@ export function estimateTrancheApr(product: EarnProduct): TrancheAprEstimate | n
 
   return {
     product,
-    annualisedAprPercent:
-      (rewardFunded / totalSupply) * (SECONDS_PER_YEAR / WEEK_SECONDS) * 100,
+    annualisedAprPercent: (rewardFunded / totalSupply) * (SECONDS_PER_YEAR / WEEK_SECONDS) * 100,
+  };
+}
+
+export type AssetAprSummary = {
+  value: string;
+  detail: string;
+  available: boolean;
+};
+
+export function summarizeAssetApr(params: {
+  products: readonly EarnProduct[];
+  variant: EarnProduct["variant"];
+  aprBasisMap: Record<
+    string,
+    {
+      rewardAmountRaw: bigint;
+      totalSupplyAtFundingRaw: bigint;
+      fundingBlockNumber: bigint;
+    } | null
+  >;
+  isLoading: boolean;
+}): AssetAprSummary {
+  if (params.isLoading) {
+    return {
+      value: "Loading…",
+      detail: "Scanning reward funding history for this Aurove asset.",
+      available: false,
+    };
+  }
+
+  const estimates = params.products
+    .filter((product) => product.variant === params.variant)
+    .map((product) => {
+      const basis = params.aprBasisMap[earnAprProductKey(product)];
+      if (!basis) return null;
+      return estimateTrancheApr({
+        ...product,
+        aprRewardAmountRaw: basis.rewardAmountRaw,
+        aprTotalSupplyAtFundingRaw: basis.totalSupplyAtFundingRaw,
+        aprFundingBlockNumber: basis.fundingBlockNumber,
+      });
+    })
+    .filter((estimate): estimate is TrancheAprEstimate => Boolean(estimate));
+
+  if (estimates.length === 0) {
+    return {
+      value: "Not available yet",
+      detail: "Annualised APR will appear after reward funding is observed for this asset.",
+      available: false,
+    };
+  }
+
+  const summary = summarizeAnnualisedApr(estimates);
+  return {
+    value: summary.value,
+    detail: summary.detail,
+    available: !summary.subtle,
   };
 }
 
@@ -63,7 +119,8 @@ export function summarizeAnnualisedApr(estimates: readonly TrancheAprEstimate[])
   if (estimates.length === 0) {
     return {
       value: "Not available yet",
-      detail: "Annualised APR will appear after reward funding is observed for a live Aurove asset.",
+      detail:
+        "Annualised APR will appear after reward funding is observed for a live Aurove asset.",
       subtle: true,
     };
   }

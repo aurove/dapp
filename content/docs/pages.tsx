@@ -41,7 +41,9 @@ function StatusTable() {
           <td>
             <strong>Live on Testnet</strong>
           </td>
-          <td>Shipped in the dapp and deployed on Mezo Testnet (chain id {MEZO_TESTNET_CHAIN_ID}).</td>
+          <td>
+            Shipped in the dapp and deployed on Mezo Testnet (chain id {MEZO_TESTNET_CHAIN_ID}).
+          </td>
         </tr>
         <tr>
           <td>
@@ -74,11 +76,10 @@ const pages: DocPageDefinition[] = [
       <>
         <h1>What is Aurove</h1>
         <p>
-          <strong>Aurove</strong> is the liquid ve-yield layer for{" "}
-          <strong>Mezo Earn</strong>. It lets users transform locked{" "}
-          <strong>veBTC</strong> and <strong>veMEZO</strong> positions into liquid, fungible assets
-          that continue to participate in managed yield while remaining usable across swap and
-          liquidity flows.
+          <strong>Aurove</strong> is the liquid ve-yield layer for <strong>Mezo Earn</strong>. It
+          lets users transform locked <strong>veBTC</strong> and <strong>veMEZO</strong> positions
+          into liquid, fungible assets that continue to participate in managed yield while remaining
+          usable across swap and liquidity flows.
         </p>
         <Callout variant="info" title="Live scope">
           The public dapp currently targets <strong>Mezo Testnet</strong>. Product surfaces in the
@@ -92,8 +93,8 @@ const pages: DocPageDefinition[] = [
             into managed tranches.
           </li>
           <li>
-            <strong>Tokenized yield</strong> — hold ERC1155 tranche fractions and ERC20 ID20 wrappers
-            (e.g. <code>avBTCm</code>, <code>avMEZOm</code>).
+            <strong>Tokenized yield</strong> — hold ERC1155 tranche fractions and ERC20 ID20
+            wrappers (e.g. <code>avBTCm</code>, <code>avMEZOm</code>).
           </li>
           <li>
             <strong>Fractions</strong> — liquid share accounting against managed ve inventory.
@@ -397,8 +398,8 @@ const pages: DocPageDefinition[] = [
             and request test tokens for your address.
           </li>
           <li>
-            Confirm balances in wallet and in-app (Earn amount fields, Swap asset selector, Liquidity
-            funding sources).
+            Confirm balances in wallet and in-app (Earn amount fields, Swap asset selector,
+            Liquidity funding sources).
           </li>
         </ol>
         <Callout variant="coming-soon" title="In development">
@@ -550,6 +551,10 @@ const pages: DocPageDefinition[] = [
                 <DocRouteLink href="/earn" code>
                   /earn
                 </DocRouteLink>
+                ,{" "}
+                <DocRouteLink href="/earn/stake/btc" code>
+                  /earn/stake/btc
+                </DocRouteLink>
               </td>
             </tr>
             <tr>
@@ -579,8 +584,7 @@ const pages: DocPageDefinition[] = [
   {
     slug: "earn/vebtc",
     title: "veBTC",
-    description:
-      "Deposit BTC or veBTC into Aurove to mint liquid managed BTC exposure (avBTCm).",
+    description: "Deposit BTC or veBTC into Aurove to mint liquid managed BTC exposure (avBTCm).",
     tags: ["earn", "vebtc", "avbtcm", "btc"],
     status: "live",
     searchText:
@@ -594,7 +598,11 @@ const pages: DocPageDefinition[] = [
         </Callout>
         <p>
           The BTC path converts locked Bitcoin voting power into liquid Aurove inventory. In the UI,
-          select <strong>BTC</strong> on Earn.
+          open the <strong>avBTCm</strong> card on Earn or go to{" "}
+          <DocRouteLink href="/earn/stake/btc" code>
+            /earn/stake/btc
+          </DocRouteLink>
+          .
         </p>
         <h2>What you receive</h2>
         <ul>
@@ -637,8 +645,9 @@ const pages: DocPageDefinition[] = [
           with inventory selection — vault may split veNFTs for exact amounts.
         </p>
         <Callout variant="warning">
-          Redemptions only during the weekly settlement window (opens 10 hours into each epoch, lasts
-          6 hours). Outside the window the button shows <strong>Await redemption window</strong>.
+          Redemptions only during the weekly settlement window (opens 10 hours into each epoch,
+          lasts 6 hours). Outside the window the button shows{" "}
+          <strong>Await redemption window</strong>.
         </Callout>
       </>
     ),
@@ -659,8 +668,12 @@ const pages: DocPageDefinition[] = [
           Full Earn UI path: <DocRouteLink href="/docs/earn/flows">Earn flows guide</DocRouteLink>.
         </Callout>
         <p>
-          The MEZO path mirrors BTC Earn with longer managed lock parameters. Select{" "}
-          <strong>MEZO</strong> on the Earn page.
+          The MEZO path mirrors BTC Earn with longer managed lock parameters. Open the{" "}
+          <strong>avMEZOm</strong> card on Earn or go to{" "}
+          <DocRouteLink href="/earn/stake/mezo" code>
+            /earn/stake/mezo
+          </DocRouteLink>
+          .
         </p>
         <h2>What you receive</h2>
         <ul>
@@ -710,22 +723,23 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         <h2>In the Earn UI</h2>
         <ul>
           <li>
-            <strong>Claimables</strong> — fraction reward balances via each product’s RewardSink{" "}
-            <code>claimRewards</code>.
+            <strong>Rewards → Claimables</strong> — fraction reward balances via each product’s
+            RewardSink <code>claimRewards</code>.
           </li>
           <li>
-            <strong>ID20 gauge rewards</strong> — per-gauge claim + <strong>Claim all</strong>.
-            Inactive gauges show <strong>Activation required</strong> (activation can be included in
-            LP flows).
+            <strong>Rewards → ID20 gauge rewards</strong> — per-gauge claim +{" "}
+            <strong>Claim all</strong>. Inactive gauges show <strong>Activation required</strong>{" "}
+            (activation can be included in LP flows).
           </li>
           <li>
-            <strong>Annualised APR</strong> — latest weekly funding rate annualised without compounding
-            scans (UI estimates, not guarantees).
+            <strong>Annualised APR</strong> — shown on each earning-asset card and on position
+            cards; latest weekly funding rate annualised without compounding (UI estimates, not
+            guarantees).
           </li>
         </ul>
         <Callout variant="info">
-          Anyone may permissionlessly call <code>Ledger.claimRebases</code> to pull Mezo rebases into
-          sinks; holders then claim their share.
+          Anyone may permissionlessly call <code>Ledger.claimRebases</code> to pull Mezo rebases
+          into sinks; holders then claim their share.
         </Callout>
       </>
     ),
@@ -748,8 +762,8 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         </Callout>
         <p>
           A <strong>tranche</strong> is an ERC1155 token id representing a slice of a managed ve
-          position for a variant and epoch bucket. Managed products use the max epoch bucket for each
-          variant.
+          position for a variant and epoch bucket. Managed products use the max epoch bucket for
+          each variant.
         </p>
         <h2>Encoding</h2>
         <p>
@@ -758,8 +772,8 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         </p>
         <h2>Redeem locks</h2>
         <p>
-          When fee changes are proposed near epoch end, a freeze window can lock newly minted units so
-          they cannot redeem in the immediately following settlement window. Locks travel with
+          When fee changes are proposed near epoch end, a freeze window can lock newly minted units
+          so they cannot redeem in the immediately following settlement window. Locks travel with
           transfers.
         </p>
         <h2>Settlement window</h2>
@@ -767,7 +781,8 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
           <li>Opens 10 hours into each weekly epoch</li>
           <li>Lasts 6 hours</li>
           <li>
-            Outside the window: redemptions revert / UI shows <strong>Await redemption window</strong>
+            Outside the window: redemptions revert / UI shows{" "}
+            <strong>Await redemption window</strong>
           </li>
         </ul>
       </>
@@ -791,7 +806,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         <h2>Where fractions appear</h2>
         <ul>
           <li>
-            <strong>Earn → Your Liquid Positions</strong> — product balances and redemption.
+            <strong>Earn → Your liquid positions</strong> — product balances and redemption.
           </li>
           <li>
             <strong>Swap sell side</strong> — asset selector groups <em>Ledger tranches</em> as
@@ -880,16 +895,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
     title: "Swap flows guide",
     description:
       "End-to-end swap paths: ID20, ERC-20, underlying deposit-zap, tranche wrap, entire veNFT, and partial exit via Earn.",
-    tags: [
-      "swap",
-      "flows",
-      "venft",
-      "tranche",
-      "id20",
-      "zap",
-      "exact-input",
-      "approvals",
-    ],
+    tags: ["swap", "flows", "venft", "tranche", "id20", "zap", "exact-input", "approvals"],
     status: "live",
     searchText:
       "swap flows guide entire venft tranche id20 partial deposit wrap zap ERC20 MUSD avBTCm approvals exact input ledger fractions earn deposit then swap",
@@ -970,13 +976,15 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         <ul>
           <li>Collect fees (per position or Collect all) for unstaked NFTs</li>
           <li>
-            <strong>Adjust</strong> — increase or remove liquidity with slippage controls; burn empty NFTs
+            <strong>Adjust</strong> — increase or remove liquidity with slippage controls; burn
+            empty NFTs
           </li>
           <li>
             <strong>Stake</strong> — deposit the position NFT into the pool CL gauge for emissions
           </li>
           <li>
-            <strong>Unstake</strong> — withdraw from the gauge (optionally claim emissions) before adjusting
+            <strong>Unstake</strong> — withdraw from the gauge (optionally claim emissions) before
+            adjusting
           </li>
         </ul>
       </>
@@ -1047,7 +1055,8 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         <h2>User actions in the app</h2>
         <ul>
           <li>
-            <strong>Earn → ID20 gauge rewards</strong> — view claimable, claim one or claim all.
+            <strong>Earn → Rewards → ID20 gauge rewards</strong> — view claimable, claim one or
+            claim all.
           </li>
           <li>
             <strong>Activation required</strong> — inactive accounts do not earn; LP flows can
@@ -1087,8 +1096,8 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
       <>
         <h1>Points</h1>
         <p>
-          Academy tracks season points from qualifying on-chain activity. There is no separate “claim
-          points” button — points accrue when you complete rewarded actions.
+          Academy tracks season points from qualifying on-chain activity. There is no separate
+          “claim points” button — points accrue when you complete rewarded actions.
         </p>
         <h2>Prerequisites</h2>
         <ul>
@@ -1174,9 +1183,8 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         <h1>Referrals</h1>
         <p>
           Academy referrals attribute a wallet to a referrer on a given chain, then share a fixed
-          slice of that wallet’s task points with a two-hop chain:{" "}
-          <strong>direct</strong> (the person you invited) and <strong>grand</strong> (people your
-          directs invite).
+          slice of that wallet’s task points with a two-hop chain: <strong>direct</strong> (the
+          person you invited) and <strong>grand</strong> (people your directs invite).
         </p>
         <Callout variant="info" title="Live on Testnet">
           Referral links, counts, and reward splits are live in the Academy UI after wallet{" "}
@@ -1189,7 +1197,8 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
             <strong>Not authenticated</strong> — prompt to authenticate to unlock your referral link
           </li>
           <li>
-            <strong>Profile not ready</strong> — link appears once the Academy profile / code is ready
+            <strong>Profile not ready</strong> — link appears once the Academy profile / code is
+            ready
           </li>
           <li>
             <strong>Ready</strong> — copyable link plus <strong>Direct referrals</strong> and{" "}
@@ -1202,16 +1211,14 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
           After Sign In, Academy ensures an 8-character referral code for your wallet on the active
           chain and builds a link of the form:
         </p>
-        <CodeBlock
-          language="text"
-          code={`https://www.aurove.xyz/academy?ref=<8-char-code>`}
-        />
+        <CodeBlock language="text" code={`https://www.aurove.xyz/academy?ref=<8-char-code>`} />
         <ul>
           <li>
             Query param: <code>ref</code>
           </li>
           <li>
-            Code charset: alphanumeric plus <code>_</code> / <code>-</code>, length <strong>8</strong>
+            Code charset: alphanumeric plus <code>_</code> / <code>-</code>, length{" "}
+            <strong>8</strong>
           </li>
           <li>
             One code per <strong>user + chain</strong>; codes are unique globally
@@ -1220,10 +1227,12 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
 
         <h2>How someone becomes your referral</h2>
         <ol>
-          <li>They open your link (or any URL carrying your <code>ref</code> code).</li>
           <li>
-            If they are not signed in yet, the app can store the code in a short-lived pending cookie
-            (<code>academy_referral</code>, ~7 days) until they authenticate.
+            They open your link (or any URL carrying your <code>ref</code> code).
+          </li>
+          <li>
+            If they are not signed in yet, the app can store the code in a short-lived pending
+            cookie (<code>academy_referral</code>, ~7 days) until they authenticate.
           </li>
           <li>
             On bind (authenticated <code>POST /api/academy/referral</code>), the system records a
@@ -1240,8 +1249,8 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
             <strong>No self-referral</strong> — you cannot use your own code.
           </li>
           <li>
-            <strong>Chain must match</strong> — the code’s chain must match the authenticated session
-            chain.
+            <strong>Chain must match</strong> — the code’s chain must match the authenticated
+            session chain.
           </li>
           <li>
             Re-binding the <em>same</em> referrer is idempotent (returns the existing relationship).
@@ -1301,9 +1310,9 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
 
         <h2>How referral points are earned</h2>
         <p>
-          Referrals do not pay a one-time signup bonus in the current system. Instead, when a referred
-          user earns <strong>task points</strong> (for example from a qualifying swap or fee
-          collection), the base award is split across the action user and their referral chain:
+          Referrals do not pay a one-time signup bonus in the current system. Instead, when a
+          referred user earns <strong>task points</strong> (for example from a qualifying swap or
+          fee collection), the base award is split across the action user and their referral chain:
         </p>
         <table>
           <thead>
@@ -1386,8 +1395,8 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         <p>
           For some epoch / leaderboard helpers, a direct referral may be treated as{" "}
           <em>qualified</em> only when the referred user also has points activity inside that epoch
-          window. The Academy referral card counts (<strong>Direct</strong> / <strong>Grand</strong>)
-          are total relationship counts for the chain, not limited to the current epoch.
+          window. The Academy referral card counts (<strong>Direct</strong> / <strong>Grand</strong>
+          ) are total relationship counts for the chain, not limited to the current epoch.
         </p>
 
         <h2>Quick reference</h2>
@@ -1401,14 +1410,15 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
                   <li>Connect wallet, switch network, Sign In on Academy.</li>
                   <li>Copy your referral link and share it.</li>
                   <li>
-                    When friends sign in via your link, your <strong>Direct</strong> count increases.
+                    When friends sign in via your link, your <strong>Direct</strong> count
+                    increases.
                   </li>
                   <li>
                     When they refer others, your <strong>Grand</strong> count increases.
                   </li>
                   <li>
-                    You earn ongoing points when they complete Academy tasks (3% direct / 7% grand of
-                    their base task points).
+                    You earn ongoing points when they complete Academy tasks (3% direct / 7% grand
+                    of their base task points).
                   </li>
                 </ol>
               ),
@@ -1436,7 +1446,8 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
                     <code>splitAcademyReferralPointUnits</code>
                   </li>
                   <li>
-                    API: <code>POST /api/academy/referral</code> with <code>{`{ "refId": "..." }`}</code>
+                    API: <code>POST /api/academy/referral</code> with{" "}
+                    <code>{`{ "refId": "..." }`}</code>
                   </li>
                 </ul>
               ),
@@ -1479,7 +1490,10 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
           language="solidity"
           code={`function unwrap(uint256 amount, address to) external returns (uint256 burned);`}
         />
-        <p>Burns ERC20 and transfers underlying ERC1155 to <code>to</code>. Emits <code>Unwrapped</code>.</p>
+        <p>
+          Burns ERC20 and transfers underlying ERC1155 to <code>to</code>. Emits{" "}
+          <code>Unwrapped</code>.
+        </p>
         <h2>Backing model</h2>
         <ul>
           <li>
@@ -1556,7 +1570,11 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
         </ul>
         <p>
           Testnet:{" "}
-          <a href={explorerAddressUrl("0xE276fB7B0376aBbb1a11B14f31E3773C331aE7D7")} target="_blank" rel="noreferrer">
+          <a
+            href={explorerAddressUrl("0xE276fB7B0376aBbb1a11B14f31E3773C331aE7D7")}
+            target="_blank"
+            rel="noreferrer"
+          >
             0xE276…E7D7
           </a>
         </p>
@@ -1605,8 +1623,7 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
   {
     slug: "protocol/rewards",
     title: "Rewards",
-    description:
-      "Retroactive credit rewards, sinks, ID20 harvest, and fee-on-rebase mechanics.",
+    description: "Retroactive credit rewards, sinks, ID20 harvest, and fee-on-rebase mechanics.",
     tags: ["rewards", "rebases", "sink", "retroactive-credit"],
     status: "live",
     searchText:
@@ -1625,16 +1642,21 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
           <li>Virtual credit accrues over time for existing units</li>
           <li>Real reward tokens only distribute over credit that existed before notification</li>
           <li>
-            New units pay via <code>rewardDebtPerUnitIntegral</code> so they do not earn past rewards
+            New units pay via <code>rewardDebtPerUnitIntegral</code> so they do not earn past
+            rewards
           </li>
         </ul>
         <h2>User claim surfaces</h2>
         <ol>
-          <li>Tranche claimables → RewardSink <code>claimRewards</code></li>
+          <li>
+            Tranche claimables → RewardSink <code>claimRewards</code>
+          </li>
           <li>
             AuroveId20 <code>claimRewards</code> harvests sink → notifies gauge
           </li>
-          <li>Id20Gauge <code>claim</code> for activated holders</li>
+          <li>
+            Id20Gauge <code>claim</code> for activated holders
+          </li>
         </ol>
         <h2>Protocol fee</h2>
         <p>
@@ -1720,7 +1742,9 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
                 </a>
               </p>
             ) : (
-              <p className="mt-2 text-xs text-white/40">No singleton address (factory implementation).</p>
+              <p className="mt-2 text-xs text-white/40">
+                No singleton address (factory implementation).
+              </p>
             )}
             {contract.interfaces?.length ? (
               <p className="mt-2 text-xs text-white/45">
@@ -1805,14 +1829,13 @@ function depositVeNft(uint8 variant, uint256 epochs, uint256 tokenId, address to
                 <ul className="list-disc space-y-1 pl-5 text-white/70">
                   <li>Treat avBTCm / avMEZOm as standard 18-decimal ERC20</li>
                   <li>
-                    Read <code>backingBalance</code> / <code>surplusBacking</code> for solvency views
+                    Read <code>backingBalance</code> / <code>surplusBacking</code> for solvency
+                    views
                   </li>
                   <li>
                     Use <code>accountState</code> on gauges for off-chain previews when available
                   </li>
-                  <li>
-                    Prefer ZapRouter ordered liquidity methods for multi-asset entry
-                  </li>
+                  <li>Prefer ZapRouter ordered liquidity methods for multi-asset entry</li>
                 </ul>
               ),
             },
@@ -1898,8 +1921,8 @@ open https://explorer.test.mezo.org/address/0xE276fB7B0376aBbb1a11B14f31E3773C33
         <h2>Application ingestion</h2>
         <p>
           The dapp exposes an internal events pipeline under <code>/api/internal/events</code> for
-          authenticated ingestion used by Academy points and related indexing. Contract handler types
-          live under <code>lib/events/</code>.
+          authenticated ingestion used by Academy points and related indexing. Contract handler
+          types live under <code>lib/events/</code>.
         </p>
         <Callout variant="warning">
           Internal routes require service authentication — they are not public integration APIs.
@@ -1910,8 +1933,7 @@ open https://explorer.test.mezo.org/address/0xE276fB7B0376aBbb1a11B14f31E3773C33
   {
     slug: "developers/api",
     title: "API",
-    description:
-      "HTTP APIs available in the Aurove dapp: Academy, auth, and internal services.",
+    description: "HTTP APIs available in the Aurove dapp: Academy, auth, and internal services.",
     tags: ["developers", "api", "academy", "auth"],
     status: "live",
     searchText:

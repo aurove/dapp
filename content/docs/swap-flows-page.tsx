@@ -7,15 +7,7 @@ import { DocsTabs } from "@/components/docs/docs-tabs";
 
 const { Node, Arrow, Row } = DiagramParts;
 
-function Shot({
-  src,
-  alt,
-  caption,
-}: {
-  src: string;
-  alt: string;
-  caption: string;
-}) {
+function Shot({ src, alt, caption }: { src: string; alt: string; caption: string }) {
   return (
     <figure className="my-6 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
       <div className="relative mx-auto max-w-md bg-[#0a0e14] px-2 py-3 sm:max-w-lg">
@@ -29,11 +21,7 @@ function Shot({
   );
 }
 
-function FlowTable({
-  rows,
-}: {
-  rows: Array<{ label: string; value: ReactNode }>;
-}) {
+function FlowTable({ rows }: { rows: Array<{ label: string; value: ReactNode }> }) {
   return (
     <table>
       <tbody>
@@ -192,8 +180,8 @@ export function SwapFlowsContent() {
             label: "Plan type",
             value: (
               <>
-                <code>directClSwap</code> → <code>exactInputSingle</code> /{" "}
-                <code>exactInput</code> (or exact-output variants)
+                <code>directClSwap</code> → <code>exactInputSingle</code> / <code>exactInput</code>{" "}
+                (or exact-output variants)
               </>
             ),
           },
@@ -247,9 +235,7 @@ export function SwapFlowsContent() {
         <li>
           No CL route → button shows <strong>No route available</strong>.
         </li>
-        <li>
-          High impact (≥ 5%) shows an amber warning under the quote.
-        </li>
+        <li>High impact (≥ 5%) shows an amber warning under the quote.</li>
         <li>Exact-output is allowed for ID20 sells (edit the Buy amount).</li>
       </ul>
 
@@ -289,9 +275,9 @@ export function SwapFlowsContent() {
         <strong>Status:</strong> Supported
       </p>
       <p>
-        Selling <strong>underlying</strong> BTC or MEZO does not swap the raw token on the pool.
-        The zap router deposits into the managed tranche, wraps to ID20, then swaps that ID20 along
-        the CL path in one transaction.
+        Selling <strong>underlying</strong> BTC or MEZO does not swap the raw token on the pool. The
+        zap router deposits into the managed tranche, wraps to ID20, then swaps that ID20 along the
+        CL path in one transaction.
       </p>
       <FlowTable
         rows={[
@@ -307,8 +293,8 @@ export function SwapFlowsContent() {
             label: "Router",
             value: (
               <>
-                <code>AuroveZapRouter.zapErc20ExactInput</code> (or{" "}
-                <code>zapErc20ExactOutput</code>)
+                <code>AuroveZapRouter.zapErc20ExactInput</code> (or <code>zapErc20ExactOutput</code>
+                )
               </>
             ),
           },
@@ -322,7 +308,8 @@ export function SwapFlowsContent() {
           },
           {
             label: "You receive",
-            value: "Buy-side token only (intermediate ID20 is not left in your wallet from this zap)",
+            value:
+              "Buy-side token only (intermediate ID20 is not left in your wallet from this zap)",
           },
           {
             label: "Side effects",
@@ -339,8 +326,8 @@ export function SwapFlowsContent() {
         <li>Buy → MUSD or another token reachable from the managed ID20 pool path.</li>
         <li>Enter amount → Approve underlying → Review → Swap.</li>
         <li>
-          Quote details show <strong>Before swap: Deposits and wraps into ID20 before swapping</strong>
-          .
+          Quote details show{" "}
+          <strong>Before swap: Deposits and wraps into ID20 before swapping</strong>.
         </li>
       </ol>
       <h3>Edge cases</h3>
@@ -404,9 +391,7 @@ export function SwapFlowsContent() {
           Swap → Sell → group <strong>Ledger tranches</strong> → select managed product tranche.
         </li>
         <li>Enter a partial amount to sell only a fraction of the position.</li>
-        <li>
-          Approve Ledger operator if prompted → Review → Swap.
-        </li>
+        <li>Approve Ledger operator if prompted → Review → Swap.</li>
       </ol>
       <Callout variant="info">
         This is the path for <strong>partial</strong> exit of a deposited position: deposit once on
@@ -427,21 +412,22 @@ export function SwapFlowsContent() {
       <Shot
         src="/docs/swap-flows/02-earn-create-crop.png"
         alt="Earn Create Position card"
-        caption="Earn → Create Position: Deposit position (veNFT) or Lock tokens, then choose BTC or MEZO. Deposits mint liquid tranche inventory you can later swap."
+        caption="Earn → select avBTCm or avMEZOm → Create Position: Deposit position (veNFT) or Lock tokens. Deposits mint liquid tranche inventory you can later swap."
       />
 
       <h3>Steps</h3>
       <ol>
         <li>
-          Open <DocRouteLink href="/earn">Earn</DocRouteLink>.
+          Open <DocRouteLink href="/earn">Earn</DocRouteLink> and choose <strong>avBTCm</strong> or{" "}
+          <strong>avMEZOm</strong>.
         </li>
         <li>
           <strong>Deposit position</strong> — select your veBTC/veMEZO NFT, approve the NFT for the
-          Ledger, deposit; <strong>or Lock tokens</strong> — deposit BTC/MEZO ERC-20 into the managed
-          product.
+          Ledger, deposit; <strong>or Lock tokens</strong> — deposit BTC/MEZO ERC-20 into the
+          managed product.
         </li>
         <li>
-          Confirm balances under <strong>Your Liquid Positions</strong> (tranche / liquid product
+          Confirm balances under <strong>Your liquid positions</strong> (tranche / liquid product
           inventory).
         </li>
         <li>
@@ -519,24 +505,20 @@ export function SwapFlowsContent() {
       <ol>
         <li>Hold a veBTC or veMEZO in the connected wallet on the active chain.</li>
         <li>
-          Swap → Sell → group <strong>veNFT positions</strong> → select{" "}
-          <code>veBTC #…</code> / <code>veMEZO #…</code>.
+          Swap → Sell → group <strong>veNFT positions</strong> → select <code>veBTC #…</code> /{" "}
+          <code>veMEZO #…</code>.
         </li>
-        <li>Amount fills automatically from lock size; Buy amount is also read-only for this flow.</li>
+        <li>
+          Amount fills automatically from lock size; Buy amount is also read-only for this flow.
+        </li>
         <li>Select buy token with a valid route from the managed ID20.</li>
         <li>Approve the NFT → Review → Swap.</li>
       </ol>
       <h3>Edge cases</h3>
       <ul>
-        <li>
-          Empty veNFT list if the wallet has no positions or portfolio read fails.
-        </li>
-        <li>
-          Cannot reverse a veNFT sell into “buy veNFT” — buy side is fungible only.
-        </li>
-        <li>
-          Cannot sell “half” of a veNFT in one swap; use Flow 5 for partial exit.
-        </li>
+        <li>Empty veNFT list if the wallet has no positions or portfolio read fails.</li>
+        <li>Cannot reverse a veNFT sell into “buy veNFT” — buy side is fungible only.</li>
+        <li>Cannot sell “half” of a veNFT in one swap; use Flow 5 for partial exit.</li>
       </ul>
 
       <h2>Approvals cheat sheet</h2>
@@ -624,7 +606,8 @@ export function SwapFlowsContent() {
       </ul>
       <p>
         Multi-hop routes up to the configured max hops (default 3) when a direct pool is missing.
-        See also <DocRouteLink href="/docs/liquidity/providing-liquidity">Providing liquidity</DocRouteLink>.
+        See also{" "}
+        <DocRouteLink href="/docs/liquidity/providing-liquidity">Providing liquidity</DocRouteLink>.
       </p>
 
       <h2>Limitations (do not assume)</h2>
@@ -635,9 +618,7 @@ export function SwapFlowsContent() {
           Partial veNFT amount is <strong>not</strong> a native swap control; use Earn deposit +
           tranche sell.
         </li>
-        <li>
-          veNFT sells are exact-input only (planner rejects exact-output).
-        </li>
+        <li>veNFT sells are exact-input only (planner rejects exact-output).</li>
         <li>
           Academy points may accrue for qualifying swaps through supported pools; that is separate
           from swap execution (see <DocRouteLink href="/docs/academy/points">Points</DocRouteLink>
@@ -648,7 +629,8 @@ export function SwapFlowsContent() {
       <h2>Related</h2>
       <ul>
         <li>
-          <DocRouteLink href="/docs/swap/overview">Swap overview</DocRouteLink> — UI controls reference
+          <DocRouteLink href="/docs/swap/overview">Swap overview</DocRouteLink> — UI controls
+          reference
         </li>
         <li>
           <DocRouteLink href="/docs/swap/fractions">Fractions</DocRouteLink>

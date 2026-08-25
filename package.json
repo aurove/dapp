@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --import tsx --test --test-reporter=spec components/features/earn/earn-asset.test.ts components/features/earn/utils/apr.test.ts components/features/earn/utils/claimables.test.ts components/features/earn/utils/rewards-status.test.ts",
+    "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts --prefix timestamp --name app_schema",
     "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
     "db:studio": "drizzle-kit studio --config drizzle.config.ts"

@@ -11,14 +11,7 @@ export const metadata: Metadata = createPageMetadata({
   title: TITLE,
   description: DESCRIPTION,
   path: "/earn",
-  keywords: [
-    "Aurove Earn",
-    "veBTC",
-    "veMEZO",
-    "Mezo Earn",
-    "liquid ve-yield",
-    "Bitcoin DeFi",
-  ],
+  keywords: ["Aurove Earn", "veBTC", "veMEZO", "Mezo Earn", "liquid ve-yield", "Bitcoin DeFi"],
 });
 
 export default function AppEarnPage() {
@@ -38,6 +31,8 @@ export default function AppEarnPage() {
         relatedLinks={[
           { href: "/docs/earn/managed-yield", label: "Managed yield docs" },
           { href: "/docs/earn/vebtc", label: "veBTC guide" },
+          { href: "/earn/stake/btc", label: "Create avBTCm position" },
+          { href: "/earn/stake/mezo", label: "Create avMEZOm position" },
           { href: "/docs/swap/flows", label: "Swap flows" },
           { href: "/liquidity", label: "Provide liquidity" },
         ]}

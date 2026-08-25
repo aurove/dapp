@@ -33,11 +33,7 @@ function Shot({
   );
 }
 
-function FlowTable({
-  rows,
-}: {
-  rows: Array<{ label: string; value: ReactNode }>;
-}) {
+function FlowTable({ rows }: { rows: Array<{ label: string; value: ReactNode }> }) {
   return (
     <table>
       <tbody>
@@ -69,38 +65,54 @@ export function EarnFlowsContent() {
         Open{" "}
         <DocRouteLink href="/earn" code>
           /earn
+        </DocRouteLink>{" "}
+        to choose an earning asset and manage positions. Creation happens on{" "}
+        <DocRouteLink href="/earn/stake/btc" code>
+          /earn/stake/btc
+        </DocRouteLink>{" "}
+        or{" "}
+        <DocRouteLink href="/earn/stake/mezo" code>
+          /earn/stake/mezo
         </DocRouteLink>
-        . All deposit, claim, and redeem actions for managed products live on this page.
+        . Claim and redeem stay on Earn.
       </Callout>
 
       <h2>Page map</h2>
       <Shot
         src="/docs/earn-flows/01-earn-overview.png"
-        alt="Earn page overview with hero, claimables, gauges, and Create Position"
-        caption="Earn layout: hero metrics, Claimables, ID20 gauge rewards, Your Liquid Positions, and the Create Position card."
+        alt="Earn page overview with earning assets, liquid positions, and rewards"
+        caption="Earn layout: compact intro, avBTCm / avMEZOm asset cards, Your liquid positions, and Rewards (Claimables + ID20 gauges)."
         wide
       />
       <FlowTable
         rows={[
           {
-            label: "Hero",
-            value: "Product pitch + available assets, your position count, estimated yield",
+            label: "Available assets",
+            value: "avBTCm and avMEZOm cards with APR, availability, and Create position",
           },
           {
-            label: "Claimables",
-            value: "Tranche / RewardSink claimable amounts aggregated across products",
-          },
-          {
-            label: "ID20 gauge rewards",
-            value: "Per-product gauge claim + Claim all (may show Activation required)",
-          },
-          {
-            label: "Your Liquid Positions",
+            label: "Your liquid positions",
             value: "avBTCm / avMEZOm cards: balances, annualised APR, redemption controls",
           },
           {
-            label: "Create Position",
-            value: "Deposit position (veNFT) or Lock tokens (BTC / MEZO ERC-20)",
+            label: "Rewards",
+            value: "Tranche claimables and ID20 gauge rewards under a secondary Rewards section",
+          },
+          {
+            label: "Create position",
+            value: (
+              <>
+                Focused flow at{" "}
+                <DocRouteLink href="/earn/stake/btc" code>
+                  /earn/stake/btc
+                </DocRouteLink>{" "}
+                or{" "}
+                <DocRouteLink href="/earn/stake/mezo" code>
+                  /earn/stake/mezo
+                </DocRouteLink>
+                : Deposit position (veNFT) or Lock tokens
+              </>
+            ),
           },
         ]}
       />
@@ -112,12 +124,12 @@ export function EarnFlowsContent() {
           public app targets testnet).
         </li>
         <li>
-          Hold <strong>BTC</strong> or <strong>MEZO</strong> to lock, or a <strong>veBTC / veMEZO</strong>{" "}
-          NFT to deposit.
+          Hold <strong>BTC</strong> or <strong>MEZO</strong> to lock, or a{" "}
+          <strong>veBTC / veMEZO</strong> NFT to deposit.
         </li>
         <li>
-          For Academy personalization only, use <strong>Sign In</strong> (Earn deposits do not require
-          it).
+          For Academy personalization only, use <strong>Sign In</strong> (Earn deposits do not
+          require it).
         </li>
       </ol>
 
@@ -129,29 +141,35 @@ export function EarnFlowsContent() {
       <Shot
         src="/docs/earn-flows/02-create-deposit-position.png"
         alt="Create Position card in Deposit position mode for BTC"
-        caption="Create Position → Deposit position: pick BTC or MEZO, select an existing veNFT, then Deposit position."
+        caption="Create position → Deposit position: pick BTC or MEZO, select an existing veNFT, then Deposit position."
       />
       <h3>Steps</h3>
       <ol>
         <li>
-          Open <DocRouteLink href="/earn">Earn</DocRouteLink>.
+          Open <DocRouteLink href="/earn">Earn</DocRouteLink> and choose <strong>avBTCm</strong> or{" "}
+          <strong>avMEZOm</strong> (or go directly to{" "}
+          <DocRouteLink href="/earn/stake/btc" code>
+            /earn/stake/btc
+          </DocRouteLink>
+          ).
         </li>
         <li>
           On <strong>Create Position</strong>, leave (or select) <strong>Deposit position</strong>.
         </li>
         <li>
-          Choose <strong>BTC</strong> (veBTC → avBTCm) or <strong>MEZO</strong> (veMEZO → avMEZOm).
+          Confirm <strong>BTC</strong> (veBTC → avBTCm) or switch to <strong>MEZO</strong> (veMEZO →
+          avMEZOm) if needed. Switching assets updates the route.
         </li>
         <li>
           Under <strong>Existing position</strong>, select <code>veBTC #…</code> /{" "}
           <code>veMEZO #…</code> (count shows how many are available).
         </li>
         <li>
-          Confirm <strong>You will receive</strong>, then <strong>Deposit position</strong> → approve
-          the NFT if prompted → confirm the deposit.
+          Confirm <strong>You will receive</strong>, then <strong>Deposit position</strong> →
+          approve the NFT if prompted → confirm the deposit.
         </li>
         <li>
-          Refresh <strong>Your Liquid Positions</strong> to see the new avBTCm / avMEZOm balance.
+          Refresh <strong>Your liquid positions</strong> to see the new avBTCm / avMEZOm balance.
         </li>
       </ol>
       <FlowTable
@@ -187,16 +205,14 @@ export function EarnFlowsContent() {
       <Shot
         src="/docs/earn-flows/03-create-lock-tokens-btc.png"
         alt="Create Position Lock tokens mode with BTC amount"
-        caption="Create Position → Lock tokens → BTC: enter amount (and optional % slider), review You will receive avBTCm, then Create a liquid position."
+        caption="Create position → Lock tokens → BTC: enter amount (and optional % slider), review You will receive avBTCm, then Create a liquid position."
       />
       <h3>Steps</h3>
       <ol>
         <li>
-          Create Position → <strong>Lock tokens</strong> → <strong>BTC</strong>.
+          Open the avBTCm creation screen → <strong>Lock tokens</strong> → <strong>BTC</strong>.
         </li>
-        <li>
-          Enter an amount (or use the balance percent slider). Confirm balance is sufficient.
-        </li>
+        <li>Enter an amount (or use the balance percent slider). Confirm balance is sufficient.</li>
         <li>
           Check <strong>You will receive</strong> (1 BTC locks to 1 avBTCm exposure in the managed
           product).
@@ -235,14 +251,13 @@ export function EarnFlowsContent() {
       />
       <Callout variant="info">
         Redemption inventory handling differs by variant (BTC can exact-split vault locks; MEZO uses
-        discrete selected veNFTs). See{" "}
-        <DocRouteLink href="/docs/earn/vemezo">veMEZO</DocRouteLink> and{" "}
-        <DocRouteLink href="/docs/earn/tranches">Tranches</DocRouteLink>.
+        discrete selected veNFTs). See <DocRouteLink href="/docs/earn/vemezo">veMEZO</DocRouteLink>{" "}
+        and <DocRouteLink href="/docs/earn/tranches">Tranches</DocRouteLink>.
       </Callout>
 
       <h2>Flow 4 — Your liquid positions</h2>
       <p>
-        After a successful deposit, positions appear under <strong>Your Liquid Positions</strong>{" "}
+        After a successful deposit, positions appear under <strong>Your liquid positions</strong>{" "}
         with balances, reward and annualised APR fields, and redemption status.
       </p>
       <Shot
@@ -261,19 +276,18 @@ export function EarnFlowsContent() {
         </li>
         <li>
           <strong>Annualised APR / Rewards deposited</strong> — latest weekly funding rate
-          annualised without compounding
-          when available.
+          annualised without compounding when available.
         </li>
         <li>
           <strong>Redemption</strong> row — either waiting for the window or open for redeem.
         </li>
       </ul>
 
-      <h2>Flow 5 — Claimables and ID20 gauges</h2>
+      <h2>Flow 5 — Rewards (claimables and ID20 gauges)</h2>
       <Shot
         src="/docs/earn-flows/07-claimables-gauges.png"
-        alt="Claimables and ID20 gauge rewards panels on Earn"
-        caption="Claimables aggregates RewardSink balances; ID20 gauge rewards show per-wrapper claim state (including Activation required)."
+        alt="Rewards section with Claimables and ID20 gauge rewards on Earn"
+        caption="Rewards sits below your positions: Claimables aggregates RewardSink balances; ID20 gauge rewards show per-wrapper claim state (including Activation required)."
         wide
       />
       <DocsTabs
@@ -285,7 +299,8 @@ export function EarnFlowsContent() {
               <ul className="list-disc space-y-1 pl-5 text-white/70">
                 <li>Shows aggregated rewards across held liquid tranches.</li>
                 <li>
-                  Claim runs <code>claimRewards</code> on each product RewardSink that has a balance.
+                  Claim runs <code>claimRewards</code> on each product RewardSink that has a
+                  balance.
                 </li>
                 <li>Empty state: “No claimable rewards found across your fraction tranches.”</li>
               </ul>
@@ -330,10 +345,10 @@ export function EarnFlowsContent() {
       />
       <h3>Steps</h3>
       <ol>
-        <li>Confirm the UI shows Redemption window open (not “Waiting for weekly settlement window”).</li>
         <li>
-          Expand the product card redemption section.
+          Confirm the UI shows Redemption window open (not “Waiting for weekly settlement window”).
         </li>
+        <li>Expand the product card redemption section.</li>
         <li>
           <strong>BTC (avBTCm)</strong> — enter a redeem amount (editable; vault may split locks).
         </li>
@@ -371,20 +386,23 @@ export function EarnFlowsContent() {
       <h2>Flow 7 — Outside the window</h2>
       <p>
         Outside settlement, redemption is disabled. Cards show{" "}
-        <strong>Waiting for weekly settlement window</strong> (or similar await labels). Deposits and
-        claims still work.
+        <strong>Waiting for weekly settlement window</strong> (or similar await labels). Deposits
+        and claims still work.
       </p>
       <Shot
         src="/docs/earn-flows/09-await-redemption-window.png"
         alt="Liquid positions waiting for weekly settlement window"
-        caption="Outside settlement: Redemption row shows Waiting for weekly settlement window; Create Position remains available."
+        caption="Outside settlement: Redemption row shows Waiting for weekly settlement window; creating a new position remains available from the asset cards."
         wide
       />
 
       <h2>Limitations</h2>
       <ul>
         <li>Cannot redeem outside the settlement window.</li>
-        <li>Partial veNFT exit without depositing first is a Swap-side flow (tranche sell), not Earn redeem.</li>
+        <li>
+          Partial veNFT exit without depositing first is a Swap-side flow (tranche sell), not Earn
+          redeem.
+        </li>
         <li>Gauge activation may require separate actions before gauge rewards accrue.</li>
         <li>Annualised APR is based on the latest weekly funding and is not a guaranteed rate.</li>
       </ul>
