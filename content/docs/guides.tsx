@@ -1,11 +1,7 @@
 import { Callout } from "@/components/docs/callout";
 import { DocRouteLink } from "@/components/docs/doc-route-link";
 import { DocsCard, DocsCardGrid } from "@/components/docs/docs-card";
-import {
-  MEZO_CHAIN_ID,
-  MEZO_EXPLORER,
-  MEZO_RPC_HTTP,
-} from "@/lib/docs/contracts-reference";
+import { MEZO_CHAIN_ID, MEZO_EXPLORER, MEZO_RPC_HTTP } from "@/lib/docs/contracts-reference";
 import type { DocPageDefinition } from "@/lib/docs/types";
 import { AddressTable, ProductionStatus } from "./shared";
 
@@ -35,16 +31,16 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
         <h2>What the dApp offers</h2>
         <ul>
           <li>
-            <strong>Earn</strong> — create a liquid position, view balances, claim rewards, unwrap,
-            and redeem.
-          </li>
-          <li>
             <strong>Swap</strong> — swap supported assets, including routes that deposit and wrap
             before trading.
           </li>
           <li>
             <strong>Liquidity</strong> — add concentrated liquidity to MUSD / avBTCm or avBTCm /
             avMEZOm.
+          </li>
+          <li>
+            <strong>Earn</strong> — create a liquid position, view balances, claim rewards, unwrap,
+            and redeem.
           </li>
           <li>
             <strong>Academy</strong> — points, tasks, a leaderboard, and referrals after Sign In.
@@ -85,7 +81,8 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
   {
     slug: "guides/prerequisites",
     title: "Prerequisites",
-    description: "What you need before using Aurove: a Mezo wallet, BTC for gas, and a supported asset.",
+    description:
+      "What you need before using Aurove: a Mezo wallet, BTC for gas, and a supported asset.",
     tags: ["guides", "wallet", "assets", "btc", "mezo", "musd"],
     searchText: "prerequisites mezo mainnet 31612 btc gas veBTC veMEZO musd wallet explorer",
     Content: () => (
@@ -97,13 +94,16 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
         </p>
         <h2>What you need</h2>
         <ul>
-          <li>A wallet that can add a custom network (RainbowKit supports injected wallets and WalletConnect).</li>
+          <li>
+            A wallet that can add a custom network (RainbowKit supports injected wallets and
+            WalletConnect).
+          </li>
           <li>
             <strong>BTC</strong> on Mezo for transaction fees.
           </li>
           <li>
-            A supported input asset if you want to create a position or swap: BTC, MEZO, MUSD, veBTC,
-            veMEZO, avBTCm, or avMEZOm.
+            A supported input asset if you want to create a position or swap: BTC, MEZO, MUSD,
+            veBTC, veMEZO, avBTCm, or avMEZOm.
           </li>
         </ul>
         <h2>Wallet network</h2>
@@ -150,9 +150,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
           If you see <strong>Wrong Network</strong>, approve the switch in your wallet.
         </p>
         <h2>Supported assets</h2>
-        <AddressTable
-          ids={["btc", "mezo", "musd", "vebtc", "vemezo", "avbtcm", "avmezom"]}
-        />
+        <AddressTable ids={["btc", "mezo", "musd", "vebtc", "vemezo", "avbtcm", "avmezom"]} />
         <Callout variant="info" title="No faucet">
           Aurove does not include a token faucet. Obtain BTC, MEZO, or MUSD through Mezo itself or
           another mainnet source.
@@ -173,7 +171,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
       <>
         <h1>Connect a wallet</h1>
         <p>
-          Earn, Swap, and Liquidity need a connected wallet on Mezo. Academy personalization also
+          Swap, Liquidity, and Earn need a connected wallet on Mezo. Academy personalization also
           needs <strong>Sign In</strong>.
         </p>
         <h2>Before you start</h2>
@@ -234,9 +232,12 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
         <h2>If something fails</h2>
         <ul>
           <li>Rejecting the connection returns you to Connect Wallet. Start again.</li>
-          <li>Rejecting the network switch leaves Wrong Network visible. No Aurove transaction will send.</li>
           <li>
-            You can use Earn, Swap, and Liquidity without Sign In. Academy points stay locked until
+            Rejecting the network switch leaves Wrong Network visible. No Aurove transaction will
+            send.
+          </li>
+          <li>
+            You can use Swap, Liquidity, and Earn without Sign In. Academy points stay locked until
             you sign.
           </li>
         </ul>
@@ -313,8 +314,8 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
         </ol>
         <p>
           On success the card shows <strong>Transaction complete</strong> and your wallet holds
-          ERC-1155 units. The underlying is locked in Mezo Earn under Aurove custody, not returned as
-          an ERC-20.
+          ERC-1155 units. The underlying is locked in Mezo Earn under Aurove custody, not returned
+          as an ERC-20.
         </p>
         <h2>Deposit an existing Mezo Earn position</h2>
         <ol>
@@ -353,7 +354,9 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
           <li>
             <code>Ledger.depositErc20</code> or <code>Ledger.depositVeNft</code> runs.
           </li>
-          <li>The Vault takes the veNFT and Mezo records a managed deposit into the Aurove manager.</li>
+          <li>
+            The Vault takes the veNFT and Mezo records a managed deposit into the Aurove manager.
+          </li>
           <li>You receive ERC-1155 units. You do not keep the original veNFT.</li>
         </ul>
         <h2>If the transaction fails</h2>
@@ -367,8 +370,9 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             Approve first.
           </li>
           <li>
-            <strong>Mezo timing.</strong> Managed deposit and withdraw can be unavailable in the first
-            hour of a Mezo epoch, and a child veNFT can only do one managed operation per epoch.
+            <strong>Mezo timing.</strong> Managed deposit and withdraw can be unavailable in the
+            first hour of a Mezo epoch, and a child veNFT can only do one managed operation per
+            epoch.
           </li>
           <li>
             <strong>Grant-backed NFT.</strong> Wait until vesting ends, or use a different position.
@@ -385,8 +389,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
   {
     slug: "guides/assets",
     title: "Understand Aurove assets",
-    description:
-      "How avBTCm and avMEZOm exist as ERC-1155 tranche units and ERC-20 ID20 wrappers.",
+    description: "How avBTCm and avMEZOm exist as ERC-1155 tranche units and ERC-20 ID20 wrappers.",
     tags: ["guides", "avBTCm", "avMEZOm", "erc1155", "id20"],
     searchText: "understand assets tranche id20 wrapper avBTCm avMEZOm fractions backing",
     Content: () => (
@@ -457,8 +460,8 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
       <>
         <h1>View positions</h1>
         <p>
-          Open <DocRouteLink href="/earn">Earn</DocRouteLink> after connecting a wallet. The page has
-          three sections: available assets, your positions, and rewards.
+          Open <DocRouteLink href="/earn">Earn</DocRouteLink> after connecting a wallet. The page
+          has three sections: available assets, your positions, and rewards.
         </p>
         <h2>Position cards</h2>
         <p>Each open product shows:</p>
@@ -467,14 +470,15 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             <strong>Available Balance</strong> — ERC-1155 units you can redeem.
           </li>
           <li>
-            <strong>Total Balance</strong> — ERC-1155 held, including units that may still be inactive
-            for rewards.
+            <strong>Total Balance</strong> — ERC-1155 held, including units that may still be
+            inactive for rewards.
           </li>
           <li>
             <strong>ID20 Balance</strong> — ERC-20 wrapper balance.
           </li>
           <li>
-            <strong>Annualised APR</strong> — a display estimate from recent funding, not a guarantee.
+            <strong>Annualised APR</strong> — a display estimate from recent funding, not a
+            guarantee.
           </li>
           <li>
             <strong>Latest Weekly Rewards Funded</strong> — most recently observed sink funding.
@@ -505,24 +509,23 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
   {
     slug: "guides/swap",
     title: "Swap",
-    description: "Swap supported assets on the home-page Swap interface, including deposit-and-wrap routes.",
+    description: "Swap supported assets on the /swap interface, including deposit-and-wrap routes.",
     tags: ["guides", "swap", "review swap", "slippage"],
     searchText: "swap review sell buy slippage deadline aurove route direct pool route",
     Content: () => (
       <>
         <h1>Swap</h1>
         <p>
-          Swap lives on the home page at{" "}
-          <DocRouteLink href="/#swap-interface" code>
-            /#swap-interface
+          Swap lives at{" "}
+          <DocRouteLink href="/swap" code>
+            /swap
           </DocRouteLink>
-          . The header label is <strong>Swap</strong>. There is no separate <code>/swap</code> app
-          page; <code>/trade</code> redirects here.
+          . The app nav label is <strong>Swap</strong>. Legacy <code>/trade</code> redirects here.
         </p>
         <ProductionStatus>
-          The Swap UI is live. Deposit-then-swap routes call the same Ledger deposit path as Earn, so
-          they currently revert while managers have <code>mTokenId = 0</code>. Direct pool swaps also
-          need inventory in the Aurove pools, which currently have zero Aurove token supply.
+          The Swap UI is live. Deposit-then-swap routes call the same Ledger deposit path as Earn,
+          so they currently revert while managers have <code>mTokenId = 0</code>. Direct pool swaps
+          also need inventory in the Aurove pools, which currently have zero Aurove token supply.
         </ProductionStatus>
         <h2>Before you start</h2>
         <ul>
@@ -532,7 +535,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
         <h2>Steps</h2>
         <ol>
           <li>
-            Open <DocRouteLink href="/#swap-interface">Swap</DocRouteLink>.
+            Open <DocRouteLink href="/swap">Swap</DocRouteLink>.
           </li>
           <li>
             Choose <strong>Sell</strong> and <strong>Buy</strong> assets. Sell groups are{" "}
@@ -565,11 +568,12 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
         <h2>If something fails</h2>
         <ul>
           <li>
-            <strong>No route</strong> or insufficient liquidity — try another pair or a smaller size.
+            <strong>No route</strong> or insufficient liquidity — try another pair or a smaller
+            size.
           </li>
           <li>
-            <strong>High price impact</strong> — the UI warns at 5% or more. Lower the size or accept
-            the impact explicitly.
+            <strong>High price impact</strong> — the UI warns at 5% or more. Lower the size or
+            accept the impact explicitly.
           </li>
           <li>
             <strong>Simulation failed</strong> — the route cannot execute as quoted. Refresh markets
@@ -581,7 +585,9 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
         </ul>
         <p>
           Integrator detail:{" "}
-          <DocRouteLink href="/docs/developers/liquidity">Swap and liquidity integration</DocRouteLink>
+          <DocRouteLink href="/docs/developers/liquidity">
+            Swap and liquidity integration
+          </DocRouteLink>
           .
         </p>
       </>
@@ -606,7 +612,8 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             <strong>MUSD / avBTCm</strong> — “Provide MUSD and liquid BTC Earn exposure.”
           </li>
           <li>
-            <strong>avBTCm / avMEZOm</strong> — “Provide liquidity across Aurove BTC and MEZO assets.”
+            <strong>avBTCm / avMEZOm</strong> — “Provide liquidity across Aurove BTC and MEZO
+            assets.”
           </li>
         </ul>
         <ProductionStatus>
@@ -692,9 +699,9 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             Read <strong>Current pool price</strong> on the pool card.
           </li>
           <li>
-            Choose <strong>Focused</strong>, <strong>Balanced</strong>, <strong>Full range</strong>, or{" "}
-            <strong>Custom</strong>. Custom lets you set lower and upper ticks. Ticks must align with
-            spacing 200.
+            Choose <strong>Focused</strong>, <strong>Balanced</strong>, <strong>Full range</strong>,
+            or <strong>Custom</strong>. Custom lets you set lower and upper ticks. Ticks must align
+            with spacing 200.
           </li>
         </ol>
         <h2>In range versus out of range</h2>
@@ -710,8 +717,8 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
         </ul>
         <p>
           Range selection does not create a Mezo Earn reward. Swap fees and Mezo Earn rewards are
-          different. See <DocRouteLink href="/docs/protocol/rewards">Rewards and epochs</DocRouteLink>
-          .
+          different. See{" "}
+          <DocRouteLink href="/docs/protocol/rewards">Rewards and epochs</DocRouteLink>.
         </p>
         <h2>Collect swap fees</h2>
         <ol>
@@ -719,8 +726,8 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             Open <DocRouteLink href="/liquidity">Liquidity</DocRouteLink> and select the position.
           </li>
           <li>
-            Click <strong>Collect fees</strong>. This calls the position manager <code>collect</code>{" "}
-            and sends owed tokens to your wallet.
+            Click <strong>Collect fees</strong>. This calls the position manager{" "}
+            <code>collect</code> and sends owed tokens to your wallet.
           </li>
         </ol>
         <p>
@@ -735,8 +742,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
     title: "Claim rewards",
     description: "Claim ERC-1155 tranche rewards and ID20 gauge rewards from Earn.",
     tags: ["guides", "rewards", "claim", "gauge", "activate"],
-    searchText:
-      "claim rewards claimables id20 gauge activate claim all currently claimable earn",
+    searchText: "claim rewards claimables id20 gauge activate claim all currently claimable earn",
     Content: () => (
       <>
         <h1>Claim rewards</h1>
@@ -797,15 +803,17 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
   {
     slug: "guides/redeem",
     title: "Redeem",
-    description: "Burn avBTCm or avMEZOm tranche units and receive veNFT inventory, not BTC or MEZO ERC-20.",
+    description:
+      "Burn avBTCm or avMEZOm tranche units and receive veNFT inventory, not BTC or MEZO ERC-20.",
     tags: ["guides", "redeem", "unwrap", "exit"],
     searchText: "redeem redemption amount select veNFTs exit to tranche unwrap irreversible",
     Content: () => (
       <>
         <h1>Redeem</h1>
         <p>
-          Redemption burns ERC-1155 tranche units and sends you <strong>veBTC or veMEZO
-          inventory</strong>. It does not withdraw BTC or MEZO ERC-20 to your wallet.
+          Redemption burns ERC-1155 tranche units and sends you{" "}
+          <strong>veBTC or veMEZO inventory</strong>. It does not withdraw BTC or MEZO ERC-20 to
+          your wallet.
         </p>
         <Callout variant="important" title="No Aurove settlement window">
           Aurove does not add a weekly redemption window. Mezo still decides when a managed position
@@ -845,8 +853,8 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
         <ul>
           <li>
             <strong>BTC</strong> can split an oversized vault NFT if Mezo has granted the Vault{" "}
-            <code>canSplit</code>. That permission is currently false, so exact-amount BTC redeem can
-            fail.
+            <code>canSplit</code>. That permission is currently false, so exact-amount BTC redeem
+            can fail.
           </li>
           <li>
             <strong>MEZO</strong> redeems whole selected NFTs. You may need to combine sink or
@@ -855,9 +863,13 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
         </ul>
         <h2>If redeem reverts</h2>
         <ul>
-          <li>Mezo first-hour distribution window or a second managed operation in the same epoch.</li>
+          <li>
+            Mezo first-hour distribution window or a second managed operation in the same epoch.
+          </li>
           <li>Selected inventory larger than your redeemable ERC-1155 balance.</li>
-          <li>BTC split required while Vault <code>canSplit</code> is false.</li>
+          <li>
+            BTC split required while Vault <code>canSplit</code> is false.
+          </li>
         </ul>
         <p>
           This action is irreversible once mined: units are burned and the veNFT leaves Aurove
@@ -902,15 +914,19 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             Complete the task carousel. Today it lists:
             <ul>
               <li>
-                <strong>Liquidity provider task</strong> — <strong>Collect fees, earn points</strong>.
-                Copy says <strong>3.6 points per MUSD</strong> of collected fee value. CTA{" "}
+                <strong>Liquidity provider task</strong> —{" "}
+                <strong>Collect fees, earn points</strong>. Copy says{" "}
+                <strong>3.6 points per MUSD</strong> of collected fee value. CTA{" "}
                 <strong>Go to liquidity</strong>.
               </li>
               <li>
                 <strong>Swapper task</strong> — <strong>Swap through Aurove</strong>. Copy says{" "}
                 <strong>0.12% of the input token&apos;s MUSD value</strong>. CTA{" "}
-                <strong>Open swap</strong> (the app link is <code>/swap</code>, which redirects to{" "}
-                <DocRouteLink href="/#swap-interface">/#swap-interface</DocRouteLink>).
+                <strong>Open swap</strong> (the app link is{" "}
+                <DocRouteLink href="/swap" code>
+                  /swap
+                </DocRouteLink>
+                ).
               </li>
             </ul>
           </li>
@@ -918,7 +934,8 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             Browse the <strong>Leaderboard</strong> and <strong>Your position</strong>.
           </li>
           <li>
-            Copy your <strong>Referral link</strong> (<strong>Copy</strong> / <strong>Copied</strong>
+            Copy your <strong>Referral link</strong> (<strong>Copy</strong> /{" "}
+            <strong>Copied</strong>
             ).
           </li>
         </ul>
@@ -960,7 +977,10 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
         <h2>Irreversible actions</h2>
         <ul>
           <li>Deposits send your BTC, MEZO, or veNFT into Aurove/Mezo custody.</li>
-          <li>Redeems burn tranche units and return veNFTs, not the original ERC-20 in the general case.</li>
+          <li>
+            Redeems burn tranche units and return veNFTs, not the original ERC-20 in the general
+            case.
+          </li>
           <li>ID20 gauge activation cannot be undone.</li>
           <li>Expired locks may be re-locked for four weeks before custody.</li>
         </ul>
@@ -969,14 +989,18 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
           <li>The Ledger and Vault are UUPS-upgradeable by the Ledger owner.</li>
           <li>Managers and sinks follow beacons also controlled by the Ledger owner.</li>
           <li>ID20 wrappers, gauges, the factory, and the zap router are not upgradeable.</li>
-          <li>Mezo Earn, voters, and CL contracts are external. When they revert, Aurove reverts.</li>
+          <li>
+            Mezo Earn, voters, and CL contracts are external. When they revert, Aurove reverts.
+          </li>
         </ul>
         <h2>Market and inventory risk</h2>
         <ul>
           <li>Out-of-range liquidity earns no swap fees.</li>
           <li>Displayed APR is not a rate you are owed.</li>
           <li>Foreign deposits into the same managed NFT do not mint you Aurove shares.</li>
-          <li>Inventory valuation decreases do not burn supply; they lower the growth checkpoint.</li>
+          <li>
+            Inventory valuation decreases do not burn supply; they lower the growth checkpoint.
+          </li>
         </ul>
         <p>
           Fuller list:{" "}

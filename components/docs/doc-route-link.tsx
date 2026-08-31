@@ -14,7 +14,7 @@ export function DocRouteLink({
   href: string;
   children: ReactNode;
   className?: string;
-  /** Render with mono path styling (for `/earn`, `/#swap-interface`, etc.). */
+  /** Render with mono path styling (for `/swap`, `/earn`, etc.). */
   code?: boolean;
 }) {
   return (

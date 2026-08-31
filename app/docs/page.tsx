@@ -77,27 +77,27 @@ export default function DocsHomePage() {
         <DocsCardGrid>
           <DocsCard
             title="Guides"
-            description="Connect a wallet, create a position, swap, provide liquidity, claim, and redeem."
+            description="Connect a wallet, swap, provide liquidity, create a position, claim, and redeem."
             href="/docs/guides/what-is-aurove"
             icon={<Wallet className="h-4 w-4" />}
           />
           <DocsCard
             title="Swap"
-            description="Swap from the home-page interface, including deposit-and-wrap routes."
+            description="Swap from the /swap interface, including deposit-and-wrap routes."
             href="/docs/guides/swap"
             icon={<Layers className="h-4 w-4" />}
-          />
-          <DocsCard
-            title="Earn"
-            description="Lock BTC or MEZO, or deposit an existing Mezo Earn NFT."
-            href="/docs/guides/create-position"
-            icon={<BookOpen className="h-4 w-4" />}
           />
           <DocsCard
             title="Liquidity"
             description="Add concentrated liquidity to MUSD / avBTCm and avBTCm / avMEZOm."
             href="/docs/guides/liquidity"
             icon={<Droplets className="h-4 w-4" />}
+          />
+          <DocsCard
+            title="Earn"
+            description="Lock BTC or MEZO, or deposit an existing Mezo Earn NFT."
+            href="/docs/guides/create-position"
+            icon={<BookOpen className="h-4 w-4" />}
           />
           <DocsCard
             title="Academy"
@@ -117,8 +117,7 @@ export default function DocsHomePage() {
           <Callout variant="warning" title="Read production status before sending funds">
             Core and ID20 contracts are deployed. Managed deposits currently require each Aurove
             manager to hold a Mezo managed veNFT, and the two CL pools do not yet have Mezo gauges.
-            Details are on{" "}
-            <Link href="/docs/protocol/security">Security and limitations</Link>.
+            Details are on <Link href="/docs/protocol/security">Security and limitations</Link>.
           </Callout>
 
           <h2>Start here</h2>

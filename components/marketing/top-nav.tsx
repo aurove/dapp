@@ -4,9 +4,9 @@ import { buttonVariants } from "@ui";
 import { XAccountLink } from "../app/x-account-link";
 
 const navItems = [
-  { label: "Why Aurove", href: "#overview" },
-  { label: "How It Works", href: "#how-it-works" },
-  { label: "Benefits", href: "#earn-products" },
+  { label: "Swap", href: "/swap" },
+  { label: "Liquidity", href: "/liquidity" },
+  { label: "Earn", href: "/earn" },
   { label: "Docs", href: "/docs" },
 ] as const;
 
@@ -21,38 +21,24 @@ export function TopNav() {
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {navItems.map((item) =>
-            item.href.startsWith("/") ? (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={buttonVariants({
-                  variant: "ghost",
-                  size: "sm",
-                  className: "text-[13px] text-[var(--muted)] hover:text-[var(--foreground)]",
-                })}
-              >
-                {item.label}
-              </Link>
-            ) : (
-              <a
-                key={item.href}
-                href={item.href}
-                className={buttonVariants({
-                  variant: "ghost",
-                  size: "sm",
-                  className: "text-[13px] text-[var(--muted)] hover:text-[var(--foreground)]",
-                })}
-              >
-                {item.label}
-              </a>
-            ),
-          )}
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={buttonVariants({
+                variant: "ghost",
+                size: "sm",
+                className: "text-[13px] text-[var(--muted)] hover:text-[var(--foreground)]",
+              })}
+            >
+              {item.label}
+            </Link>
+          ))}
         </nav>
 
         <div className="flex items-center gap-2">
           <XAccountLink />
-          <Link href="/earn" className={buttonVariants({ size: "sm", className: "gap-2" })}>
+          <Link href="/swap" className={buttonVariants({ size: "sm", className: "gap-2" })}>
             <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
             Enter App
           </Link>

@@ -11,7 +11,7 @@ export type { DocPageDefinition };
 const FAQ_PAGE: DocPageDefinition = {
   slug: "faq",
   title: "FAQ",
-  description: "Answers to common wallet, Earn, Swap, Liquidity, and Academy questions.",
+  description: "Answers to common wallet, Swap, Liquidity, Earn, and Academy questions.",
   tags: ["faq", "wallet", "earn", "swap"],
   searchText: "faq connect wallet wrong network sign in redeem swap liquidity academy",
   Content: () => (
@@ -25,13 +25,25 @@ const FAQ_PAGE: DocPageDefinition = {
       </p>
       <h3>What does Wrong Network mean?</h3>
       <p>
-        Your wallet is not on Mezo Mainnet (chain id 31612). Click <strong>Wrong Network</strong> and
-        approve the switch. The header should then read <strong>Network Mezo Mainnet</strong>.
+        Your wallet is not on Mezo Mainnet (chain id 31612). Click <strong>Wrong Network</strong>{" "}
+        and approve the switch. The header should then read <strong>Network Mezo Mainnet</strong>.
       </p>
       <h3>What is Sign In for?</h3>
       <p>
-        A signed session for Academy points, tasks, and your referral link. Earn, Swap, and Liquidity
-        only need a connected wallet on Mezo Mainnet.
+        A signed session for Academy points, tasks, and your referral link. Swap, Liquidity, and
+        Earn only need a connected wallet on Mezo Mainnet.
+      </p>
+      <h2>Swap</h2>
+      <h3>Why is there no route or insufficient liquidity on Swap?</h3>
+      <p>
+        The registry could not find a concentrated-liquidity path for that pair or amount, or the
+        Aurove pools have no inventory yet. Try another asset or reduce the size.
+      </p>
+      <h2>Liquidity</h2>
+      <h3>What does Unsupported source combo mean on Liquidity?</h3>
+      <p>
+        The selected funding sources cannot be combined into a zap plan. Change sources or choose
+        the other pool.
       </p>
       <h2>Earn</h2>
       <h3>Why do I have no liquid positions yet?</h3>
@@ -45,18 +57,6 @@ const FAQ_PAGE: DocPageDefinition = {
         No. Aurove does not add a settlement window. Redeem burns ERC-1155 units and releases veNFT
         inventory whenever Mezo allows that managed withdraw. Mezo epoch rules can still cause a
         revert.
-      </p>
-      <h2>Swap</h2>
-      <h3>Why is there no route or insufficient liquidity on Swap?</h3>
-      <p>
-        The registry could not find a concentrated-liquidity path for that pair or amount, or the
-        Aurove pools have no inventory yet. Try another asset or reduce the size.
-      </p>
-      <h2>Liquidity</h2>
-      <h3>What does Unsupported source combo mean on Liquidity?</h3>
-      <p>
-        The selected funding sources cannot be combined into a zap plan. Change sources or choose the
-        other pool.
       </p>
       <h2>Academy</h2>
       <h3>Why do Academy points show “Visible after wallet authentication”?</h3>
@@ -74,7 +74,12 @@ const FAQ_PAGE: DocPageDefinition = {
   ),
 };
 
-const pages: DocPageDefinition[] = [...GUIDE_PAGES, ...PROTOCOL_PAGES, ...DEVELOPER_PAGES, FAQ_PAGE];
+const pages: DocPageDefinition[] = [
+  ...GUIDE_PAGES,
+  ...PROTOCOL_PAGES,
+  ...DEVELOPER_PAGES,
+  FAQ_PAGE,
+];
 
 export const DOC_PAGES = pages;
 

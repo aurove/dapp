@@ -3,7 +3,7 @@ import { SITE_URL } from "@/lib/seo/site";
 
 /**
  * Public crawl rules. Disallows private/internal APIs and auth endpoints.
- * Does not block shareable product pages (earn, liquidity, academy).
+ * Does not block shareable product pages (swap, liquidity, earn, academy).
  */
 export const dynamic = "force-static";
 

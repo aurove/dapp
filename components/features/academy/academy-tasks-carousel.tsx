@@ -2,7 +2,15 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
-import { ArrowLeftRight, ArrowRight, ChevronLeft, ChevronRight, Droplets, Sparkles, Target } from "lucide-react";
+import {
+  ArrowLeftRight,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Droplets,
+  Sparkles,
+  Target,
+} from "lucide-react";
 
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from "@ui";
 
@@ -22,19 +30,23 @@ function LiquidityProviderTaskSlide() {
         </div>
         <CardTitle className="text-2xl text-white">Collect fees, earn points</CardTitle>
         <CardDescription>
-          Collect actual fees from a position in either supported Aurove concentrated-liquidity pool.
+          Collect actual fees from a position in either supported Aurove concentrated-liquidity
+          pool.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-3 text-sm leading-6 text-white/65">
         <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-          Earn <span className="font-semibold text-white">3.6 points per MUSD</span> of collected fee value.
+          Earn <span className="font-semibold text-white">3.6 points per MUSD</span> of collected
+          fee value.
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-          This equals 1.08% of the underlying qualifying swap volume and gives LPs nine points for every one swapper point.
+          This equals 1.08% of the underlying qualifying swap volume and gives LPs nine points for
+          every one swapper point.
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-          Only fees actually collected from the canonical pools qualify; deposits, liquidity, and uncollected fee growth do not.
+          Only fees actually collected from the canonical pools qualify; deposits, liquidity, and
+          uncollected fee growth do not.
         </div>
         <Button asChild className="w-full gap-2 sm:w-auto">
           <Link href="/liquidity">
@@ -60,19 +72,25 @@ function SwapperTaskSlide() {
         </div>
         <CardTitle className="text-2xl text-white">Swap through Aurove</CardTitle>
         <CardDescription>
-          Make a swap routed through or involving either supported Aurove concentrated-liquidity pool.
+          Make a swap routed through or involving either supported Aurove concentrated-liquidity
+          pool.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-3 text-sm leading-6 text-white/65">
         <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-          Earn points equal to <span className="font-semibold text-white">0.12% of the input token&apos;s MUSD value</span>.
+          Earn points equal to{" "}
+          <span className="font-semibold text-white">
+            0.12% of the input token&apos;s MUSD value
+          </span>
+          .
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
           Input value is measured in MUSD at the time of the qualifying swap.
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-          Each economic swap earns once, including routed swaps that pass through multiple internal calls.
+          Each economic swap earns once, including routed swaps that pass through multiple internal
+          calls.
         </div>
         <Button asChild className="w-full gap-2 sm:w-auto">
           <Link href="/swap">
@@ -94,14 +112,13 @@ function MomentumSlide() {
           Academy workflow
         </Badge>
         <CardTitle className="text-2xl text-white">Keep the season moving</CardTitle>
-        <CardDescription>
-          The carousel will expand as more Academy tasks go live.
-        </CardDescription>
+        <CardDescription>The carousel will expand as more Academy tasks go live.</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-3 text-sm leading-6 text-white/65">
         <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-          Swap through Aurove or collect fees from a supported liquidity position to keep earning points.
+          Swap through Aurove or collect fees from a supported liquidity position to keep earning
+          points.
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
           Your activity updates the leaderboard, feed, and referral rewards in real time.
@@ -127,8 +144,8 @@ export function AcademyTasksCarousel() {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
   const slides = [
-    <LiquidityProviderTaskSlide key="liquidity-provider" />,
     <SwapperTaskSlide key="swapper" />,
+    <LiquidityProviderTaskSlide key="liquidity-provider" />,
     <MomentumSlide key="momentum" />,
   ];
   const totalSlides = slides.length;
@@ -240,7 +257,8 @@ export function AcademyTasksCarousel() {
             event.currentTarget.setPointerCapture(event.pointerId);
           }}
           onPointerMove={(event) => {
-            if (dragPointerIdRef.current !== event.pointerId || dragStartXRef.current === null) return;
+            if (dragPointerIdRef.current !== event.pointerId || dragStartXRef.current === null)
+              return;
             setDragOffset(event.clientX - dragStartXRef.current);
           }}
           onPointerUp={(event) => finishDrag(event)}
@@ -249,7 +267,9 @@ export function AcademyTasksCarousel() {
           <div
             className={cn(
               "flex ease-out",
-              isDragging || prefersReducedMotion ? "transition-none" : "transition-transform duration-500",
+              isDragging || prefersReducedMotion
+                ? "transition-none"
+                : "transition-transform duration-500",
             )}
             style={{ transform: `translateX(calc(-${activeIndex * 100}% + ${dragOffset}px))` }}
           >

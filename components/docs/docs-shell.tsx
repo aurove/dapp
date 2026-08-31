@@ -50,7 +50,7 @@ export function DocsShell({
 
           <div className="flex items-center gap-2">
             <Link
-              href="/earn"
+              href="/swap"
               className={buttonVariants({
                 size: "sm",
                 className: "gap-1.5",

@@ -210,7 +210,7 @@ export const AUROVE_FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "What is Sign In for?",
     answer:
-      "A signed session for Academy points, tasks, and your referral link. Earn, Swap, and Liquidity only need a connected wallet on Mezo Mainnet.",
+      "A signed session for Academy points, tasks, and your referral link. Swap, Liquidity, and Earn only need a connected wallet on Mezo Mainnet.",
   },
   {
     question: "Why do I have no liquid positions yet?",

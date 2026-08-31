@@ -17,14 +17,7 @@ export const metadata: Metadata = createPageMetadata({
   title: TITLE,
   description: DESCRIPTION,
   path: "/academy",
-  keywords: [
-    "Aurove Academy",
-    "Mezo Earn",
-    "points",
-    "leaderboard",
-    "referrals",
-    "Bitcoin DeFi",
-  ],
+  keywords: ["Aurove Academy", "Mezo Earn", "points", "leaderboard", "referrals", "Bitcoin DeFi"],
 });
 
 function getSearchParam(
@@ -55,7 +48,8 @@ export default async function AcademyPage({ searchParams }: AcademyPageProps) {
   const session = await getCurrentWalletAuthContextFromCookies(cookieStore);
   const service = createAcademyService();
   const origin = getRequestOrigin({ headers: headerStore });
-  const leaderboardPage = parsePositiveInteger(getSearchParam(searchParams, "leaderboardPage")) ?? 1;
+  const leaderboardPage =
+    parsePositiveInteger(getSearchParam(searchParams, "leaderboardPage")) ?? 1;
   const leaderboardEpoch = parsePositiveInteger(getSearchParam(searchParams, "epoch"));
   const initialSummary = session
     ? await service.getSummary({
@@ -92,10 +86,12 @@ export default async function AcademyPage({ searchParams }: AcademyPageProps) {
           "Learn Mezo Earn concepts while staying active across Aurove.",
         ]}
         relatedLinks={[
+          { href: "/swap", label: "Swap" },
+          { href: "/liquidity", label: "Liquidity" },
+          { href: "/earn", label: "Earn" },
           { href: "/docs/guides/academy", label: "Academy" },
           { href: "/docs/guides/connect-wallet", label: "Connect a wallet" },
           { href: "/docs/guides/what-is-aurove", label: "What is Aurove" },
-          { href: "/#swap-interface", label: "Open Swap" },
         ]}
       />
     </div>

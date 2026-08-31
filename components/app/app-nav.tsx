@@ -15,9 +15,9 @@ type AppRoute = {
 };
 
 export const appRoutes: AppRoute[] = [
-  { href: "/earn", label: "Earn", icon: BarChart3 },
-  { href: "/#swap-interface", label: "Swap", icon: ArrowLeftRight },
+  { href: "/swap", label: "Swap", icon: ArrowLeftRight },
   { href: "/liquidity", label: "Liquidity", icon: Droplets, matchPrefix: "/liquidity" },
+  { href: "/earn", label: "Earn", icon: BarChart3, matchPrefix: "/earn" },
   { href: "/academy", label: "Academy", icon: Award },
   { href: "/docs", label: "Docs", icon: BookOpen, matchPrefix: "/docs" },
 ];

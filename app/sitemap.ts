@@ -4,7 +4,7 @@ import { SITE_URL } from "@/lib/seo/site";
 
 /**
  * Indexable public product surfaces only.
- * Redirect-only routes (/swap, /trade) and API routes are omitted.
+ * Redirect-only routes (/trade) and API routes are omitted.
  *
  * Uses navigation (not content/docs/pages) so sitemap generation stays
  * lightweight and always returns XML quickly for Search Console crawlers.
@@ -29,12 +29,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const productRoutes: MetadataRoute.Sitemap = [
     entry("/", 1, "weekly", lastModified),
-    entry("/earn", 0.9, "weekly", lastModified),
-    entry("/earn/stake/btc", 0.7, "monthly", lastModified),
-    entry("/earn/stake/mezo", 0.7, "monthly", lastModified),
+    entry("/swap", 0.9, "weekly", lastModified),
     entry("/liquidity", 0.9, "weekly", lastModified),
     entry("/liquidity/add/btc", 0.7, "monthly", lastModified),
     entry("/liquidity/add/mezo", 0.7, "monthly", lastModified),
+    entry("/earn", 0.9, "weekly", lastModified),
+    entry("/earn/stake/btc", 0.7, "monthly", lastModified),
+    entry("/earn/stake/mezo", 0.7, "monthly", lastModified),
     entry("/academy", 0.8, "weekly", lastModified),
     entry("/docs", 0.85, "weekly", lastModified),
   ];

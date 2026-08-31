@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ArrowDownToLine,
-  ArrowLeftRight,
-  ArrowRight,
-  BadgeDollarSign,
-} from "lucide-react";
+import { ArrowDownToLine, ArrowLeftRight, ArrowRight, BadgeDollarSign } from "lucide-react";
 import { FaXTwitter } from "react-icons/fa6";
 import { EcosystemPartnersCarousel } from "@/components/marketing/ecosystem-partners-carousel";
 import { ProtocolStatsSection } from "@/components/marketing/protocol-stats-section";
@@ -51,9 +46,9 @@ type FooterLink =
   | { label: string; href: string; external: true; ariaLabel: string };
 
 const footerLinks: FooterLink[] = [
-  { label: "Swap", href: "/#swap-interface" },
-  { label: "Earn", href: "/earn" },
+  { label: "Swap", href: "/swap" },
   { label: "Liquidity", href: "/liquidity" },
+  { label: "Earn", href: "/earn" },
   { label: "Docs", href: "/docs" },
   {
     label: "X",
@@ -88,16 +83,15 @@ export default function HomePage() {
             />
 
             <h1 className="hero-title">
-              The liquid{" "}
-              <span style={{ whiteSpace: "nowrap" }}>ve&#8209;yield</span>{" "}
-              layer for
+              The liquid <span style={{ whiteSpace: "nowrap" }}>ve&#8209;yield</span> layer for
               <span className="hero-title__line">
                 <span className="hero-title__accent">Mezo Earn.</span>
               </span>
             </h1>
 
             <p className="hero-copy">
-              Keep earning from your locked BTC and locked MEZO positions, with the flexibility to swap when you need liquidity.
+              Keep earning from your locked BTC and locked MEZO positions, with the flexibility to
+              swap when you need liquidity.
             </p>
 
             <div className="hero-divider" aria-hidden="true">
@@ -107,11 +101,14 @@ export default function HomePage() {
             </div>
 
             <div className="hero-actions">
-              <Link href="#swap-interface" className="btn btn--ghost hero-action-mobile">
+              <Link href="/swap" className="btn btn--ghost hero-action-mobile">
                 Go to Swap
                 <ArrowRight className="btn__icon" aria-hidden="true" />
               </Link>
-              <Link href="/liquidity#available-pools" className="btn btn--ghost hero-action-desktop">
+              <Link
+                href="/liquidity#available-pools"
+                className="btn btn--ghost hero-action-desktop"
+              >
                 Add Liquidity
                 <ArrowRight className="btn__icon" aria-hidden="true" />
               </Link>
@@ -138,9 +135,9 @@ export default function HomePage() {
             <span className="whitespace-nowrap">Mezo Earn.</span>
           </h2>
           <p className="section-copy section-copy--wide">
-           Turn locked BTC or MEZO into a liquid Aurove asset you can swap with ease—while
-           your underlying position continues earning through Mezo Earn and can generate
-           additional swap fees when used as liquidity.
+            Turn locked BTC or MEZO into a liquid Aurove asset you can swap with ease—while your
+            underlying position continues earning through Mezo Earn and can generate additional swap
+            fees when used as liquidity.
           </p>
 
           <div className="feature-grid">
@@ -149,10 +146,7 @@ export default function HomePage() {
               const [lead, ...rest] = card.body.split("\n\n");
 
               return (
-                <article
-                  key={card.title}
-                  className="feature-card"
-                >
+                <article key={card.title} className="feature-card">
                   <div className="feature-card__header">
                     <div className="feature-card__icon-wrap">
                       <Icon className="feature-card__icon" aria-hidden="true" />
@@ -179,7 +173,7 @@ export default function HomePage() {
       </section>
 
       <section className="landing-section landing-section--academy">
-          <div className="landing-container academy-grid">
+        <div className="landing-container academy-grid">
           <div className="academy-copy">
             <p className="section-kicker">AUROVE ACADEMY</p>
             <h2 className="academy-title">
@@ -190,8 +184,8 @@ export default function HomePage() {
               <span className="hero-title__accent">Earn points.</span>
             </h2>
             <p className="section-copy academy-copy__text">
-              Aurove Academy helps new users learn the basics and gives returning users a simple
-              way to stay active. Swap through Aurove&apos;s supported pools, collect liquidity fees,
+              Aurove Academy helps new users learn the basics and gives returning users a simple way
+              to stay active. Swap through Aurove&apos;s supported pools, collect liquidity fees,
               and track your points across the Aurove experience.{" "}
               <a
                 className="academy-link academy-link--inline"
@@ -220,9 +214,7 @@ export default function HomePage() {
         <div className="landing-container landing-footer__inner">
           <div className="landing-footer__brand">
             <p className="landing-footer__name">Aurove</p>
-            <p className="landing-footer__copy">
-              The liquid ve-yield layer for Mezo Earn.
-            </p>
+            <p className="landing-footer__copy">The liquid ve-yield layer for Mezo Earn.</p>
           </div>
 
           <nav className="landing-footer__nav" aria-label="Footer">
