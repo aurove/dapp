@@ -1,5 +1,5 @@
 import type { Address } from "viem";
-import type { SwapHop, SwapPool } from "../domain";
+import type { SwapBasicPool, SwapHop, SwapPool, SwapRegistry, SwapVenue } from "../domain";
 
 const same = (a: Address, b: Address) => a.toLowerCase() === b.toLowerCase();
 
@@ -52,15 +52,25 @@ export function discoverClRoutes(
 ): SwapHop[][] {
   if (same(tokenIn, tokenOut)) return [];
   const maxHops = Math.max(1, Math.floor(options.maxHops ?? DEFAULT_MAX_HOPS));
-  const maxCandidateRoutes = Math.max(1, Math.floor(options.maxCandidateRoutes ?? DEFAULT_MAX_CANDIDATE_ROUTES));
+  const maxCandidateRoutes = Math.max(
+    1,
+    Math.floor(options.maxCandidateRoutes ?? DEFAULT_MAX_CANDIDATE_ROUTES),
+  );
   const graph = buildClPoolGraph(pools);
   const routes: SwapHop[][] = [];
-  const queue: Array<{ token: Address; hops: SwapHop[]; visitedTokens: Set<string>; visitedPools: Set<string> }> = [{
-    token: tokenIn,
-    hops: [],
-    visitedTokens: new Set([tokenIn.toLowerCase()]),
-    visitedPools: new Set(),
-  }];
+  const queue: Array<{
+    token: Address;
+    hops: SwapHop[];
+    visitedTokens: Set<string>;
+    visitedPools: Set<string>;
+  }> = [
+    {
+      token: tokenIn,
+      hops: [],
+      visitedTokens: new Set([tokenIn.toLowerCase()]),
+      visitedPools: new Set(),
+    },
+  ];
 
   while (queue.length > 0 && routes.length < maxCandidateRoutes) {
     const current = queue.shift()!;
@@ -87,10 +97,59 @@ export function discoverClRoutes(
   return routes;
 }
 
-export function findClRoute(pools: readonly SwapPool[], tokenIn: Address, tokenOut: Address, maxHops = DEFAULT_MAX_HOPS): SwapHop[] | null {
+export function findClRoute(
+  pools: readonly SwapPool[],
+  tokenIn: Address,
+  tokenOut: Address,
+  maxHops = DEFAULT_MAX_HOPS,
+): SwapHop[] | null {
   return discoverClRoutes(pools, tokenIn, tokenOut, { maxHops, maxCandidateRoutes: 1 })[0] ?? null;
 }
 
-export function canRoute(pools: readonly SwapPool[], tokenIn: Address, tokenOut: Address, maxHops = DEFAULT_MAX_HOPS): boolean {
+export function canRoute(
+  pools: readonly SwapPool[],
+  tokenIn: Address,
+  tokenOut: Address,
+  maxHops = DEFAULT_MAX_HOPS,
+): boolean {
   return findClRoute(pools, tokenIn, tokenOut, maxHops) !== null;
+}
+
+export function hopVenue(hop: SwapHop): SwapVenue {
+  return hop.venue ?? "cl";
+}
+
+export function canBasicRoute(
+  basicPools: readonly SwapBasicPool[] | undefined,
+  tokenIn: Address,
+  tokenOut: Address,
+): boolean {
+  if (!basicPools?.length || same(tokenIn, tokenOut)) return false;
+  const inKey = tokenIn.toLowerCase();
+  const outKey = tokenOut.toLowerCase();
+  const pairExists = (left: string, right: string) =>
+    basicPools.some((pool) => {
+      const tokens = new Set([pool.token0.toLowerCase(), pool.token1.toLowerCase()]);
+      return tokens.has(left) && tokens.has(right);
+    });
+  if (pairExists(inKey, outKey)) return true;
+  const mids = basicPools.flatMap((pool) => {
+    const token0 = pool.token0.toLowerCase();
+    const token1 = pool.token1.toLowerCase();
+    if (token0 === inKey) return [token1];
+    if (token1 === inKey) return [token0];
+    return [];
+  });
+  return mids.some((mid) => mid !== outKey && pairExists(mid, outKey));
+}
+
+export function canSwapRoute(
+  registry: Pick<SwapRegistry, "pools" | "basicPools" | "routing">,
+  tokenIn: Address,
+  tokenOut: Address,
+): boolean {
+  return (
+    canRoute(registry.pools, tokenIn, tokenOut, registry.routing.maxHops) ||
+    canBasicRoute(registry.basicPools, tokenIn, tokenOut)
+  );
 }

@@ -33,14 +33,25 @@ export interface SwapPool {
   fee: number;
 }
 
+export interface SwapBasicPool {
+  key: string;
+  address: Address;
+  token0: Address;
+  token1: Address;
+  stable: boolean;
+  factory: Address;
+}
+
 export interface SwapRegistry {
   chainId: number;
   revision: string;
   clRouter: { address: Address; abi: Abi };
   auroveRouter: { address: Address; abi: Abi };
   ledger: { address: Address; abi: Abi };
+  basicRouter?: { address: Address; factory: Address; abi: Abi };
   assets: readonly SwapAsset[];
   pools: readonly SwapPool[];
+  basicPools?: readonly SwapBasicPool[];
   routing: SwapRoutingConfig;
 }
 
@@ -62,6 +73,8 @@ export interface SwapIntent {
   deadline: bigint;
 }
 
+export type SwapVenue = "cl" | "basic";
+
 export interface SwapHop {
   pool: Address;
   poolKey: string;
@@ -69,6 +82,9 @@ export interface SwapHop {
   tokenOut: Address;
   tickSpacing: number;
   fee: number;
+  venue?: SwapVenue;
+  stable?: boolean;
+  factory?: Address;
 }
 
 export type ApprovalRequirement =
@@ -87,7 +103,7 @@ export interface SwapContractCall {
 
 interface BaseSwapPlan {
   routerAddress: Address;
-  routerLabel: "Direct pool route" | "Aurove route";
+  routerLabel: "Direct pool route" | "Aurove route" | "Mezo AMM";
   contractFunction: string;
   contractCall: SwapContractCall;
   approval: ApprovalRequirement;
@@ -105,7 +121,12 @@ interface BaseSwapPlan {
   affectedPortfolioDomains: readonly PortfolioDomain[];
 }
 
-export interface DirectClSwapPlan extends BaseSwapPlan { type: "directClSwap" }
+export interface DirectClSwapPlan extends BaseSwapPlan {
+  type: "directClSwap";
+}
+export interface DirectBasicSwapPlan extends BaseSwapPlan {
+  type: "directBasicSwap";
+}
 export interface AuroveSwapPlan extends BaseSwapPlan {
   type: "auroveSwap";
   trancheId: bigint;
@@ -132,6 +153,7 @@ export interface UnsupportedSwapPlan {
 
 export type SwapExecutionPlan =
   | DirectClSwapPlan
+  | DirectBasicSwapPlan
   | AuroveSwapPlan
   | AuroveWrapThenSwapPlan
   | AuroveDepositWrapThenSwapPlan
@@ -153,7 +175,12 @@ export interface SwapQuote {
   candidateCount: number;
 }
 
-export type SwapRouteState = "success" | "no-route" | "insufficient-liquidity" | "stale-quote" | "failed-simulation";
+export type SwapRouteState =
+  | "success"
+  | "no-route"
+  | "insufficient-liquidity"
+  | "stale-quote"
+  | "failed-simulation";
 
 export type SwapRouteResult =
   | { status: "success"; quote: SwapQuote }
