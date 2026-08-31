@@ -25,7 +25,7 @@ export function getMezoTestnetRpcHttp(): string {
 }
 
 export function getMezoMainnetRpcHttp(): string {
-  return process.env.NEXT_PUBLIC_MEZO_MAINNET_RPC_HTTP || "https://rpc.mezo.org";
+  return process.env.NEXT_PUBLIC_MEZO_MAINNET_RPC_HTTP || "https://rpc-internal.mezo.org";
 }
 
 const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
@@ -107,4 +107,8 @@ export function getActiveChain(environment = resolveAppEnvironment()): Chain {
   return withMulticall(hardhat);
 }
 
-export const supportedChains = [withMulticall(hardhat), mezoTestnetChain, mezoMainnetChain] as const;
+export const supportedChains = [
+  withMulticall(hardhat),
+  mezoTestnetChain,
+  mezoMainnetChain,
+] as const;

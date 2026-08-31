@@ -4,7 +4,7 @@ import { getAddress, type Address } from "viem";
 export const MEZO_CHAIN_ID = 31612;
 
 export const MEZO_EXPLORER = "https://explorer.mezo.org";
-export const MEZO_RPC_HTTP = "https://rpc.mezo.org";
+export const MEZO_RPC_HTTP = "https://rpc-internal.mezo.org";
 export const MEZO_NATIVE_SYMBOL = "BTC";
 export const SOURCIFY_REPO_BASE = "https://repo.sourcify.dev/31612";
 
@@ -25,12 +25,7 @@ export type VerificationSource = "blockscout" | "sourcify" | "both" | "none";
 
 export type DeploymentPackage = "core" | "id20" | "mezo" | "cl";
 
-export type DeploymentAvailability =
-  | "dapp"
-  | "integrator"
-  | "admin"
-  | "unconfigured"
-  | "external";
+export type DeploymentAvailability = "dapp" | "integrator" | "admin" | "unconfigured" | "external";
 
 export type DeploymentEntry = {
   id: string;
@@ -92,7 +87,8 @@ export const DEPLOYMENT_ENTRIES: readonly DeploymentEntry[] = [
     verification: "blockscout",
     availability: "dapp",
     implementation: "vault-impl",
-    notes: "UUPS proxy. Blockscout verifies this address as ERC1967Proxy. Upgrades require the Ledger owner.",
+    notes:
+      "UUPS proxy. Blockscout verifies this address as ERC1967Proxy. Upgrades require the Ledger owner.",
   },
   {
     id: "vault-impl",
@@ -250,7 +246,8 @@ export const DEPLOYMENT_ENTRIES: readonly DeploymentEntry[] = [
     package: "id20",
     verification: "sourcify",
     availability: "dapp",
-    notes: "Sourcify runtime exact match; not verified on Blockscout. rewardSink() returns the Id20Gauge.",
+    notes:
+      "Sourcify runtime exact match; not verified on Blockscout. rewardSink() returns the Id20Gauge.",
   },
   {
     id: "avmezom",
@@ -261,7 +258,8 @@ export const DEPLOYMENT_ENTRIES: readonly DeploymentEntry[] = [
     package: "id20",
     verification: "sourcify",
     availability: "dapp",
-    notes: "Sourcify runtime exact match; not verified on Blockscout. rewardSink() returns the Id20Gauge.",
+    notes:
+      "Sourcify runtime exact match; not verified on Blockscout. rewardSink() returns the Id20Gauge.",
   },
   {
     id: "avbtcm-gauge",
@@ -272,7 +270,8 @@ export const DEPLOYMENT_ENTRIES: readonly DeploymentEntry[] = [
     package: "id20",
     verification: "sourcify",
     availability: "dapp",
-    notes: "Created by the avBTCm wrapper. Sourcify runtime exact match; not verified on Blockscout.",
+    notes:
+      "Created by the avBTCm wrapper. Sourcify runtime exact match; not verified on Blockscout.",
   },
   {
     id: "avmezom-gauge",
@@ -283,7 +282,8 @@ export const DEPLOYMENT_ENTRIES: readonly DeploymentEntry[] = [
     package: "id20",
     verification: "sourcify",
     availability: "dapp",
-    notes: "Created by the avMEZOm wrapper. Sourcify runtime exact match; not verified on Blockscout.",
+    notes:
+      "Created by the avMEZOm wrapper. Sourcify runtime exact match; not verified on Blockscout.",
   },
   {
     id: "pool-musd-avbtcm",
