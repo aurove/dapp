@@ -112,34 +112,35 @@ export function EarnPositions() {
         <FeatureStatusPanel tone="error" title="Read error" message={error.message} />
       ) : null}
 
-      <EarnRewards />
-
       {positionsLoading ? (
         <ProductSkeleton />
       ) : userPositions.length === 0 ? (
         <EmptyPositions />
       ) : (
-        <div
-          className="flex w-full min-w-0 max-w-full snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain py-1 pr-1"
-          aria-label="Liquid position cards"
-        >
-          {userPositions.map((position) => (
-            <div
-              key={position.id}
-              className="w-[min(100%,22rem)] flex-none snap-start sm:w-96 lg:w-[28rem]"
-            >
-              <EarnPositionCard
-                product={position}
-                aprBasisMap={aprBasisMap}
-                withdrawAmount={withdrawAmounts[position.id] ?? ""}
-                setWithdrawAmount={(value) =>
-                  setWithdrawAmounts((prev) => ({ ...prev, [position.id]: value }))
-                }
-                onSuccess={handleSuccess}
-                onError={handleError}
-              />
-            </div>
-          ))}
+        <div className="space-y-4">
+          <EarnRewards />
+          <div
+            className="flex w-full min-w-0 max-w-full snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain py-1 pr-1"
+            aria-label="Liquid position cards"
+          >
+            {userPositions.map((position) => (
+              <div
+                key={position.id}
+                className="w-[min(100%,22rem)] flex-none snap-start sm:w-96 lg:w-[28rem]"
+              >
+                <EarnPositionCard
+                  product={position}
+                  aprBasisMap={aprBasisMap}
+                  withdrawAmount={withdrawAmounts[position.id] ?? ""}
+                  setWithdrawAmount={(value) =>
+                    setWithdrawAmounts((prev) => ({ ...prev, [position.id]: value }))
+                  }
+                  onSuccess={handleSuccess}
+                  onError={handleError}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </section>
