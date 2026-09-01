@@ -747,8 +747,9 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
       <>
         <h1>Claim rewards</h1>
         <p>
-          Earn shows two claim surfaces: <strong>Claimables</strong> for ERC-1155 tranche units, and{" "}
-          <strong>ID20 gauge rewards</strong> for wrapper holders who have activated.
+          Earn combines ERC-1155 tranche rewards and activated ID20 gauge rewards in one{" "}
+          <strong>Available rewards</strong> panel, matching Liquidity&apos;s compact claimables
+          flow.
         </p>
         <Callout variant="info" title="Rewards are not guaranteed">
           Displayed APR and “latest weekly rewards funded” are observations, not promises. Time
@@ -761,8 +762,8 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             Open <DocRouteLink href="/earn">Earn</DocRouteLink>.
           </li>
           <li>
-            Under <strong>Claimables</strong>, click <strong>Claim avBTCm</strong> or{" "}
-            <strong>Claim avMEZOm</strong>.
+            Under <strong>Available rewards</strong>, review the tranche and ID20 amounts, then
+            click <strong>Claim all</strong>.
           </li>
         </ol>
         <p>
@@ -779,8 +780,8 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             and does not transfer tokens.
           </li>
           <li>
-            Under <strong>ID20 gauge rewards</strong>, click <strong>Claim avBTCm</strong>,{" "}
-            <strong>Claim avMEZOm</strong>, or <strong>Claim all</strong>.
+            Return to <strong>Available rewards</strong> and click <strong>Claim all</strong>. The
+            same flow claims every currently available tranche and activated ID20 gauge reward.
           </li>
         </ol>
         <p>

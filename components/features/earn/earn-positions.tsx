@@ -7,24 +7,27 @@ import { Button, Card, CardContent, Skeleton, cn } from "@ui";
 import { FeatureStatusPanel } from "@/components/features/shared/page-shell";
 import { getEarnProtocolConfig } from "@/contracts/earn";
 import { EarnPositionCard } from "./earn-position-card";
+import { EarnRewards } from "./earn-rewards";
 import { useAprBasis, useEarnSnapshot } from "./use-earn-data";
 
 function ProductSkeleton() {
   return (
-    <div className="grid gap-4">
+    <div className="flex w-full min-w-0 max-w-full gap-4 overflow-hidden py-1 pr-1">
       {[0, 1].map((item) => (
-        <Card key={item} className="rounded-xl">
-          <CardContent className="space-y-4 p-6">
-            <Skeleton className="h-5 w-28" />
-            <Skeleton className="h-7 w-40" />
-            <div className="grid grid-cols-2 gap-3">
-              <Skeleton className="h-16" />
-              <Skeleton className="h-16" />
-              <Skeleton className="h-16" />
-              <Skeleton className="h-16" />
-            </div>
-          </CardContent>
-        </Card>
+        <div key={item} className="w-[min(100%,22rem)] flex-none sm:w-96 lg:w-[28rem]">
+          <Card className="rounded-xl">
+            <CardContent className="space-y-4 p-6">
+              <Skeleton className="h-5 w-28" />
+              <Skeleton className="h-7 w-40" />
+              <div className="grid grid-cols-2 gap-3">
+                <Skeleton className="h-16" />
+                <Skeleton className="h-16" />
+                <Skeleton className="h-16" />
+                <Skeleton className="h-16" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       ))}
     </div>
   );
@@ -109,24 +112,33 @@ export function EarnPositions() {
         <FeatureStatusPanel tone="error" title="Read error" message={error.message} />
       ) : null}
 
+      <EarnRewards />
+
       {positionsLoading ? (
         <ProductSkeleton />
       ) : userPositions.length === 0 ? (
         <EmptyPositions />
       ) : (
-        <div className="grid gap-4">
+        <div
+          className="flex w-full min-w-0 max-w-full snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain py-1 pr-1"
+          aria-label="Liquid position cards"
+        >
           {userPositions.map((position) => (
-            <EarnPositionCard
+            <div
               key={position.id}
-              product={position}
-              aprBasisMap={aprBasisMap}
-              withdrawAmount={withdrawAmounts[position.id] ?? ""}
-              setWithdrawAmount={(value) =>
-                setWithdrawAmounts((prev) => ({ ...prev, [position.id]: value }))
-              }
-              onSuccess={handleSuccess}
-              onError={handleError}
-            />
+              className="w-[min(100%,22rem)] flex-none snap-start sm:w-96 lg:w-[28rem]"
+            >
+              <EarnPositionCard
+                product={position}
+                aprBasisMap={aprBasisMap}
+                withdrawAmount={withdrawAmounts[position.id] ?? ""}
+                setWithdrawAmount={(value) =>
+                  setWithdrawAmounts((prev) => ({ ...prev, [position.id]: value }))
+                }
+                onSuccess={handleSuccess}
+                onError={handleError}
+              />
+            </div>
           ))}
         </div>
       )}

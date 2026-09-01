@@ -1,344 +1,252 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { Coins } from "lucide-react";
 import { type Abi, type Address } from "viem";
 import { useAccount, useChainId } from "wagmi";
-import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, Skeleton } from "@ui";
+import { Card, CardContent, Skeleton, cn } from "@ui";
 import {
   makeId20GaugeClaimStep,
   useId20GaugePositions,
   type Id20GaugePosition,
 } from "@/components/features/id20/use-id20-gauges";
-import { FeatureStatusPanel } from "@/components/features/shared/page-shell";
 import { getRewardSinkAbi } from "@/contracts/earn";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, type TxStep } from "@/lib/tx-flow";
 import { formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
 import { useEarnSnapshot } from "./use-earn-data";
 import { summarizeClaimables, type ClaimableSummary } from "./utils/claimables";
-import { claimAllGaugeLabel, id20RewardsPanelState } from "./utils/rewards-status";
-import { txError } from "./utils/tx-error";
 
-function Id20GaugeRewardCard({
-  position,
-  account,
-  onComplete,
-  onError,
-}: {
-  position: Id20GaugePosition;
-  account?: Address;
-  onComplete: (message: string) => Promise<void>;
-  onError: (message: string) => void;
-}) {
-  const canClaim = Boolean(account && position.isActivated && position.claimableRewardRaw > 0n);
+type RewardAmount = {
+  key: string;
+  amountRaw: bigint;
+  symbol: string;
+  decimals: number;
+  sourceLabel: string;
+};
+
+function rewardTokenFamily(symbol: string) {
+  const normalized = symbol.toUpperCase();
+  if (normalized.includes("BTC")) return "BTC";
+  if (normalized.includes("MEZO")) return "MEZO";
+  return "Aurove";
+}
+
+function RewardTokenMark({ symbol }: { symbol: string }) {
+  const family = rewardTokenFamily(symbol);
+
   return (
-    <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.025] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-medium text-white">{position.symbol}</p>
-          <p className="mt-1 text-xs text-white/42">Reward token: {position.symbol}</p>
-        </div>
-        <Badge
-          className={
-            position.isActivated
-              ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
-              : "border-amber-300/20 bg-amber-300/10 text-amber-100"
-          }
-        >
-          {position.isActivated ? "Active" : "Activation required"}
-        </Badge>
-      </div>
-      <div>
-        <p className="text-xs text-white/42">Currently claimable</p>
-        <p className="mt-1 break-words text-xl font-semibold text-white">
-          {formatCompactRawTokenAmount(
-            position.claimableRewardRaw,
-            position.decimals,
-            position.symbol,
-          )}
-        </p>
-      </div>
-      <TransactionFlowButton
-        className="w-full"
-        size="sm"
-        variant="secondary"
-        disabled={!canClaim}
-        steps={() => (account ? [makeId20GaugeClaimStep(position, account, true)] : [])}
-        onComplete={() => void onComplete(`${position.symbol} gauge rewards claimed successfully.`)}
-        onError={txError(onError)}
-      >
-        {position.claimableRewardRaw > 0n ? `Claim ${position.symbol}` : "Nothing to claim"}
-      </TransactionFlowButton>
-    </div>
+    <span className="grid h-7 w-7 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#18222b]">
+      <Image
+        src={`/tokens/${family}.png`}
+        alt={`${symbol} reward token`}
+        width={28}
+        height={28}
+        className="h-full w-full object-cover"
+      />
+    </span>
   );
 }
 
-function Id20GaugeRewardsPanel({
-  chainId,
-  onPortfolioRefresh,
-  onSuccess,
-  onError,
-}: {
-  chainId: number;
-  onPortfolioRefresh: () => void;
-  onSuccess: (message: string) => void;
-  onError: (message: string) => void;
-}) {
-  const { address } = useAccount();
-  const gauges = useId20GaugePositions(chainId, address);
-  const claimablePositions = gauges.positions.filter(
-    (position) => position.isActivated && position.claimableRewardRaw > 0n,
-  );
-  const panelState = id20RewardsPanelState({
-    isLoading: gauges.isLoading,
-    error: gauges.error,
-    positionCount: gauges.positions.length,
-  });
+function rewardSinkAddresses(summary: ClaimableSummary): Address[] {
+  return [
+    ...new Set(summary.products.map((product) => product.rewardSinkAddress).filter(Boolean)),
+  ].filter((address): address is Address => Boolean(address));
+}
 
-  const complete = async (message: string) => {
-    await gauges.refresh();
-    onPortfolioRefresh();
-    onSuccess(message);
-  };
+function makeTrancheClaimSteps(
+  summaries: readonly ClaimableSummary[],
+  rewardSinkAbi: Abi | null,
+): TxStep[] {
+  if (!rewardSinkAbi) return [];
 
-  return (
-    <Card className="rounded-xl">
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Coins className="h-5 w-5 text-[var(--accent)]" />
-              ID20 gauge rewards
-            </CardTitle>
-            <CardDescription>
-              Claim rewards accounted by each liquid position&apos;s canonical ID20 gauge.
-            </CardDescription>
-          </div>
-          <TransactionFlowButton
-            size="sm"
-            variant="secondary"
-            disabled={!address || claimablePositions.length === 0}
-            steps={() =>
-              address
-                ? claimablePositions.map((position) =>
-                    makeId20GaugeClaimStep(position, address, true),
-                  )
-                : []
-            }
-            onComplete={() => void complete(claimAllGaugeLabel(claimablePositions.length))}
-            onError={txError(onError)}
-          >
-            Claim all
-          </TransactionFlowButton>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {panelState === "loading" ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Skeleton className="h-36 rounded-xl" />
-            <Skeleton className="h-36 rounded-xl" />
-          </div>
-        ) : panelState === "error" ? (
-          <div className="rounded-xl border border-red-300/20 bg-red-300/10 p-4 text-sm text-red-100">
-            {gauges.error instanceof Error
-              ? gauges.error.message
-              : "ID20 gauge rewards are temporarily unavailable."}
-          </div>
-        ) : panelState === "empty" ? (
-          <div className="rounded-xl border border-white/10 bg-white/[0.025] p-4 text-sm text-white/55">
-            No ID20 positions or gauge reward balances were found for this wallet.
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {gauges.positions.map((position) => (
-              <Id20GaugeRewardCard
-                key={position.gaugeAddress}
-                position={position}
-                account={address}
-                onComplete={complete}
-                onError={onError}
-              />
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+  return summaries.flatMap((summary) =>
+    rewardSinkAddresses(summary).map(
+      (rewardSinkAddress, index) =>
+        makeAddressWriteStep({
+          key: `claim-${summary.key}-${rewardSinkAddress}`,
+          label: `Claim ${summary.symbol}`,
+          displayLabelBtn: index === 0,
+          address: rewardSinkAddress,
+          abi: rewardSinkAbi,
+          variables: {
+            functionName: "claimRewards",
+            args: [],
+          },
+        }) as unknown as TxStep,
+    ),
   );
 }
 
-function ClaimableTokenButton({
-  summary,
-  rewardSinkAbi,
-  onSuccess,
-  onError,
-}: {
-  summary: ClaimableSummary;
-  rewardSinkAbi: Abi | null;
-  onSuccess: (message: string) => void;
-  onError: (message: string) => void;
-}) {
-  const rewardSinkAddresses = useMemo(
-    () =>
-      [
-        ...new Set(summary.products.map((product) => product.rewardSinkAddress).filter(Boolean)),
-      ].filter((address): address is Address => Boolean(address)),
-    [summary.products],
-  );
+function trancheRewardAmounts(summaries: readonly ClaimableSummary[]): RewardAmount[] {
+  return summaries.map((summary) => ({
+    key: `tranche-${summary.key}`,
+    amountRaw: summary.amountRaw,
+    symbol: summary.symbol,
+    decimals: summary.decimals,
+    sourceLabel: `${summary.trancheCount} tranche${summary.trancheCount === 1 ? "" : "s"}`,
+  }));
+}
 
-  const isDisabled = rewardSinkAddresses.length === 0;
+function id20RewardAmounts(positions: readonly Id20GaugePosition[]): RewardAmount[] {
+  return positions.map((position) => ({
+    key: `id20-${position.gaugeAddress}`,
+    amountRaw: position.claimableRewardRaw,
+    symbol: position.symbol,
+    decimals: position.decimals,
+    sourceLabel: "ID20 gauge",
+  }));
+}
+
+function RewardMessage({ success, error }: { success: string | null; error: string | null }) {
+  if (!success && !error) return null;
 
   return (
-    <TransactionFlowButton
-      className="w-full"
-      size="sm"
-      variant="secondary"
-      disabled={isDisabled || !rewardSinkAbi}
-      steps={() =>
-        rewardSinkAddresses.map(
-          (rewardSinkAddress, index) =>
-            makeAddressWriteStep({
-              key: `claim-${summary.key}-${rewardSinkAddress}`,
-              label: `Claim ${summary.symbol}`,
-              displayLabelBtn: index === 0,
-              address: rewardSinkAddress,
-              abi: rewardSinkAbi as Abi,
-              variables: {
-                functionName: "claimRewards",
-                args: [],
-              },
-            }) as unknown as TxStep,
-        )
-      }
-      onComplete={() => {
-        onSuccess(
-          `${summary.symbol} rewards claimed from ${summary.trancheCount} tranche${summary.trancheCount === 1 ? "" : "s"}.`,
-        );
-      }}
-      onError={txError(onError)}
+    <p
+      role="status"
+      className={cn(
+        "rounded-lg border px-3 py-2 text-xs",
+        error
+          ? "border-red-300/20 bg-red-300/10 text-red-100"
+          : "border-emerald-300/20 bg-emerald-300/10 text-emerald-100",
+      )}
     >
-      {`Claim ${summary.symbol}`}
-    </TransactionFlowButton>
-  );
-}
-
-function ClaimablesPanel({
-  summaries,
-  rewardSinkAbi,
-  onSuccess,
-  onError,
-}: {
-  summaries: ClaimableSummary[];
-  rewardSinkAbi: Abi | null;
-  onSuccess: (message: string) => void;
-  onError: (message: string) => void;
-}) {
-  const totalTranches = summaries.reduce(
-    (total, claimable) => claimable.products.length + total,
-    0,
-  );
-
-  return (
-    <Card className="rounded-xl">
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Coins className="h-5 w-5 text-[var(--accent)]" />
-              Claimables
-            </CardTitle>
-            <CardDescription>Aggregated rewards across all held veNFT positions.</CardDescription>
-          </div>
-          <Badge className="border-white/15 bg-white/[0.04] text-white/70">
-            {totalTranches} claimable tranche{totalTranches === 1 ? "" : "s"}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {summaries.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/[0.025] p-4 text-sm text-white/55">
-            No claimable rewards found across your fraction tranches.
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {summaries.map((summary) => (
-              <div
-                key={summary.key}
-                className="space-y-4 rounded-xl border border-white/10 bg-white/[0.025] p-4"
-              >
-                <p className="text-xs text-white/42">
-                  {summary.trancheCount} of {totalTranches} claimable tranche
-                  {summary.trancheCount === 1 ? "" : "s"}
-                </p>
-                <p className="mt-2 break-words text-xl font-semibold text-white">
-                  {formatCompactRawTokenAmount(summary.amountRaw, summary.decimals, summary.symbol)}
-                </p>
-                <ClaimableTokenButton
-                  summary={summary}
-                  rewardSinkAbi={rewardSinkAbi}
-                  onSuccess={onSuccess}
-                  onError={onError}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {error ?? success}
+    </p>
   );
 }
 
 export function EarnRewards() {
-  const { products, refresh } = useEarnSnapshot();
+  const { address } = useAccount();
   const chainId = useChainId();
+  const { products, refresh } = useEarnSnapshot();
+  const gauges = useId20GaugePositions(chainId, address);
   const rewardSinkAbi = getRewardSinkAbi(chainId);
   const claimableSummaries = useMemo(() => summarizeClaimables(products), [products]);
+  const claimableGauges = useMemo(
+    () =>
+      gauges.positions.filter(
+        (position) => position.isActivated && position.claimableRewardRaw > 0n,
+      ),
+    [gauges.positions],
+  );
+  const rewardAmounts = useMemo(
+    () => [...trancheRewardAmounts(claimableSummaries), ...id20RewardAmounts(claimableGauges)],
+    [claimableGauges, claimableSummaries],
+  );
+  const trancheClaimSteps = useMemo(
+    () => makeTrancheClaimSteps(claimableSummaries, rewardSinkAbi),
+    [claimableSummaries, rewardSinkAbi],
+  );
+  const claimableSourceCount =
+    claimableSummaries.reduce((total, summary) => total + summary.trancheCount, 0) +
+    claimableGauges.length;
+  const canClaim = trancheClaimSteps.length > 0 || claimableGauges.length > 0;
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSuccess = (message: string, options?: { skipRefresh?: boolean }) => {
-    setSuccessMessage(message);
+  const complete = async () => {
+    await gauges.refresh();
+    refresh();
+    setSuccessMessage(
+      `Claimed all available rewards from ${claimableSourceCount} source${claimableSourceCount === 1 ? "" : "s"}.`,
+    );
     setErrorMessage(null);
-    if (!options?.skipRefresh) {
-      refresh();
-    }
-  };
-
-  const handleError = (message: string) => {
-    setErrorMessage(message);
-    setSuccessMessage(null);
   };
 
   return (
-    <section className="space-y-4" aria-labelledby="earn-rewards-title">
-      <div>
-        <h2 id="earn-rewards-title" className="text-2xl font-semibold text-white">
-          Rewards
-        </h2>
-        <p className="mt-1 text-sm text-white/55">
-          Claim tranche rewards and ID20 gauge rewards from your liquid positions.
+    <div className="space-y-3">
+      <Card className="border-white/10 bg-gradient-to-r from-emerald-300/[0.045] via-white/[0.025] to-transparent">
+        <CardContent className="grid gap-4 py-5 lg:grid-cols-[minmax(180px,0.65fr)_minmax(0,1.5fr)_auto] lg:items-center">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300/10 text-emerald-100">
+              <Coins className="h-4 w-4" />
+            </span>
+            <div>
+              <h3 className="font-medium text-white">Available rewards</h3>
+              <p className="text-xs text-white/50">
+                {gauges.isLoading
+                  ? "Loading tranche and ID20 rewards"
+                  : claimableSourceCount > 0
+                    ? `Across ${claimableSourceCount} claimable source${claimableSourceCount === 1 ? "" : "s"}`
+                    : "No rewards available to claim"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex min-h-16 min-w-0 flex-wrap items-center rounded-xl border border-white/[0.06] bg-white/[0.035] px-1">
+            {rewardAmounts.map((reward, index) => (
+              <div
+                key={reward.key}
+                className={cn(
+                  "flex min-w-36 flex-1 items-center gap-2 px-4 py-2",
+                  index > 0 && "border-l border-white/10",
+                )}
+              >
+                <RewardTokenMark symbol={reward.symbol} />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">
+                    {formatCompactRawTokenAmount(reward.amountRaw, reward.decimals, null)}
+                  </p>
+                  <p className="truncate text-xs text-white/55">
+                    {reward.symbol} · {reward.sourceLabel}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {gauges.isLoading ? (
+              <div className="min-w-36 flex-1 px-4 py-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="mt-2 h-3 w-32" />
+              </div>
+            ) : rewardAmounts.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-white/45">
+                Your tranche and ID20 rewards will appear here.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="shrink-0 lg:min-w-44">
+            <TransactionFlowButton
+              className="w-full"
+              steps={({ account }) => [
+                ...trancheClaimSteps,
+                ...claimableGauges.map((position) =>
+                  makeId20GaugeClaimStep(position, account, true),
+                ),
+              ]}
+              disabled={!address || gauges.isLoading || !canClaim}
+              icon={<Coins className="h-4 w-4" />}
+              onComplete={() => void complete()}
+              onError={(message) => {
+                setSuccessMessage(null);
+                setErrorMessage(message);
+              }}
+            >
+              Claim all
+            </TransactionFlowButton>
+          </div>
+        </CardContent>
+      </Card>
+
+      {gauges.error ? (
+        <p
+          role="status"
+          className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100"
+        >
+          ID20 gauge rewards are temporarily unavailable. Tranche rewards remain visible.
         </p>
-      </div>
-
-      {successMessage ? (
-        <FeatureStatusPanel tone="success" title="Transaction complete" message={successMessage} />
       ) : null}
-      {errorMessage ? (
-        <FeatureStatusPanel tone="error" title="Transaction failed" message={errorMessage} />
+      {claimableSummaries.length > 0 && !rewardSinkAbi ? (
+        <p
+          role="status"
+          className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100"
+        >
+          Tranche reward claims are not configured on this network.
+        </p>
       ) : null}
-
-      <ClaimablesPanel
-        summaries={claimableSummaries}
-        rewardSinkAbi={rewardSinkAbi}
-        onSuccess={(message) => handleSuccess(message)}
-        onError={handleError}
-      />
-      <Id20GaugeRewardsPanel
-        chainId={chainId}
-        onPortfolioRefresh={refresh}
-        onSuccess={(message) => handleSuccess(message, { skipRefresh: true })}
-        onError={handleError}
-      />
-    </section>
+      <RewardMessage success={successMessage} error={errorMessage} />
+    </div>
   );
 }
