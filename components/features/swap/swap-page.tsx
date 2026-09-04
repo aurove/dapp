@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   Check,
@@ -578,6 +578,20 @@ export function SwapPage() {
   const quoteExpired = Boolean(
     quote.data && hasChainTimestampPassed(chainTimestamp, quote.data.expiresAtBlockTimestamp),
   );
+  const currentQuote = quote.data;
+  const quoteIsDebouncing = quote.isDebouncing;
+  const quoteIsFetching = quote.isFetching;
+  const refetchQuote = quote.refetch;
+  const lastAutoRefreshedQuoteRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!currentQuote || !quoteExpired || quoteIsDebouncing || quoteIsFetching) return;
+
+    const quoteKey = `${currentQuote.blockNumber}:${currentQuote.expiresAtBlockTimestamp}`;
+    if (lastAutoRefreshedQuoteRef.current === quoteKey) return;
+
+    lastAutoRefreshedQuoteRef.current = quoteKey;
+    void refetchQuote();
+  }, [currentQuote, quoteExpired, quoteIsDebouncing, quoteIsFetching, refetchQuote]);
   const action = (() => {
     if (!registry && registryQuery.isLoading) return { label: "Loading markets…", disabled: true };
     if (!registry)
@@ -606,9 +620,15 @@ export function SwapPage() {
             : "Route simulation failed",
         disabled: true,
       };
+    if (quoteExpired) {
+      if (quote.isFetching)
+        return { label: "Refreshing quote…", disabled: true, loading: true };
+      if (quote.isError)
+        return { label: "Quote refresh failed — retry", disabled: false, refresh: true };
+      return { label: "Quote expired — refreshing…", disabled: true, loading: true };
+    }
     if (quote.isError || !quote.data || !supportedPlan)
       return { label: "Unable to quote route", disabled: true };
-    if (quoteExpired) return { label: "Quote expired — refresh", disabled: false, refresh: true };
     if (insufficient) return { label: `Insufficient ${sell.symbol} balance`, disabled: true };
     if (approval.isChecking) return { label: "Checking approval…", disabled: true, loading: true };
     if (!approval.isApproved)
