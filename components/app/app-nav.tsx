@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, Award, BarChart3, BookOpen, Droplets } from "lucide-react";
+import { ArrowLeftRight, Award, BarChart3, BookOpen, Droplets, Vote } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "@ui";
 
@@ -17,6 +17,7 @@ type AppRoute = {
 export const appRoutes: AppRoute[] = [
   { href: "/swap", label: "Swap", icon: ArrowLeftRight },
   { href: "/liquidity", label: "Liquidity", icon: Droplets, matchPrefix: "/liquidity" },
+  { href: "/vote", label: "Vote", icon: Vote },
   { href: "/earn", label: "Earn", icon: BarChart3, matchPrefix: "/earn" },
   { href: "/academy", label: "Academy", icon: Award },
   { href: "/docs", label: "Docs", icon: BookOpen, matchPrefix: "/docs" },

@@ -14,6 +14,8 @@ export const MEZO_VOTER_INCENTIVE_ABI = parseAbi([
 export const MEZO_BRIBE_VOTING_REWARD_ABI = parseAbi([
   "error NotWhitelisted()",
   "error ZeroAmount()",
+  "function totalSupply() view returns (uint256)",
+  "function balanceOf(uint256 tokenId) view returns (uint256)",
   "function rewards(uint256 index) view returns (address)",
   "function rewardsListLength() view returns (uint256)",
   "function isReward(address token) view returns (bool)",
