@@ -3,6 +3,7 @@ import test from "node:test";
 import type { Address } from "viem";
 
 import { canBasicRoute, canSwapRoute, hopVenue } from "./find-cl-route";
+import { encodeClPath } from "./encode-cl-path";
 import { planSwap } from "./plan-swap";
 import type { SwapAsset, SwapIntent, SwapQuote, SwapRegistry } from "../domain";
 
@@ -12,6 +13,8 @@ const MEZO = "0x7B7c000000000000000000000000000000000001" as Address;
 const FACTORY = "0x83FE469C636C4081b87bA5b3Ae9991c6Ed104248" as Address;
 const ROUTER = "0x16A76d3cd3C1e3CE843C6680d6B37E9116b5C706" as Address;
 const POOL = "0x52e604c44417233b6CcEDDDc0d640A405Caacefb" as Address;
+const VE_BTC = "0x6F6f000000000000000000000000000000000001" as Address;
+const AV_BTCM = "0x6F6f000000000000000000000000000000000002" as Address;
 
 const btcAsset: SwapAsset = {
   id: "erc20:BTC",
@@ -156,6 +159,89 @@ test("planSwap builds a Mezo AMM execution plan for BTC to MUSD", () => {
   assert.equal(plan.routerLabel, "Mezo AMM");
   assert.equal(plan.contractFunction, "swapExactTokensForTokens");
   assert.equal(plan.routerAddress, ROUTER);
+});
+
+test("planSwap carries permanent veNFT metadata into Aurove zap routes", () => {
+  const veBtcAsset: SwapAsset = {
+    id: "venft:vebtc:42",
+    chainId: 31612,
+    address: VE_BTC,
+    executableAddress: AV_BTCM,
+    symbol: "veBTC #42",
+    name: "veBTC position",
+    decimals: 18,
+    form: "venft",
+    balanceDomain: "wallet",
+    balanceKey: "veBTC:42",
+    trancheId: 1n,
+    variant: 1,
+    epochs: 4n,
+    wrapperAddress: AV_BTCM,
+    tokenId: 42n,
+    fixedInputAmount: 1_000_000_000_000_000_000n,
+    isPermanent: true,
+  };
+  const hops = [
+    {
+      pool: POOL,
+      poolKey: "cl:avbtcm-musd",
+      tokenIn: AV_BTCM,
+      tokenOut: MUSD,
+      tickSpacing: 200,
+      fee: 500,
+    },
+  ];
+  const quote: SwapQuote = {
+    tradeType: "exactInput",
+    amountIn: veBtcAsset.fixedInputAmount!,
+    amountOut: 50_000_000_000_000_000_000n,
+    amountOutMinimum: 49_750_000_000_000_000_000n,
+    amountInMaximum: veBtcAsset.fixedInputAmount!,
+    priceImpactBps: null,
+    quotedAtBlockTimestamp: 1n,
+    blockNumber: 1n,
+    expiresAtBlockTimestamp: 31n,
+    encodedPath: encodeClPath(hops, "exactInput"),
+    hops,
+    candidateCount: 1,
+  };
+  const intent: SwapIntent = {
+    chainId: 31612,
+    account: "0x0000000000000000000000000000000000000009",
+    tokenIn: veBtcAsset,
+    tokenOut: musdAsset,
+    tradeType: "exactInput",
+    amount: quote.amountIn,
+    slippageBps: 50,
+    recipient: "0x0000000000000000000000000000000000000009",
+    deadline: 100n,
+  };
+  const registry = {
+    chainId: 31612,
+    revision: "test",
+    clRouter: { address: ROUTER, abi: [] },
+    auroveRouter: { address: ROUTER, abi: [] },
+    ledger: { address: ROUTER, abi: [] },
+    assets: [veBtcAsset, musdAsset],
+    pools: [
+      {
+        key: "cl:avbtcm-musd",
+        address: POOL,
+        abi: [],
+        token0: AV_BTCM,
+        token1: MUSD,
+        tickSpacing: 200,
+        fee: 500,
+      },
+    ],
+    routing: { maxHops: 3, maxCandidateRoutes: 8, quoteTtlSeconds: 30n },
+  } as unknown as SwapRegistry;
+
+  const plan = planSwap(intent, registry, quote);
+
+  assert.equal(plan.type, "auroveVeNftThenSwap");
+  if (plan.type !== "auroveVeNftThenSwap") return;
+  assert.deepEqual(plan.veNft, { address: VE_BTC, tokenId: 42n, isPermanent: true });
 });
 
 test("hopVenue defaults CL hops", () => {

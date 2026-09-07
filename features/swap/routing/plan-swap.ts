@@ -333,6 +333,11 @@ export function planSwap(
       type: "auroveVeNftThenSwap",
       ...common,
       deposit,
+      veNft: {
+        address: intent.tokenIn.address,
+        tokenId: intent.tokenIn.tokenId,
+        isPermanent: intent.tokenIn.isPermanent,
+      },
       routerAddress: registry.auroveRouter.address,
       routerLabel: "Aurove route",
       contractFunction: functionName,

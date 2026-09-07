@@ -27,7 +27,7 @@ import { usePortfolioSummary } from "@/features/portfolio";
 import { useChainDeadline } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
-import { makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
+import { makeContractWriteStep, permanentVeNftUnlockSteps, type TxStep } from "@/lib/tx-flow";
 import { LiquidityRangeGraph } from "./liquidity-range-graph";
 import { useSlipstreamPoolState } from "./liquidity-range-graph";
 import { LiquidityTokenInput } from "./liquidity-token-input";
@@ -280,6 +280,12 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
     }
 
     if (!selectedSourceA || !selectedSourceB) throw new Error("A liquidity source is missing.");
+    steps.push(
+      ...permanentVeNftUnlockSteps([
+        selectedSourceA.kind === "venft" ? selectedSourceA : null,
+        selectedSourceB.kind === "venft" ? selectedSourceB : null,
+      ]),
+    );
     const approvalA = buildLiquidityApprovalStep({ source: selectedSourceA, input: plan.inputA, routerAddress, suffix: "assetA" });
     const approvalB = buildLiquidityApprovalStep({ source: selectedSourceB, input: plan.inputB, routerAddress, suffix: "assetB" });
     if (approvalA) steps.push(approvalA);

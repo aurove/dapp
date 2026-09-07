@@ -86,6 +86,7 @@ export type SlipstreamLiquiditySource =
       label: string;
       contractAddress: Address;
       tokenId: bigint;
+      isPermanent: boolean;
       balanceRaw: bigint;
       availableFractionCapacityRaw: bigint;
       decimals: number;

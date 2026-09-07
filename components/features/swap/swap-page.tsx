@@ -855,7 +855,7 @@ export function SwapPage() {
         </button>
       ) : null}
       <Dialog
-        open={["reviewing", "submitting", "pending"].includes(execution.state)}
+        open={["reviewing", "unlocking", "submitting", "pending"].includes(execution.state)}
         onOpenChange={(open) => {
           if (!open && execution.state === "reviewing") execution.cancelReview();
         }}
@@ -877,6 +877,9 @@ export function SwapPage() {
               value={`${amountText(supportedPlan?.amountOut, buy)} ${buy?.symbol ?? ""}`}
             />
             <DetailRow label="Route" value={routeText} />
+            {supportedPlan?.type === "auroveVeNftThenSwap" && supportedPlan.veNft.isPermanent ? (
+              <DetailRow label="Preparation" value="Unlock permanent veNFT before swap" />
+            ) : null}
             <DetailRow
               label="Protection"
               value={
@@ -900,10 +903,12 @@ export function SwapPage() {
               disabled={execution.state !== "reviewing"}
               onClick={() => void execution.submit()}
             >
-              {execution.state === "submitting"
-                ? "Submitting…"
-                : execution.state === "pending"
-                  ? "Swapping…"
+              {execution.state === "unlocking"
+                ? "Unlocking…"
+                : execution.state === "submitting"
+                  ? "Submitting…"
+                  : execution.state === "pending"
+                    ? "Swapping…"
                   : "Swap"}
               {execution.state !== "reviewing" ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" />

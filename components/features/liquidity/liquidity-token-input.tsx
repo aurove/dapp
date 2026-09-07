@@ -45,6 +45,9 @@ function sourceTokenIdLabel(source: SlipstreamLiquiditySource) {
 
 function fundingHelper(source: SlipstreamLiquiditySource, tokenSymbol: string | null) {
   if (source.kind === "venft") {
+    if (source.isPermanent) {
+      return `${source.label} will be unlocked, deposited, and converted to ${tokenSymbol ?? "the position token"}.`;
+    }
     return `${source.label} will be deposited and converted to ${tokenSymbol ?? "the position token"}.`;
   }
   if (source.kind === "erc20" && source.mode === "wrapped") {
@@ -97,6 +100,11 @@ export function FundingSourceOption({
               <span className="text-xs text-white/48">{sourceTokenIdLabel(source)}</span>
             ) : null}
             <FundingSourceBadge source={source} />
+            {source.kind === "venft" && source.isPermanent ? (
+              <Badge className="shrink-0 border-amber-300/25 bg-amber-300/10 px-2 py-0.5 text-[9px] font-semibold tracking-[0.13em] text-amber-100">
+                PERMANENT
+              </Badge>
+            ) : null}
           </div>
           <p className="mt-0.5 text-xs text-white/48">{sourceBalanceLabel(source)} available</p>
         </div>

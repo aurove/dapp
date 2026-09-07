@@ -20,7 +20,12 @@ import { FeatureStatusPanel } from "@/components/features/shared/page-shell";
 import TransactionFlowButton, {
   type TransactionFlowButtonHandle,
 } from "@/lib/tx-flow/TransactionFlowButton";
-import { makeContractWriteStep, makeTokenApprovalStep, type TxStep } from "@/lib/tx-flow";
+import {
+  makeContractWriteStep,
+  makeTokenApprovalStep,
+  permanentVeNftUnlockSteps,
+  type TxStep,
+} from "@/lib/tx-flow";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import { useUserVeNFTs, type UserVeNft } from "@/components/features/earn/hooks/use-user-ve-nfts";
 import { earnAssetFromVariant, earnStakePath, type CreatePositionMode } from "./earn-asset";
@@ -164,6 +169,7 @@ export function CreatePositionCard({
     }
 
     return [
+      ...permanentVeNftUnlockSteps([selectedVeNft]),
       makeTokenApprovalStep({
         key: "approve-venft",
         label: "Approve veNFT",
@@ -566,6 +572,12 @@ function CreatePositionForm({
                     <span className="text-white/50">Lock end</span>
                     <span className="font-medium text-white">{selectedVeNft.lockEndLabel}</span>
                   </div>
+                </div>
+              ) : null}
+              {selectedVeNft?.isPermanent ? (
+                <div className="flex items-start gap-2 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs text-amber-100">
+                  <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>This permanent position will be unlocked before deposit.</span>
                 </div>
               ) : null}
               {veNftsError ? (

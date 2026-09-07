@@ -105,6 +105,7 @@ export function buildLiquiditySourceOptions(params: {
             label: `${collectionKey} #${position.tokenId.toString()}`,
             contractAddress: collection.address,
             tokenId: position.tokenId,
+            isPermanent: position.isPermanent,
             balanceRaw: position.availableFractionCapacityRaw,
             availableFractionCapacityRaw: position.availableFractionCapacityRaw,
             decimals: 18,

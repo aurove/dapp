@@ -21,6 +21,7 @@ export interface SwapAsset {
   wrapperAddress?: Address;
   tokenId?: bigint;
   fixedInputAmount?: bigint;
+  isPermanent?: boolean;
 }
 
 export interface SwapPool {
@@ -144,6 +145,7 @@ export interface AuroveDepositWrapThenSwapPlan extends BaseSwapPlan {
 export interface AuroveVeNftThenSwapPlan extends BaseSwapPlan {
   type: "auroveVeNftThenSwap";
   deposit: { variant: number; epochs: bigint; value: bigint };
+  veNft: { address: Address; tokenId: bigint; isPermanent?: boolean };
 }
 export interface UnsupportedSwapPlan {
   type: "unsupported";

@@ -16,7 +16,12 @@ import {
 import { getContractConfig } from "@/contracts/shared";
 import { getPortfolioRegistry, usePortfolioSummary, type LiquidityPortfolio, type PortfolioDomain, type PortfolioRegistry, type PortfolioSummary, type WalletPortfolio } from "@/features/portfolio";
 import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
-import { makeAddressWriteStep, makeTokenApprovalStep, type TxStep } from "@/lib/tx-flow";
+import {
+  makeAddressWriteStep,
+  makeTokenApprovalStep,
+  permanentVeNftUnlockSteps,
+  type TxStep,
+} from "@/lib/tx-flow";
 import { useChainDeadline } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import {
@@ -425,6 +430,12 @@ function PositionActions({
   }, [id20Gauges.gauges, requiredId20Gauges]);
   const increaseSteps: TxStep[] = requiredId20Gauges.flatMap(makeId20ActivationGuardSteps);
   if (!position.isStaked && increaseQuote.status === "ok" && increaseQuote.routerPlan && increaseRouterCall && routerSupportsIncrease && increaseSourceA && increaseSourceB) {
+    increaseSteps.push(
+      ...permanentVeNftUnlockSteps([
+        increaseSourceA.kind === "venft" ? increaseSourceA : null,
+        increaseSourceB.kind === "venft" ? increaseSourceB : null,
+      ]),
+    );
     const approvalA = buildLiquidityApprovalStep({
       source: increaseSourceA,
       input: increaseQuote.routerPlan.inputA,

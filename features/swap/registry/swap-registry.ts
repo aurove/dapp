@@ -463,6 +463,7 @@ export function withWalletVeNfts(
           wrapperAddress: wrapper.address,
           tokenId,
           fixedInputAmount: position.lockAmountRaw,
+          isPermanent: position.isPermanent,
         },
       ];
     });

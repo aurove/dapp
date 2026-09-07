@@ -5,11 +5,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Hash } from "viem";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { getParsedError } from "@/lib/tx-flow/getParsedError";
+import { VE_NFT_PERMANENT_LOCK_ABI, isPermanentVeNftLock } from "@/lib/tx-flow/venft";
 import { hasChainTimestampPassed } from "@/lib/web3/chain-time";
 import { getPortfolioRegistry, invalidatePortfolioDomains } from "@/features/portfolio";
 import type { SwapExecutionPlan, SwapQuote } from "../domain";
 
-export type SwapExecutionState = "idle" | "reviewing" | "submitting" | "pending" | "confirmed" | "failed-simulation" | "failed";
+export type SwapExecutionState = "idle" | "reviewing" | "unlocking" | "submitting" | "pending" | "confirmed" | "failed-simulation" | "failed";
 
 export function useSwapExecution(params: { plan?: SwapExecutionPlan; quote?: SwapQuote; verifyApproval: () => Promise<boolean> }) {
   const { address } = useAccount();
@@ -30,6 +31,29 @@ export function useSwapExecution(params: { plan?: SwapExecutionPlan; quote?: Swa
       if (hasChainTimestampPassed(latestBlock.timestamp, params.quote.expiresAtBlockTimestamp)) throw new Error("Quote expired. Refresh the quote before swapping.");
       if (hasChainTimestampPassed(latestBlock.timestamp, plan.deadline)) throw new Error("Swap deadline expired. Refresh the quote before swapping.");
       if (!(await params.verifyApproval())) throw new Error("Approval is required before swapping.");
+      if (plan.type === "auroveVeNftThenSwap" && plan.veNft.isPermanent) {
+        const target = {
+          contractAddress: plan.veNft.address,
+          tokenId: plan.veNft.tokenId,
+        };
+        if (await isPermanentVeNftLock({ publicClient: client }, target)) {
+          setState("unlocking");
+          const unlockSimulation = await client.simulateContract({
+            account: address,
+            address: target.contractAddress,
+            abi: VE_NFT_PERMANENT_LOCK_ABI,
+            functionName: "unlockPermanent",
+            args: [target.tokenId],
+          } as Parameters<typeof client.simulateContract>[0]);
+          const unlockHash = await writeContractAsync(unlockSimulation.request as never);
+          await client.waitForTransactionReceipt({ hash: unlockHash });
+          const portfolio = getPortfolioRegistry(plan.expectedAsset.chainId);
+          if (portfolio) await invalidatePortfolioDomains({
+            queryClient, chainId: plan.expectedAsset.chainId, owner: address,
+            registryRevision: portfolio.revision, domains: ["wallet"],
+          });
+        }
+      }
       setState("submitting");
       let simulation;
       try {
