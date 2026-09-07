@@ -31,6 +31,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     entry("/", 1, "weekly", lastModified),
     entry("/swap", 0.9, "weekly", lastModified),
     entry("/liquidity", 0.9, "weekly", lastModified),
+    entry("/vote", 0.9, "weekly", lastModified),
     entry("/liquidity/add/btc", 0.7, "monthly", lastModified),
     entry("/liquidity/add/mezo", 0.7, "monthly", lastModified),
     entry("/earn", 0.9, "weekly", lastModified),
