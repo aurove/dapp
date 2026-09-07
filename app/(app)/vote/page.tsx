@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { VotePage } from "@/components/features/vote/vote-page";
+import { VotePage, VotePageSkeleton } from "@/components/features/vote/vote-page";
 import type { VoteData } from "@/components/features/vote/vote-data";
 import { JsonLd } from "@/components/site/json-ld";
 import { getWebPageJsonLd } from "@/lib/seo/json-ld";
@@ -55,13 +55,7 @@ export default function Page() {
           Explore voter rewards and choose where your veBTC votes go.
         </p>
       </header>
-      <Suspense
-        fallback={
-          <p role="status" className="py-8 text-white/50">
-            Loading pools…
-          </p>
-        }
-      >
+      <Suspense fallback={<VotePageSkeleton />}>
         <VotingPools />
       </Suspense>
       <nav aria-label="Learn more" className="flex gap-5 text-sm text-white/50">

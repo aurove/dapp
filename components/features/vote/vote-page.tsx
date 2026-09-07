@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useChainId, usePublicClient, useWriteContract } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { formatUnits, type PublicClient } from "viem";
-import { Button, Card, CardContent, CardHeader } from "@ui";
+import { Button, Card, CardContent, CardHeader, Skeleton } from "@ui";
 import { MEZO_VOTER_ABI } from "@/contracts/mezo-voter";
 import { useTxFlowRuntime } from "@/lib/providers/web3-providers";
 import { executePreparedWriteStep } from "@/lib/tx-flow/execute";
@@ -24,6 +24,46 @@ const amount = (n: bigint, decimals = 18) => {
   return `${BigInt(whole).toLocaleString("en-US")}${digits ? `.${digits}` : ""}`;
 };
 type VotePageProps = { initialData?: VoteData; initialChainId?: number; initialUpdatedAt?: number };
+
+export function VotePageSkeleton() {
+  return (
+    <div className="space-y-6" role="status" aria-label="Loading pools">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Skeleton className="h-4 w-28 rounded-full" />
+        <Skeleton className="h-4 w-16 rounded-full" />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {[0, 1].map((item) => (
+          <Card key={item} className="border-white/10 bg-white/[0.035]">
+            <CardHeader className="space-y-2">
+              <Skeleton className="h-6 w-36 rounded-full" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <Skeleton className="h-4 w-24 rounded-full" />
+                <Skeleton className="h-7 w-20 rounded-full" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-40 rounded-full" />
+                <Skeleton className="h-5 w-32 rounded-full" />
+              </div>
+              <div className="space-y-2 rounded-lg border border-white/10 p-3">
+                <Skeleton className="h-4 w-28 rounded-full" />
+                <Skeleton className="h-7 w-36 rounded-full" />
+                <Skeleton className="h-7 w-32 rounded-full" />
+              </div>
+              <div className="space-y-2 rounded-lg border border-white/10 p-3">
+                <Skeleton className="h-4 w-28 rounded-full" />
+                <Skeleton className="h-4 w-40 rounded-full" />
+                <Skeleton className="h-4 w-full rounded-full" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function VotePage(props: VotePageProps) {
   const { address } = useAccount();
@@ -177,7 +217,7 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
           </CardContent>
         </Card>
       )}
-      {query.isPending && <p role="status">Loading pools…</p>}
+      {query.isPending && <VotePageSkeleton />}
       {query.isError && (
         <div role="alert" className="text-red-300">
           Unable to load current voting data: {query.error.message}{" "}
