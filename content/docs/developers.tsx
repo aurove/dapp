@@ -253,7 +253,7 @@ export const DEVELOPER_PAGES: DocPageDefinition[] = [
       "Deposit, wrap, unwrap, claim, and redeem against the deployed Ledger, sinks, and ID20 wrappers.",
     tags: ["developers", "earn", "deposit", "redeem", "wrap"],
     searchText:
-      "earn integration depositErc20 depositVeNft redeem unwrap claimRebases activate claimRewards",
+      "earn integration depositErc20 depositVeNft redeem unwrap claimRebases activate claimRewards feeConfig nextFeeConfig executeFeeConfig",
     Content: () => (
       <>
         <h1>Earn integration</h1>
@@ -319,6 +319,21 @@ export const DEVELOPER_PAGES: DocPageDefinition[] = [
             Exit: <code>unwrap(amount, to)</code> then <code>redeem(trancheId, amount, receiver, tokenIds)</code>.
           </li>
         </ol>
+        <h2>Reward fee reads</h2>
+        <p>
+          The protocol fee applies when a tranche RewardSink syncs newly detected reward funding,
+          including inventory growth minted by <code>Ledger.claimRebases</code>. It is transferred
+          from the sink to the collector as ERC-1155 units of the same tranche before the net reward
+          amount is notified. Claim transactions receive already-netted rewards.
+        </p>
+        <p>
+          Do not hard-code or infer the live fee. Read <code>Ledger.feeConfig()</code> for the active
+          fee and <code>Ledger.nextFeeConfig()</code> for any pending update, either on-chain or from
+          the Ledger <strong>Contract</strong> tab on the Mezo explorer. The owner-only{" "}
+          <code>proposeFeeConfig</code> creates a pending config for the next weekly epoch when called
+          outside the final 48 hours of the current epoch; <code>executeFeeConfig</code> is
+          permissionless after that effective epoch and is what actually activates the pending values.
+        </p>
         <h2>Read-only examples</h2>
         <CodeBlock language="ts" filename="read-tranche.ts" code={READ_SUPPLY_EXAMPLE} />
         <p>
@@ -539,7 +554,8 @@ export const DEVELOPER_PAGES: DocPageDefinition[] = [
         <h2>Cache and indexing notes</h2>
         <ul>
           <li>
-            Do not cache <code>mTokenId</code>, fee config, or pool gauges as constants. Read them.
+            Do not cache <code>mTokenId</code>, fee config, or pool gauges as constants. Read fee
+            state from <code>feeConfig()</code> and <code>nextFeeConfig()</code>.
           </li>
           <li>
             Wrapper sink addresses are immutable after <code>createId20</code>. Factory{" "}

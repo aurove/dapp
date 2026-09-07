@@ -243,7 +243,7 @@ export const PROTOCOL_PAGES: DocPageDefinition[] = [
       "Instant reward accounting, weekly activation, rebase claims, ID20 gauges, and what is not paid to holders.",
     tags: ["protocol", "rewards", "epochs", "instant rewards"],
     searchText:
-      "instant rewards epoch 1 weeks active inactive claimRebases rewardSink id20 gauge notifyReward fee bps",
+      "instant rewards epoch 1 weeks active inactive claimRebases rewardSink id20 gauge notifyReward fee bps feeConfig nextFeeConfig executeFeeConfig",
     Content: () => (
       <>
         <h1>Rewards and epochs</h1>
@@ -274,20 +274,62 @@ export const PROTOCOL_PAGES: DocPageDefinition[] = [
           </li>
           <li>The Ledger mints that growth as ERC-1155 units to the tranche RewardSink.</li>
           <li>
-            The sink <code>syncRewardFunding</code> takes the protocol fee, then notifies the net
-            amount.
+            The sink <code>syncRewardFunding</code> reads the active Ledger fee config, transfers
+            the protocol fee, then notifies the net amount.
           </li>
         </ol>
         <p>
           Holders claim with <code>RewardSink.claimRewards</code>. ID20 wrappers harvest with{" "}
           <code>claimRewardsAndCall(abi.encode(gauge))</code>.
         </p>
+        <h2>Protocol fee collection</h2>
         <p>
-          The live fee config is <code>feeConfig() → (feeBps, feeRecipient)</code>. On the deployed
-          Ledger this currently returns <code>0</code> bps and the zero address. Do not assume a 10%
-          fee unless that function later reads a non-zero value. Fee proposals are owner-only, frozen
-          in the last 48 hours of an epoch, and executable next epoch.
+          Fees are collected from newly detected RewardSink funding, not from a holder's claim
+          transaction. The fee is paid in the same ERC-1155 tranche units that were minted or
+          transferred into the sink; it is not paid in BTC, MEZO, MUSD, or another ERC-20. The sink
+          computes <code>feeAmount = grossAmount * feeBps / 10_000</code>, rounded down, transfers
+          that amount from the sink to the configured collector, then notifies only the remaining
+          net amount to reward accounting.
         </p>
+        <p>
+          Rebase inventory growth is the normal source of gross funding. A direct ERC-1155 tranche
+          transfer into a RewardSink can also become gross funding when{" "}
+          <code>syncRewardFunding</code> runs, because the sink accounts for any balance above its
+          stored reward reserve. If the active fee is zero or the rounded fee amount is zero, no fee
+          transfer is made.
+        </p>
+        <h2>Fee config lifecycle</h2>
+        <p>
+          This documentation does not assume the current deployed fee setting. To check live state,
+          open the Ledger on the Mezo explorer <strong>Contract</strong> tab and read{" "}
+          <code>feeConfig()</code> for the active fee plus <code>nextFeeConfig()</code> for any
+          pending update.
+        </p>
+        <ol>
+          <li>
+            The active config returned by <code>feeConfig()</code> is what each RewardSink uses the
+            next time <code>syncRewardFunding</code> charges fees.
+          </li>
+          <li>
+            The Ledger owner proposes a new config with <code>proposeFeeConfig(feeBps, recipient)</code>.
+            <code>feeBps</code> cannot exceed <code>10_000</code>, and a non-zero fee requires a
+            non-zero recipient.
+          </li>
+          <li>
+            A proposal must be submitted before the final 48 hours of the current weekly epoch. A
+            valid proposal becomes pending for <code>currentEpoch() + 1</code> and is visible through{" "}
+            <code>nextFeeConfig()</code>.
+          </li>
+          <li>
+            Once the chain reaches the effective epoch, anyone may call{" "}
+            <code>executeFeeConfig()</code>. Execution copies the pending values into the active
+            config and clears the pending config.
+          </li>
+          <li>
+            Until <code>executeFeeConfig()</code> succeeds, RewardSinks keep using the previously
+            active config.
+          </li>
+        </ol>
         <RewardFlowDiagram />
         <h2>ID20 gauge</h2>
         <p>
@@ -339,7 +381,17 @@ export const PROTOCOL_PAGES: DocPageDefinition[] = [
           the caller and 99% to the VeNftManager. They are not distributed to fraction holders.
           Maintainer <code>claimBribes</code> / <code>claimFees</code> also land on the manager.
         </p>
-        <AddressTable ids={["avbtcm-sink", "avmezom-sink", "sink-beacon", "sink-impl", "avbtcm-gauge", "avmezom-gauge"]} />
+        <AddressTable
+          ids={[
+            "ledger",
+            "avbtcm-sink",
+            "avmezom-sink",
+            "sink-beacon",
+            "sink-impl",
+            "avbtcm-gauge",
+            "avmezom-gauge",
+          ]}
+        />
       </>
     ),
   },
@@ -483,6 +535,10 @@ export const PROTOCOL_PAGES: DocPageDefinition[] = [
             <strong>Swap maintainers:</strong> <code>withdrawTokens</code> from a manager.
           </li>
         </ul>
+        <p>
+          <code>executeFeeConfig</code> only activates a pending fee config after its effective epoch.
+          It does not let the caller choose new fee values; those come from the owner-only proposal.
+        </p>
         <p>
           Admin functions are not user integration paths. Addresses:{" "}
           <DocRouteLink href="/docs/developers/deployment">Deployment reference</DocRouteLink>.
