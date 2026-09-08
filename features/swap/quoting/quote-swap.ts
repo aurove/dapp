@@ -47,7 +47,6 @@ function leastSignificantBit(value: bigint): number {
 }
 
 const MAX_TICK_LOOKUPS_PER_POOL = 48;
-const QUOTE_TIMEOUT_MS = 8_000;
 const MAX_CL_CANDIDATES = 8;
 
 class LiveTickDataProvider implements TickDataProvider {
@@ -268,6 +267,19 @@ async function withTimeout<T>(operation: Promise<T>, timeoutMs: number, label: s
   }
 }
 
+function routeTimeoutReason(routes: readonly SwapHop[][], timeoutMs: number): string {
+  const direct = routes.filter((route) => route.length === 1).length;
+  const twoHop = routes.filter((route) => route.length === 2).length;
+  const longer = routes.filter((route) => route.length > 2).length;
+  const pieces = [
+    direct ? `${direct} direct` : "",
+    twoHop ? `${twoHop} two-hop` : "",
+    longer ? `${longer} longer` : "",
+  ].filter(Boolean);
+  const routeText = pieces.length ? pieces.join(", ") : "no";
+  return `Quote timed out after ${Math.round(timeoutMs / 1_000)}s while evaluating ${routeText} CL route candidates. Try again or use a smaller amount.`;
+}
+
 export async function quoteBestSwapRoute(params: {
   client: PublicClient;
   registry: SwapRegistry;
@@ -306,7 +318,7 @@ export async function quoteBestSwapRoute(params: {
         maxHops,
         basicQuotes,
       }),
-      QUOTE_TIMEOUT_MS,
+      registry.routing.quoteTimeoutMs,
       "Quote timed out",
     );
   } catch (error) {
@@ -324,7 +336,7 @@ export async function quoteBestSwapRoute(params: {
     return {
       status: "failed-simulation",
       reason: timedOut
-        ? "Quote timed out. Try a smaller amount or another pair."
+        ? routeTimeoutReason(clRoutes, registry.routing.quoteTimeoutMs)
         : "Unable to read or simulate live pool state",
       candidateCount: clRoutes.length,
     };

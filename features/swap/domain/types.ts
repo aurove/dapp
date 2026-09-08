@@ -60,6 +60,7 @@ export interface SwapRoutingConfig {
   maxHops: number;
   maxCandidateRoutes: number;
   quoteTtlSeconds: bigint;
+  quoteTimeoutMs: number;
 }
 
 export interface SwapIntent {

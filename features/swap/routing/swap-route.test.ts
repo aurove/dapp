@@ -5,6 +5,7 @@ import type { Address } from "viem";
 import { canBasicRoute, canSwapRoute, hopVenue } from "./find-cl-route";
 import { encodeClPath } from "./encode-cl-path";
 import { planSwap } from "./plan-swap";
+import { getSwapRoutingConfig } from "../registry/swap-registry";
 import type { SwapAsset, SwapIntent, SwapQuote, SwapRegistry } from "../domain";
 
 const BTC = "0x7b7C000000000000000000000000000000000000" as Address;
@@ -15,6 +16,26 @@ const ROUTER = "0x16A76d3cd3C1e3CE843C6680d6B37E9116b5C706" as Address;
 const POOL = "0x52e604c44417233b6CcEDDDc0d640A405Caacefb" as Address;
 const VE_BTC = "0x6F6f000000000000000000000000000000000001" as Address;
 const AV_BTCM = "0x6F6f000000000000000000000000000000000002" as Address;
+
+test("swap routing config exposes a bounded quote timeout", () => {
+  const previous = process.env.NEXT_PUBLIC_SWAP_QUOTE_TIMEOUT_MS;
+  try {
+    delete process.env.NEXT_PUBLIC_SWAP_QUOTE_TIMEOUT_MS;
+    assert.equal(getSwapRoutingConfig().quoteTimeoutMs, 15_000);
+
+    process.env.NEXT_PUBLIC_SWAP_QUOTE_TIMEOUT_MS = "2000";
+    assert.equal(getSwapRoutingConfig().quoteTimeoutMs, 3_000);
+
+    process.env.NEXT_PUBLIC_SWAP_QUOTE_TIMEOUT_MS = "45000";
+    assert.equal(getSwapRoutingConfig().quoteTimeoutMs, 45_000);
+
+    process.env.NEXT_PUBLIC_SWAP_QUOTE_TIMEOUT_MS = "90000";
+    assert.equal(getSwapRoutingConfig().quoteTimeoutMs, 60_000);
+  } finally {
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_SWAP_QUOTE_TIMEOUT_MS;
+    else process.env.NEXT_PUBLIC_SWAP_QUOTE_TIMEOUT_MS = previous;
+  }
+});
 
 const btcAsset: SwapAsset = {
   id: "erc20:BTC",
@@ -87,7 +108,7 @@ test("canSwapRoute uses AMM when no CL path exists", () => {
         factory: FACTORY,
       },
     ],
-    routing: { maxHops: 3, maxCandidateRoutes: 8, quoteTtlSeconds: 30n },
+    routing: { maxHops: 3, maxCandidateRoutes: 8, quoteTtlSeconds: 30n, quoteTimeoutMs: 15_000 },
   };
   assert.equal(canSwapRoute(registry, BTC, MUSD), true);
   assert.equal(canSwapRoute({ ...registry, basicPools: [] }, BTC, MUSD), false);
@@ -151,7 +172,7 @@ test("planSwap builds a Mezo AMM execution plan for BTC to MUSD", () => {
         factory: FACTORY,
       },
     ],
-    routing: { maxHops: 3, maxCandidateRoutes: 8, quoteTtlSeconds: 30n },
+    routing: { maxHops: 3, maxCandidateRoutes: 8, quoteTtlSeconds: 30n, quoteTimeoutMs: 15_000 },
   } as unknown as SwapRegistry;
   const plan = planSwap(intent, registry, quote);
   assert.equal(plan.type, "directBasicSwap");
@@ -234,7 +255,7 @@ test("planSwap carries permanent veNFT metadata into Aurove zap routes", () => {
         fee: 500,
       },
     ],
-    routing: { maxHops: 3, maxCandidateRoutes: 8, quoteTtlSeconds: 30n },
+    routing: { maxHops: 3, maxCandidateRoutes: 8, quoteTtlSeconds: 30n, quoteTimeoutMs: 15_000 },
   } as unknown as SwapRegistry;
 
   const plan = planSwap(intent, registry, quote);
@@ -326,7 +347,7 @@ test("planSwap deposits a veNFT then sells only selected tranche units", () => {
         fee: 500,
       },
     ],
-    routing: { maxHops: 3, maxCandidateRoutes: 8, quoteTtlSeconds: 30n },
+    routing: { maxHops: 3, maxCandidateRoutes: 8, quoteTtlSeconds: 30n, quoteTimeoutMs: 15_000 },
   } as unknown as SwapRegistry;
 
   const plan = planSwap(intent, registry, quote);

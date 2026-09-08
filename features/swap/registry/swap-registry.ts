@@ -37,6 +37,12 @@ export function getSwapRoutingConfig(): SwapRoutingConfig {
     quoteTtlSeconds: BigInt(
       boundedInteger(process.env.NEXT_PUBLIC_SWAP_QUOTE_TTL_SECONDS, 30, 5, 300),
     ),
+    quoteTimeoutMs: boundedInteger(
+      process.env.NEXT_PUBLIC_SWAP_QUOTE_TIMEOUT_MS,
+      15_000,
+      3_000,
+      60_000,
+    ),
   };
 }
 
