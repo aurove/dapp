@@ -514,6 +514,7 @@ export function SwapPage() {
   const [slippageBps, setSlippageBps] = useState(50);
   const [deadlineMinutes, setDeadlineMinutes] = useState(20);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [openDetailsKey, setOpenDetailsKey] = useState<string>();
   const formik = useFormik({
     initialValues: { amount: "", slippage: "0.5", deadline: "20" },
     validationSchema: swapSchema,
@@ -671,6 +672,11 @@ export function SwapPage() {
         ...supportedPlan.hops.map((hop) => routeSymbol(hop.tokenOut)),
       ].join(" → ")
     : "—";
+  const detailsKey =
+    quote.data && supportedPlan
+      ? `${resolvedSellId}:${resolvedBuyId}:${tradeType}:${typedAmount}`
+      : undefined;
+  const detailsOpen = detailsKey !== undefined && openDetailsKey === detailsKey;
   const executionPath = executionPathText(supportedPlan);
   const veNftSellAmount = sell?.form === "venft" ? parsedAmount : null;
   const veNftTotalUnits = sell?.form === "venft" ? sell.fixedInputAmount : undefined;
@@ -887,80 +893,95 @@ export function SwapPage() {
         />
       </div>
       {quote.data && supportedPlan ? (
-        <details className="group mt-3 rounded-xl px-2 py-2 text-xs" open>
-          <summary className="flex cursor-pointer list-none items-center justify-between text-white/62">
+        <div className="mt-3 rounded-xl px-2 py-2 text-xs">
+          <div className="flex items-center justify-between text-white/62">
             <span>{price}</span>
-            <ChevronDown className="h-4 w-4 group-open:hidden" />
-            <ChevronUp className="hidden h-4 w-4 group-open:block" />
-          </summary>
-          <div className="mt-3 space-y-2 border-t border-white/8 pt-3">
-            <DetailRow label="Inverse price" value={inversePrice} />
-            <DetailRow label="Route" value={routeText} />
-            <DetailRow
-              label={supportedPlan.routerLabel}
-              value={supportedPlan.hops
-                .map((hop) =>
-                  hop.venue === "basic"
-                    ? `${hop.stable ? "Stable" : "Volatile"} AMM`
-                    : `Tick spacing ${hop.tickSpacing} · ${percentageText(hop.fee / 10_000)}`,
-                )
-                .join(" · ")}
-            />
-            <DetailRow label="Execution path" value={executionPath} />
-            {supportedPlan.type === "auroveVeNftDepositThenTrancheSwap" ? (
-              <DetailRow
-                label="Before swap"
-                value="Deposits veNFT to Ledger, then sells selected ERC1155 units"
-              />
-            ) : supportedPlan.type === "auroveDepositWrapThenSwap" ||
-              supportedPlan.type === "auroveVeNftThenSwap" ||
-              supportedPlan.type === "auroveWrapThenSwap" ? (
-              <DetailRow
-                label="Before swap"
-                value="Deposits and wraps into ID20 before swapping"
-              />
-            ) : null}
-            {sell?.form === "venft" ? (
-              <>
-                <DetailRow
-                  label="Total veNFT units"
-                  value={`${amountText(veNftTotalUnits, sell)} ${sell.symbol}`}
-                />
-                <DetailRow
-                  label="veNFT units sold"
-                  value={`${amountText(veNftSellAmount ?? undefined, sell)} ${sell.symbol} (${fractionText(veNftSellAmount, veNftTotalUnits)})`}
-                />
-                <DetailRow
-                  label="ERC1155 units remaining"
-                  value={`${amountText(veNftRemainingUnits, sell)} ${sell.symbol}`}
-                />
-              </>
-            ) : null}
-            <DetailRow
-              label={tradeType === "exactInput" ? "Minimum received" : "Maximum sold"}
-              value={`${amountText(tradeType === "exactInput" ? supportedPlan.amountOutMinimum : supportedPlan.amountInMaximum, tradeType === "exactInput" ? buy : sell)} ${tradeType === "exactInput" ? buy?.symbol : sell?.symbol}`}
-            />
-            <DetailRow
-              label="Price impact"
-              value={percentageText(
-                quote.data.priceImpactBps === null ? null : quote.data.priceImpactBps / 100,
-              )}
-            />
-            <DetailRow label="Slippage tolerance" value={percentageText(slippageBps / 100)} />
-            <DetailRow
-              label="Deadline"
-              value={`${new Intl.NumberFormat().format(deadlineMinutes)} minutes`}
-            />
-            <DetailRow label="Router used" value={supportedPlan.routerLabel} />
-            <DetailRow
-              label="Estimated network fee"
-              value={
-                networkFee.data ??
-                (networkFee.isFetching ? "Estimating…" : "Calculated by wallet at review")
+            <button
+              type="button"
+              onClick={() =>
+                setOpenDetailsKey((value) => (value === detailsKey ? undefined : detailsKey))
               }
-            />
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-white/62 transition hover:bg-white/[0.06] hover:text-white"
+              aria-label={detailsOpen ? "Close swap details" : "Open swap details"}
+              aria-expanded={detailsOpen}
+            >
+              {detailsOpen ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
           </div>
-        </details>
+          {detailsOpen ? (
+            <div className="mt-3 space-y-2 border-t border-white/8 pt-3">
+              <DetailRow label="Inverse price" value={inversePrice} />
+              <DetailRow label="Route" value={routeText} />
+              <DetailRow
+                label={supportedPlan.routerLabel}
+                value={supportedPlan.hops
+                  .map((hop) =>
+                    hop.venue === "basic"
+                      ? `${hop.stable ? "Stable" : "Volatile"} AMM`
+                      : `Tick spacing ${hop.tickSpacing} · ${percentageText(hop.fee / 10_000)}`,
+                  )
+                  .join(" · ")}
+              />
+              <DetailRow label="Execution path" value={executionPath} />
+              {supportedPlan.type === "auroveVeNftDepositThenTrancheSwap" ? (
+                <DetailRow
+                  label="Before swap"
+                  value="Deposits veNFT to Ledger, then sells selected ERC1155 units"
+                />
+              ) : supportedPlan.type === "auroveDepositWrapThenSwap" ||
+                supportedPlan.type === "auroveVeNftThenSwap" ||
+                supportedPlan.type === "auroveWrapThenSwap" ? (
+                <DetailRow
+                  label="Before swap"
+                  value="Deposits and wraps into ID20 before swapping"
+                />
+              ) : null}
+              {sell?.form === "venft" ? (
+                <>
+                  <DetailRow
+                    label="Total veNFT units"
+                    value={`${amountText(veNftTotalUnits, sell)} ${sell.symbol}`}
+                  />
+                  <DetailRow
+                    label="veNFT units sold"
+                    value={`${amountText(veNftSellAmount ?? undefined, sell)} ${sell.symbol} (${fractionText(veNftSellAmount, veNftTotalUnits)})`}
+                  />
+                  <DetailRow
+                    label="ERC1155 units remaining"
+                    value={`${amountText(veNftRemainingUnits, sell)} ${sell.symbol}`}
+                  />
+                </>
+              ) : null}
+              <DetailRow
+                label={tradeType === "exactInput" ? "Minimum received" : "Maximum sold"}
+                value={`${amountText(tradeType === "exactInput" ? supportedPlan.amountOutMinimum : supportedPlan.amountInMaximum, tradeType === "exactInput" ? buy : sell)} ${tradeType === "exactInput" ? buy?.symbol : sell?.symbol}`}
+              />
+              <DetailRow
+                label="Price impact"
+                value={percentageText(
+                  quote.data.priceImpactBps === null ? null : quote.data.priceImpactBps / 100,
+                )}
+              />
+              <DetailRow label="Slippage tolerance" value={percentageText(slippageBps / 100)} />
+              <DetailRow
+                label="Deadline"
+                value={`${new Intl.NumberFormat().format(deadlineMinutes)} minutes`}
+              />
+              <DetailRow label="Router used" value={supportedPlan.routerLabel} />
+              <DetailRow
+                label="Estimated network fee"
+                value={
+                  networkFee.data ??
+                  (networkFee.isFetching ? "Estimating…" : "Calculated by wallet at review")
+                }
+              />
+            </div>
+          ) : null}
+        </div>
       ) : null}
       {quote.data && (quote.data.priceImpactBps ?? 0) >= 500 ? (
         <div className="mx-2 mt-2 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs text-amber-100">
