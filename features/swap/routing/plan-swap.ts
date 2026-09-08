@@ -314,7 +314,8 @@ export function planSwap(
     intent.tokenIn.form === "venft" &&
     intent.tokenIn.variant &&
     intent.tokenIn.epochs !== undefined &&
-    intent.tokenIn.tokenId !== undefined
+    intent.tokenIn.tokenId !== undefined &&
+    intent.tokenIn.trancheId !== undefined
   ) {
     if (intent.tradeType !== "exactInput") {
       return {
@@ -323,21 +324,94 @@ export function planSwap(
         hops,
       };
     }
+    const totalUnits = intent.tokenIn.fixedInputAmount;
+    if (!totalUnits || totalUnits <= 0n) {
+      return {
+        type: "unsupported",
+        reason: "Unable to read the veNFT position size",
+        hops,
+      };
+    }
+    if (amountIn > totalUnits) {
+      return {
+        type: "unsupported",
+        reason: "Sell amount exceeds the veNFT position size",
+        hops,
+      };
+    }
     const deposit = {
       variant: intent.tokenIn.variant,
       epochs: intent.tokenIn.epochs,
       value: intent.tokenIn.tokenId,
     };
+    const veNft = {
+      address: intent.tokenIn.address,
+      tokenId: intent.tokenIn.tokenId,
+      isPermanent: intent.tokenIn.isPermanent,
+      totalUnits,
+      sellUnits: amountIn,
+      remainingUnits: totalUnits - amountIn,
+    };
+    if (amountIn < totalUnits) {
+      const depositCall = {
+        address: registry.ledger.address,
+        abi: registry.ledger.abi,
+        functionName: "depositVeNft",
+        args: [deposit.variant, deposit.epochs, deposit.value, intent.account],
+      };
+      const swapCall = {
+        address: registry.auroveRouter.address,
+        abi: registry.auroveRouter.abi,
+        functionName: "zapTrancheExactInput",
+        args: [intent.tokenIn.trancheId, amountIn, params],
+      };
+      return {
+        type: "auroveVeNftDepositThenTrancheSwap",
+        ...common,
+        deposit,
+        trancheId: intent.tokenIn.trancheId,
+        trancheSwapAmount: amountIn,
+        depositCall,
+        swapCall,
+        veNft,
+        routerAddress: registry.auroveRouter.address,
+        routerLabel: "Aurove route",
+        contractFunction: "depositVeNft + zapTrancheExactInput",
+        contractCall: swapCall,
+        approval: {
+          kind: "batch",
+          approvals: [
+            {
+              kind: "erc721",
+              token: intent.tokenIn.address,
+              operator: registry.ledger.address,
+              tokenId: intent.tokenIn.tokenId,
+            },
+            {
+              kind: "erc1155",
+              token: registry.ledger.address,
+              operator: registry.auroveRouter.address,
+            },
+          ],
+        },
+        affectedPortfolioDomains: [
+          ...new Set([
+            "wallet" as const,
+            "tranches" as const,
+            "id20" as const,
+            intent.tokenOut.balanceDomain,
+            "rewards" as const,
+            "liquidity" as const,
+          ]),
+        ],
+      };
+    }
     const functionName = "zapVeNftExactInput";
     return {
       type: "auroveVeNftThenSwap",
       ...common,
       deposit,
-      veNft: {
-        address: intent.tokenIn.address,
-        tokenId: intent.tokenIn.tokenId,
-        isPermanent: intent.tokenIn.isPermanent,
-      },
+      veNft,
       routerAddress: registry.auroveRouter.address,
       routerLabel: "Aurove route",
       contractFunction: functionName,

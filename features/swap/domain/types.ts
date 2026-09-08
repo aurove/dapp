@@ -88,10 +88,14 @@ export interface SwapHop {
   factory?: Address;
 }
 
-export type ApprovalRequirement =
+export type SingleApprovalRequirement =
   | { kind: "erc20"; token: Address; spender: Address; amount: bigint }
   | { kind: "erc1155"; token: Address; operator: Address }
-  | { kind: "erc721"; token: Address; operator: Address; tokenId: bigint }
+  | { kind: "erc721"; token: Address; operator: Address; tokenId: bigint };
+
+export type ApprovalRequirement =
+  | SingleApprovalRequirement
+  | { kind: "batch"; approvals: readonly SingleApprovalRequirement[] }
   | { kind: "none" };
 
 export interface SwapContractCall {
@@ -145,7 +149,16 @@ export interface AuroveDepositWrapThenSwapPlan extends BaseSwapPlan {
 export interface AuroveVeNftThenSwapPlan extends BaseSwapPlan {
   type: "auroveVeNftThenSwap";
   deposit: { variant: number; epochs: bigint; value: bigint };
-  veNft: { address: Address; tokenId: bigint; isPermanent?: boolean };
+  veNft: { address: Address; tokenId: bigint; isPermanent?: boolean; totalUnits: bigint; sellUnits: bigint; remainingUnits: bigint };
+}
+export interface AuroveVeNftDepositThenTrancheSwapPlan extends BaseSwapPlan {
+  type: "auroveVeNftDepositThenTrancheSwap";
+  deposit: { variant: number; epochs: bigint; value: bigint };
+  trancheId: bigint;
+  trancheSwapAmount: bigint;
+  depositCall: SwapContractCall;
+  swapCall: SwapContractCall;
+  veNft: { address: Address; tokenId: bigint; isPermanent?: boolean; totalUnits: bigint; sellUnits: bigint; remainingUnits: bigint };
 }
 export interface UnsupportedSwapPlan {
   type: "unsupported";
@@ -160,6 +173,7 @@ export type SwapExecutionPlan =
   | AuroveWrapThenSwapPlan
   | AuroveDepositWrapThenSwapPlan
   | AuroveVeNftThenSwapPlan
+  | AuroveVeNftDepositThenTrancheSwapPlan
   | UnsupportedSwapPlan;
 
 export interface SwapQuote {

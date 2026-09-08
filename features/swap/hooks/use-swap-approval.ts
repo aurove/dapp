@@ -10,10 +10,10 @@ import {
   makeTokenApprovalStep,
   type TokenApprovalRequirement,
 } from "@/lib/tx-flow";
-import type { ApprovalRequirement, SwapExecutionPlan } from "../domain";
+import type { ApprovalRequirement, SingleApprovalRequirement, SwapExecutionPlan } from "../domain";
 
 function toTokenApprovalRequirement(
-  approval: Exclude<ApprovalRequirement, { kind: "none" }>,
+  approval: SingleApprovalRequirement,
 ): TokenApprovalRequirement {
   if (approval.kind === "erc20") {
     return {
@@ -38,6 +38,20 @@ function toTokenApprovalRequirement(
   };
 }
 
+function approvalKey(approval: SingleApprovalRequirement): string {
+  if (approval.kind === "erc20")
+    return `erc20:${approval.token}:${approval.spender}:${approval.amount}`;
+  if (approval.kind === "erc721")
+    return `erc721:${approval.token}:${approval.operator}:${approval.tokenId}`;
+  return `erc1155:${approval.token}:${approval.operator}`;
+}
+
+function flattenApprovals(approval: ApprovalRequirement | undefined): SingleApprovalRequirement[] {
+  if (!approval || approval.kind === "none") return [];
+  if (approval.kind === "batch") return [...approval.approvals];
+  return [approval];
+}
+
 export function useSwapApproval(plan: SwapExecutionPlan | undefined) {
   const { address, chain } = useAccount();
   const client = usePublicClient();
@@ -46,22 +60,31 @@ export function useSwapApproval(plan: SwapExecutionPlan | undefined) {
   const { contracts, notify } = useTxFlowRuntime();
   const [isExecutingApproval, setIsExecutingApproval] = useState(false);
   const approval = plan?.type === "unsupported" ? undefined : plan?.approval;
-  const tokenApproval = approval && approval.kind !== "none"
-    ? toTokenApprovalRequirement(approval)
-    : undefined;
+  const approvals = flattenApprovals(approval);
   const checkApproval = async () => {
-    if (!address || !client || !tokenApproval) return true;
-    return isTokenApprovalSatisfied({ account: address, publicClient: client }, tokenApproval);
+    if (!address || !client || approvals.length === 0) return [] as boolean[];
+    return Promise.all(
+      approvals.map((item) =>
+        isTokenApprovalSatisfied(
+          { account: address, publicClient: client },
+          toTokenApprovalRequirement(item),
+        ),
+      ),
+    );
   };
   const query = useQuery({
-    queryKey: ["swap", "approval", address, approval?.kind, approval && approval.kind !== "none" ? approval.token : "none", approval?.kind === "erc20" ? approval.spender : approval?.kind === "erc1155" || approval?.kind === "erc721" ? approval.operator : "none", approval?.kind === "erc20" ? approval.amount.toString() : approval?.kind === "erc721" ? approval.tokenId.toString() : "0"],
+    queryKey: ["swap", "approval", address, approvals.map(approvalKey).join("|")],
     queryFn: checkApproval,
     enabled: Boolean(address && client && approval), staleTime: 5_000,
   });
   const approve = async () => {
-    if (!address || !chain || !client || !tokenApproval || isExecutingApproval) return;
+    if (!address || !chain || !client || approvals.length === 0 || isExecutingApproval) return;
     setIsExecutingApproval(true);
     try {
+      const statuses = await checkApproval();
+      const nextApproval = approvals.find((_, index) => !statuses[index]);
+      if (!nextApproval) return;
+      const tokenApproval = toTokenApprovalRequirement(nextApproval);
       const step = makeTokenApprovalStep({
         key: `swap-approve-${tokenApproval.standard}`,
         label: "Approve token",
@@ -81,11 +104,14 @@ export function useSwapApproval(plan: SwapExecutionPlan | undefined) {
       setIsExecutingApproval(false);
     }
   };
+  const statuses = query.data ?? [];
+  const pendingApproval = approvals.find((_, index) => statuses[index] !== true);
   return {
-    isApproved: query.data ?? false,
+    isApproved: approvals.length === 0 || approvals.every((_, index) => statuses[index] === true),
     isChecking: query.isLoading,
     isApproving: isWalletPending || isExecutingApproval,
+    pendingApproval,
     approve,
-    verify: checkApproval,
+    verify: async () => (await checkApproval()).every(Boolean),
   };
 }

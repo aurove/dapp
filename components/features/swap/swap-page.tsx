@@ -40,7 +40,9 @@ import {
   useSwapNetworkFee,
   useSwapQuote,
   useSwapRegistry,
+  type SingleApprovalRequirement,
   type SwapAsset,
+  type SwapExecutionPlan,
   type SwapIntent,
   type SwapTradeType,
 } from "@/features/swap";
@@ -105,6 +107,33 @@ function normalizedCaretPosition(value: string, position: number | null, decimal
 function boundedNumber(value: string, minimum: number, maximum: number, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(minimum, Math.min(maximum, parsed)) : fallback;
+}
+
+function rawFractionAmount(total: bigint, bps: number): bigint {
+  return (total * BigInt(bps)) / 10_000n;
+}
+
+function fractionText(amount: bigint | null | undefined, total: bigint | undefined): string {
+  if (!amount || !total || total <= 0n) return "—";
+  if (amount >= total) return "100%";
+  const bps = Number((amount * 1_000_000n) / total) / 100;
+  return percentageText(bps / 100);
+}
+
+function executionPathText(plan: SwapExecutionPlan | undefined): string {
+  if (!plan || plan.type === "unsupported") return "—";
+  if (plan.type === "auroveVeNftDepositThenTrancheSwap")
+    return "Ledger depositVeNft -> Zap Router zapTrancheExactInput";
+  if (plan.type === "auroveVeNftThenSwap") return "Zap Router zapVeNftExactInput";
+  if (plan.type === "auroveWrapThenSwap") return "Zap Router zapTrancheExactInput";
+  if (plan.type === "auroveDepositWrapThenSwap") return "Zap Router zapErc20ExactInput";
+  return plan.routerLabel;
+}
+
+function approvalCtaLabel(approval: SingleApprovalRequirement | undefined, sell: SwapAsset) {
+  if (approval?.kind === "erc721") return "Approve veNFT deposit";
+  if (approval?.kind === "erc1155") return "Approve tranche sale";
+  return `Approve ${sell.symbol}`;
 }
 
 function TokenMark({ asset }: { asset: SwapAsset }) {
@@ -400,6 +429,71 @@ function AssetAmountField(props: {
   );
 }
 
+function VeNftSellBreakdown(props: {
+  asset: SwapAsset;
+  sellAmount: bigint | null;
+  sellValue: string;
+  outputAmount?: bigint;
+  outputAsset?: SwapAsset;
+  isQuoting?: boolean;
+  path: string;
+  onFraction: (bps: number) => void;
+}) {
+  const total = props.asset.fixedInputAmount ?? 0n;
+  const boundedSell =
+    props.sellAmount && props.sellAmount > 0n && props.sellAmount <= total
+      ? props.sellAmount
+      : 0n;
+  const remaining = total > boundedSell ? total - boundedSell : 0n;
+  const selectedBps = total > 0n ? Number((boundedSell * 10_000n) / total) : 0;
+  const expectedOutput = props.outputAsset
+    ? props.outputAmount !== undefined
+      ? `${amountText(props.outputAmount, props.outputAsset)} ${props.outputAsset.symbol}`
+      : props.isQuoting && props.sellValue
+        ? "Fetching quote..."
+        : "—"
+    : "—";
+  return (
+    <div className="mx-1 mt-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.055] p-3 text-xs text-white/60">
+      <div className="mb-3 grid grid-cols-4 gap-2" aria-label="veNFT sell fraction">
+        {[2500, 5000, 7500, 10000].map((bps) => (
+          <Button
+            key={bps}
+            type="button"
+            variant={selectedBps === bps ? "default" : "secondary"}
+            className="h-9 rounded-xl px-2 text-xs"
+            onClick={() => props.onFraction(bps)}
+          >
+            {bps / 100}%
+          </Button>
+        ))}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <DetailRow
+          label="Total veNFT units"
+          value={`${amountText(total, props.asset)} ${props.asset.symbol}`}
+        />
+        <DetailRow
+          label="Selling"
+          value={
+            boundedSell > 0n
+              ? `${amountText(boundedSell, props.asset)} (${fractionText(boundedSell, total)})`
+              : "—"
+          }
+        />
+        <DetailRow
+          label="Remaining ERC1155"
+          value={`${amountText(remaining, props.asset)} ${props.asset.symbol}`}
+        />
+        <DetailRow label="Expected output" value={expectedOutput} />
+      </div>
+      <div className="mt-2 border-t border-white/8 pt-2">
+        <DetailRow label="Execution path" value={props.path} />
+      </div>
+    </div>
+  );
+}
+
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4">
@@ -526,13 +620,10 @@ export function SwapPage() {
   const chooseSell = (asset: SwapAsset) => {
     setSellId(asset.id);
     setTradeType("exactInput");
-    setFormAmount(
-      asset.fixedInputAmount ? formatUnits(asset.fixedInputAmount, asset.decimals) : "",
-    );
+    setFormAmount("");
   };
   const chooseBuy = (asset: SwapAsset) => {
     setBuyId(asset.id);
-    setFormAmount(sell?.fixedInputAmount ? formatUnits(sell.fixedInputAmount, sell.decimals) : "");
   };
   const reverse = () => {
     if (!buy || !reverseBuyAsset || !canReverse) return;
@@ -549,6 +640,11 @@ export function SwapPage() {
   const onSellValue = (value: string) => {
     setTradeType("exactInput");
     setFormAmount(value);
+  };
+  const setVeNftFraction = (bps: number) => {
+    if (!sell?.fixedInputAmount) return;
+    setTradeType("exactInput");
+    setFormAmount(formatUnits(rawFractionAmount(sell.fixedInputAmount, bps), sell.decimals));
   };
   const onBuyValue = (value: string) => {
     if (sell?.form === "venft") return;
@@ -575,6 +671,16 @@ export function SwapPage() {
         ...supportedPlan.hops.map((hop) => routeSymbol(hop.tokenOut)),
       ].join(" → ")
     : "—";
+  const executionPath = executionPathText(supportedPlan);
+  const veNftSellAmount = sell?.form === "venft" ? parsedAmount : null;
+  const veNftTotalUnits = sell?.form === "venft" ? sell.fixedInputAmount : undefined;
+  const veNftRemainingUnits =
+    veNftSellAmount !== null &&
+    veNftTotalUnits !== undefined &&
+    veNftSellAmount > 0n &&
+    veNftSellAmount <= veNftTotalUnits
+      ? veNftTotalUnits - veNftSellAmount
+      : undefined;
   const quoteExpired = Boolean(
     quote.data && hasChainTimestampPassed(chainTimestamp, quote.data.expiresAtBlockTimestamp),
   );
@@ -627,13 +733,16 @@ export function SwapPage() {
         return { label: "Quote refresh failed — retry", disabled: false, refresh: true };
       return { label: "Quote expired — refreshing…", disabled: true, loading: true };
     }
+    if (insufficient) return { label: `Insufficient ${sell.symbol} balance`, disabled: true };
+    if (plan?.type === "unsupported") return { label: plan.reason, disabled: true };
     if (quote.isError || !quote.data || !supportedPlan)
       return { label: "Unable to quote route", disabled: true };
-    if (insufficient) return { label: `Insufficient ${sell.symbol} balance`, disabled: true };
     if (approval.isChecking) return { label: "Checking approval…", disabled: true, loading: true };
     if (!approval.isApproved)
       return {
-        label: approval.isApproving ? "Approving…" : `Approve ${sell.symbol}`,
+        label: approval.isApproving
+          ? "Approving…"
+          : approvalCtaLabel(approval.pendingApproval, sell),
         disabled: approval.isApproving,
         approve: true,
         loading: approval.isApproving,
@@ -733,12 +842,23 @@ export function SwapPage() {
           balance={sellBalance}
           balanceOf={sellAssets.balanceOf}
           balanceLoading={sellAssets.isLoading}
-          readOnly={sell?.form === "venft"}
           onValue={onSellValue}
           onAsset={chooseSell}
           onMax={sell?.form === "venft" ? undefined : setMax}
           fiat={fiatFor(sell, inputValue)}
         />
+        {sell?.form === "venft" ? (
+          <VeNftSellBreakdown
+            asset={sell}
+            sellAmount={veNftSellAmount}
+            sellValue={typedAmount}
+            outputAmount={quote.data?.amountOut}
+            outputAsset={buy}
+            isQuoting={quote.isDebouncing || quote.isPending || quote.isFetching}
+            path={executionPath}
+            onFraction={setVeNftFraction}
+          />
+        ) : null}
         <div className="relative z-10 -my-3 flex justify-center">
           <Button
             type="button"
@@ -786,10 +906,35 @@ export function SwapPage() {
                 )
                 .join(" · ")}
             />
-            {supportedPlan.type === "auroveDepositWrapThenSwap" ||
-            supportedPlan.type === "auroveVeNftThenSwap" ||
-            supportedPlan.type === "auroveWrapThenSwap" ? (
-              <DetailRow label="Before swap" value="Deposits and wraps into ID20 before swapping" />
+            <DetailRow label="Execution path" value={executionPath} />
+            {supportedPlan.type === "auroveVeNftDepositThenTrancheSwap" ? (
+              <DetailRow
+                label="Before swap"
+                value="Deposits veNFT to Ledger, then sells selected ERC1155 units"
+              />
+            ) : supportedPlan.type === "auroveDepositWrapThenSwap" ||
+              supportedPlan.type === "auroveVeNftThenSwap" ||
+              supportedPlan.type === "auroveWrapThenSwap" ? (
+              <DetailRow
+                label="Before swap"
+                value="Deposits and wraps into ID20 before swapping"
+              />
+            ) : null}
+            {sell?.form === "venft" ? (
+              <>
+                <DetailRow
+                  label="Total veNFT units"
+                  value={`${amountText(veNftTotalUnits, sell)} ${sell.symbol}`}
+                />
+                <DetailRow
+                  label="veNFT units sold"
+                  value={`${amountText(veNftSellAmount ?? undefined, sell)} ${sell.symbol} (${fractionText(veNftSellAmount, veNftTotalUnits)})`}
+                />
+                <DetailRow
+                  label="ERC1155 units remaining"
+                  value={`${amountText(veNftRemainingUnits, sell)} ${sell.symbol}`}
+                />
+              </>
             ) : null}
             <DetailRow
               label={tradeType === "exactInput" ? "Minimum received" : "Maximum sold"}
@@ -855,7 +1000,9 @@ export function SwapPage() {
         </button>
       ) : null}
       <Dialog
-        open={["reviewing", "unlocking", "submitting", "pending"].includes(execution.state)}
+        open={["reviewing", "unlocking", "depositing", "submitting", "pending"].includes(
+          execution.state,
+        )}
         onOpenChange={(open) => {
           if (!open && execution.state === "reviewing") execution.cancelReview();
         }}
@@ -877,8 +1024,26 @@ export function SwapPage() {
               value={`${amountText(supportedPlan?.amountOut, buy)} ${buy?.symbol ?? ""}`}
             />
             <DetailRow label="Route" value={routeText} />
-            {supportedPlan?.type === "auroveVeNftThenSwap" && supportedPlan.veNft.isPermanent ? (
+            <DetailRow label="Execution path" value={executionPath} />
+            {sell?.form === "venft" ? (
+              <>
+                <DetailRow
+                  label="Total veNFT units"
+                  value={`${amountText(veNftTotalUnits, sell)} ${sell.symbol}`}
+                />
+                <DetailRow
+                  label="ERC1155 remaining"
+                  value={`${amountText(veNftRemainingUnits, sell)} ${sell.symbol}`}
+                />
+              </>
+            ) : null}
+            {(supportedPlan?.type === "auroveVeNftThenSwap" ||
+              supportedPlan?.type === "auroveVeNftDepositThenTrancheSwap") &&
+            supportedPlan.veNft.isPermanent ? (
               <DetailRow label="Preparation" value="Unlock permanent veNFT before swap" />
+            ) : null}
+            {supportedPlan?.type === "auroveVeNftDepositThenTrancheSwap" ? (
+              <DetailRow label="Preparation" value="Deposit veNFT before tranche sale" />
             ) : null}
             <DetailRow
               label="Protection"
@@ -905,6 +1070,8 @@ export function SwapPage() {
             >
               {execution.state === "unlocking"
                 ? "Unlocking…"
+                : execution.state === "depositing"
+                  ? "Depositing…"
                 : execution.state === "submitting"
                   ? "Submitting…"
                   : execution.state === "pending"

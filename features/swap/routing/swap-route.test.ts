@@ -241,7 +241,110 @@ test("planSwap carries permanent veNFT metadata into Aurove zap routes", () => {
 
   assert.equal(plan.type, "auroveVeNftThenSwap");
   if (plan.type !== "auroveVeNftThenSwap") return;
-  assert.deepEqual(plan.veNft, { address: VE_BTC, tokenId: 42n, isPermanent: true });
+  assert.deepEqual(plan.veNft, {
+    address: VE_BTC,
+    tokenId: 42n,
+    isPermanent: true,
+    totalUnits: veBtcAsset.fixedInputAmount,
+    sellUnits: veBtcAsset.fixedInputAmount,
+    remainingUnits: 0n,
+  });
+});
+
+test("planSwap deposits a veNFT then sells only selected tranche units", () => {
+  const veBtcAsset: SwapAsset = {
+    id: "venft:vebtc:42",
+    chainId: 31612,
+    address: VE_BTC,
+    executableAddress: AV_BTCM,
+    symbol: "veBTC #42",
+    name: "veBTC position",
+    decimals: 18,
+    form: "venft",
+    balanceDomain: "wallet",
+    balanceKey: "veBTC:42",
+    trancheId: 65540n,
+    variant: 1,
+    epochs: 4n,
+    wrapperAddress: AV_BTCM,
+    tokenId: 42n,
+    fixedInputAmount: 1_000_000_000_000_000_000n,
+    isPermanent: false,
+  };
+  const sellUnits = 250_000_000_000_000_000n;
+  const hops = [
+    {
+      pool: POOL,
+      poolKey: "cl:avbtcm-musd",
+      tokenIn: AV_BTCM,
+      tokenOut: MUSD,
+      tickSpacing: 200,
+      fee: 500,
+    },
+  ];
+  const quote: SwapQuote = {
+    tradeType: "exactInput",
+    amountIn: sellUnits,
+    amountOut: 12_500_000_000_000_000_000n,
+    amountOutMinimum: 12_500_000_000_000_000_000n,
+    amountInMaximum: sellUnits,
+    priceImpactBps: null,
+    quotedAtBlockTimestamp: 1n,
+    blockNumber: 1n,
+    expiresAtBlockTimestamp: 31n,
+    encodedPath: encodeClPath(hops, "exactInput"),
+    hops,
+    candidateCount: 1,
+  };
+  const account = "0x0000000000000000000000000000000000000009" as Address;
+  const intent: SwapIntent = {
+    chainId: 31612,
+    account,
+    tokenIn: veBtcAsset,
+    tokenOut: musdAsset,
+    tradeType: "exactInput",
+    amount: quote.amountIn,
+    slippageBps: 50,
+    recipient: account,
+    deadline: 100n,
+  };
+  const registry = {
+    chainId: 31612,
+    revision: "test",
+    clRouter: { address: ROUTER, abi: [] },
+    auroveRouter: { address: ROUTER, abi: [] },
+    ledger: { address: "0x0000000000000000000000000000000000000011" as Address, abi: [] },
+    assets: [veBtcAsset, musdAsset],
+    pools: [
+      {
+        key: "cl:avbtcm-musd",
+        address: POOL,
+        abi: [],
+        token0: AV_BTCM,
+        token1: MUSD,
+        tickSpacing: 200,
+        fee: 500,
+      },
+    ],
+    routing: { maxHops: 3, maxCandidateRoutes: 8, quoteTtlSeconds: 30n },
+  } as unknown as SwapRegistry;
+
+  const plan = planSwap(intent, registry, quote);
+
+  assert.equal(plan.type, "auroveVeNftDepositThenTrancheSwap");
+  if (plan.type !== "auroveVeNftDepositThenTrancheSwap") return;
+  assert.equal(plan.contractFunction, "depositVeNft + zapTrancheExactInput");
+  assert.deepEqual(plan.depositCall.args, [1, 4n, 42n, account]);
+  assert.deepEqual(plan.swapCall.args, [65540n, sellUnits, plan.contractCall.args[2]]);
+  assert.equal(plan.veNft.totalUnits, veBtcAsset.fixedInputAmount);
+  assert.equal(plan.veNft.sellUnits, sellUnits);
+  assert.equal(plan.veNft.remainingUnits, 750_000_000_000_000_000n);
+  assert.equal(plan.approval.kind, "batch");
+  if (plan.approval.kind !== "batch") return;
+  assert.deepEqual(
+    plan.approval.approvals.map((approval) => approval.kind),
+    ["erc721", "erc1155"],
+  );
 });
 
 test("hopVenue defaults CL hops", () => {

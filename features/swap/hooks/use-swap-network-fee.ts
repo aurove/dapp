@@ -12,6 +12,7 @@ export function useSwapNetworkFee(plan: SwapExecutionPlan | undefined, enabled: 
     queryKey: ["swap", "network-fee", address, plan?.type === "unsupported" ? "unsupported" : plan?.contractCall.address, plan?.type === "unsupported" ? "" : plan?.encodedPath, plan?.type === "unsupported" ? "" : plan?.amountSpecified.toString(), plan?.type === "unsupported" ? "" : plan?.amountOutMinimum.toString(), plan?.type === "unsupported" ? "" : plan?.amountInMaximum.toString()],
     queryFn: async () => {
       if (!address || !client || !plan || plan.type === "unsupported") return null;
+      if (plan.type === "auroveVeNftDepositThenTrancheSwap") return "Two wallet confirmations";
       const [gas, gasPrice] = await Promise.all([
         client.estimateContractGas({ account: address, address: plan.contractCall.address, abi: plan.contractCall.abi, functionName: plan.contractCall.functionName, args: plan.contractCall.args, value: plan.contractCall.value } as Parameters<typeof client.estimateContractGas>[0]),
         client.getGasPrice(),

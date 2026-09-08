@@ -10,7 +10,7 @@ import { hasChainTimestampPassed } from "@/lib/web3/chain-time";
 import { getPortfolioRegistry, invalidatePortfolioDomains } from "@/features/portfolio";
 import type { SwapExecutionPlan, SwapQuote } from "../domain";
 
-export type SwapExecutionState = "idle" | "reviewing" | "unlocking" | "submitting" | "pending" | "confirmed" | "failed-simulation" | "failed";
+export type SwapExecutionState = "idle" | "reviewing" | "unlocking" | "depositing" | "submitting" | "pending" | "confirmed" | "failed-simulation" | "failed";
 
 export function useSwapExecution(params: { plan?: SwapExecutionPlan; quote?: SwapQuote; verifyApproval: () => Promise<boolean> }) {
   const { address } = useAccount();
@@ -31,7 +31,11 @@ export function useSwapExecution(params: { plan?: SwapExecutionPlan; quote?: Swa
       if (hasChainTimestampPassed(latestBlock.timestamp, params.quote.expiresAtBlockTimestamp)) throw new Error("Quote expired. Refresh the quote before swapping.");
       if (hasChainTimestampPassed(latestBlock.timestamp, plan.deadline)) throw new Error("Swap deadline expired. Refresh the quote before swapping.");
       if (!(await params.verifyApproval())) throw new Error("Approval is required before swapping.");
-      if (plan.type === "auroveVeNftThenSwap" && plan.veNft.isPermanent) {
+      if (
+        (plan.type === "auroveVeNftThenSwap" ||
+          plan.type === "auroveVeNftDepositThenTrancheSwap") &&
+        plan.veNft.isPermanent
+      ) {
         const target = {
           contractAddress: plan.veNft.address,
           tokenId: plan.veNft.tokenId,
@@ -53,6 +57,57 @@ export function useSwapExecution(params: { plan?: SwapExecutionPlan; quote?: Swa
             registryRevision: portfolio.revision, domains: ["wallet"],
           });
         }
+      }
+      if (plan.type === "auroveVeNftDepositThenTrancheSwap") {
+        setState("depositing");
+        let depositSimulation;
+        try {
+          depositSimulation = await client.simulateContract({
+            account: address,
+            address: plan.depositCall.address,
+            abi: plan.depositCall.abi,
+            functionName: plan.depositCall.functionName,
+            args: plan.depositCall.args,
+            value: plan.depositCall.value,
+          } as Parameters<typeof client.simulateContract>[0]);
+        } catch (caught) {
+          setError(getParsedError(caught));
+          setState("failed-simulation");
+          return;
+        }
+        const depositHash = await writeContractAsync(depositSimulation.request as never);
+        setHash(depositHash);
+        await client.waitForTransactionReceipt({ hash: depositHash });
+
+        setState("submitting");
+        let swapSimulation;
+        try {
+          swapSimulation = await client.simulateContract({
+            account: address,
+            address: plan.swapCall.address,
+            abi: plan.swapCall.abi,
+            functionName: plan.swapCall.functionName,
+            args: plan.swapCall.args,
+            value: plan.swapCall.value,
+          } as Parameters<typeof client.simulateContract>[0]);
+        } catch (caught) {
+          setError(getParsedError(caught));
+          setState("failed-simulation");
+          return;
+        }
+        const swapHash = await writeContractAsync(swapSimulation.request as never);
+        setHash(swapHash);
+        setState("pending");
+        await client.waitForTransactionReceipt({ hash: swapHash });
+        const portfolio = getPortfolioRegistry(plan.expectedAsset.chainId);
+        if (portfolio) await invalidatePortfolioDomains({
+          queryClient, chainId: plan.expectedAsset.chainId, owner: address,
+          registryRevision: portfolio.revision, domains: plan.affectedPortfolioDomains,
+        });
+        await queryClient.invalidateQueries({ queryKey: ["swap", "balances", plan.expectedAsset.chainId, address.toLowerCase()] });
+        await queryClient.invalidateQueries({ queryKey: ["swap", "registry", plan.expectedAsset.chainId] });
+        setState("confirmed");
+        return;
       }
       setState("submitting");
       let simulation;
