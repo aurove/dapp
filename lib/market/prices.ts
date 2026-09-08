@@ -15,6 +15,16 @@ function toMusd(priceUsd: number, musdUsd: number | null): number | null {
   return Number.isFinite(musd) ? musd : null;
 }
 
+const reportedMarketPriceWarnings = new Set<string>();
+
+function reportMarketPriceWarning(source: string, error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const warningKey = `${source}:${message}`;
+  if (reportedMarketPriceWarnings.has(warningKey)) return;
+  reportedMarketPriceWarnings.add(warningKey);
+  console.warn(`[market/prices] ${source} unavailable: ${message}`);
+}
+
 /**
  * Build the four ticker quotes.
  *
@@ -29,9 +39,18 @@ export async function fetchMarketPricesSnapshot(): Promise<MarketPricesSnapshot>
   const nowSec = Math.floor(Date.now() / 1000);
 
   const [latest, previous, liquid] = await Promise.all([
-    fetchHermesLatestPrices(),
-    fetchHermesPricesAt(nowSec - 86_400).catch(() => [] as PythPricePoint[]),
-    fetchLiquidId20MusdPrices(chainId).catch(() => null),
+    fetchHermesLatestPrices().catch((error) => {
+      reportMarketPriceWarning("Pyth Hermes latest", error);
+      return [] as PythPricePoint[];
+    }),
+    fetchHermesPricesAt(nowSec - 86_400).catch((error) => {
+      reportMarketPriceWarning("Pyth Hermes historical", error);
+      return [] as PythPricePoint[];
+    }),
+    fetchLiquidId20MusdPrices(chainId).catch((error) => {
+      reportMarketPriceWarning("liquid pool spot", error);
+      return null;
+    }),
   ]);
 
   const latestMap = indexPoints(latest);

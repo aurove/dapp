@@ -12,8 +12,8 @@ export const DEFAULT_PYTH_ORACLE_ADDRESS =
 export const DEFAULT_SKIP_BTC_ORACLE_ADDRESS =
   "0x7b7c000000000000000000000000000000000015" as const satisfies Address;
 
-/** Pyth Hermes public REST base. Override with NEXT_PUBLIC_PYTH_HERMES_URL. */
-export const DEFAULT_PYTH_HERMES_URL = "https://hermes.pyth.network";
+/** Pyth Hermes REST base. Override with NEXT_PUBLIC_PYTH_HERMES_URL. */
+export const DEFAULT_PYTH_HERMES_URL = "https://pyth.dourolabs.app/hermes";
 
 /**
  * Official Mezo-supported Pyth feed IDs.

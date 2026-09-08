@@ -39,6 +39,30 @@ function feedIdToKey(hexId: Hex): PythFeedId | null {
   return null;
 }
 
+function getPythHermesApiKey(): string | null {
+  return process.env.PYTH_HERMES_API_KEY?.trim() || process.env.PYTH_API_KEY?.trim() || null;
+}
+
+function getHermesHeaders(): HeadersInit {
+  const apiKey = getPythHermesApiKey();
+  return {
+    accept: "application/json",
+    "user-agent": "aurove-dapp/market",
+    ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
+  };
+}
+
+function createHermesError(kind: "latest" | "historical", status: number): Error {
+  const apiKey = getPythHermesApiKey();
+  const authHint =
+    status === 401
+      ? apiKey
+        ? ": check PYTH_HERMES_API_KEY"
+        : ": set PYTH_HERMES_API_KEY"
+      : "";
+  return new Error(`Pyth Hermes ${kind} failed (${status})${authHint}`);
+}
+
 /**
  * Fetch latest Pyth prices from Hermes (off-chain). Preferred path for the ticker:
  * no gas, multi-feed in one request, works even when on-chain feeds are stale.
@@ -55,13 +79,13 @@ export async function fetchHermesLatestPrices(
   }
 
   const response = await fetch(`${base}/v2/updates/price/latest?${params.toString()}`, {
-    headers: { accept: "application/json", "user-agent": "aurove-dapp/market" },
+    headers: getHermesHeaders(),
     // Server-side revalidation; browser callers hit our API route instead.
     next: { revalidate: 20 },
   });
 
   if (!response.ok) {
-    throw new Error(`Pyth Hermes latest failed (${response.status})`);
+    throw createHermesError("latest", response.status);
   }
 
   const payload = (await response.json()) as HermesResponse;
@@ -94,12 +118,12 @@ export async function fetchHermesPricesAt(
   }
 
   const response = await fetch(`${base}/v2/updates/price/${safeTs}?${params.toString()}`, {
-    headers: { accept: "application/json", "user-agent": "aurove-dapp/market" },
+    headers: getHermesHeaders(),
     next: { revalidate: 120 },
   });
 
   if (!response.ok) {
-    throw new Error(`Pyth Hermes historical failed (${response.status})`);
+    throw createHermesError("historical", response.status);
   }
 
   const payload = (await response.json()) as HermesResponse;
