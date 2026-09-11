@@ -16,6 +16,9 @@ import {
   type SlipstreamPoolKey,
 } from "./slipstream-adapter";
 import { useSlipstreamPoolState } from "./liquidity-range-graph";
+import { formatAprPercent } from "@/components/features/earn/utils/apr";
+import { formatCompactUsd } from "@/lib/market/format";
+import { useClGaugeEmissionsApr } from "./use-cl-gauge-emissions-apr";
 
 const POOL_CARD_DETAILS: Record<
   SlipstreamPoolKey,
@@ -46,6 +49,7 @@ function PoolCard({
 }) {
   const chainId = useChainId();
   const pool = useSlipstreamPoolState(chainId, poolKey);
+  const emissionsApr = useClGaugeEmissionsApr(poolKey, pool);
   const configured = Boolean(
     getContractConfig(chainId, resolveSlipstreamPoolContractName(poolKey))?.address,
   );
@@ -53,6 +57,17 @@ function PoolCard({
     pool.currentTick === null
       ? "Price unavailable"
       : formatPriceLabel({ pool, tick: pool.currentTick });
+  const apr = emissionsApr.data?.emissionsAprPercent;
+  const aprLabel =
+    emissionsApr.isLoading || emissionsApr.isFetching
+      ? "Loading..."
+      : apr === null || apr === undefined
+        ? "Not estimated"
+        : formatAprPercent(apr);
+  const aprDetail =
+    emissionsApr.data && emissionsApr.data.activeStakedValueMusd
+      ? `${formatCompactUsd(emissionsApr.data.activeStakedValueMusd)} active stake`
+      : (emissionsApr.data?.unavailableReason ?? "Active stake unavailable");
 
   if (!configured) return null;
   return (
@@ -73,10 +88,15 @@ function PoolCard({
             Available
           </Badge>
         </CardHeader>
-        <CardContent className="flex items-end justify-between gap-4 border-t border-white/8 pt-5">
+        <CardContent className="grid gap-4 border-t border-white/8 pt-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
           <div>
             <p className="text-xs uppercase tracking-wide text-white/40">Current pool price</p>
             <p className="mt-1 text-sm text-white/75">{price}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-white/40">MEZO emissions APR</p>
+            <p className="mt-1 text-sm text-white/75">{aprLabel}</p>
+            <p className="mt-0.5 text-xs text-white/40">{aprDetail}</p>
           </div>
           <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-[var(--accent)]">
             Add liquidity{" "}
