@@ -7,7 +7,7 @@ import {
   VeToId20FlowDiagram,
 } from "@/components/docs/diagram";
 import { DocRouteLink } from "@/components/docs/doc-route-link";
-import { LEDGER_COLLECTION, TRANCHE_PRODUCTS } from "@/lib/docs/contracts-reference";
+import { LEDGER_COLLECTION, MEZO_EXPLORER, TRANCHE_PRODUCTS } from "@/lib/docs/contracts-reference";
 import type { DocPageDefinition } from "@/lib/docs/types";
 import { AddressTable, ProductionStatus } from "./shared";
 
@@ -224,6 +224,12 @@ export const PROTOCOL_PAGES: DocPageDefinition[] = [
           still enforces epoch windows and one managed operation per child per epoch.
         </p>
         <p>
+          Being allowed to redeem does not mean every funded rebase is claimable. Withdrawing a
+          child before its LMR funding epoch closes removes its prospective allocation for that
+          epoch. See <DocRouteLink href="/docs/protocol/rewards#lmr-settlement">LMR settlement</DocRouteLink>
+          {" "}before exiting.
+        </p>
+        <p>
           Live check: <code>veBTC.canSplit(Vault)</code> is false, so exact BTC redeem that needs a
           split currently fails.
         </p>
@@ -240,10 +246,10 @@ export const PROTOCOL_PAGES: DocPageDefinition[] = [
     slug: "protocol/rewards",
     title: "Rewards and epochs",
     description:
-      "Instant reward accounting, weekly activation, rebase claims, ID20 gauges, and what is not paid to holders.",
+      "Reward activation, LMR settlement, early-exit forfeiture, rebase fees, and ID20 gauges.",
     tags: ["protocol", "rewards", "epochs", "instant rewards"],
     searchText:
-      "instant rewards epoch 1 weeks active inactive claimRebases rewardSink id20 gauge notifyReward fee bps feeConfig nextFeeConfig executeFeeConfig",
+      "instant rewards epoch 1 weeks active inactive claimRebases rewardSink id20 gauge notifyReward fee bps feeConfig nextFeeConfig executeFeeConfig LMR settlement delayed rebases early exit forfeit stranded empty managed position 2586 avNFT",
     Content: () => (
       <>
         <h1>Rewards and epochs</h1>
@@ -282,9 +288,128 @@ export const PROTOCOL_PAGES: DocPageDefinition[] = [
           Holders claim with <code>RewardSink.claimRewards</code>. ID20 wrappers harvest with{" "}
           <code>claimRewardsAndCall(abi.encode(gauge))</code>.
         </p>
+        <h2 id="lmr-settlement">LMR settlement</h2>
+        <p>
+          A managed veNFT has a <strong>LockedManagedReward (LMR)</strong> contract. Claiming its
+          distributor rebase sends MEZO into that LMR. The LMR assigns the funding to the epoch in
+          which it receives it, even when the rebase was earned in an earlier epoch. Funding is
+          not yet a claimable child-NFT reward or an Aurove RewardSink payout.
+        </p>
+        <p>
+          Mezo epochs begin Thursday at 00:00 UTC. If a rebase earned in epoch <code>n</code> is
+          claimed into LMR during <code>n+1</code>, the usual sequence is:
+        </p>
+        <table>
+          <thead>
+            <tr><th>Epoch</th><th>Reward state</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>n</code></td>
+              <td>The managed veNFT earns the distributor rebase.</td>
+            </tr>
+            <tr>
+              <td><code>n+1</code></td>
+              <td>The claim funds LMR. Child allocations depend on balances at the end of this epoch.</td>
+            </tr>
+            <tr>
+              <td><code>n+2</code></td>
+              <td>The completed LMR bucket becomes claimable. Aurove can account for child growth and fund its RewardSink.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          This is not a fixed two-week waiting period. LMR waits for its funding epoch to close;
+          a later distributor claim moves that boundary later. Allocations use each child&apos;s
+          final deposited balance divided by the final LMR supply, not time-weighted participation.
+          Aurove still needs to account for eligible inventory growth before holders can claim it.
+        </p>
+        <h3 id="early-exit-lmr">Deposit in n, redeem in n+1</h3>
+        <Callout variant="warning" title="Active avNFT units do not mean LMR rewards are settled">
+          The ERC-1155 tranche units minted on deposit (avNFT units) become reward-eligible in{" "}
+          <code>n+1</code>. But if the underlying rebase only reaches LMR in <code>n+1</code>,
+          redeeming the child NFT during that epoch sets its LMR balance to zero before allocation.
+          Unless it is deposited again before the boundary, it forfeits its prospective share of
+          that LMR bucket, even though the avNFT units were already active.
+        </Callout>
+        <p>
+          LMR tracks child NFTs; Aurove distributes recognized growth across eligible tranche
+          holders. The minted units do not reserve a personal share of their original NFT&apos;s
+          pending LMR rewards. Completed-epoch child rewards are accounted for during redemption;
+          current-epoch funding is not yet included. Rewards already accrued to an account in
+          RewardSink are separate and are not erased by burning its tranche units.
+        </p>
+        <h3 id="venft-2586-example">Example: veMEZO 2586</h3>
+        <p>
+          This mainnet example shows an early exit before LMR settlement. All dates are in 2026
+          and all times are UTC; displayed token amounts are rounded.
+        </p>
+        <ol>
+          <li>
+            <strong>September 7, 15:25:16 (n):</strong>{" "}
+            <DocRouteLink href={`${MEZO_EXPLORER}/tx/0x528c5edc75948b4208df15c0a51a048e9ea28acae8dbc89fea4967882e39ab49`}>
+              Deposit of veMEZO 2586
+            </DocRouteLink>{" "}
+            minted 122,008.532919 avNFT tranche units. Epoch n ran September 3-10.
+          </li>
+          <li>
+            <strong>September 10, 00:21:30 (n+1):</strong>{" "}
+            <DocRouteLink href={`${MEZO_EXPLORER}/tx/0x1ee4a680142b7b76573f708a20333fbc912a8618597a3dc34aa4ec2a8c8753f4`}>
+              Distributor claim for managed veNFT 2805
+            </DocRouteLink>{" "}
+            sent 2,786.496591 MEZO from the September 3-10 rebase period into LMR, tagged to its
+            September 10-17 funding epoch. This was the manager&apos;s total, not 2586&apos;s share.
+          </li>
+          <li>
+            <strong>September 10, 00:21:37:</strong>{" "}
+            <DocRouteLink href={`${MEZO_EXPLORER}/tx/0x8dcfe04ae43871d16fdf632d77f69576ddd1cd94fe48e07870e912988ccaa89d`}>
+              Ledger claimRebases
+            </DocRouteLink>{" "}
+            checked children 2621, 2808, and 2586. All showed zero inventory growth, so no avNFT
+            rewards were minted to RewardSink and no reward-funding fee was collected in this call.
+          </li>
+          <li>
+            <strong>September 10, 08:19:02:</strong>{" "}
+            <DocRouteLink href={`${MEZO_EXPLORER}/tx/0xfbf8256bffc071e51173ab2718872974e6f1fe1e5244c8aca267e5e0570705e6`}>
+              Redemption of 2586
+            </DocRouteLink>{" "}
+            burned the same 122,008.532919 units. LMR paid zero and checkpointed the child&apos;s
+            balance to zero. The NFT returned with unchanged principal.
+          </li>
+          <li>
+            <strong>September 17, 00:00 (n+2):</strong> the funded LMR epoch would close. Under
+            the contract rules, 2586 would receive none of that bucket unless it re-entered before
+            the boundary. Other children&apos;s allocations would depend on their final balances.
+          </li>
+        </ol>
+        <p>
+          These transactions show funded MEZO waiting in LMR, not a payout to 2586 or proof that it
+          captured other holders&apos; rewards. Receiving unchanged principal did not preserve its
+          prospective LMR entitlement.
+        </p>
+        <h3 id="empty-lmr">If all children leave</h3>
+        <p>
+          If a funded epoch closes with no children deposited in the managed veNFT, every
+          child&apos;s final balance is zero. That bucket remains in LMR with no eligible claimant
+          and no normal recovery path in the current contracts. It does not roll forward, and a
+          new child deposited in a later epoch cannot claim it. This concerns all children in the
+          managed position, including any deposited outside Aurove custody.
+        </p>
+        <p>
+          If a child enters before the funded epoch closes, it can share that bucket; as the only
+          remaining child, it can receive the entire bucket. Merely emptying the position briefly
+          does not strand rewards: the balance at the epoch boundary is what matters. Returning
+          after the boundary cannot recover the old bucket.
+        </p>
+        <p>
+          Contract reference:{" "}
+          <DocRouteLink href={`${MEZO_EXPLORER}/address/0xeaaf2b9e90aa6400d83e07606f5f2a5432502216?tab=contract`}>
+            Tigris Reward and LockedManagedReward source in the verified managed-rewards factory
+          </DocRouteLink>.
+        </p>
         <h2>Protocol fee collection</h2>
         <p>
-          Fees are collected from newly detected RewardSink funding, not from a holder's claim
+          Fees are collected from newly detected RewardSink funding, not from a holder&apos;s claim
           transaction. The fee is paid in the same ERC-1155 tranche units that were minted or
           transferred into the sink; it is not paid in BTC, MEZO, MUSD, or another ERC-20. The sink
           computes <code>feeAmount = grossAmount * feeBps / 10_000</code>, rounded down, transfers
@@ -553,7 +678,7 @@ export const PROTOCOL_PAGES: DocPageDefinition[] = [
       "Trust assumptions, launch-configuration blockers, and known behavioural limits of the deployed system.",
     tags: ["protocol", "security", "limitations", "risks"],
     searchText:
-      "security limitations mTokenId canSplit whitelist surplus credit activate grant-backed foreign deposit",
+      "security limitations mTokenId canSplit whitelist surplus credit activate grant-backed foreign deposit LMR stranded rewards early exit forfeiture empty managed position",
     Content: () => (
       <>
         <h1>Security and limitations</h1>
@@ -587,6 +712,12 @@ export const PROTOCOL_PAGES: DocPageDefinition[] = [
           <li>Foreign managed deposits into the same mTokenId do not mint Aurove shares.</li>
           <li>Valuation decreases do not burn tranche supply.</li>
           <li>Zero-eligible-supply remainders can sit in reward accounting with no sweep.</li>
+          <li>
+            Exiting before an LMR funding epoch closes forfeits the withdrawn child&apos;s
+            prospective allocation unless it re-enters before the boundary. If all children are
+            absent at that boundary, the bucket has no normal recovery path; later-epoch deposits
+            cannot inherit it. See <DocRouteLink href="/docs/protocol/rewards#lmr-settlement">LMR settlement</DocRouteLink>.
+          </li>
           <li>ID20 surplus backing cannot be recovered. Gauge activate is permanent.</li>
           <li>
             Credit-classified ID20 cannot unwrap until settlement. Transfers can revert on gauge

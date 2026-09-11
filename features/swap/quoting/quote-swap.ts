@@ -1,7 +1,15 @@
 import { TickMath, v3Swap, type TickDataProvider } from "@uniswap/v3-sdk";
 import type { Abi, Address, PublicClient } from "viem";
 import { hasChainTimestampPassed } from "@/lib/web3/chain-time";
-import type { SwapHop, SwapQuote, SwapRegistry, SwapRouteResult, SwapTradeType } from "../domain";
+import type {
+  SwapHop,
+  SwapQuote,
+  SwapRegistry,
+  SwapRouteCandidate,
+  SwapRouteResult,
+  SwapTradeType,
+  SwapVenue,
+} from "../domain";
 import { discoverClRoutes, encodeClPath, hopVenue } from "../routing";
 import { quoteBasicSwapRoutes } from "./quote-basic";
 
@@ -294,7 +302,7 @@ export async function quoteBestSwapRoute(params: {
     return { status: "failed-simulation", reason: "Enter an amount to quote", candidateCount: 0 };
   const maxHops = params.maxHops ?? registry.routing.maxHops;
   const clRoutes = discoverClRoutes(registry.pools, tokenIn, tokenOut, {
-    maxHops: Math.min(maxHops, 2),
+    maxHops: Math.min(maxHops, 3),
     maxCandidateRoutes: Math.min(registry.routing.maxCandidateRoutes, MAX_CL_CANDIDATES),
   });
   const basicQuotes = await quoteBasicSwapRoutes({
@@ -349,6 +357,74 @@ type QuotedRoute = {
   encodedPath: SwapQuote["encodedPath"];
 };
 
+function uniqueVenues(hops: readonly SwapHop[]): SwapVenue[] {
+  return [...new Set(hops.map(hopVenue))];
+}
+
+function routeId(hops: readonly SwapHop[], tradeType: SwapTradeType): string {
+  return [
+    tradeType,
+    ...hops.map((hop) =>
+      [
+        hopVenue(hop),
+        hop.poolKey,
+        hop.tokenIn.toLowerCase(),
+        hop.tokenOut.toLowerCase(),
+        hop.stable === undefined ? "" : hop.stable ? "stable" : "volatile",
+      ].join(":"),
+    ),
+  ].join("|");
+}
+
+function routeLabel(hops: readonly SwapHop[]): string {
+  const venues = uniqueVenues(hops);
+  const venueText =
+    venues.length === 1
+      ? venues[0] === "basic"
+        ? "Mezo AMM"
+        : "Mezo CL"
+      : "Mixed";
+  return hops.length === 1 ? `Direct ${venueText}` : `${hops.length}-hop ${venueText}`;
+}
+
+function routeCandidate(
+  route: QuotedRoute,
+  tradeType: SwapTradeType,
+  rank: number,
+): SwapRouteCandidate {
+  const venues = uniqueVenues(route.hops);
+  return {
+    id: routeId(route.hops, tradeType),
+    label: routeLabel(route.hops),
+    tradeType,
+    amountIn: route.values.amountIn,
+    amountOut: route.values.amountOut,
+    amountOutMinimum: route.values.amountOut,
+    amountInMaximum: route.values.amountIn,
+    priceImpactBps: route.values.priceImpactBps,
+    encodedPath: hopVenue(route.hops[0]!) === "basic" ? "0x" : route.encodedPath,
+    hops: route.hops,
+    legs: route.hops.map((hop) => ({
+      type: hopVenue(hop) === "basic" ? ("V2_SWAP" as const) : ("CL_SWAP" as const),
+      label:
+        hopVenue(hop) === "basic"
+          ? `${hop.stable ? "Stable" : "Volatile"} Mezo AMM`
+          : `Mezo CL ${hop.fee / 10_000}%`,
+      tokenIn: hop.tokenIn,
+      tokenOut: hop.tokenOut,
+      pool: hop.pool,
+      venue: hopVenue(hop),
+      fee: hop.fee,
+    })),
+    hopCount: route.hops.length,
+    poolCount: new Set(route.hops.map((hop) => `${hopVenue(hop)}:${hop.poolKey}`)).size,
+    venues,
+    estimatedTransactionCount: 1,
+    executable: true,
+    rank,
+  };
+}
+
 function finishQuote(params: {
   tradeType: SwapTradeType;
   quoted: QuotedRoute[];
@@ -363,10 +439,14 @@ function finishQuote(params: {
     return params.tradeType === "exactInput" ? (left > right ? -1 : 1) : left < right ? -1 : 1;
   });
   const best = quoted[0]!;
+  const routes = quoted.map((route, index) => routeCandidate(route, params.tradeType, index + 1));
+  const selected = routes[0]!;
   const expiresAtBlockTimestamp = params.block.timestamp + params.registry.routing.quoteTtlSeconds;
   return {
     status: "success",
     quote: {
+      routeId: selected.id,
+      routeLabel: selected.label,
       tradeType: params.tradeType,
       ...best.values,
       amountOutMinimum: best.values.amountOut,
@@ -374,8 +454,10 @@ function finishQuote(params: {
       quotedAtBlockTimestamp: params.block.timestamp,
       expiresAtBlockTimestamp,
       blockNumber: params.block.number,
-      encodedPath: hopVenue(best.hops[0]!) === "basic" ? "0x" : best.encodedPath,
-      hops: best.hops,
+      encodedPath: selected.encodedPath,
+      hops: selected.hops,
+      legs: selected.legs,
+      routes,
       candidateCount: params.candidateCount,
     },
   };
@@ -427,16 +509,6 @@ async function quoteBestSwapRouteInner(params: {
 
   const quoted: QuotedRoute[] = basicQuotes.map(toQuotedBasic);
   const block = await client.getBlock({ blockTag: "latest" });
-  const hasDirectAmm = basicQuotes.some((item) => item.hops.length === 1);
-  if (hasDirectAmm) {
-    return finishQuote({
-      tradeType,
-      quoted,
-      block,
-      registry,
-      candidateCount: clRoutes.length + basicQuotes.length,
-    });
-  }
   const uniqueClHops = clRoutes
     .flat()
     .filter(
@@ -475,7 +547,6 @@ async function quoteBestSwapRouteInner(params: {
         else simulationFailures += 1;
       }
     }
-    if (quoted.length > 0 && group.length > 0 && group[0]?.length === 1) break;
   }
 
   if (quoted.length === 0) {
@@ -537,7 +608,11 @@ export async function quoteSwap(params: {
   );
   const snapshots = new Map<string, PoolSnapshot>(loaded);
   const values = await quoteRoute(hops, snapshots, tradeType, amount);
+  const quoted = { hops: [...hops], values, encodedPath: encodeClPath(hops, tradeType) };
+  const candidate = routeCandidate(quoted, tradeType, 1);
   return {
+    routeId: candidate.id,
+    routeLabel: candidate.label,
     tradeType,
     ...values,
     amountOutMinimum: values.amountOut,
@@ -545,8 +620,10 @@ export async function quoteSwap(params: {
     quotedAtBlockTimestamp: block.timestamp,
     expiresAtBlockTimestamp: block.timestamp + registry.routing.quoteTtlSeconds,
     blockNumber: block.number,
-    encodedPath: encodeClPath(hops, tradeType),
-    hops,
+    encodedPath: candidate.encodedPath,
+    hops: candidate.hops,
+    legs: candidate.legs,
+    routes: [candidate],
     candidateCount: 1,
   };
 }

@@ -742,7 +742,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
     title: "Claim rewards",
     description: "Claim ERC-1155 tranche rewards and ID20 gauge rewards from Earn.",
     tags: ["guides", "rewards", "claim", "gauge", "activate"],
-    searchText: "claim rewards claimables id20 gauge activate claim all currently claimable earn",
+    searchText: "claim rewards claimables id20 gauge activate claim all currently claimable earn LMR settlement delayed rebases",
     Content: () => (
       <>
         <h1>Claim rewards</h1>
@@ -770,6 +770,12 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
           That calls the tranche RewardSink. You receive additional ERC-1155 units of the same
           product. Anyone may also harvest inventory growth with{" "}
           <code>Ledger.claimRebases(trancheId, tokenIds)</code> before claims have something to pay.
+        </p>
+        <p>
+          A distributor claim can fund LockedManagedReward (LMR) while child-NFT growth and your
+          available rewards still read zero. LMR funding becomes claimable only after its funding
+          epoch closes. Active tranche units do not bypass that delay. See{" "}
+          <DocRouteLink href="/docs/protocol/rewards#lmr-settlement">LMR settlement and early exits</DocRouteLink>.
         </p>
         <h2>Activate and claim ID20 rewards</h2>
         <ol>
@@ -807,7 +813,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
     description:
       "Burn avBTCm or avMEZOm tranche units and receive veNFT inventory, not BTC or MEZO ERC-20.",
     tags: ["guides", "redeem", "unwrap", "exit"],
-    searchText: "redeem redemption amount select veNFTs exit to tranche unwrap irreversible",
+    searchText: "redeem redemption amount select veNFTs exit to tranche unwrap irreversible LMR pending rewards forfeit early exit epoch n n+1 2586",
     Content: () => (
       <>
         <h1>Redeem</h1>
@@ -821,6 +827,26 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
           can be withdrawn. The Earn card says redemptions are “Available whenever Mezo permits the
           selected managed inventory to withdraw.”
         </Callout>
+        <Callout variant="warning" title="Redeeming early can forfeit pending LMR rewards">
+          A deposit in epoch n mints avNFT tranche units that become active in n+1. If the
+          underlying rebase is claimed into LockedManagedReward (LMR) during n+1, it is not
+          claimable by child NFTs until n+2. Redeeming the child during n+1 removes its prospective
+          share unless it re-enters before the epoch ends. Being allowed to redeem, having active
+          units, or seeing zero available rewards does not mean LMR has no pending funding.
+        </Callout>
+        <p>
+          Redemption accounts for already-claimable child growth, but cannot include the still-open
+          LMR bucket. Already-accrued RewardSink rewards remain separate. The minted avNFT units
+          do not reserve a personal claim on their original NFT&apos;s pending LMR rewards. Read
+          the <DocRouteLink href="/docs/protocol/rewards#venft-2586-example">veMEZO 2586 example</DocRouteLink>
+          {" "}for a deposit on September 7 followed by an exit on September 10, before LMR
+          settlement on September 17.
+        </p>
+        <p>
+          If every child leaves and the funded epoch closes with zero LMR supply, the bucket can
+          become stranded. A later-epoch deposit cannot recover it. See{" "}
+          <DocRouteLink href="/docs/protocol/rewards#empty-lmr">If all children leave</DocRouteLink>.
+        </p>
         <h2>Unwrap ID20 first if needed</h2>
         <p>
           Redeem uses ERC-1155 units. If you only hold the ERC-20 wrapper, open{" "}
@@ -955,7 +981,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
       "Approvals, slippage, irreversible actions, custody, upgradeability, and Mezo dependencies.",
     tags: ["guides", "risks", "approvals", "slippage"],
     searchText:
-      "risks approvals slippage irreversible redeem upgrade owner mezo epoch grant-backed",
+      "risks approvals slippage irreversible redeem upgrade owner mezo epoch grant-backed LMR pending stranded rewards forfeiture",
     Content: () => (
       <>
         <h1>Risks</h1>
@@ -1003,6 +1029,15 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             Inventory valuation decreases do not burn supply; they lower the growth checkpoint.
           </li>
         </ul>
+        <h2>Pending LMR rewards and exits</h2>
+        <p>
+          Redeeming before the LMR funding epoch closes can forfeit the child NFT&apos;s
+          prospective reward allocation, even when the avNFT units minted on deposit are active.
+          If no children remain at that epoch&apos;s end, the funded bucket has no normal recovery
+          path. Depositing in a later epoch does not recover it. See{" "}
+          <DocRouteLink href="/docs/protocol/rewards#lmr-settlement">LMR settlement</DocRouteLink>
+          {" "}and the <DocRouteLink href="/docs/guides/redeem">redemption guide</DocRouteLink>.
+        </p>
         <p>
           Fuller list:{" "}
           <DocRouteLink href="/docs/protocol/security">Security and limitations</DocRouteLink>.

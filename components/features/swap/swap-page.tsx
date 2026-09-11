@@ -44,6 +44,8 @@ import {
   type SwapAsset,
   type SwapExecutionPlan,
   type SwapIntent,
+  type SwapQuote,
+  type SwapRouteCandidate,
   type SwapTradeType,
 } from "@/features/swap";
 
@@ -128,6 +130,44 @@ function executionPathText(plan: SwapExecutionPlan | undefined): string {
   if (plan.type === "auroveWrapThenSwap") return "Zap Router zapTrancheExactInput";
   if (plan.type === "auroveDepositWrapThenSwap") return "Zap Router zapErc20ExactInput";
   return plan.routerLabel;
+}
+
+function quoteForRoute(quote: SwapQuote, route: SwapRouteCandidate): SwapQuote {
+  return {
+    ...quote,
+    routeId: route.id,
+    routeLabel: route.label,
+    amountIn: route.amountIn,
+    amountOut: route.amountOut,
+    amountOutMinimum: route.amountOutMinimum,
+    amountInMaximum: route.amountInMaximum,
+    priceImpactBps: route.priceImpactBps,
+    encodedPath: route.encodedPath,
+    hops: route.hops,
+    legs: route.legs,
+  };
+}
+
+function routeDeltaText(
+  route: SwapRouteCandidate,
+  best: SwapRouteCandidate | undefined,
+  asset: SwapAsset | undefined,
+) {
+  if (!best || !asset || route.id === best.id) return "Best";
+  const difference =
+    route.tradeType === "exactInput"
+      ? best.amountOut - route.amountOut
+      : route.amountIn - best.amountIn;
+  if (difference <= 0n) return "Best";
+  return `-${formatCompactRawTokenAmount(difference, asset.decimals, asset.symbol)}`;
+}
+
+function routeQualityText(route: SwapRouteCandidate): string {
+  const impact =
+    route.priceImpactBps === null
+      ? "impact unavailable"
+      : `${percentageText(route.priceImpactBps / 100)} impact`;
+  return `${route.poolCount} pool${route.poolCount === 1 ? "" : "s"} · ${impact}`;
 }
 
 function approvalCtaLabel(approval: SingleApprovalRequirement | undefined, sell: SwapAsset) {
@@ -515,6 +555,7 @@ export function SwapPage() {
   const [deadlineMinutes, setDeadlineMinutes] = useState(20);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [openDetailsKey, setOpenDetailsKey] = useState<string>();
+  const [selectedRoute, setSelectedRoute] = useState<{ key: string; id: string }>();
   const formik = useFormik({
     initialValues: { amount: "", slippage: "0.5", deadline: "20" },
     validationSchema: swapSchema,
@@ -577,26 +618,40 @@ export function SwapPage() {
     slippageBps,
     maxHops: registry?.routing.maxHops,
   });
+  const routeSelectionKey =
+    sell && buy && parsedAmount !== null && parsedAmount > 0n
+      ? `${sell.id}:${buy.id}:${tradeType}:${parsedAmount.toString()}`
+      : undefined;
+  const routeCandidates = quote.data?.routes ?? [];
+  const selectedRouteId =
+    selectedRoute && selectedRoute.key === routeSelectionKey ? selectedRoute.id : undefined;
+  const selectedRouteCandidate =
+    selectedRouteId !== undefined
+      ? routeCandidates.find((route) => route.id === selectedRouteId)
+      : undefined;
+  const activeRouteCandidate = selectedRouteCandidate ?? routeCandidates[0];
+  const activeQuote =
+    quote.data && activeRouteCandidate ? quoteForRoute(quote.data, activeRouteCandidate) : quote.data;
   const plan = useMemo(
-    () => (intent && registry && quote.data ? planSwap(intent, registry, quote.data) : undefined),
-    [intent, quote.data, registry],
+    () => (intent && registry && activeQuote ? planSwap(intent, registry, activeQuote) : undefined),
+    [activeQuote, intent, registry],
   );
   const supportedPlan = plan && plan.type !== "unsupported" ? plan : undefined;
   const approval = useSwapApproval(plan);
   const networkFee = useSwapNetworkFee(plan, approval.isApproved);
-  const execution = useSwapExecution({ plan, quote: quote.data, verifyApproval: approval.verify });
+  const execution = useSwapExecution({ plan, quote: activeQuote, verifyApproval: approval.verify });
   const sellBalance = sell ? sellAssets.balanceOf(sell) : 0n;
   const buyBalance = buy ? buyAssets.balanceOf(buy) : 0n;
-  const requiredBalance = quote.data
+  const requiredBalance = activeQuote
     ? tradeType === "exactOutput" && supportedPlan
       ? supportedPlan.amountInMaximum
-      : quote.data.amountIn
+      : activeQuote.amountIn
     : 0n;
   const insufficient = requiredBalance > sellBalance;
   const outputValue =
-    tradeType === "exactInput" ? amountInputText(quote.data?.amountOut, buy) : typedAmount;
+    tradeType === "exactInput" ? amountInputText(activeQuote?.amountOut, buy) : typedAmount;
   const inputValue =
-    tradeType === "exactOutput" ? amountInputText(quote.data?.amountIn, sell) : typedAmount;
+    tradeType === "exactOutput" ? amountInputText(activeQuote?.amountIn, sell) : typedAmount;
   const fiatFor = (asset: SwapAsset | undefined, value: string) =>
     asset?.symbol === "MUSD" && value ? `≈ $${formatCompactDecimal(value)}` : undefined;
   const reverseBuyAsset =
@@ -653,12 +708,12 @@ export function SwapPage() {
     setFormAmount(value);
   };
   const price =
-    quote.data && quote.data.amountIn > 0n && quote.data.amountOut > 0n && sell && buy
-      ? `${formatCompactRawTokenAmount((quote.data.amountOut * 10n ** BigInt(sell.decimals)) / quote.data.amountIn, buy.decimals, null)} ${buy.symbol} per ${sell.symbol}`
+    activeQuote && activeQuote.amountIn > 0n && activeQuote.amountOut > 0n && sell && buy
+      ? `${formatCompactRawTokenAmount((activeQuote.amountOut * 10n ** BigInt(sell.decimals)) / activeQuote.amountIn, buy.decimals, null)} ${buy.symbol} per ${sell.symbol}`
       : "—";
   const inversePrice =
-    quote.data && quote.data.amountOut > 0n && sell && buy
-      ? `${formatCompactRawTokenAmount((quote.data.amountIn * 10n ** BigInt(buy.decimals)) / quote.data.amountOut, sell.decimals, null)} ${sell.symbol} per ${buy.symbol}`
+    activeQuote && activeQuote.amountOut > 0n && sell && buy
+      ? `${formatCompactRawTokenAmount((activeQuote.amountIn * 10n ** BigInt(buy.decimals)) / activeQuote.amountOut, sell.decimals, null)} ${sell.symbol} per ${buy.symbol}`
       : "—";
   const routeSymbol = (token: Address) =>
     registry?.assets.find(
@@ -666,14 +721,25 @@ export function SwapPage() {
         (asset.form === "erc20" || asset.form === "id20") &&
         asset.executableAddress.toLowerCase() === token.toLowerCase(),
     )?.symbol ?? "Pool";
-  const routeText = supportedPlan
-    ? [
-        routeSymbol(supportedPlan.hops[0].tokenIn),
-        ...supportedPlan.hops.map((hop) => routeSymbol(hop.tokenOut)),
-      ].join(" → ")
-    : "—";
+  const swapRouteTextFor = (hops: readonly { tokenIn: Address; tokenOut: Address }[]) =>
+    hops.length > 0
+      ? [routeSymbol(hops[0].tokenIn), ...hops.map((hop) => routeSymbol(hop.tokenOut))].join(
+          " → ",
+        )
+      : "—";
+  const routeTextFor = (hops: readonly { tokenIn: Address; tokenOut: Address }[]) => {
+    const swapPath = swapRouteTextFor(hops);
+    if (swapPath === "—") return swapPath;
+    if (sell?.form === "venft") return `${sell.symbol} → ERC1155 units → ${swapPath}`;
+    if (sell?.form === "tranche") return `${sell.symbol} → ERC1155 units → ${swapPath}`;
+    if (sell?.form === "underlying") return `${sell.symbol} → ${swapPath}`;
+    return swapPath;
+  };
+  const routeText = supportedPlan ? routeTextFor(supportedPlan.hops) : "—";
+  const bestRouteCandidate = routeCandidates[0];
+  const routeModeText = selectedRouteCandidate ? "Selected route" : "Best route";
   const detailsKey =
-    quote.data && supportedPlan
+    activeQuote && supportedPlan
       ? `${resolvedSellId}:${resolvedBuyId}:${tradeType}:${typedAmount}`
       : undefined;
   const detailsOpen = detailsKey !== undefined && openDetailsKey === detailsKey;
@@ -688,9 +754,9 @@ export function SwapPage() {
       ? veNftTotalUnits - veNftSellAmount
       : undefined;
   const quoteExpired = Boolean(
-    quote.data && hasChainTimestampPassed(chainTimestamp, quote.data.expiresAtBlockTimestamp),
+    activeQuote && hasChainTimestampPassed(chainTimestamp, activeQuote.expiresAtBlockTimestamp),
   );
-  const currentQuote = quote.data;
+  const currentQuote = activeQuote;
   const quoteIsDebouncing = quote.isDebouncing;
   const quoteIsFetching = quote.isFetching;
   const refetchQuote = quote.refetch;
@@ -717,7 +783,8 @@ export function SwapPage() {
     if (!typedAmount) return { label: "Enter an amount", disabled: true };
     if (parsedAmount === null || parsedAmount <= 0n)
       return { label: "Invalid amount", disabled: true };
-    if (!quote.data && (quote.isDebouncing || quote.isPending || quote.isFetching))
+    if (quote.isDebouncing) return { label: "Fetching quote…", disabled: true, loading: true };
+    if (!activeQuote && (quote.isDebouncing || quote.isPending || quote.isFetching))
       return { label: "Fetching quote…", disabled: true, loading: true };
     if (quote.routeState === "no-route") return { label: "No route available", disabled: true };
     if (quote.routeState === "insufficient-liquidity")
@@ -741,7 +808,7 @@ export function SwapPage() {
     }
     if (insufficient) return { label: `Insufficient ${sell.symbol} balance`, disabled: true };
     if (plan?.type === "unsupported") return { label: plan.reason, disabled: true };
-    if (quote.isError || !quote.data || !supportedPlan)
+    if (quote.isError || !activeQuote || !supportedPlan)
       return { label: "Unable to quote route", disabled: true };
     if (approval.isChecking) return { label: "Checking approval…", disabled: true, loading: true };
     if (!approval.isApproved)
@@ -858,7 +925,7 @@ export function SwapPage() {
             asset={sell}
             sellAmount={veNftSellAmount}
             sellValue={typedAmount}
-            outputAmount={quote.data?.amountOut}
+            outputAmount={activeQuote?.amountOut}
             outputAsset={buy}
             isQuoting={quote.isDebouncing || quote.isPending || quote.isFetching}
             path={executionPath}
@@ -892,10 +959,24 @@ export function SwapPage() {
           fiat={fiatFor(buy, outputValue)}
         />
       </div>
-      {quote.data && supportedPlan ? (
+      {activeQuote && supportedPlan ? (
         <div className="mt-3 rounded-xl px-2 py-2 text-xs">
-          <div className="flex items-center justify-between text-white/62">
-            <span>{price}</span>
+          <div className="flex items-center justify-between gap-3 text-white/62">
+            <button
+              type="button"
+              onClick={() =>
+                setOpenDetailsKey((value) => (value === detailsKey ? undefined : detailsKey))
+              }
+              className="min-w-0 flex-1 text-left"
+            >
+              <span className="block truncate font-medium text-white/80">
+                {routeModeText} · {routeText}
+              </span>
+              <span className="mt-0.5 block truncate text-white/42">
+                {activeQuote.routeLabel} ·{" "}
+                {activeRouteCandidate ? routeQualityText(activeRouteCandidate) : "Route ready"}
+              </span>
+            </button>
             <button
               type="button"
               onClick={() =>
@@ -914,6 +995,114 @@ export function SwapPage() {
           </div>
           {detailsOpen ? (
             <div className="mt-3 space-y-2 border-t border-white/8 pt-3">
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRoute(undefined)}
+                  className={cn(
+                    "grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-xl border p-3 text-left transition",
+                    !selectedRouteCandidate
+                      ? "border-[#b58f5f]/60 bg-[#b58f5f]/12"
+                      : "border-white/10 bg-white/[0.025] hover:bg-white/[0.06]",
+                  )}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold text-white">
+                      Auto · {routeTextFor(bestRouteCandidate?.hops ?? [])}
+                    </span>
+                    <span className="mt-1 block truncate text-white/45">
+                      {bestRouteCandidate
+                        ? `${bestRouteCandidate.label} · ${routeQualityText(bestRouteCandidate)}`
+                        : "Best executable route"}
+                    </span>
+                  </span>
+                  <span className="text-right font-semibold text-emerald-100">Best</span>
+                </button>
+                {routeCandidates.map((route) => (
+                  <button
+                    key={route.id}
+                    type="button"
+                    onClick={() =>
+                      routeSelectionKey
+                        ? setSelectedRoute({ key: routeSelectionKey, id: route.id })
+                        : undefined
+                    }
+                    className={cn(
+                      "grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-xl border p-3 text-left transition",
+                      selectedRouteCandidate?.id === route.id
+                        ? "border-[#b58f5f]/60 bg-[#b58f5f]/12"
+                        : "border-white/10 bg-white/[0.025] hover:bg-white/[0.06]",
+                    )}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold text-white">
+                        {route.label} · {routeTextFor(route.hops)}
+                      </span>
+                      <span className="mt-1 block truncate text-white/45">
+                        {routeQualityText(route)} · {route.hopCount} hop
+                        {route.hopCount === 1 ? "" : "s"}
+                      </span>
+                    </span>
+                    <span className="text-right">
+                      <span className="block font-semibold text-white">
+                        {amountText(
+                          tradeType === "exactInput" ? route.amountOut : route.amountIn,
+                          tradeType === "exactInput" ? buy : sell,
+                        )}
+                      </span>
+                      <span className="text-white/42">
+                        {routeDeltaText(
+                          route,
+                          bestRouteCandidate,
+                          tradeType === "exactInput" ? buy : sell,
+                        )}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.025] p-3">
+                {sell?.form === "venft" || sell?.form === "tranche" ? (
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                    <span className="truncate font-medium text-white/82">{sell.symbol}</span>
+                    <span className="rounded-lg bg-white/[0.06] px-2 py-1 text-[11px] text-white/48">
+                      Deposit
+                    </span>
+                    <span className="truncate text-right font-medium text-white/82">
+                      ERC1155 units
+                    </span>
+                  </div>
+                ) : sell?.form === "underlying" ? (
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                    <span className="truncate font-medium text-white/82">{sell.symbol}</span>
+                    <span className="rounded-lg bg-white/[0.06] px-2 py-1 text-[11px] text-white/48">
+                      Aurove
+                    </span>
+                    <span className="truncate text-right font-medium text-white/82">
+                      {activeQuote.legs[0]?.tokenIn
+                        ? routeSymbol(activeQuote.legs[0].tokenIn)
+                        : "ID20"}
+                    </span>
+                  </div>
+                ) : null}
+                {activeQuote.legs.map((leg, index) => (
+                  <div
+                    key={`${leg.type}:${leg.pool ?? index}:${leg.tokenIn ?? ""}:${leg.tokenOut ?? ""}`}
+                    className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2"
+                  >
+                    <span className="truncate font-medium text-white/82">
+                      {leg.tokenIn ? routeSymbol(leg.tokenIn) : index === 0 ? sell?.symbol : "Asset"}
+                    </span>
+                    <span className="rounded-lg bg-white/[0.06] px-2 py-1 text-[11px] text-white/48">
+                      {leg.label}
+                    </span>
+                    <span className="truncate text-right font-medium text-white/82">
+                      {leg.tokenOut ? routeSymbol(leg.tokenOut) : buy?.symbol}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <DetailRow label="Price" value={price} />
               <DetailRow label="Inverse price" value={inversePrice} />
               <DetailRow label="Route" value={routeText} />
               <DetailRow
@@ -963,7 +1152,7 @@ export function SwapPage() {
               <DetailRow
                 label="Price impact"
                 value={percentageText(
-                  quote.data.priceImpactBps === null ? null : quote.data.priceImpactBps / 100,
+                  activeQuote.priceImpactBps === null ? null : activeQuote.priceImpactBps / 100,
                 )}
               />
               <DetailRow label="Slippage tolerance" value={percentageText(slippageBps / 100)} />
@@ -983,7 +1172,7 @@ export function SwapPage() {
           ) : null}
         </div>
       ) : null}
-      {quote.data && (quote.data.priceImpactBps ?? 0) >= 500 ? (
+      {activeQuote && (activeQuote.priceImpactBps ?? 0) >= 500 ? (
         <div className="mx-2 mt-2 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs text-amber-100">
           High price impact. Review this route carefully.
         </div>

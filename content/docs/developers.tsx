@@ -253,7 +253,7 @@ export const DEVELOPER_PAGES: DocPageDefinition[] = [
       "Deposit, wrap, unwrap, claim, and redeem against the deployed Ledger, sinks, and ID20 wrappers.",
     tags: ["developers", "earn", "deposit", "redeem", "wrap"],
     searchText:
-      "earn integration depositErc20 depositVeNft redeem unwrap claimRebases activate claimRewards feeConfig nextFeeConfig executeFeeConfig",
+      "earn integration depositErc20 depositVeNft redeem unwrap claimRebases activate claimRewards feeConfig nextFeeConfig executeFeeConfig LMR funding settlement pending early exit",
     Content: () => (
       <>
         <h1>Earn integration</h1>
@@ -320,6 +320,13 @@ export const DEVELOPER_PAGES: DocPageDefinition[] = [
           </li>
         </ol>
         <h2>Reward fee reads</h2>
+        <p>
+          A successful distributor claim may fund the current LMR epoch without increasing any
+          child&apos;s <code>earned()</code> yet. Do not equate that transfer with RewardSink
+          funding or fee collection, or infer that zero claimable growth means an exit forfeits
+          nothing. See <DocRouteLink href="/docs/protocol/rewards#lmr-settlement">LMR settlement</DocRouteLink>
+          {" "}for the separate allocation boundary and early-exit example.
+        </p>
         <p>
           The protocol fee applies when a tranche RewardSink syncs newly detected reward funding,
           including inventory growth minted by <code>Ledger.claimRebases</code>. It is transferred

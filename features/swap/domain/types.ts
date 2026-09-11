@@ -77,6 +77,14 @@ export interface SwapIntent {
 
 export type SwapVenue = "cl" | "basic";
 
+export type SwapRouteLegType =
+  | "AUROVE_DEPOSIT"
+  | "AUROVE_ERC1155"
+  | "AUROVE_WRAP"
+  | "AUROVE_ZAP"
+  | "CL_SWAP"
+  | "V2_SWAP";
+
 export interface SwapHop {
   pool: Address;
   poolKey: string;
@@ -87,6 +95,36 @@ export interface SwapHop {
   venue?: SwapVenue;
   stable?: boolean;
   factory?: Address;
+}
+
+export interface SwapRouteLeg {
+  type: SwapRouteLegType;
+  label: string;
+  tokenIn?: Address;
+  tokenOut?: Address;
+  pool?: Address;
+  venue?: SwapVenue;
+  fee?: number;
+}
+
+export interface SwapRouteCandidate {
+  id: string;
+  label: string;
+  tradeType: SwapTradeType;
+  amountIn: bigint;
+  amountOut: bigint;
+  amountOutMinimum: bigint;
+  amountInMaximum: bigint;
+  priceImpactBps: number | null;
+  encodedPath: Hex;
+  hops: readonly SwapHop[];
+  legs: readonly SwapRouteLeg[];
+  hopCount: number;
+  poolCount: number;
+  venues: readonly SwapVenue[];
+  estimatedTransactionCount: number;
+  executable: boolean;
+  rank: number;
 }
 
 export type SingleApprovalRequirement =
@@ -178,6 +216,8 @@ export type SwapExecutionPlan =
   | UnsupportedSwapPlan;
 
 export interface SwapQuote {
+  routeId: string;
+  routeLabel: string;
   tradeType: SwapTradeType;
   amountIn: bigint;
   amountOut: bigint;
@@ -189,6 +229,8 @@ export interface SwapQuote {
   expiresAtBlockTimestamp: bigint;
   encodedPath: Hex;
   hops: readonly SwapHop[];
+  legs: readonly SwapRouteLeg[];
+  routes: readonly SwapRouteCandidate[];
   candidateCount: number;
 }
 

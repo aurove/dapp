@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Address } from "viem";
 
-import { canBasicRoute, canSwapRoute, hopVenue } from "./find-cl-route";
+import { canBasicRoute, canSwapRoute, discoverClRoutes, hopVenue } from "./find-cl-route";
 import { encodeClPath } from "./encode-cl-path";
 import { planSwap } from "./plan-swap";
 import { getSwapRoutingConfig } from "../registry/swap-registry";
-import type { SwapAsset, SwapIntent, SwapQuote, SwapRegistry } from "../domain";
+import type { SwapAsset, SwapHop, SwapIntent, SwapQuote, SwapRegistry } from "../domain";
 
 const BTC = "0x7b7C000000000000000000000000000000000000" as Address;
 const MUSD = "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186" as Address;
@@ -63,6 +63,58 @@ const musdAsset: SwapAsset = {
   balanceKey: "MUSD",
 };
 
+function routeQuote(
+  quote: Omit<SwapQuote, "routeId" | "routeLabel" | "legs" | "routes">,
+): SwapQuote {
+  const routeId = [
+    quote.tradeType,
+    ...quote.hops.map((hop) =>
+      [hopVenue(hop), hop.poolKey, hop.tokenIn.toLowerCase(), hop.tokenOut.toLowerCase()].join(
+        ":",
+      ),
+    ),
+  ].join("|");
+  const routeLabel =
+    quote.hops.length === 1
+      ? `Direct ${hopVenue(quote.hops[0] as SwapHop) === "basic" ? "Mezo AMM" : "Mezo CL"}`
+      : `${quote.hops.length}-hop route`;
+  const legs = quote.hops.map((hop) => ({
+    type: hopVenue(hop) === "basic" ? ("V2_SWAP" as const) : ("CL_SWAP" as const),
+    label: hopVenue(hop) === "basic" ? "Mezo AMM" : "Mezo CL",
+    tokenIn: hop.tokenIn,
+    tokenOut: hop.tokenOut,
+    pool: hop.pool,
+    venue: hopVenue(hop),
+    fee: hop.fee,
+  }));
+  const candidate = {
+    id: routeId,
+    label: routeLabel,
+    tradeType: quote.tradeType,
+    amountIn: quote.amountIn,
+    amountOut: quote.amountOut,
+    amountOutMinimum: quote.amountOutMinimum,
+    amountInMaximum: quote.amountInMaximum,
+    priceImpactBps: quote.priceImpactBps,
+    encodedPath: quote.encodedPath,
+    hops: quote.hops,
+    legs,
+    hopCount: quote.hops.length,
+    poolCount: quote.hops.length,
+    venues: [...new Set(quote.hops.map(hopVenue))],
+    estimatedTransactionCount: 1,
+    executable: true,
+    rank: 1,
+  };
+  return {
+    routeId,
+    routeLabel,
+    legs,
+    routes: [candidate],
+    ...quote,
+  };
+}
+
 test("canBasicRoute finds direct and two-hop Mezo AMM pairs", () => {
   const pools = [
     {
@@ -93,6 +145,64 @@ test("canBasicRoute finds direct and two-hop Mezo AMM pairs", () => {
   assert.equal(canBasicRoute(pools, BTC, MUSD), true);
   assert.equal(canBasicRoute(pools.slice(1), BTC, MUSD), true);
   assert.equal(canBasicRoute([], BTC, MUSD), false);
+});
+
+test("discoverClRoutes keeps direct and longer CL candidates for quote comparison", () => {
+  const mid = "0x00000000000000000000000000000000000000f1" as Address;
+  const pools = [
+    {
+      key: "cl:btc-musd",
+      address: "0x0000000000000000000000000000000000000010" as Address,
+      abi: [],
+      token0: BTC,
+      token1: MUSD,
+      tickSpacing: 200,
+      fee: 500,
+    },
+    {
+      key: "cl:btc-mezo",
+      address: "0x0000000000000000000000000000000000000011" as Address,
+      abi: [],
+      token0: BTC,
+      token1: MEZO,
+      tickSpacing: 200,
+      fee: 500,
+    },
+    {
+      key: "cl:mezo-mid",
+      address: "0x0000000000000000000000000000000000000012" as Address,
+      abi: [],
+      token0: MEZO,
+      token1: mid,
+      tickSpacing: 200,
+      fee: 500,
+    },
+    {
+      key: "cl:mid-musd",
+      address: "0x0000000000000000000000000000000000000013" as Address,
+      abi: [],
+      token0: mid,
+      token1: MUSD,
+      tickSpacing: 200,
+      fee: 500,
+    },
+  ];
+
+  const routes = discoverClRoutes(pools, BTC, MUSD, {
+    maxHops: 3,
+    maxCandidateRoutes: 8,
+  });
+
+  assert.equal(routes.length, 2);
+  assert.deepEqual(
+    routes.map((route) => route.length),
+    [1, 3],
+  );
+  assert.equal(routes[0][0].poolKey, "cl:btc-musd");
+  assert.deepEqual(
+    routes[1].map((hop) => hop.tokenOut),
+    [MEZO, mid, MUSD],
+  );
 });
 
 test("canSwapRoute uses AMM when no CL path exists", () => {
@@ -128,7 +238,7 @@ test("planSwap builds a Mezo AMM execution plan for BTC to MUSD", () => {
       factory: FACTORY,
     },
   ];
-  const quote: SwapQuote = {
+  const quote: SwapQuote = routeQuote({
     tradeType: "exactInput",
     amountIn: 1_000_000_000_000_000_000n,
     amountOut: 50_000_000_000_000_000_000n,
@@ -141,7 +251,7 @@ test("planSwap builds a Mezo AMM execution plan for BTC to MUSD", () => {
     encodedPath: "0x",
     hops,
     candidateCount: 1,
-  };
+  });
   const intent: SwapIntent = {
     chainId: 31612,
     account: "0x0000000000000000000000000000000000000009",
@@ -212,7 +322,7 @@ test("planSwap carries permanent veNFT metadata into Aurove zap routes", () => {
       fee: 500,
     },
   ];
-  const quote: SwapQuote = {
+  const quote: SwapQuote = routeQuote({
     tradeType: "exactInput",
     amountIn: veBtcAsset.fixedInputAmount!,
     amountOut: 50_000_000_000_000_000_000n,
@@ -225,7 +335,7 @@ test("planSwap carries permanent veNFT metadata into Aurove zap routes", () => {
     encodedPath: encodeClPath(hops, "exactInput"),
     hops,
     candidateCount: 1,
-  };
+  });
   const intent: SwapIntent = {
     chainId: 31612,
     account: "0x0000000000000000000000000000000000000009",
@@ -303,7 +413,7 @@ test("planSwap deposits a veNFT then sells only selected tranche units", () => {
       fee: 500,
     },
   ];
-  const quote: SwapQuote = {
+  const quote: SwapQuote = routeQuote({
     tradeType: "exactInput",
     amountIn: sellUnits,
     amountOut: 12_500_000_000_000_000_000n,
@@ -316,7 +426,7 @@ test("planSwap deposits a veNFT then sells only selected tranche units", () => {
     encodedPath: encodeClPath(hops, "exactInput"),
     hops,
     candidateCount: 1,
-  };
+  });
   const account = "0x0000000000000000000000000000000000000009" as Address;
   const intent: SwapIntent = {
     chainId: 31612,
