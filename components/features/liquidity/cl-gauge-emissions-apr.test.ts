@@ -23,8 +23,8 @@ test("normalizes Mezo pool API APR fields", () => {
   });
 
   assert.equal(snapshot?.poolAddress, POOL);
-  assert.equal(snapshot?.aprPercent, 1055);
-  assert.equal(snapshot?.emissionsAprPercent, 99012);
+  assert.equal(snapshot?.aprPercent, 10.55);
+  assert.equal(snapshot?.emissionsAprPercent, 990.12);
   assert.equal(snapshot?.activeStakedValueMusd, 19.342678);
   assert.equal(snapshot?.status, "available");
   assert.equal(snapshot?.unavailableReason, null);
@@ -40,7 +40,7 @@ test("matches pool snapshots by address case-insensitively", () => {
   );
 
   assert.equal(snapshot?.poolAddress, POOL);
-  assert.equal(snapshot?.emissionsAprPercent, 99012);
+  assert.equal(snapshot?.emissionsAprPercent, 990.12);
 });
 
 test("estimates active staked value as API staked liquidity share of TVL", () => {

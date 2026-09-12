@@ -4,6 +4,8 @@ export type MezoApiPool = {
   address?: unknown;
   tvl?: unknown;
   emissionsApr?: unknown;
+  token0?: MezoApiPoolToken;
+  token1?: MezoApiPoolToken;
   stats?: {
     apr?: unknown;
   };
@@ -11,6 +13,14 @@ export type MezoApiPool = {
   type?: unknown;
   stakedLiquidity?: unknown;
   liquidity?: unknown;
+};
+
+export type MezoApiPoolToken = {
+  address?: unknown;
+  symbol?: unknown;
+  decimals?: unknown;
+  price?: unknown;
+  reserve?: unknown;
 };
 
 export type MezoPoolAprSnapshot = {
@@ -38,7 +48,7 @@ function normalizeNumber(value: unknown): number | null {
 
 function normalizeApr(value: unknown): number | null {
   const parsed = normalizeNumber(value);
-  return parsed != null && parsed > 0 ? parsed : null;
+  return parsed != null && parsed > 0 ? parsed / 100 : null;
 }
 
 function normalizeBigInt(value: unknown): bigint | null {
