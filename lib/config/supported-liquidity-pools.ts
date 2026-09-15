@@ -78,6 +78,12 @@ export function getAuroveLiquidityPair(key: AuroveLiquidityPairKey): AuroveLiqui
   return AUROVE_LIQUIDITY_PAIRS.find((pair) => pair.key === key)!;
 }
 
+export function pairKeyForPoolContractName(
+  poolContractName: string,
+): AuroveLiquidityPairKey | null {
+  return AUROVE_LIQUIDITY_PAIRS.find((pair) => pair.poolContractName === poolContractName)?.key ?? null;
+}
+
 export function resolveAuroveLiquidityPairRoute(routeSlug: string): AuroveLiquidityPair | null {
   const normalized = routeSlug.trim().toLowerCase();
   return AUROVE_LIQUIDITY_PAIRS.find((pair) => pair.routeSlug === normalized) ?? null;

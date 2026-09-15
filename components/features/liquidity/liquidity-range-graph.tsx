@@ -44,6 +44,7 @@ type LiquidityRangeGraphProps = {
   poolKey: SlipstreamPoolKey;
   selectedRange?: SlipstreamTickRange | null;
   selectedStrategy?: SlipstreamRangePreset;
+  referenceRange?: SlipstreamTickRange | null;
   onSelectionChange?: (selection: {
     range: SlipstreamTickRange | null;
     strategy: SlipstreamRangePreset;
@@ -223,6 +224,7 @@ export function LiquidityRangeGraph({
   poolKey,
   selectedRange: controlledSelectedRange,
   selectedStrategy: controlledSelectedStrategy,
+  referenceRange,
   onSelectionChange,
 }: LiquidityRangeGraphProps) {
   const { pool, depthQuery } = useSlipstreamPoolData(chainId, poolKey);
@@ -343,6 +345,19 @@ export function LiquidityRangeGraph({
     renderedDisplayTicks && xScale ? xScale(renderedDisplayTicks.lowTick) : null;
   const selectedUpperX =
     renderedDisplayTicks && xScale ? xScale(renderedDisplayTicks.highTick) : null;
+  const referenceDisplayTicks = referenceRange
+    ? getDisplayPriceRangeTicks(pool, referenceRange)
+    : null;
+  const referenceLowerX =
+    referenceDisplayTicks && xScale ? xScale(referenceDisplayTicks.lowTick) : null;
+  const referenceUpperX =
+    referenceDisplayTicks && xScale ? xScale(referenceDisplayTicks.highTick) : null;
+  const referenceIsSelected = Boolean(
+    referenceRange &&
+      renderedRange &&
+      referenceRange.tickLower === renderedRange.tickLower &&
+      referenceRange.tickUpper === renderedRange.tickUpper,
+  );
   const fullRangeHalfIntervals = useMemo(
     () => (pool.tickSpacing ? getFullRangeHalfIntervals(pool.tickSpacing) : INITIAL_ZOOM_INTERVALS),
     [pool.tickSpacing],
@@ -643,6 +658,19 @@ export function LiquidityRangeGraph({
                   fill="rgba(255,255,255,0.02)"
                 />
 
+                {referenceLowerX !== null && referenceUpperX !== null && !referenceIsSelected ? (
+                  <rect
+                    data-testid="current-liquidity-range-overlay"
+                    x={Math.min(referenceLowerX, referenceUpperX)}
+                    y={CHART_PADDING.top}
+                    width={Math.abs(referenceUpperX - referenceLowerX)}
+                    height={innerHeight}
+                    fill="rgba(196,160,106,0.08)"
+                    stroke="rgba(196,160,106,0.55)"
+                    strokeDasharray="6 4"
+                  />
+                ) : null}
+
                 {selectedLowerX !== null && selectedUpperX !== null ? (
                   <rect
                     data-testid="proposed-liquidity-range-overlay"
@@ -890,8 +918,8 @@ export function LiquidityRangeGraph({
           </div>
           <p className="text-xs leading-relaxed text-white/42">
             Gold depth is raw active pool liquidity reconstructed between initialized ticks. Blue is
-            only your proposed range. Handles snap to pool tick spacing; zoom changes only the
-            viewport.
+            the proposed range{referenceRange ? "; the gold outline is the current position range" : ""}.
+            Handles snap to pool tick spacing; zoom changes only the viewport.
           </p>
           {depthQuery.data?.status === "partial" ? (
             <p role="status" className="text-xs leading-relaxed text-amber-100/72">
@@ -902,6 +930,17 @@ export function LiquidityRangeGraph({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {referenceRange ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className={cn("min-w-20", classForPreset(referenceIsSelected))}
+              onClick={() => commitSelection(referenceRange, "custom")}
+            >
+              Current
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="secondary"

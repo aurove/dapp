@@ -482,3 +482,79 @@ export function getAmount1AboveRangeForLiquidity(params: {
   if (liquidity <= 0n || sqrtUpperX96 <= sqrtLowerX96) return 0n;
   return mulDivFloor(liquidity, sqrtUpperX96 - sqrtLowerX96, SLIPSTREAM_Q96);
 }
+
+function orderedSqrtRange(sqrtLowerX96: bigint, sqrtUpperX96: bigint) {
+  return sqrtLowerX96 <= sqrtUpperX96
+    ? { sqrtA: sqrtLowerX96, sqrtB: sqrtUpperX96 }
+    : { sqrtA: sqrtUpperX96, sqrtB: sqrtLowerX96 };
+}
+
+export function getLiquidityForAmounts(params: {
+  amount0: bigint;
+  amount1: bigint;
+  sqrtCurrentX96: bigint;
+  sqrtLowerX96: bigint;
+  sqrtUpperX96: bigint;
+}) {
+  const { amount0, amount1, sqrtCurrentX96 } = params;
+  const { sqrtA, sqrtB } = orderedSqrtRange(params.sqrtLowerX96, params.sqrtUpperX96);
+  if (sqrtCurrentX96 <= sqrtA) {
+    return getLiquidityForAmount0({ amount0, sqrtLowerX96: sqrtA, sqrtUpperX96: sqrtB });
+  }
+  if (sqrtCurrentX96 < sqrtB) {
+    const liquidity0 = getLiquidityForAmount0WithinRange({
+      amount0,
+      sqrtCurrentX96,
+      sqrtUpperX96: sqrtB,
+    });
+    const liquidity1 = getLiquidityForAmount1WithinRange({
+      amount1,
+      sqrtLowerX96: sqrtA,
+      sqrtCurrentX96,
+    });
+    return liquidity0 < liquidity1 ? liquidity0 : liquidity1;
+  }
+  return getLiquidityForAmount1({ amount1, sqrtLowerX96: sqrtA, sqrtUpperX96: sqrtB });
+}
+
+export function getAmountsForLiquidity(params: {
+  liquidity: bigint;
+  sqrtCurrentX96: bigint;
+  sqrtLowerX96: bigint;
+  sqrtUpperX96: bigint;
+}) {
+  const { liquidity, sqrtCurrentX96 } = params;
+  const { sqrtA, sqrtB } = orderedSqrtRange(params.sqrtLowerX96, params.sqrtUpperX96);
+  if (sqrtCurrentX96 <= sqrtA) {
+    return {
+      amount0: getAmount0BelowRangeForLiquidity({
+        liquidity,
+        sqrtLowerX96: sqrtA,
+        sqrtUpperX96: sqrtB,
+      }),
+      amount1: 0n,
+    };
+  }
+  if (sqrtCurrentX96 < sqrtB) {
+    return {
+      amount0: getAmount0ForLiquidity({
+        liquidity,
+        sqrtCurrentX96,
+        sqrtUpperX96: sqrtB,
+      }),
+      amount1: getAmount1ForLiquidity({
+        liquidity,
+        sqrtLowerX96: sqrtA,
+        sqrtCurrentX96,
+      }),
+    };
+  }
+  return {
+    amount0: 0n,
+    amount1: getAmount1AboveRangeForLiquidity({
+      liquidity,
+      sqrtLowerX96: sqrtA,
+      sqrtUpperX96: sqrtB,
+    }),
+  };
+}
