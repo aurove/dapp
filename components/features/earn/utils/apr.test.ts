@@ -20,7 +20,7 @@ function product(overrides: Partial<EarnProduct> = {}): EarnProduct {
   } as EarnProduct;
 }
 
-test("annualises the latest weekly funding rate without compounding", () => {
+test("annualises trailing 7-day funding without compounding", () => {
   const estimate = estimateTrancheApr(product());
 
   assert.ok(estimate);
@@ -32,12 +32,12 @@ test("does not estimate APR without a positive reward and funding-time supply", 
   assert.equal(estimateTrancheApr(product({ aprTotalSupplyAtFundingRaw: 0n })), null);
 });
 
-test("labels the summary as latest weekly funding annualised", () => {
+test("labels the summary as last 7 days funding annualised", () => {
   const estimate = estimateTrancheApr(product());
   assert.ok(estimate);
 
   const summary = summarizeAnnualisedApr([estimate]);
-  assert.match(summary.detail, /^Latest weekly funding, annualised: avMEZOm /);
+  assert.match(summary.detail, /^Last 7 days funding, annualised: avMEZOm /);
 });
 
 test("summarizes annualised APR per earning asset", () => {

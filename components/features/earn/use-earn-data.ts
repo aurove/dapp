@@ -18,7 +18,7 @@ import {
   readResult,
   sameAddress,
 } from "@/lib/web3/value-parsers";
-import { findLatestEventLogByChunks, type CachedEventLog } from "@/lib/web3/event-cache";
+import { scanEventLogsByChunks, type CachedEventLog } from "@/lib/web3/event-cache";
 import { useId20Portfolio, useRewardsPortfolio, useTranchePortfolio } from "@/features/portfolio";
 import {
   MAX_EPOCHS_BY_VARIANT,
@@ -118,28 +118,27 @@ type EarnSnapshot = {
   }>;
 };
 
-type FundingEventSnapshot = {
-  amount: bigint;
-  blockNumber: bigint;
-  logIndex: number;
-};
-
-type FundingScanCache = {
-  latestByAddress: Map<string, FundingEventSnapshot>;
-  checkedTipByAddress: Map<string, { blockNumber: bigint; blockHash: string }>;
-  inFlight?: Promise<void>;
+type FundingWindowSnapshot = {
+  /** Sum of RewardsFunded.amount over the trailing 7-day window. */
+  rewardAmountRaw: bigint;
+  /** Block used for total-supply snapshot (start of the 7-day window). */
+  windowStartBlock: bigint;
+  /** Latest funding block inside the window (debug / ordering). */
+  latestFundingBlockNumber: bigint;
+  eventCount: number;
 };
 
 const EARN_APR_QUERY_PREFIX = "earn-apr-basis";
 const REWARDS_FUNDED_SCAN_CHUNK_SIZE = 10_000n;
+const APR_LOOKBACK_SECONDS = 7n * 24n * 60n * 60n;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
 const rewardsFundedEvent = parseAbiItem(
   "event RewardsFunded(address indexed funder,uint256 amount,uint256 distributedAmount,uint256 undistributedRewards,uint256 rewardReserve)",
 );
 
-const fundingScanCacheByChain = new Map<number, FundingScanCache>();
 const totalSupplyAtBlockCache = new Map<string, Promise<bigint | null>>();
+const windowStartBlockCache = new Map<string, Promise<bigint>>();
 
 /** Per-product static multicall layout: totalSupply, rewardReserve. */
 const PRODUCT_STATIC_READS = 2;
@@ -160,22 +159,52 @@ const LOCKED_MANAGED_REWARD_ABI = [
   },
 ] as const satisfies Abi;
 
-function getFundingScanCache(chainId: number): FundingScanCache {
-  const existing = fundingScanCacheByChain.get(chainId);
-  if (existing) return existing;
+/** Find the latest block whose timestamp is <= targetTimestamp. */
+async function findBlockAtOrBeforeTimestamp(params: {
+  publicClient: PublicClient;
+  targetTimestamp: bigint;
+  latestBlockNumber: bigint;
+  latestTimestamp: bigint;
+}): Promise<bigint> {
+  if (params.latestTimestamp <= params.targetTimestamp) return params.latestBlockNumber;
+  if (params.latestBlockNumber === 0n) return 0n;
 
-  const cache: FundingScanCache = {
-    latestByAddress: new Map(),
-    checkedTipByAddress: new Map(),
-  };
-  fundingScanCacheByChain.set(chainId, cache);
-  return cache;
-}
+  const cacheKey = `${params.latestBlockNumber}:${params.targetTimestamp.toString()}`;
+  const cached = windowStartBlockCache.get(cacheKey);
+  if (cached) return cached;
 
-function isNewerFundingEvent(next: FundingEventSnapshot, current?: FundingEventSnapshot) {
-  if (!current) return true;
-  if (next.blockNumber !== current.blockNumber) return next.blockNumber > current.blockNumber;
-  return next.logIndex > current.logIndex;
+  const promise = (async () => {
+    const sampleLookback =
+      params.latestBlockNumber > 10_000n ? params.latestBlockNumber - 10_000n : 1n;
+    const sample = await params.publicClient.getBlock({ blockNumber: sampleLookback });
+    const sampleDt = params.latestTimestamp - BigInt(sample.timestamp);
+    const sampleDb = params.latestBlockNumber - sampleLookback;
+    const avgBlockTime = sampleDt > 0n && sampleDb > 0n ? sampleDt / sampleDb : 2n;
+    const deltaT = params.latestTimestamp - params.targetTimestamp;
+    const estimatedDelta = avgBlockTime > 0n ? deltaT / avgBlockTime : deltaT;
+    let guess =
+      params.latestBlockNumber > estimatedDelta ? params.latestBlockNumber - estimatedDelta : 0n;
+
+    // Refine with a short binary search around the estimate.
+    let low = guess > 5_000n ? guess - 5_000n : 0n;
+    let high =
+      guess + 5_000n < params.latestBlockNumber ? guess + 5_000n : params.latestBlockNumber;
+    while (low < high) {
+      const mid = (low + high + 1n) / 2n;
+      const block = await params.publicClient.getBlock({ blockNumber: mid });
+      if (BigInt(block.timestamp) <= params.targetTimestamp) low = mid;
+      else high = mid - 1n;
+    }
+    return low;
+  })();
+
+  windowStartBlockCache.set(cacheKey, promise);
+  try {
+    return await promise;
+  } catch (error) {
+    windowStartBlockCache.delete(cacheKey);
+    throw error;
+  }
 }
 
 function emptyProductCore(core: ManagedTrancheCore, userBalanceRaw = 0n): EarnProduct {
@@ -226,11 +255,12 @@ type RewardSinkScanTarget = {
   fromBlock: bigint;
 };
 
-async function scanRewardsFundedEvents(params: {
+/** Sum RewardsFunded amounts over the trailing 7 days for each reward sink. */
+async function scanRewardsFundedWindow(params: {
   publicClient: PublicClient;
   chainId: number;
   targets: RewardSinkScanTarget[];
-}) {
+}): Promise<Map<string, FundingWindowSnapshot>> {
   const uniqueTargets = new Map<string, RewardSinkScanTarget>();
   for (const target of params.targets) {
     uniqueTargets.set(target.key.toLowerCase(), {
@@ -239,124 +269,95 @@ async function scanRewardsFundedEvents(params: {
       sinkAddress: target.sinkAddress,
     });
   }
-  if (uniqueTargets.size === 0) return new Map<string, FundingEventSnapshot>();
+  if (uniqueTargets.size === 0) return new Map();
 
-  const cache = getFundingScanCache(params.chainId);
-  if (cache.inFlight) await cache.inFlight;
+  const latest = await params.publicClient.getBlock();
+  const latestBlock = latest.number;
+  const latestTimestamp = BigInt(latest.timestamp);
+  const windowStartTimestamp =
+    latestTimestamp > APR_LOOKBACK_SECONDS ? latestTimestamp - APR_LOOKBACK_SECONDS : 0n;
+  const estimatedWindowStart = await findBlockAtOrBeforeTimestamp({
+    publicClient: params.publicClient,
+    targetTimestamp: windowStartTimestamp,
+    latestBlockNumber: latestBlock,
+    latestTimestamp,
+  });
 
-  const scanPromise = (async () => {
-    const latest = await params.publicClient.getBlock();
-    const latestBlock = latest.number;
+  const results = await Promise.all(
+    [...uniqueTargets.values()].map(async (target) => {
+      const deploymentBlock = target.fromBlock > 0n ? target.fromBlock : 0n;
+      const windowStartBlock =
+        estimatedWindowStart > deploymentBlock ? estimatedWindowStart : deploymentBlock;
+      if (windowStartBlock > latestBlock) {
+        return [target.key, null] as const;
+      }
 
-    await Promise.all(
-      [...uniqueTargets.values()].map(async (target) => {
-        const key = target.key;
-        let checkedTip = cache.checkedTipByAddress.get(key);
-        if (checkedTip) {
-          const canonicalTip =
-            checkedTip.blockNumber <= latestBlock
-              ? await params.publicClient
-                  .getBlock({ blockNumber: checkedTip.blockNumber })
-                  .catch(() => null)
-              : null;
-          if (canonicalTip?.hash.toLowerCase() !== checkedTip.blockHash.toLowerCase()) {
-            cache.latestByAddress.delete(key);
-            cache.checkedTipByAddress.delete(key);
-            checkedTip = undefined;
-          }
-        }
-        if (checkedTip && checkedTip.blockNumber >= latestBlock) return;
-
-        const deploymentBlock = target.fromBlock > 0n ? target.fromBlock : 0n;
-        const fromBlock =
-          checkedTip && checkedTip.blockNumber + 1n > deploymentBlock
-            ? checkedTip.blockNumber + 1n
-            : deploymentBlock;
-
-        if (fromBlock > latestBlock) {
-          cache.checkedTipByAddress.set(key, {
-            blockNumber: latestBlock,
-            blockHash: latest.hash,
+      const logs = await scanEventLogsByChunks({
+        chainId: params.chainId,
+        contractAddress: target.sinkAddress,
+        eventName: "RewardsFunded",
+        fromBlock: windowStartBlock,
+        toBlock: latestBlock,
+        chunkSize: REWARDS_FUNDED_SCAN_CHUNK_SIZE,
+        getBlockHash: async (blockNumber) =>
+          params.publicClient
+            .getBlock({ blockNumber })
+            .then((block) => block.hash)
+            .catch(() => null),
+        fetchRange: async (rangeFromBlock, rangeToBlock) => {
+          const rangeLogs = await params.publicClient.getLogs({
+            address: target.sinkAddress,
+            event: rewardsFundedEvent,
+            fromBlock: rangeFromBlock,
+            toBlock: rangeToBlock,
           });
-          return;
+
+          return rangeLogs
+            .filter((item) => item.transactionHash && item.blockNumber !== null)
+            .map(
+              (item): CachedEventLog => ({
+                address: item.address,
+                transactionHash: item.transactionHash!,
+                blockNumber: item.blockNumber!,
+                logIndex: item.logIndex ?? 0,
+                args: {
+                  amount: item.args.amount ?? 0n,
+                  distributedAmount: item.args.distributedAmount ?? 0n,
+                  undistributedRewards: item.args.undistributedRewards ?? 0n,
+                  rewardReserve: item.args.rewardReserve ?? 0n,
+                },
+              }),
+            );
+        },
+      });
+
+      let rewardAmountRaw = 0n;
+      let latestFundingBlockNumber = windowStartBlock;
+      let eventCount = 0;
+      for (const log of logs) {
+        const amount = readBigint(log.args.amount) ?? 0n;
+        if (amount <= 0n) continue;
+        rewardAmountRaw += amount;
+        eventCount += 1;
+        if (log.blockNumber > latestFundingBlockNumber) {
+          latestFundingBlockNumber = log.blockNumber;
         }
+      }
 
-        const log = await findLatestEventLogByChunks({
-          chainId: params.chainId,
-          contractAddress: target.sinkAddress,
-          eventName: "RewardsFunded",
-          fromBlock,
-          toBlock: latestBlock,
-          chunkSize: REWARDS_FUNDED_SCAN_CHUNK_SIZE,
-          getBlockHash: async (blockNumber) =>
-            params.publicClient
-              .getBlock({ blockNumber })
-              .then((block) => block.hash)
-              .catch(() => null),
-          fetchRange: async (rangeFromBlock, rangeToBlock) => {
-            const logs = await params.publicClient.getLogs({
-              address: target.sinkAddress,
-              event: rewardsFundedEvent,
-              fromBlock: rangeFromBlock,
-              toBlock: rangeToBlock,
-            });
+      if (rewardAmountRaw <= 0n) return [target.key, null] as const;
 
-            return logs
-              .filter((item) => item.transactionHash && item.blockNumber !== null)
-              .map(
-                (item): CachedEventLog => ({
-                  address: item.address,
-                  transactionHash: item.transactionHash!,
-                  blockNumber: item.blockNumber!,
-                  logIndex: item.logIndex ?? 0,
-                  args: {
-                    amount: item.args.amount ?? 0n,
-                    distributedAmount: item.args.distributedAmount ?? 0n,
-                    undistributedRewards: item.args.undistributedRewards ?? 0n,
-                    rewardReserve: item.args.rewardReserve ?? 0n,
-                  },
-                }),
-              );
-          },
-        });
-
-        if (log) {
-          const amount = readBigint(log.args.amount) ?? 0n;
-          if (amount > 0n) {
-            const snapshot: FundingEventSnapshot = {
-              amount,
-              blockNumber: log.blockNumber,
-              logIndex: log.logIndex,
-            };
-
-            if (isNewerFundingEvent(snapshot, cache.latestByAddress.get(key))) {
-              cache.latestByAddress.set(key, snapshot);
-            }
-          }
-        }
-
-        cache.checkedTipByAddress.set(key, {
-          blockNumber: latestBlock,
-          blockHash: latest.hash,
-        });
-      }),
-    );
-  })();
-
-  cache.inFlight = scanPromise;
-
-  try {
-    await scanPromise;
-  } finally {
-    if (cache.inFlight === scanPromise) {
-      cache.inFlight = undefined;
-    }
-  }
+      const snapshot: FundingWindowSnapshot = {
+        rewardAmountRaw,
+        windowStartBlock,
+        latestFundingBlockNumber,
+        eventCount,
+      };
+      return [target.key, snapshot] as const;
+    }),
+  );
 
   return new Map(
-    [...uniqueTargets.keys()]
-      .map((address) => [address, cache.latestByAddress.get(address)])
-      .filter((entry): entry is [string, FundingEventSnapshot] => Boolean(entry[1])),
+    results.filter((entry): entry is [string, FundingWindowSnapshot] => entry[1] !== null),
   );
 }
 
@@ -1240,7 +1241,7 @@ async function fetchAprBasisMap(params: {
     fromBlock: product.variant === "veBTC" ? btcSinkFromBlock : mezoSinkFromBlock,
   }));
 
-  const latestFundings = await scanRewardsFundedEvents({
+  const fundingWindows = await scanRewardsFundedWindow({
     publicClient,
     chainId,
     targets,
@@ -1251,15 +1252,18 @@ async function fetchAprBasisMap(params: {
   await Promise.all(
     validProducts.map(async (product) => {
       const key = earnAprProductKey(product);
-      const latestFunding = latestFundings.get(key);
+      const fundingWindow = fundingWindows.get(key);
 
-      if (!latestFunding) {
+      if (!fundingWindow) {
         result[key] = null;
         return;
       }
 
+      // Supply at the start of the 7-day window (block before window start when possible).
       const supplyBlockNumber =
-        latestFunding.blockNumber > 0n ? latestFunding.blockNumber - 1n : latestFunding.blockNumber;
+        fundingWindow.windowStartBlock > 0n
+          ? fundingWindow.windowStartBlock - 1n
+          : fundingWindow.windowStartBlock;
 
       const totalSupplyAtFundingRaw = await readTotalSupplyAtBlock({
         publicClient,
@@ -1273,9 +1277,9 @@ async function fetchAprBasisMap(params: {
       result[key] =
         totalSupplyAtFundingRaw !== null && totalSupplyAtFundingRaw !== undefined
           ? {
-              rewardAmountRaw: latestFunding.amount,
+              rewardAmountRaw: fundingWindow.rewardAmountRaw,
               totalSupplyAtFundingRaw,
-              fundingBlockNumber: latestFunding.blockNumber,
+              fundingBlockNumber: fundingWindow.windowStartBlock,
             }
           : null;
     }),

@@ -34,8 +34,10 @@ export function formatAprPercent(value: number | null | undefined): string {
 }
 
 /**
- * Annualises the latest observed weekly reward-funding rate without compounding.
- * This is a historical run-rate APR, not a forecast and does not compound returns.
+ * Annualises trailing 7-day reward funding without compounding.
+ * `aprRewardAmountRaw` is the sum of RewardsFunded over the last 7 days;
+ * `aprTotalSupplyAtFundingRaw` is total supply at the start of that window.
+ * This is a historical run-rate APR, not a forecast.
  */
 export function estimateTrancheApr(product: EarnProduct): TrancheAprEstimate | null {
   const totalSupplyRaw = product.aprTotalSupplyAtFundingRaw ?? 0n;
@@ -76,7 +78,7 @@ export function summarizeAssetApr(params: {
   if (params.isLoading) {
     return {
       value: "Loading…",
-      detail: "Scanning reward funding history for this Aurove asset.",
+      detail: "Scanning the last 7 days of reward funding for this Aurove asset.",
       available: false,
     };
   }
@@ -137,5 +139,5 @@ export function summarizeAnnualisedApr(estimates: readonly TrancheAprEstimate[])
     .map((item) => `${item.product.symbol} ${formatAprPercent(item.annualisedAprPercent)}`)
     .join(" · ");
 
-  return { value, detail: `Latest weekly funding, annualised: ${detail}`, subtle: false };
+  return { value, detail: `Last 7 days funding, annualised: ${detail}`, subtle: false };
 }

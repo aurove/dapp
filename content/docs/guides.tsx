@@ -477,7 +477,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             <strong>ID20 Balance</strong> — ERC-20 wrapper balance.
           </li>
           <li>
-            <strong>Annualised APR</strong> — a display estimate from recent funding, not a
+            <strong>Annualised APR</strong> — a display estimate from the last 7 days of funding, not a
             guarantee.
           </li>
           <li>
@@ -752,7 +752,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
           flow.
         </p>
         <Callout variant="info" title="Rewards are not guaranteed">
-          Displayed APR and “latest weekly rewards funded” are observations, not promises. Time
+          Displayed APR and “last 7 days rewards funded” are observations, not promises. Time
           passing does not accrue rewards by itself. Rewards appear when inventory growth is claimed
           and notified.
         </Callout>
