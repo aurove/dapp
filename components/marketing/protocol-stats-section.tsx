@@ -1,67 +1,25 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState, type ComponentType } from "react";
-import { Activity, Lock, Wallet } from "lucide-react";
+import { memo, useEffect, useState, type ComponentType } from "react";
+import { Lock } from "lucide-react";
 import { Skeleton } from "@ui";
 
 import { MarketErrorBoundary } from "@/components/market/market-error-boundary";
 import { useProtocolStats } from "@/hooks/use-protocol-stats";
-import {
-  formatCompactCount,
-  formatCompactUsd,
-  formatUpdatedAgo,
-} from "@/lib/market/format";
-
-type StatDefinition = {
-  key: "tvl" | "wallets" | "transactions";
-  label: string;
-  icon: ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
-  format: (value: number | null | undefined) => string;
-  select: (data: {
-    tvlUsd: number | null;
-    uniqueWallets: number | null;
-    transactionCount: number | null;
-  } | null | undefined) => number | null;
-};
-
-/** Mirrors homepage feature-card language: gold icon, quiet label, strong number. */
-const STATS: readonly StatDefinition[] = [
-  {
-    key: "tvl",
-    label: "Total value locked",
-    icon: Lock,
-    format: formatCompactUsd,
-    select: (data) => data?.tvlUsd ?? null,
-  },
-  {
-    key: "wallets",
-    label: "Unique wallets",
-    icon: Wallet,
-    format: formatCompactCount,
-    select: (data) => data?.uniqueWallets ?? null,
-  },
-  {
-    key: "transactions",
-    label: "Transactions",
-    icon: Activity,
-    format: formatCompactCount,
-    select: (data) => data?.transactionCount ?? null,
-  },
-] as const;
+import { formatCompactUsd, formatUpdatedAgo } from "@/lib/market/format";
 
 type StatCardProps = {
-  stat: StatDefinition;
+  label: string;
+  icon: ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
   value: string;
   loading?: boolean;
 };
 
-const StatCard = memo(function StatCard({ stat, value, loading }: StatCardProps) {
-  const Icon = stat.icon;
-
+const StatCard = memo(function StatCard({ label, icon: Icon, value, loading }: StatCardProps) {
   return (
     <article
       className="protocol-stat-card"
-      aria-label={loading ? `${stat.label}, loading` : `${stat.label}: ${value}`}
+      aria-label={loading ? `${label}, loading` : `${label}: ${value}`}
     >
       <div className="protocol-stat-card__icon-wrap" aria-hidden="true">
         <Icon className="protocol-stat-card__icon" />
@@ -76,7 +34,7 @@ const StatCard = memo(function StatCard({ stat, value, loading }: StatCardProps)
         ) : (
           <>
             <p className="protocol-stat-card__value">{value}</p>
-            <p className="protocol-stat-card__label">{stat.label}</p>
+            <p className="protocol-stat-card__label">{label}</p>
           </>
         )}
       </div>
@@ -95,15 +53,7 @@ function ProtocolStatsSectionInner() {
 
   const loading = isPending && !data;
   const fetchedAt = data?.fetchedAt ?? (dataUpdatedAt || null);
-
-  const cards = useMemo(
-    () =>
-      STATS.map((stat) => ({
-        stat,
-        value: stat.format(stat.select(data)),
-      })),
-    [data],
-  );
+  const tvlValue = formatCompactUsd(data?.tvlUsd ?? null);
 
   return (
     <section
@@ -118,15 +68,18 @@ function ProtocolStatsSectionInner() {
         <p className="section-copy section-copy--stats" aria-live="polite">
           {isError && !data
             ? "Stats temporarily unavailable."
-            : `On-chain metrics across Aurove contracts · ${formatUpdatedAgo(fetchedAt, now).replace(/^Updated /, "").toLowerCase()}`}
+            : `Aurove TVL from managed tranche supply and MUSD/avBTCm pool reserves · ${formatUpdatedAgo(fetchedAt, now).replace(/^Updated /, "").toLowerCase()}`}
         </p>
 
-        <div className="protocol-stats-grid" role="list">
-          {cards.map(({ stat, value }) => (
-            <div key={stat.key} role="listitem" className="protocol-stats-grid__item">
-              <StatCard stat={stat} value={value} loading={loading} />
-            </div>
-          ))}
+        <div className="protocol-stats-grid protocol-stats-grid--single" role="list">
+          <div role="listitem" className="protocol-stats-grid__item">
+            <StatCard
+              label="Total value locked"
+              icon={Lock}
+              value={tvlValue}
+              loading={loading}
+            />
+          </div>
         </div>
       </div>
     </section>

@@ -1,105 +1,57 @@
+import { getEarnProtocolAddresses } from "@/contracts/earn";
+import { getContractConfig } from "@/contracts/shared";
+import { getKnownMusdConfig } from "@/lib/config/musd";
+
 import { MARKET_TICKER_PAIRS, getMarketChainId } from "./config";
-import { fetchLiquidId20MusdPrices } from "./liquid-prices";
-import { changePct, fetchHermesLatestPrices, fetchHermesPricesAt } from "./pyth";
-import type { MarketPriceQuote, MarketPricesSnapshot, PythFeedId, PythPricePoint } from "./types";
-
-function indexPoints(points: PythPricePoint[]): Map<PythFeedId, PythPricePoint> {
-  return new Map(points.map((point) => [point.feed, point]));
-}
-
-function toMusd(priceUsd: number, musdUsd: number | null): number | null {
-  if (!Number.isFinite(priceUsd) || priceUsd <= 0) return null;
-  // MUSD ≈ $1; when the feed is available, normalize into mUSD terms.
-  const divisor = musdUsd != null && musdUsd > 0 ? musdUsd : 1;
-  const musd = priceUsd / divisor;
-  return Number.isFinite(musd) ? musd : null;
-}
-
-const reportedMarketPriceWarnings = new Set<string>();
-
-function reportMarketPriceWarning(source: string, error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  const warningKey = `${source}:${message}`;
-  if (reportedMarketPriceWarnings.has(warningKey)) return;
-  reportedMarketPriceWarnings.add(warningKey);
-  console.warn(`[market/prices] ${source} unavailable: ${message}`);
-}
+import { fetchMezoSpotPrices } from "./mezo-prices";
+import type { MarketPriceQuote, MarketPricesSnapshot } from "./types";
 
 /**
- * Build the four ticker quotes.
- *
- * Sources:
- * - BTC/mUSD & MEZO/mUSD from Pyth Hermes (BTC/USD, MEZO/USD, MUSD/USD).
- * - veBTC / veMEZO from liquid id20 pool spots: avBTCm and avMEZOm → mUSD.
- * - 24h % for Pyth pairs from Hermes historical; for liquid pairs, use the
- *   underlying’s 24h move as a market-direction proxy when pool history is unavailable.
+ * Build ticker quotes from Mezo's public API spots.
+ * 24h change is not published by Mezo's API, so change24hPct is always null.
  */
 export async function fetchMarketPricesSnapshot(): Promise<MarketPricesSnapshot> {
   const chainId = getMarketChainId();
-  const nowSec = Math.floor(Date.now() / 1000);
+  const earn = getEarnProtocolAddresses(chainId);
+  const musd = getKnownMusdConfig(chainId);
+  const musdAvBtcmPool = getContractConfig(chainId, "MUSD-avBTCm");
 
-  const [latest, previous, liquid] = await Promise.all([
-    fetchHermesLatestPrices().catch((error) => {
-      reportMarketPriceWarning("Pyth Hermes latest", error);
-      return [] as PythPricePoint[];
-    }),
-    fetchHermesPricesAt(nowSec - 86_400).catch((error) => {
-      reportMarketPriceWarning("Pyth Hermes historical", error);
-      return [] as PythPricePoint[];
-    }),
-    fetchLiquidId20MusdPrices(chainId).catch((error) => {
-      reportMarketPriceWarning("liquid pool spot", error);
-      return null;
-    }),
-  ]);
-
-  const latestMap = indexPoints(latest);
-  const prevMap = indexPoints(previous);
-
-  const musdNow = latestMap.get("MUSD_USD")?.priceUsd ?? null;
-  const musdPrev = prevMap.get("MUSD_USD")?.priceUsd ?? null;
+  const spots = await fetchMezoSpotPrices({
+    musdAddress: musd?.address ?? null,
+    musdAvBtcmPoolAddress: musdAvBtcmPool?.address ?? null,
+    avBTCmAddress: earn.auroveId20Address ?? null,
+    avMEZOmAddress: earn.mezoAuroveId20Address ?? null,
+  }).catch((error) => {
+    console.warn(
+      "[market/prices] Mezo API unavailable:",
+      error instanceof Error ? error.message : String(error),
+    );
+    return null;
+  });
 
   const quotes: MarketPriceQuote[] = MARKET_TICKER_PAIRS.map((pair) => {
-    const feed: PythFeedId = pair.underlying === "BTC" ? "BTC_USD" : "MEZO_USD";
-    const current = latestMap.get(feed);
-    const prior = prevMap.get(feed);
-    const underlyingMusd = current ? toMusd(current.priceUsd, musdNow) : null;
-    const priorUnderlyingMusd = prior ? toMusd(prior.priceUsd, musdPrev ?? musdNow) : null;
-    const underlyingChange = changePct(underlyingMusd ?? 0, priorUnderlyingMusd);
-
+    let priceMusd: number | null = null;
     if (pair.pricing === "liquid-id20") {
-      const liquidPrice =
+      priceMusd =
         pair.liquidId20 === "avBTCm"
-          ? (liquid?.avBTCmMusd ?? null)
+          ? (spots?.avBTCmMusd ?? null)
           : pair.liquidId20 === "avMEZOm"
-            ? (liquid?.avMEZOmMusd ?? null)
+            ? (spots?.avMEZOmMusd ?? null)
             : null;
-
-      // Prefer pool spot for the liquid representation; fall back to underlying Pyth
-      // only when pools are empty/untrusted so the ticker never shows a blank row.
-      const priceMusd = liquidPrice ?? underlyingMusd;
-      const usedPool = liquidPrice != null;
-
-      return {
-        id: pair.id,
-        symbol: pair.symbol,
-        quoteSymbol: "mUSD",
-        priceMusd,
-        // Pool spots lack a cheap 24h history; use underlying direction as proxy.
-        change24hPct: underlyingChange,
-        asOf: usedPool ? (liquid?.asOf ?? null) : (current?.publishTime ?? null),
-        source: usedPool ? "pool-spot" : underlyingMusd != null ? "pyth-hermes" : "unavailable",
-      };
+    } else if (pair.underlying === "BTC") {
+      priceMusd = spots?.btcMusd ?? null;
+    } else {
+      priceMusd = spots?.mezoMusd ?? null;
     }
 
     return {
       id: pair.id,
       symbol: pair.symbol,
       quoteSymbol: "mUSD",
-      priceMusd: underlyingMusd,
-      change24hPct: underlyingChange,
-      asOf: current?.publishTime ?? null,
-      source: current ? "pyth-hermes" : "unavailable",
+      priceMusd,
+      change24hPct: null,
+      asOf: spots?.asOf ?? null,
+      source: priceMusd != null ? "mezo-api" : "unavailable",
     };
   });
 

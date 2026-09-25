@@ -9,20 +9,17 @@ export type MarketPriceQuote = {
   symbol: string;
   /** Quote asset label, always mUSD for this product surface. */
   quoteSymbol: "mUSD";
-  /** Price of 1 unit in mUSD (USD / MUSD/USD). */
+  /** Price of 1 unit in mUSD. */
   priceMusd: number | null;
-  /** 24h relative change in percent (e.g. 1.35 = +1.35%). Null when unknown. */
+  /**
+   * 24h relative change in percent. Always null while sourcing from Mezo's API
+   * (those endpoints do not publish 24h change).
+   */
   change24hPct: number | null;
-  /** Unix seconds of the latest oracle sample. */
+  /** Unix seconds of the latest sample. */
   asOf: number | null;
   /** Data source label for debugging / UI hints. */
-  source:
-    | "pyth-hermes"
-    | "pyth-onchain"
-    | "skip-oracle"
-    | "pool-spot"
-    | "derived"
-    | "unavailable";
+  source: "mezo-api" | "pool-spot" | "derived" | "unavailable";
 };
 
 export type MarketPricesSnapshot = {
@@ -32,15 +29,4 @@ export type MarketPricesSnapshot = {
   quotes: MarketPriceQuote[];
   /** True when at least one quote has a usable price. */
   healthy: boolean;
-};
-
-export type PythFeedId =
-  | "BTC_USD"
-  | "MEZO_USD"
-  | "MUSD_USD";
-
-export type PythPricePoint = {
-  feed: PythFeedId;
-  priceUsd: number;
-  publishTime: number;
 };

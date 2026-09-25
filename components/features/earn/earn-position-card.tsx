@@ -16,6 +16,7 @@ import {
 } from "@/components/features/id20/use-id20-gauges";
 import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, makeContractWriteStep, type TxStep } from "@/lib/tx-flow";
+import { formatCompactUsd } from "@/lib/market/format";
 import { formatCompactRawTokenAmount, parseAmountRaw } from "@/lib/web3/value-parsers";
 import {
   type EarnAprBasisMap,
@@ -123,6 +124,7 @@ const venftSelectStyles: StylesConfig<VenftSelectOption, true> = {
 
 export function EarnPositionCard({
   product: initialProduct,
+  tvlMusd,
   aprBasisMap,
   withdrawAmount,
   setWithdrawAmount,
@@ -130,6 +132,7 @@ export function EarnPositionCard({
   onError,
 }: {
   product: EarnProduct;
+  tvlMusd?: number | null;
   aprBasisMap?: EarnAprBasisMap | null;
   withdrawAmount: string;
   setWithdrawAmount: (value: string) => void;
@@ -144,13 +147,14 @@ export function EarnPositionCard({
       {inView ? (
         <PositionCardContent
           product={product}
+          tvlMusd={tvlMusd}
           withdrawAmount={withdrawAmount}
           setWithdrawAmount={setWithdrawAmount}
           onSuccess={onSuccess}
           onError={onError}
         />
       ) : (
-        <PositionCardShell product={initialProduct} />
+        <PositionCardShell product={initialProduct} tvlMusd={tvlMusd} />
       )}
     </div>
   );
@@ -158,12 +162,14 @@ export function EarnPositionCard({
 
 function PositionCardContent({
   product,
+  tvlMusd,
   withdrawAmount,
   setWithdrawAmount,
   onSuccess,
   onError,
 }: {
   product: EarnProduct;
+  tvlMusd?: number | null;
   withdrawAmount: string;
   setWithdrawAmount: (value: string) => void;
   onSuccess: (message: string) => void;
@@ -324,6 +330,7 @@ function PositionCardContent({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
+          <InfoTile label="Position TVL" value={formatCompactUsd(tvlMusd ?? null)} />
           <InfoTile
             label="Available Balance"
             value={formatAmount(product.userAvailableBalanceRaw, product.decimals, product.symbol)}
@@ -537,7 +544,13 @@ function PositionCardContent({
   );
 }
 
-function PositionCardShell({ product }: { product: EarnProduct }) {
+function PositionCardShell({
+  product,
+  tvlMusd: _tvlMusd,
+}: {
+  product: EarnProduct;
+  tvlMusd?: number | null;
+}) {
   const copy = variantCopy(product.variant);
 
   return (

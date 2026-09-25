@@ -6,9 +6,12 @@ import { useChainId } from "wagmi";
 import { Button, Card, CardContent, Skeleton, cn } from "@ui";
 import { FeatureStatusPanel } from "@/components/features/shared/page-shell";
 import { getEarnProtocolConfig } from "@/contracts/earn";
+import { formatCompactUsd } from "@/lib/market/format";
+import { useMezoPools } from "@/components/features/liquidity/use-mezo-pools";
 import { EarnPositionCard } from "./earn-position-card";
 import { EarnRewards } from "./earn-rewards";
 import { useAprBasis, useEarnSnapshot } from "./use-earn-data";
+import { estimateEarnPositionsTotalTvlMusd, estimateEarnProductTvlMusd } from "./utils/position-tvl";
 
 function ProductSkeleton() {
   return (
@@ -62,6 +65,7 @@ export function EarnPositions() {
   const { products, userPositions, positionsLoading, positionsFetching, error, refresh } =
     useEarnSnapshot();
   const chainId = useChainId();
+  const mezoPools = useMezoPools(true);
   const ledgerAbi = getEarnProtocolConfig(chainId).ledger?.abi;
   const aprQuery = useAprBasis({
     enabled: true,
@@ -85,6 +89,19 @@ export function EarnPositions() {
     setSuccessMessage(null);
   };
 
+  const pools = mezoPools.data ?? [];
+  const positionTvlById = useMemo(() => {
+    const map = new Map<string, number | null>();
+    for (const product of userPositions) {
+      map.set(product.id, estimateEarnProductTvlMusd(product, pools));
+    }
+    return map;
+  }, [pools, userPositions]);
+  const totalTvlMusd = useMemo(
+    () => estimateEarnPositionsTotalTvlMusd(userPositions, pools),
+    [pools, userPositions],
+  );
+  const totalTvlLabel = mezoPools.isLoading ? "Pricing…" : formatCompactUsd(totalTvlMusd);
   const positionCountLabel = `${userPositions.length} position${userPositions.length === 1 ? "" : "s"}`;
 
   return (
@@ -94,7 +111,17 @@ export function EarnPositions() {
           <h2 id="earn-positions-title" className="text-2xl font-semibold text-white">
             Your liquid positions
           </h2>
-          <p className="mt-1 text-sm text-white/55">{positionCountLabel}</p>
+          <p className="mt-1 text-sm text-white/55">
+            {[positionCountLabel, userPositions.length > 0 ? `Total TVL ${totalTvlLabel}` : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+          {userPositions.length > 0 ? (
+            <p className="mt-2 text-lg font-semibold text-white">
+              {totalTvlLabel}
+              <span className="ml-2 text-sm font-normal text-white/45">total TVL</span>
+            </p>
+          ) : null}
         </div>
         <Button variant="secondary" size="sm" onClick={refresh} disabled={positionsFetching}>
           <RefreshCw className={cn("h-4 w-4", positionsFetching && "animate-spin")} />
@@ -130,6 +157,7 @@ export function EarnPositions() {
               >
                 <EarnPositionCard
                   product={position}
+                  tvlMusd={positionTvlById.get(position.id) ?? null}
                   aprBasisMap={aprBasisMap}
                   withdrawAmount={withdrawAmounts[position.id] ?? ""}
                   setWithdrawAmount={(value) =>

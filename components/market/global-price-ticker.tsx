@@ -4,53 +4,20 @@ import { memo, useMemo } from "react";
 import { Skeleton } from "@ui";
 
 import { useMarketPrices } from "@/hooks/use-market-prices";
-import { formatChangePct, formatTickerPrice } from "@/lib/market/format";
+import { formatTickerPrice } from "@/lib/market/format";
 import type { MarketPriceQuote } from "@/lib/market/types";
 
 import { MarketErrorBoundary } from "./market-error-boundary";
 
-function ChangeBadge({ change24hPct }: { change24hPct: number | null }) {
-  if (change24hPct == null || !Number.isFinite(change24hPct)) {
-    return <span className="text-[11px] tabular-nums text-white/35">—</span>;
-  }
-
-  const positive = change24hPct > 0;
-  const neutral = change24hPct === 0;
-  const color = neutral
-    ? "text-white/45"
-    : positive
-      ? "text-emerald-300"
-      : "text-rose-300";
-  const arrow = neutral ? "•" : positive ? "▲" : "▼";
-
-  return (
-    <span className={`inline-flex items-center gap-0.5 text-[11px] tabular-nums ${color}`}>
-      <span aria-hidden="true" className="text-[9px] leading-none">
-        {arrow}
-      </span>
-      <span>{formatChangePct(change24hPct)}</span>
-    </span>
-  );
-}
-
 const TickerItem = memo(function TickerItem({ quote }: { quote: MarketPriceQuote }) {
   const label = `${quote.symbol} / ${quote.quoteSymbol}`;
   const priceText = formatTickerPrice(quote.priceMusd);
-  const changeText = formatChangePct(quote.change24hPct);
-  const direction =
-    quote.change24hPct == null
-      ? "unchanged"
-      : quote.change24hPct > 0
-        ? "up"
-        : quote.change24hPct < 0
-          ? "down"
-          : "unchanged";
 
   return (
     <div
       className="flex shrink-0 items-baseline gap-2 px-3 sm:px-4"
       role="listitem"
-      aria-label={`${label} price ${priceText}, 24 hour change ${changeText}, ${direction}`}
+      aria-label={`${label} price ${priceText}`}
     >
       <span className="text-[11px] font-medium tracking-wide text-white/55 sm:text-xs">
         {quote.symbol}
@@ -58,7 +25,6 @@ const TickerItem = memo(function TickerItem({ quote }: { quote: MarketPriceQuote
       <span className="text-[12px] font-semibold tabular-nums tracking-tight text-[var(--foreground)] sm:text-[13px]">
         {priceText}
       </span>
-      <ChangeBadge change24hPct={quote.change24hPct} />
     </div>
   );
 });
@@ -70,7 +36,6 @@ function TickerSkeleton() {
         <div key={index} className="flex items-center gap-2">
           <Skeleton className="h-3 w-10" />
           <Skeleton className="h-3 w-14" />
-          <Skeleton className="h-3 w-10" />
         </div>
       ))}
     </div>

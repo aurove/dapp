@@ -335,12 +335,16 @@ a {
   color: rgba(232, 230, 225, 0.58);
 }
 
-/* Same gap language as .feature-grid; three protocol metrics. */
+/* Same gap language as .feature-grid; homepage currently shows TVL only. */
 .protocol-stats-grid {
   margin-top: 32px;
   display: grid;
   gap: 16px;
   grid-template-columns: 1fr;
+}
+
+.protocol-stats-grid--single {
+  max-width: 28rem;
 }
 
 .protocol-stats-grid__item {
@@ -349,13 +353,13 @@ a {
 }
 
 @media (min-width: 640px) {
-  .protocol-stats-grid {
+  .protocol-stats-grid:not(.protocol-stats-grid--single) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 1024px) {
-  .protocol-stats-grid {
+  .protocol-stats-grid:not(.protocol-stats-grid--single) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

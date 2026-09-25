@@ -6,8 +6,8 @@ import { withNoStoreRouteErrorHandling } from "@/lib/server/http";
 export const runtime = "nodejs";
 
 /**
- * Live market prices for the global ticker.
- * Cache: short CDN/browser TTL + SWR so the bar feels live without hammering Hermes.
+ * Live market prices for the global ticker (Mezo API spots).
+ * Cache: short CDN/browser TTL + SWR so the bar feels live without hammering Mezo.
  */
 async function getMarketPrices() {
   const snapshot = await fetchMarketPricesSnapshot();
