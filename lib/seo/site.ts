@@ -10,7 +10,7 @@ export const SITE_TAGLINE = "Liquid ve-Yield for Mezo Earn";
 export const DEFAULT_TITLE = "Aurove — Liquid ve-Yield for Mezo Earn";
 
 export const DEFAULT_DESCRIPTION =
-  "Maximize veBTC and veMEZO yields through liquid, tradable yield assets on Mezo Earn. Deposit, swap, provide liquidity, and keep earning.";
+  "Put locked BTC and MEZO to work in liquidity pools. Keep earning, and swap when you need flexibility.";
 
 export const TWITTER_HANDLE = "@aurove_xyz";
 

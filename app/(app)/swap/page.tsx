@@ -3,9 +3,9 @@ import { SwapPage } from "@/components/features/swap";
 import { ProductSeo } from "@/components/site/product-seo";
 import { createPageMetadata } from "@/lib/seo/site";
 
-const TITLE = "Swap Liquid ve-Yield Assets";
+const TITLE = "Swap locked BTC and MEZO";
 const DESCRIPTION =
-  "Swap supported Aurove and Mezo assets, including routes that deposit and wrap before trading through Aurove pools.";
+  "Swap locked BTC and MEZO through Aurove's supported routes and pools.";
 
 export const metadata: Metadata = createPageMetadata({
   title: TITLE,
