@@ -16,6 +16,12 @@ import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { makeAddressWriteStep, type TxStep } from "@/lib/tx-flow";
 import { useChainDeadline } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
+import { formatCompactUsd } from "@/lib/market/format";
+import {
+  buildMezoTokenPriceMapMusd,
+  estimatePositionLiquidityValueMusd,
+  findMezoPoolAprSnapshot,
+} from "@/lib/liquidity/mezo-pools";
 import {
   formatPriceLabel,
   getDisplayPriceRangeTicks,
@@ -34,6 +40,7 @@ import {
 import { PositionManagePanel } from "./position-management";
 import { UINT128_MAX, withPortfolioDomains } from "./position-management/tx";
 import type { ClGauge } from "./position-management/shared";
+import { useMezoPools } from "./use-mezo-pools";
 
 function AggregateFeeCollection({
   positions,
@@ -196,6 +203,7 @@ function PositionRange({
 function LiquidityPositionCard({
   position,
   tokens,
+  liquidityValueMusd,
   managerAddress,
   managerAbi,
   routerAddress,
@@ -209,6 +217,7 @@ function LiquidityPositionCard({
 }: {
   position: Position;
   tokens: Map<string, TokenMeta>;
+  liquidityValueMusd: number | null;
   managerAddress: Address;
   managerAbi: Abi;
   routerAddress: Address;
@@ -262,7 +271,11 @@ function LiquidityPositionCard({
             </div>
             <span className="absolute right-0 top-1 text-white/65">{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
+            <div className="min-w-0 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3">
+              <p className="text-xs text-white/45">Liquidity value</p>
+              <p className="mt-1 text-sm font-medium text-white">{formatCompactUsd(liquidityValueMusd)}</p>
+            </div>
             <div className="min-w-0 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3">
               <p className="text-xs text-white/45">Deposited</p>
               {depositedAmounts.map(([raw, token], index) => (
@@ -324,6 +337,7 @@ export function LiquidityPositions() {
   const chainId = useChainId();
   const portfolio = usePortfolioSummary();
   const liquidity = portfolio.domains.liquidity;
+  const mezoPools = useMezoPools(true);
   const { deadline } = useChainDeadline();
   const registry = useMemo(() => getPortfolioRegistry(chainId), [chainId]);
   const router = getContractConfig(chainId, "AuroveZapRouter");
@@ -343,11 +357,53 @@ export function LiquidityPositions() {
     });
     return map;
   }, [portfolio.data]);
+  const priceByToken = useMemo(
+    () => buildMezoTokenPriceMapMusd(mezoPools.data ?? []),
+    [mezoPools.data],
+  );
+  const positionValuesMusd = useMemo(() => {
+    const values = new Map<string, number | null>();
+    for (const position of positions) {
+      const token0 = tokens.get(position.token0.toLowerCase());
+      const token1 = tokens.get(position.token1.toLowerCase());
+      const poolSnapshot = findMezoPoolAprSnapshot(mezoPools.data ?? [], position.pool);
+      values.set(
+        position.tokenId.toString(),
+        estimatePositionLiquidityValueMusd({
+          amount0Raw: position.rawAmount0,
+          amount1Raw: position.rawAmount1,
+          decimals0: token0?.decimals ?? null,
+          decimals1: token1?.decimals ?? null,
+          token0: position.token0,
+          token1: position.token1,
+          positionLiquidity: position.liquidity,
+          priceByToken,
+          poolTvlMusd: poolSnapshot?.tvlMusd ?? null,
+          poolLiquidity: poolSnapshot?.liquidity ?? position.poolLiquidity ?? null,
+        }),
+      );
+    }
+    return values;
+  }, [mezoPools.data, positions, priceByToken, tokens]);
+  const totalLiquidityValueMusd = useMemo(() => {
+    let total = 0;
+    let counted = 0;
+    for (const value of positionValuesMusd.values()) {
+      if (value == null || !Number.isFinite(value)) continue;
+      total += value;
+      counted += 1;
+    }
+    return counted > 0 ? total : null;
+  }, [positionValuesMusd]);
   const feeCount = positions.filter((position) => !position.isStaked && (position.tokensOwed0 > 0n || position.tokensOwed1 > 0n)).length;
   const stakedCount = positions.filter((position) => position.isStaked).length;
   const scrollToAdd = () => document.getElementById("available-pools")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const totalValueLabel = mezoPools.isLoading
+    ? "Pricing…"
+    : formatCompactUsd(totalLiquidityValueMusd);
   const summaryParts = [
     `${positions.length} position${positions.length === 1 ? "" : "s"}`,
+    positions.length > 0 ? `Total liquidity ${totalValueLabel}` : null,
     feeCount > 0 ? `${feeCount} with uncollected fees` : null,
     stakedCount > 0 ? `${stakedCount} staked` : null,
   ].filter(Boolean);
@@ -358,6 +414,12 @@ export function LiquidityPositions() {
         <div>
           <h2 id="liquidity-positions-title" className="text-2xl font-semibold text-white">Your liquidity positions</h2>
           <p className="mt-1 text-sm text-white/55">{summaryParts.join(" · ")}</p>
+          {positions.length > 0 ? (
+            <p className="mt-2 text-lg font-semibold text-white">
+              {totalValueLabel}
+              <span className="ml-2 text-sm font-normal text-white/45">total liquidity</span>
+            </p>
+          ) : null}
         </div>
         <Button variant="secondary" size="sm" onClick={() => void liquidity.refetch()} disabled={liquidity.isFetching}>
           <RefreshCw className={cn("h-4 w-4", liquidity.isFetching && "animate-spin")} /> Refresh
@@ -385,6 +447,7 @@ export function LiquidityPositions() {
               key={position.tokenId.toString()}
               position={position}
               tokens={tokens}
+              liquidityValueMusd={positionValuesMusd.get(position.tokenId.toString()) ?? null}
               managerAddress={registry.positionManager!.address}
               managerAbi={registry.positionManager!.abi as Abi}
               routerAddress={router.address!}

@@ -3,7 +3,9 @@ import test from "node:test";
 import { type Address } from "viem";
 
 import {
+  buildMezoTokenPriceMapMusd,
   estimateApiPoolActiveStakedValueMusd,
+  estimatePositionLiquidityValueMusd,
   findMezoPoolAprSnapshot,
   normalizeMezoPoolAprSnapshot,
 } from "@/lib/liquidity/mezo-pools";
@@ -73,4 +75,50 @@ test("marks unavailable pools without positive Mezo API emissions APR", () => {
   assert.equal(snapshot?.emissionsAprPercent, null);
   assert.equal(snapshot?.status, "unavailable");
   assert.match(snapshot?.unavailableReason ?? "", /not reporting MEZO emissions APR/);
+});
+
+test("values positions from Mezo API token prices with TVL-share fallback", () => {
+  const token0 = "0x1111111111111111111111111111111111111111" as Address;
+  const token1 = "0x2222222222222222222222222222222222222222" as Address;
+  const prices = buildMezoTokenPriceMapMusd([
+    {
+      address: POOL,
+      token0: { address: token0, price: "2", decimals: 18 },
+      token1: { address: token1, price: "10", decimals: 18 },
+      tvl: "1000",
+      liquidity: "100",
+    },
+  ]);
+
+  assert.equal(prices.get(token0.toLowerCase()), 2);
+  assert.equal(
+    estimatePositionLiquidityValueMusd({
+      amount0Raw: 10n ** 18n,
+      amount1Raw: 10n ** 18n,
+      decimals0: 18,
+      decimals1: 18,
+      token0,
+      token1,
+      positionLiquidity: 25n,
+      priceByToken: prices,
+      poolTvlMusd: 1_000,
+      poolLiquidity: 100n,
+    }),
+    12,
+  );
+  assert.equal(
+    estimatePositionLiquidityValueMusd({
+      amount0Raw: null,
+      amount1Raw: null,
+      decimals0: 18,
+      decimals1: 18,
+      token0,
+      token1,
+      positionLiquidity: 25n,
+      priceByToken: new Map(),
+      poolTvlMusd: 1_000,
+      poolLiquidity: 100n,
+    }),
+    250,
+  );
 });
