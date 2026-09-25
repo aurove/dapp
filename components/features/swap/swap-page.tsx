@@ -822,11 +822,35 @@ export function SwapPage() {
       };
     return { label: "Review swap", disabled: false };
   })();
+  const reviewReady =
+    !action.disabled &&
+    !action.approve &&
+    !action.refresh &&
+    !action.loading &&
+    action.label === "Review swap" &&
+    Boolean(activeQuote && supportedPlan);
+  const reviewQuoteKey = activeQuote
+    ? `${activeQuote.routeId}:${activeQuote.amountIn.toString()}:${activeQuote.amountOut.toString()}:${activeQuote.blockNumber.toString()}`
+    : undefined;
+  const dismissedReviewKeyRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!reviewReady || !reviewQuoteKey) return;
+    if (execution.state !== "idle") return;
+    if (dismissedReviewKeyRef.current === reviewQuoteKey) return;
+    execution.review();
+  }, [execution.review, execution.state, reviewQuoteKey, reviewReady]);
+  function dismissReview() {
+    if (reviewQuoteKey) dismissedReviewKeyRef.current = reviewQuoteKey;
+    execution.cancelReview();
+  }
   function handleAction() {
     if (action.disabled) return;
     if (action.approve) void approval.approve();
     else if (action.refresh) void quote.refetch();
-    else execution.review();
+    else {
+      if (reviewQuoteKey) dismissedReviewKeyRef.current = undefined;
+      execution.review();
+    }
   }
   const formError = formik.errors.amount ?? formik.errors.slippage ?? formik.errors.deadline;
 
@@ -1214,7 +1238,7 @@ export function SwapPage() {
           execution.state,
         )}
         onOpenChange={(open) => {
-          if (!open && execution.state === "reviewing") execution.cancelReview();
+          if (!open && execution.state === "reviewing") dismissReview();
         }}
       >
         <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md border-white/12 bg-[#111820]">
@@ -1269,7 +1293,7 @@ export function SwapPage() {
               type="button"
               variant="secondary"
               disabled={execution.state !== "reviewing"}
-              onClick={execution.cancelReview}
+              onClick={dismissReview}
             >
               Cancel
             </Button>

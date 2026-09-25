@@ -553,7 +553,8 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             <strong>Direct pool route</strong> or an <strong>Aurove route</strong>.
           </li>
           <li>
-            Click <strong>Review swap</strong>. Approve the token or NFT if asked. Approvals are
+            When the quote is ready, <strong>Review swap</strong> opens automatically.
+            Approve the token or NFT if asked. Approvals are
             separate from the swap.
           </li>
           <li>

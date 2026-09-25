@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Hash } from "viem";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
@@ -20,8 +20,11 @@ export function useSwapExecution(params: { plan?: SwapExecutionPlan; quote?: Swa
   const [state, setState] = useState<SwapExecutionState>("idle");
   const [hash, setHash] = useState<Hash>();
   const [error, setError] = useState<string>();
-  const review = () => { setError(undefined); setState("reviewing"); };
-  const cancelReview = () => setState("idle");
+  const review = useCallback(() => {
+    setError(undefined);
+    setState("reviewing");
+  }, []);
+  const cancelReview = useCallback(() => setState("idle"), []);
   const submit = async () => {
     const plan = params.plan;
     if (!address || !client || !plan || plan.type === "unsupported" || !params.quote) return;
