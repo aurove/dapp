@@ -90,8 +90,8 @@ export default function HomePage() {
             </h1>
 
             <p className="hero-copy">
-              Keep earning from your locked BTC and locked MEZO positions, with the flexibility to
-              swap when you need liquidity.
+              Put locked BTC and MEZO to work in liquidity pools. Keep earning, and swap when
+              you need flexibility.
             </p>
 
             <div className="hero-divider" aria-hidden="true">
