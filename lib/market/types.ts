@@ -27,6 +27,8 @@ export type MarketPricesSnapshot = {
   /** Server generation time (ms). */
   fetchedAt: number;
   quotes: MarketPriceQuote[];
+  /** Token spot prices in mUSD, keyed by token symbol. */
+  tokenPricesMusd: Record<string, number | null>;
   /** True when at least one quote has a usable price. */
   healthy: boolean;
 };

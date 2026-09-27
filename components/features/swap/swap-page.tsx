@@ -30,7 +30,9 @@ import {
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";
 import { hasChainTimestampPassed } from "@/lib/web3/chain-time";
 import { useChainDeadline } from "@/lib/web3/use-chain-time";
-import { formatCompactDecimal, formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
+import { formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
+import { formatCompactUsd } from "@/lib/market/format";
+import { useMarketPrices } from "@/hooks/use-market-prices";
 import {
   canSwapRoute,
   planSwap,
@@ -544,6 +546,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 export function SwapPage() {
+  const marketPrices = useMarketPrices();
   const account = useAccount();
   const registryQuery = useSwapRegistry();
   const registry = registryQuery.data;
@@ -652,8 +655,15 @@ export function SwapPage() {
     tradeType === "exactInput" ? amountInputText(activeQuote?.amountOut, buy) : typedAmount;
   const inputValue =
     tradeType === "exactOutput" ? amountInputText(activeQuote?.amountIn, sell) : typedAmount;
-  const fiatFor = (asset: SwapAsset | undefined, value: string) =>
-    asset?.symbol === "MUSD" && value ? `≈ $${formatCompactDecimal(value)}` : undefined;
+  const fiatFor = (asset: SwapAsset | undefined, value: string) => {
+    if (!asset || !value || value === ".") return undefined;
+    const priceSymbol =
+      asset.symbol === "veBTC" ? "avBTCm" : asset.symbol === "veMEZO" ? "avMEZOm" : asset.symbol;
+    const price = marketPrices.data?.tokenPricesMusd?.[priceSymbol];
+    const amount = Number(value);
+    if (price == null || !Number.isFinite(amount) || !Number.isFinite(price)) return undefined;
+    return `≈ ${formatCompactUsd(amount * price)}`;
+  };
   const reverseBuyAsset =
     sell?.form === "underlying" || sell?.form === "venft" || sell?.form === "tranche"
       ? registry?.assets.find(

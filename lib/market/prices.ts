@@ -59,6 +59,13 @@ export async function fetchMarketPricesSnapshot(): Promise<MarketPricesSnapshot>
     chainId,
     fetchedAt: Date.now(),
     quotes,
+    tokenPricesMusd: {
+      BTC: spots?.btcMusd ?? null,
+      MEZO: spots?.mezoMusd ?? null,
+      MUSD: spots?.musdMusd ?? null,
+      avBTCm: spots?.avBTCmMusd ?? null,
+      avMEZOm: spots?.avMEZOmMusd ?? null,
+    },
     healthy: quotes.some((quote) => quote.priceMusd != null),
   };
 }
