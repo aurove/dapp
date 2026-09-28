@@ -64,7 +64,7 @@ const CHART_PADDING = {
   left: 14,
 };
 
-const INITIAL_ZOOM_INTERVALS = SLIPSTREAM_RANGE_INTERVALS.balanced;
+const INITIAL_ZOOM_INTERVALS = SLIPSTREAM_RANGE_INTERVALS.focused;
 const MIN_VISIBLE_INTERVALS = 6;
 
 function useElementSize<T extends HTMLElement>() {
@@ -230,18 +230,19 @@ export function LiquidityRangeGraph({
   const { pool, depthQuery } = useSlipstreamPoolData(chainId, poolKey);
   const { ref: chartRef, size } = useElementSize<HTMLDivElement>();
 
-  const [strategy, setStrategy] = useState<SlipstreamRangePreset>("balanced");
+  const [strategy, setStrategy] = useState<SlipstreamRangePreset>("focused");
   const [selection, setSelection] = useState<SlipstreamTickRange | null>(null);
+  const draggingRef = useRef(false);
   const [viewportCenterTick, setViewportCenterTick] = useState<number | null>(null);
   const [viewportHalfIntervals, setViewportHalfIntervals] = useState<number | null>(null);
   const [hoveredInterval, setHoveredInterval] = useState<SlipstreamLiquidityInterval | null>(null);
   const defaultSelection = useMemo(() => {
     if (!pool.tickSpacing || pool.currentTick === null) return null;
-    return buildPresetRange("balanced", pool.currentTick, pool.tickSpacing);
+    return buildPresetRange("focused", pool.currentTick, pool.tickSpacing);
   }, [pool.currentTick, pool.tickSpacing]);
   const selectedRange = controlledSelectedRange ?? selection ?? defaultSelection;
   const activeStrategy: SlipstreamRangePreset =
-    controlledSelectedStrategy ?? (selection ? strategy : "balanced");
+    controlledSelectedStrategy ?? (selection ? strategy : "focused");
   const bounds = useMemo(
     () => (pool.tickSpacing ? getPoolTickBounds(pool.tickSpacing) : null),
     [pool.tickSpacing],
@@ -383,7 +384,10 @@ export function LiquidityRangeGraph({
     setSelection(normalized);
     setStrategy(nextStrategy);
     onSelectionChange?.({ range: normalized, strategy: nextStrategy });
-    setViewportCenterTick(getRangeMidpoint(normalized));
+    // Keep the viewport fixed while dragging so the cursor continues to map to
+    // the same chart x-coordinate as the handle. Preset/manual changes can
+    // still recenter the viewport normally.
+    if (!draggingRef.current) setViewportCenterTick(getRangeMidpoint(normalized));
 
     const neededHalfIntervals = Math.ceil(getRangeTickCount(normalized, pool.tickSpacing) / 2) + 2;
     setViewportHalfIntervals((current) =>
@@ -481,13 +485,18 @@ export function LiquidityRangeGraph({
       updateDisplayHandle(handle, snapped);
     };
 
+    draggingRef.current = true;
+
     const onPointerUp = () => {
+      draggingRef.current = false;
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
     };
 
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
   }
 
   function setPreset(preset: Exclude<SlipstreamRangePreset, "custom">) {
@@ -562,7 +571,7 @@ export function LiquidityRangeGraph({
 
     onSelectionChange?.({
       range: defaultSelection,
-      strategy: controlledSelectedStrategy ?? "balanced",
+      strategy: controlledSelectedStrategy ?? "focused",
     });
   }, [
     controlledSelectedRange,

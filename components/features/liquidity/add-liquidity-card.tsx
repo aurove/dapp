@@ -80,7 +80,7 @@ const DEFAULT_SLIPPAGE_BPS = 50n;
 function createInitialPoolFormState(): Record<LiquidityPoolKey, PoolFormState> {
   return {
     BTC: {
-      rangeStrategy: "balanced",
+      rangeStrategy: "focused",
       selectedRange: null,
       manualRangeInputs: { lower: "", upper: "" },
       activeSide: "assetA",
@@ -88,7 +88,7 @@ function createInitialPoolFormState(): Record<LiquidityPoolKey, PoolFormState> {
       selectedSourceIds: { assetA: null, assetB: null },
     },
     MEZO: {
-      rangeStrategy: "balanced",
+      rangeStrategy: "focused",
       selectedRange: null,
       manualRangeInputs: { lower: "", upper: "" },
       activeSide: "assetA",
@@ -225,7 +225,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
 
   const currentRange = useMemo(() => {
     if (!pool.tickSpacing || pool.currentTick === null) return null;
-    return formState.selectedRange ?? buildPresetRange("balanced", pool.currentTick, pool.tickSpacing);
+    return formState.selectedRange ?? buildPresetRange("focused", pool.currentTick, pool.tickSpacing);
   }, [formState.selectedRange, pool.currentTick, pool.tickSpacing]);
 
   const sourcesBySide = useMemo(
