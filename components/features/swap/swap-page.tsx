@@ -204,12 +204,21 @@ function assetGroupLabel(side: "Sell" | "Buy", asset: SwapAsset): string {
   return asset.form === "id20" ? "ID20 tokens" : "Other ERC-20 tokens";
 }
 
+function marketPriceSymbol(asset: SwapAsset): string {
+  if (asset.symbol.startsWith("veBTC")) return "avBTCm";
+  if (asset.symbol.startsWith("veMEZO")) return "avMEZOm";
+  if (asset.symbol.startsWith("BTC")) return "BTC";
+  if (asset.symbol.startsWith("MEZO")) return "MEZO";
+  return asset.symbol;
+}
+
 function AssetSelector({
   side,
   asset,
   assets,
   balanceOf,
   balancesLoading,
+  tokenPricesMusd,
   onSelect,
 }: {
   side: "Sell" | "Buy";
@@ -217,6 +226,7 @@ function AssetSelector({
   assets: readonly SwapAsset[];
   balanceOf: (asset: SwapAsset) => bigint;
   balancesLoading?: boolean;
+  tokenPricesMusd?: Record<string, number | null>;
   onSelect: (asset: SwapAsset) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -240,8 +250,21 @@ function AssetSelector({
       const label = assetGroupLabel(side, option);
       grouped.set(label, [...(grouped.get(label) ?? []), option]);
     });
-    return [...grouped.entries()];
-  }, [filteredAssets, side]);
+    return [...grouped.entries()].map(([label, options]) => [
+      label,
+      side === "Sell"
+        ? [...options].sort((a, b) => {
+            const value = (option: SwapAsset) => {
+              const price = tokenPricesMusd?.[marketPriceSymbol(option)];
+              if (price == null || !Number.isFinite(price)) return -1;
+              return Number(formatUnits(balanceOf(option), option.decimals)) * price;
+            };
+            const valueDifference = value(b) - value(a);
+            return valueDifference || 0;
+          })
+        : options,
+    ] as [string, SwapAsset[]]);
+  }, [balanceOf, filteredAssets, side, tokenPricesMusd]);
   return (
     <>
       <Button
@@ -384,6 +407,7 @@ function AssetAmountField(props: {
   onAsset: (asset: SwapAsset) => void;
   onMax?: () => void;
   fiat?: string;
+  tokenPricesMusd?: Record<string, number | null>;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingSelectionRef = useRef<{
@@ -461,6 +485,7 @@ function AssetAmountField(props: {
           assets={props.assets}
           balanceOf={props.balanceOf}
           balancesLoading={props.balanceLoading}
+          tokenPricesMusd={props.tokenPricesMusd}
           onSelect={props.onAsset}
         />
       </div>
@@ -949,6 +974,7 @@ export function SwapPage() {
           balance={sellBalance}
           balanceOf={sellAssets.balanceOf}
           balanceLoading={sellAssets.isLoading}
+          tokenPricesMusd={marketPrices.data?.tokenPricesMusd}
           onValue={onSellValue}
           onAsset={chooseSell}
           onMax={sell?.form === "venft" ? undefined : setMax}
