@@ -472,6 +472,10 @@ export function LiquidityRangeGraph({
     const tickSpacing = pool.tickSpacing;
     if (!chartRef.current || !tickSpacing || !selectedRange || !visibleRange || !xScale) return;
 
+    // The visible range otherwise derives its center from the selected range.
+    // Since the selected range changes on every pointer move, that would move
+    // the scale underneath the cursor even when the drag itself is stable.
+    setViewportCenterTick(getRangeMidpoint(selectedRange));
     const onPointerMove = (event: PointerEvent) => {
       const rect = chartRef.current?.getBoundingClientRect();
       if (!rect) return;
