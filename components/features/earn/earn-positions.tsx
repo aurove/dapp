@@ -9,9 +9,13 @@ import { getEarnProtocolConfig } from "@/contracts/earn";
 import { formatCompactUsd } from "@/lib/market/format";
 import { useMezoPools } from "@/components/features/liquidity/use-mezo-pools";
 import { EarnPositionCard } from "./earn-position-card";
+import { EarnId20Debts } from "./earn-id20-debts";
 import { EarnRewards } from "./earn-rewards";
 import { useAprBasis, useEarnSnapshot } from "./use-earn-data";
-import { estimateEarnPositionsTotalTvlMusd, estimateEarnProductTvlMusd } from "./utils/position-tvl";
+import {
+  estimateEarnPositionsTotalTvlMusd,
+  estimateEarnProductTvlMusd,
+} from "./utils/position-tvl";
 
 function ProductSkeleton() {
   return (
@@ -89,7 +93,7 @@ export function EarnPositions() {
     setSuccessMessage(null);
   };
 
-  const pools = mezoPools.data ?? [];
+  const pools = useMemo(() => mezoPools.data ?? [], [mezoPools.data]);
   const positionTvlById = useMemo(() => {
     const map = new Map<string, number | null>();
     for (const product of userPositions) {
@@ -139,13 +143,15 @@ export function EarnPositions() {
         <FeatureStatusPanel tone="error" title="Read error" message={error.message} />
       ) : null}
 
+      <EarnId20Debts />
+      <EarnRewards />
+
       {positionsLoading ? (
         <ProductSkeleton />
       ) : userPositions.length === 0 ? (
         <EmptyPositions />
       ) : (
         <div className="space-y-4">
-          <EarnRewards />
           <div
             className="flex w-full min-w-0 max-w-full snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain py-1 pr-1"
             aria-label="Liquid position cards"
