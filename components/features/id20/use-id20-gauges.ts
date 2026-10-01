@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useReadContracts } from "wagmi";
-import { parseAbiItem, type Abi, type Address } from "viem";
+import { parseAbiItem, type Abi, type Address, type Hex } from "viem";
 
 import { getContractConfig, getContractDeploymentBlock } from "@/contracts/shared";
 import { useId20Portfolio } from "@/features/portfolio";
@@ -13,31 +13,46 @@ import {
   type TxStep,
 } from "@/lib/tx-flow";
 import { detailReadQueryOptions, staticReadQueryOptions } from "@/lib/web3/read-query-options";
+import { getEventLogsFromCacheOrFetch, type CachedEventLog } from "@/lib/web3/event-cache";
 
 const ID20_CONTRACTS = [
   { key: "avBTCm", id20Name: "avBTCmId20", gaugeName: "avBTCmGauge" },
   { key: "avMEZOm", id20Name: "avMEZOmId20", gaugeName: "avMEZOmGauge" },
 ] as const;
 
-/** Cap repeated settle txs for a single exit flow (one loan per step). */
-const MAX_CREDIT_SETTLE_STEPS = 8;
 /**
  * Mezo public RPCs enforce a small eth_getLogs window
  * (`maximum [from, to] blocks distance: 10000`). Stay at/under that limit.
  */
 const CREDIT_ISSUED_LOG_CHUNK = 10_000n;
-/** Reuse loan-pair discovery across settle shouldSkip/prepare within a short window. */
-const CREDIT_PAIR_CACHE_TTL_MS = 120_000;
+const CREDIT_READ_CONCURRENCY = 32;
 
 const creditIssuedEvent = parseAbiItem(
   "event CreditIssued(address indexed lender, address indexed borrower, uint256 amount)",
 );
 
-type CreditPair = { lender: Address; borrower: Address };
-const creditIssuedPairCache = new Map<
-  string,
-  { pairs: CreditPair[]; expiresAt: number }
->();
+type CreditPair = { lender: Address; borrower: Address; firstSeenBlock: bigint };
+
+export type SettleableCreditPair = {
+  lender: Address;
+  borrower: Address;
+  amount: bigint;
+};
+
+type CreditSettlementPlan = {
+  enough: boolean;
+  pairs: SettleableCreditPair[];
+  capacity: bigint;
+  target: bigint;
+};
+
+type RawCreditIssuedLog = {
+  address: Address;
+  transactionHash: Hex;
+  blockNumber: bigint;
+  logIndex?: number;
+  args?: unknown;
+};
 
 export type Id20GaugeDescriptor = {
   key: string;
@@ -71,28 +86,52 @@ type GaugeAccountState = {
 };
 
 function readAddress(value: unknown): Address | null {
-  return typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value) ? value as Address : null;
+  return typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value) ? (value as Address) : null;
 }
 
 function readGaugeAccountState(value: unknown): GaugeAccountState | null {
   if (Array.isArray(value)) {
-    const [isActivated, settledUnits, rewardWeight, debtWeight, unsettledCredit, lentWeight, claimableReward] = value;
+    const [
+      isActivated,
+      settledUnits,
+      rewardWeight,
+      debtWeight,
+      unsettledCredit,
+      lentWeight,
+      claimableReward,
+    ] = value;
     if (
       typeof isActivated !== "boolean" ||
-      ![settledUnits, rewardWeight, debtWeight, unsettledCredit, lentWeight, claimableReward]
-        .every((item) => typeof item === "bigint")
-    ) return null;
-    return { isActivated, settledUnits, rewardWeight, debtWeight, unsettledCredit, lentWeight, claimableReward };
+      ![settledUnits, rewardWeight, debtWeight, unsettledCredit, lentWeight, claimableReward].every(
+        (item) => typeof item === "bigint",
+      )
+    )
+      return null;
+    return {
+      isActivated,
+      settledUnits,
+      rewardWeight,
+      debtWeight,
+      unsettledCredit,
+      lentWeight,
+      claimableReward,
+    };
   }
 
   if (!value || typeof value !== "object") return null;
   const state = value as Record<string, unknown>;
   if (
     typeof state.isActivated !== "boolean" ||
-    ![state.settledUnits, state.rewardWeight, state.debtWeight, state.unsettledCredit,
-      state.lentWeight, state.claimableReward]
-      .every((item) => typeof item === "bigint")
-  ) return null;
+    ![
+      state.settledUnits,
+      state.rewardWeight,
+      state.debtWeight,
+      state.unsettledCredit,
+      state.lentWeight,
+      state.claimableReward,
+    ].every((item) => typeof item === "bigint")
+  )
+    return null;
   return {
     isActivated: state.isActivated,
     settledUnits: state.settledUnits as bigint,
@@ -109,14 +148,16 @@ export function getId20GaugeDescriptors(chainId: number): Id20GaugeDescriptor[] 
     const id20 = getContractConfig(chainId, id20Name);
     const gauge = getContractConfig(chainId, gaugeName);
     if (!id20?.address || !id20.abi || !gauge?.abi) return [];
-    return [{
-      key,
-      id20Address: id20.address,
-      id20Abi: id20.abi as Abi,
-      gaugeAbi: gauge.abi as Abi,
-      symbol: key,
-      decimals: 18,
-    }];
+    return [
+      {
+        key,
+        id20Address: id20.address,
+        id20Abi: id20.abi as Abi,
+        gaugeAbi: gauge.abi as Abi,
+        symbol: key,
+        decimals: 18,
+      },
+    ];
   });
 }
 
@@ -125,7 +166,9 @@ export function getLiquidityId20GaugeDescriptors(
   tokenAddresses: readonly (Address | null | undefined)[],
 ) {
   const tokens = new Set(tokenAddresses.filter(Boolean).map((address) => address!.toLowerCase()));
-  return getId20GaugeDescriptors(chainId).filter((item) => tokens.has(item.id20Address.toLowerCase()));
+  return getId20GaugeDescriptors(chainId).filter((item) =>
+    tokens.has(item.id20Address.toLowerCase()),
+  );
 }
 
 async function resolveGaugeAddress(
@@ -171,9 +214,7 @@ export function makeId20ActivationStep(
   };
 }
 
-export function makeId20ActivationGuardSteps(
-  descriptor: Id20GaugeDescriptor,
-): TxStep[] {
+export function makeId20ActivationGuardSteps(descriptor: Id20GaugeDescriptor): TxStep[] {
   return [
     makeId20ActivationStep(descriptor, true),
     {
@@ -181,7 +222,7 @@ export function makeId20ActivationGuardSteps(
       key: `id20-verify-activation-${descriptor.key}`,
       label: `Verify ${descriptor.symbol} activation`,
       run: async (ctx) => {
-        if (!await isGaugeActivated(ctx, descriptor)) {
+        if (!(await isGaugeActivated(ctx, descriptor))) {
           throw new Error(`${descriptor.symbol} gauge activation could not be confirmed.`);
         }
         return "skip";
@@ -212,7 +253,10 @@ export function makeId20GaugeClaimStep(
  * Activated: settled units. Non-activated: untracked balance (balance − credit).
  */
 export function id20BurnableWithoutSettlement(
-  position: Pick<Id20GaugePosition, "isActivated" | "settledUnitsRaw" | "unsettledCreditRaw" | "balanceRaw">,
+  position: Pick<
+    Id20GaugePosition,
+    "isActivated" | "settledUnitsRaw" | "unsettledCreditRaw" | "balanceRaw"
+  >,
 ): bigint {
   if (position.isActivated) return position.settledUnitsRaw;
   return position.balanceRaw > position.unsettledCreditRaw
@@ -222,7 +266,10 @@ export function id20BurnableWithoutSettlement(
 
 /** True when `amount` exceeds burnable units and credit must be settled (and possibly activated) first. */
 export function id20ExitNeedsCreditSettlement(
-  position: Pick<Id20GaugePosition, "isActivated" | "settledUnitsRaw" | "unsettledCreditRaw" | "balanceRaw">,
+  position: Pick<
+    Id20GaugePosition,
+    "isActivated" | "settledUnitsRaw" | "unsettledCreditRaw" | "balanceRaw"
+  >,
   amount: bigint,
 ): boolean {
   if (amount <= 0n) return false;
@@ -232,7 +279,10 @@ export function id20ExitNeedsCreditSettlement(
 
 /** Inactive holders must activate before credit can be settled into weight. */
 export function id20ExitNeedsActivation(
-  position: Pick<Id20GaugePosition, "isActivated" | "settledUnitsRaw" | "unsettledCreditRaw" | "balanceRaw">,
+  position: Pick<
+    Id20GaugePosition,
+    "isActivated" | "settledUnitsRaw" | "unsettledCreditRaw" | "balanceRaw"
+  >,
   amount: bigint,
 ): boolean {
   if (position.isActivated) return false;
@@ -266,165 +316,228 @@ async function readId20Balance(
 
 function burnableFromAccountState(accountState: GaugeAccountState, balance: bigint): bigint {
   if (accountState.isActivated) return accountState.settledUnits;
-  return balance > accountState.unsettledCredit
-    ? balance - accountState.unsettledCredit
-    : 0n;
+  return balance > accountState.unsettledCredit ? balance - accountState.unsettledCredit : 0n;
 }
 
-async function collectCreditIssuedPairs(
+async function mapWithConcurrency<T, R>(
+  values: readonly T[],
+  concurrency: number,
+  fn: (value: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  let next = 0;
+  async function worker() {
+    while (next < values.length) {
+      const index = next;
+      next += 1;
+      results[index] = await fn(values[index]!);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, () => worker()));
+  return results;
+}
+
+function isLogRangeError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("blocks distance") ||
+    message.includes("block range") ||
+    message.includes("eth_getLogs")
+  );
+}
+
+function appendCreditIssuedLogs(
+  pairs: Map<string, CreditPair>,
+  logs: readonly CachedEventLog[],
+): void {
+  for (const log of logs) {
+    const lender = log.args.lender;
+    const borrower = log.args.borrower;
+    if (typeof lender !== "string" || typeof borrower !== "string") continue;
+    const key = `${lender.toLowerCase()}:${borrower.toLowerCase()}`;
+    const blockNumber = log.blockNumber;
+    const existing = pairs.get(key);
+    if (!existing || blockNumber > existing.firstSeenBlock) {
+      pairs.set(key, {
+        lender: lender as Address,
+        borrower: borrower as Address,
+        firstSeenBlock: blockNumber,
+      });
+    }
+  }
+}
+
+async function readCreditIssuedChunk(
+  ctx: Pick<TxFlowRuntimeContext, "publicClient" | "chainId">,
+  position: Id20GaugePosition,
+  fromBlock: bigint,
+  toBlock: bigint,
+): Promise<CachedEventLog[]> {
+  const blockHashes = new Map<string, Hex | null>();
+  const getBlockHash = async (blockNumber: bigint): Promise<Hex | null> => {
+    const key = blockNumber.toString();
+    if (blockHashes.has(key)) return blockHashes.get(key) ?? null;
+    const block = await ctx.publicClient.getBlock({ blockNumber });
+    const hash = block.hash ?? null;
+    blockHashes.set(key, hash);
+    return hash;
+  };
+
+  return getEventLogsFromCacheOrFetch({
+    chainId: ctx.chainId,
+    contractAddress: position.gaugeAddress,
+    eventName: "CreditIssued",
+    fromBlock,
+    toBlock,
+    getBlockHash,
+    fetchRange: async (rangeFrom, rangeTo) => {
+      const logs = await ctx.publicClient.getLogs({
+        address: position.gaugeAddress,
+        event: creditIssuedEvent,
+        fromBlock: rangeFrom,
+        toBlock: rangeTo,
+      });
+      return (logs as readonly RawCreditIssuedLog[]).flatMap((log) => {
+        if (log.blockNumber === undefined || !log.transactionHash) return [];
+        return [
+          {
+            address: log.address,
+            transactionHash: log.transactionHash,
+            blockNumber: log.blockNumber,
+            logIndex: log.logIndex ?? 0,
+            args: (log.args ?? {}) as Record<string, unknown>,
+          },
+        ];
+      });
+    },
+  });
+}
+
+async function evaluateCreditSettlementPlan(
+  ctx: Pick<TxFlowRuntimeContext, "publicClient" | "account">,
+  position: Id20GaugePosition,
+  pairs: readonly CreditPair[],
+  target: bigint,
+): Promise<CreditSettlementPlan> {
+  if (target <= 0n) return { enough: true, pairs: [], capacity: 0n, target: 0n };
+
+  const amounts = await mapWithConcurrency(
+    pairs,
+    CREDIT_READ_CONCURRENCY,
+    (pair) =>
+      ctx.publicClient.readContract({
+        address: position.gaugeAddress,
+        abi: position.gaugeAbi,
+        functionName: "maxSettleableCredit",
+        args: [ctx.account, pair.lender, pair.borrower],
+      } as never) as Promise<bigint>,
+  );
+  const positive = pairs.flatMap((pair, index) => {
+    const amount = amounts[index]!;
+    return amount > 0n ? [{ lender: pair.lender, borrower: pair.borrower, amount }] : [];
+  });
+  if (positive.length === 0) return { enough: false, pairs: [], capacity: 0n, target };
+
+  const lenders = [...new Set(positive.map((pair) => pair.lender.toLowerCase()))];
+  const lenderStates = await mapWithConcurrency(
+    lenders,
+    CREDIT_READ_CONCURRENCY,
+    (lender) =>
+      ctx.publicClient.readContract({
+        address: position.gaugeAddress,
+        abi: position.gaugeAbi,
+        functionName: "accountState",
+        args: [lender as Address],
+      } as never) as Promise<unknown>,
+  );
+  const budgets = new Map<string, bigint>();
+  for (let index = 0; index < lenders.length; index += 1) {
+    const state = readGaugeAccountState(lenderStates[index]);
+    const lender = lenders[index]!;
+    const deficiency =
+      state && state.lentWeight > state.unsettledCredit
+        ? state.lentWeight - state.unsettledCredit
+        : 0n;
+    budgets.set(
+      lender,
+      lender === ctx.account.toLowerCase() ? (state?.lentWeight ?? 0n) : deficiency,
+    );
+  }
+
+  const ordered = [...positive].sort((left, right) => {
+    if (left.amount !== right.amount) return left.amount > right.amount ? -1 : 1;
+    if (left.lender.toLowerCase() === ctx.account.toLowerCase()) return -1;
+    if (right.lender.toLowerCase() === ctx.account.toLowerCase()) return 1;
+    return `${left.lender}:${left.borrower}`.localeCompare(`${right.lender}:${right.borrower}`);
+  });
+  let remaining = target;
+  let capacity = 0n;
+  const selected: SettleableCreditPair[] = [];
+  for (const pair of ordered) {
+    if (remaining === 0n) break;
+    const lender = pair.lender.toLowerCase();
+    const budget = budgets.get(lender) ?? 0n;
+    const amount = [pair.amount, budget, remaining].reduce((smallest, value) =>
+      value < smallest ? value : smallest,
+    );
+    if (amount === 0n) continue;
+    selected.push({ ...pair, amount });
+    capacity += amount;
+    remaining -= amount;
+    budgets.set(lender, budget - amount);
+  }
+  return { enough: capacity >= target, pairs: selected, capacity, target };
+}
+
+async function discoverCreditSettlementPlan(
   ctx: Pick<TxFlowRuntimeContext, "publicClient" | "account" | "chainId">,
   position: Id20GaugePosition,
-): Promise<CreditPair[]> {
-  const cacheKey = `${ctx.chainId}:${position.gaugeAddress.toLowerCase()}:${ctx.account.toLowerCase()}`;
-  const cached = creditIssuedPairCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.pairs;
+  requiredAmount: bigint,
+): Promise<CreditSettlementPlan> {
+  const accountState = await readAccountState(ctx, position);
+  if (!accountState || !accountState.isActivated || accountState.unsettledCredit <= 0n) {
+    return { enough: false, pairs: [], capacity: 0n, target: requiredAmount };
   }
+  const balance = await readId20Balance(ctx, position);
+  const burnable = burnableFromAccountState(accountState, balance);
+  const target = requiredAmount > burnable ? requiredAmount - burnable : 0n;
+  if (target === 0n) return { enough: true, pairs: [], capacity: 0n, target: 0n };
 
   const latest = await ctx.publicClient.getBlockNumber();
   const gaugeContractName =
     ID20_CONTRACTS.find((item) => item.key === position.key)?.gaugeName ?? "avBTCmGauge";
   const deployment = getContractDeploymentBlock(ctx.chainId, gaugeContractName) ?? 0;
   const fromBlock = deployment > 0 ? BigInt(deployment) : 0n;
-
   const pairs = new Map<string, CreditPair>();
+  let toBlock = latest;
+  let chunkSize = CREDIT_ISSUED_LOG_CHUNK;
 
-  const appendLogs = (logs: readonly { args?: unknown }[]) => {
-    for (const log of logs) {
-      if (!log.args || typeof log.args !== "object" || Array.isArray(log.args)) continue;
-      const args = log.args as { lender?: Address; borrower?: Address };
-      if (!args.lender || !args.borrower) continue;
-      const lender = args.lender;
-      const borrower = args.borrower;
-      const key = `${lender.toLowerCase()}:${borrower.toLowerCase()}`;
-      pairs.set(key, { lender, borrower });
-    }
-  };
-
-  // Loans are recorded as CreditIssued(lender=receiver, borrower=sender).
-  // Chunk at ≤10k blocks for Mezo RPC limits (distance is inclusive of both ends).
-  for (let start = fromBlock; start <= latest; ) {
-    const end =
-      start + CREDIT_ISSUED_LOG_CHUNK - 1n > latest
-        ? latest
-        : start + CREDIT_ISSUED_LOG_CHUNK - 1n;
+  while (toBlock >= fromBlock) {
+    const start = toBlock >= chunkSize - 1n ? toBlock - chunkSize + 1n : 0n;
+    const chunkFrom = start < fromBlock ? fromBlock : start;
     try {
-      const [asLender, asBorrower] = await Promise.all([
-        ctx.publicClient.getLogs({
-          address: position.gaugeAddress,
-          event: creditIssuedEvent,
-          args: { lender: ctx.account },
-          fromBlock: start,
-          toBlock: end,
-        }),
-        ctx.publicClient.getLogs({
-          address: position.gaugeAddress,
-          event: creditIssuedEvent,
-          args: { borrower: ctx.account },
-          fromBlock: start,
-          toBlock: end,
-        }),
-      ]);
-      appendLogs(asLender);
-      appendLogs(asBorrower);
+      const logs = await readCreditIssuedChunk(ctx, position, chunkFrom, toBlock);
+      appendCreditIssuedLogs(pairs, logs);
+      const plan = await evaluateCreditSettlementPlan(ctx, position, [...pairs.values()], target);
+      if (plan.enough) return plan;
+      if (chunkFrom === fromBlock) return plan;
+      toBlock = chunkFrom - 1n;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      // If a provider still rejects the window, halve and retry once for this range.
-      if (
-        message.includes("blocks distance") ||
-        message.includes("block range") ||
-        message.includes("eth_getLogs")
-      ) {
-        const mid = start + (end - start) / 2n;
-        if (mid > start && mid < end) {
-          const [leftLender, leftBorrower, rightLender, rightBorrower] = await Promise.all([
-            ctx.publicClient.getLogs({
-              address: position.gaugeAddress,
-              event: creditIssuedEvent,
-              args: { lender: ctx.account },
-              fromBlock: start,
-              toBlock: mid,
-            }),
-            ctx.publicClient.getLogs({
-              address: position.gaugeAddress,
-              event: creditIssuedEvent,
-              args: { borrower: ctx.account },
-              fromBlock: start,
-              toBlock: mid,
-            }),
-            ctx.publicClient.getLogs({
-              address: position.gaugeAddress,
-              event: creditIssuedEvent,
-              args: { lender: ctx.account },
-              fromBlock: mid + 1n,
-              toBlock: end,
-            }),
-            ctx.publicClient.getLogs({
-              address: position.gaugeAddress,
-              event: creditIssuedEvent,
-              args: { borrower: ctx.account },
-              fromBlock: mid + 1n,
-              toBlock: end,
-            }),
-          ]);
-          appendLogs(leftLender);
-          appendLogs(leftBorrower);
-          appendLogs(rightLender);
-          appendLogs(rightBorrower);
-        } else {
-          throw new Error(
-            `Failed to scan ${position.symbol} CreditIssued logs (${start}–${end}): ${message}`,
-          );
-        }
-      } else {
-        throw error;
-      }
+      if (!isLogRangeError(error) || chunkSize <= 1n) throw error;
+      chunkSize = chunkSize / 2n;
     }
-    if (end >= latest) break;
-    start = end + 1n;
   }
-
-  const result = [...pairs.values()];
-  creditIssuedPairCache.set(cacheKey, {
-    pairs: result,
-    expiresAt: Date.now() + CREDIT_PAIR_CACHE_TTL_MS,
-  });
-  return result;
+  return evaluateCreditSettlementPlan(ctx, position, [...pairs.values()], target);
 }
-
-export type SettleableCreditPair = {
-  lender: Address;
-  borrower: Address;
-  amount: bigint;
-};
 
 /** Find the next (lender, borrower) pair with positive maxSettleableCredit for the user. */
 export async function findNextSettleableCreditPair(
   ctx: Pick<TxFlowRuntimeContext, "publicClient" | "account" | "chainId">,
   position: Id20GaugePosition,
+  requiredAmount = position.balanceRaw,
 ): Promise<SettleableCreditPair | null> {
-  const accountState = await readAccountState(ctx, position);
-  if (!accountState?.isActivated || accountState.unsettledCredit <= 0n) return null;
-
-  const candidates = await collectCreditIssuedPairs(ctx, position);
-  // Prefer pairs where the user is the lender (standard receive-from-active path).
-  const ordered = [
-    ...candidates.filter((pair) => pair.lender.toLowerCase() === ctx.account.toLowerCase()),
-    ...candidates.filter((pair) => pair.lender.toLowerCase() !== ctx.account.toLowerCase()),
-  ];
-
-  for (const pair of ordered) {
-    const amount = (await ctx.publicClient.readContract({
-      address: position.gaugeAddress,
-      abi: position.gaugeAbi,
-      functionName: "maxSettleableCredit",
-      args: [ctx.account, pair.lender, pair.borrower],
-    } as never)) as bigint;
-    if (amount > 0n) {
-      return { lender: pair.lender, borrower: pair.borrower, amount };
-    }
-  }
-  return null;
+  const plan = await discoverCreditSettlementPlan(ctx, position, requiredAmount);
+  return plan.pairs[0] ?? null;
 }
 
 /**
@@ -453,14 +566,14 @@ export function makeId20SettleCreditStep(
       const balance = await readId20Balance(ctx, position);
       if (burnableFromAccountState(accountState, balance) >= requiredAmount) return true;
       if (accountState.unsettledCredit <= 0n || !accountState.isActivated) return true;
-      resolvedPair = await findNextSettleableCreditPair(ctx, position);
+      resolvedPair = await findNextSettleableCreditPair(ctx, position, requiredAmount);
       return resolvedPair === null;
     },
     prepare: async (ctx) => {
       const next =
         resolvedPair !== undefined
           ? resolvedPair
-          : await findNextSettleableCreditPair(ctx, position);
+          : await findNextSettleableCreditPair(ctx, position, requiredAmount);
       resolvedPair = undefined;
       if (!next) {
         throw new Error(
@@ -478,9 +591,52 @@ export function makeId20SettleCreditStep(
   };
 }
 
+function makeId20SettleCreditsBatchStep(
+  position: Id20GaugePosition,
+  requiredAmount: bigint,
+  planRef: { pairs: SettleableCreditPair[] },
+  displayLabelBtn: boolean,
+): TxPreparedWriteStep {
+  return {
+    type: "write",
+    key: `id20-settle-credits-${position.key}`,
+    label: `Settle ${position.symbol} credit`,
+    displayLabelBtn,
+    portfolioDomains: ["id20", "rewards"],
+    shouldSkip: async (ctx) => {
+      const accountState = await readAccountState(ctx, position);
+      if (!accountState) return true;
+      const balance = await readId20Balance(ctx, position);
+      if (burnableFromAccountState(accountState, balance) >= requiredAmount) return true;
+      if (planRef.pairs.length === 0) {
+        throw new Error(`No complete ${position.symbol} credit settlement plan was discovered.`);
+      }
+      return false;
+    },
+    prepare: async (ctx) => {
+      if (planRef.pairs.length === 0) {
+        throw new Error(`No complete ${position.symbol} credit settlement plan was discovered.`);
+      }
+      return {
+        contract: { address: position.gaugeAddress, abi: position.gaugeAbi },
+        request: {
+          functionName: "settleCredits",
+          args: [
+            planRef.pairs.map(({ lender, borrower }) => ({
+              account: ctx.account,
+              lender,
+              borrower,
+            })),
+          ],
+        },
+      } as never;
+    },
+  };
+}
+
 /**
- * Prepend activation (if needed) + up to N settleCredit steps before ID20 unwrap/exit.
- * Call after claim, before unwrap so burn path has enough weight.
+ * Prepend activation (if needed), discover a complete settlement plan, and settle it in one
+ * atomic batch before ID20 unwrap/exit. Discovery is read-only and runs before the batch write.
  */
 export function makeId20CreditSettlementSteps(
   position: Id20GaugePosition,
@@ -492,14 +648,30 @@ export function makeId20CreditSettlementSteps(
 
   const displayLabelBtn = options?.displayLabelBtn ?? true;
   const steps: TxStep[] = [];
+  const planRef: { pairs: SettleableCreditPair[] } = { pairs: [] };
 
   if (id20ExitNeedsActivation(position, requiredAmount)) {
     steps.push(makeId20ActivationStep(position, displayLabelBtn));
   }
 
-  for (let index = 0; index < MAX_CREDIT_SETTLE_STEPS; index += 1) {
-    steps.push(makeId20SettleCreditStep(position, requiredAmount, index, displayLabelBtn));
-  }
+  steps.push({
+    type: "custom",
+    key: `id20-discover-settlement-${position.key}`,
+    label: `Find ${position.symbol} credit borrowers`,
+    displayLabelBtn,
+    run: async (ctx) => {
+      const plan = await discoverCreditSettlementPlan(ctx, position, requiredAmount);
+      if (!plan.enough) {
+        throw new Error(
+          `Only ${plan.capacity.toString()} of required ${plan.target.toString()} ${position.symbol} ` +
+            "credit is currently covered by discovered borrowers.",
+        );
+      }
+      planRef.pairs = plan.pairs;
+      return "skip";
+    },
+  });
+  steps.push(makeId20SettleCreditsBatchStep(position, requiredAmount, planRef, displayLabelBtn));
 
   // Final guard so a missing counterpart surface as a clear error instead of UnsettledCredit on unwrap.
   steps.push({
@@ -550,13 +722,17 @@ export function useId20GaugePositions(chainId: number, account?: Address) {
     allowFailure: true,
     contracts: descriptors.flatMap((descriptor, index) => {
       const gaugeAddress = gaugeAddresses[index];
-      return account && gaugeAddress ? [{
-        address: gaugeAddress,
-        abi: descriptor.gaugeAbi,
-        functionName: "accountState",
-        args: [account],
-        chainId,
-      }] : [];
+      return account && gaugeAddress
+        ? [
+            {
+              address: gaugeAddress,
+              abi: descriptor.gaugeAbi,
+              functionName: "accountState",
+              args: [account],
+              chainId,
+            },
+          ]
+        : [];
     }),
     query: {
       enabled: Boolean(account && gaugeAddresses.some(Boolean)),
@@ -569,31 +745,43 @@ export function useId20GaugePositions(chainId: number, account?: Address) {
     return descriptors.flatMap((descriptor, index) => {
       const gaugeAddress = gaugeAddresses[index];
       if (!account || !gaugeAddress) return [];
-      const accountState = readGaugeAccountState(accountStateReads.data?.[accountStateIndex++]?.result);
+      const accountState = readGaugeAccountState(
+        accountStateReads.data?.[accountStateIndex++]?.result,
+      );
       if (!accountState) return [];
       const balance = Object.values(id20Portfolio.data?.balances ?? {}).find(
         (item) => item.address.toLowerCase() === descriptor.id20Address.toLowerCase(),
       );
       const balanceRaw = balance?.rawBalance ?? 0n;
-      return [{
-        ...descriptor,
-        symbol: balance?.symbol ?? descriptor.symbol,
-        decimals: balance?.decimals ?? descriptor.decimals,
-        gaugeAddress,
-        balanceRaw,
-        isActivated: accountState.isActivated,
-        settledUnitsRaw: accountState.settledUnits,
-        rewardWeightRaw: accountState.rewardWeight,
-        debtWeightRaw: accountState.debtWeight,
-        unsettledCreditRaw: accountState.unsettledCredit,
-        lentWeightRaw: accountState.lentWeight,
-        claimableRewardRaw: accountState.claimableReward,
-      }];
+      return [
+        {
+          ...descriptor,
+          symbol: balance?.symbol ?? descriptor.symbol,
+          decimals: balance?.decimals ?? descriptor.decimals,
+          gaugeAddress,
+          balanceRaw,
+          isActivated: accountState.isActivated,
+          settledUnitsRaw: accountState.settledUnits,
+          rewardWeightRaw: accountState.rewardWeight,
+          debtWeightRaw: accountState.debtWeight,
+          unsettledCreditRaw: accountState.unsettledCredit,
+          lentWeightRaw: accountState.lentWeight,
+          claimableRewardRaw: accountState.claimableReward,
+        },
+      ];
     });
   }, [account, descriptors, gaugeAddresses, id20Portfolio.data, accountStateReads.data]);
   const positions = useMemo(
-    () => gauges.filter((item) => item.balanceRaw > 0n || item.rewardWeightRaw > 0n || item.debtWeightRaw > 0n ||
-      item.unsettledCreditRaw > 0n || item.lentWeightRaw > 0n || item.claimableRewardRaw > 0n),
+    () =>
+      gauges.filter(
+        (item) =>
+          item.balanceRaw > 0n ||
+          item.rewardWeightRaw > 0n ||
+          item.debtWeightRaw > 0n ||
+          item.unsettledCreditRaw > 0n ||
+          item.lentWeightRaw > 0n ||
+          item.claimableRewardRaw > 0n,
+      ),
     [gauges],
   );
 
