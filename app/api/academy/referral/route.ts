@@ -17,10 +17,15 @@ import {
 } from "@/lib/server/http";
 
 import { getAcademyContext } from "../_shared";
+import { ACADEMY_DISABLED_CODE, ACADEMY_DISABLED_MESSAGE, ACADEMY_ENABLED } from "@/lib/academy/availability";
 
 export const runtime = "nodejs";
 
 async function postAcademyReferral(request: NextRequest) {
+  if (!ACADEMY_ENABLED) {
+    return createNoStoreErrorResponse(ACADEMY_DISABLED_MESSAGE, 404, ACADEMY_DISABLED_CODE);
+  }
+
   let payload: unknown;
   try {
     payload = await request.json();

@@ -1,4 +1,5 @@
 import type { DocNavSection, DocStatus } from "./types";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 
 export const DOCS_NAV: DocNavSection[] = [
   {
@@ -15,7 +16,8 @@ export const DOCS_NAV: DocNavSection[] = [
       { title: "View positions", slug: "guides/positions" },
       { title: "Claim rewards", slug: "guides/rewards" },
       { title: "Redeem", slug: "guides/redeem" },
-      { title: "Academy", slug: "guides/academy" },
+      // Keep the Academy guide in the source while hiding it from docs navigation.
+      ...(ACADEMY_ENABLED ? [{ title: "Academy", slug: "guides/academy" }] : []),
       { title: "Risks", slug: "guides/risks" },
     ],
   },

@@ -10,6 +10,7 @@ import {
   TRANCHE_PRODUCTS,
 } from "@/lib/docs/contracts-reference";
 import type { DocPageDefinition } from "@/lib/docs/types";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 import { AddressTable, FullDeploymentTables, ProductionStatus } from "./shared";
 
 const READ_SUPPLY_EXAMPLE = `import { createPublicClient, http } from "viem";
@@ -571,10 +572,10 @@ export const DEVELOPER_PAGES: DocPageDefinition[] = [
           <li>
             Never treat <code>claimRebases(uint256[])</code> as a working harvest. It is a no-op.
           </li>
-          <li>
-            There is no public Aurove REST API for protocol state. Academy HTTP routes require a
-            signed session and are not a settlement interface.
-          </li>
+          <li>There is no public Aurove REST API for protocol state.</li>
+          {ACADEMY_ENABLED ? (
+            <li>Academy HTTP routes require a signed session and are not a settlement interface.</li>
+          ) : null}
         </ul>
       </>
     ),

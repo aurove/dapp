@@ -18,6 +18,7 @@ import {
   createNoStoreJsonResponse,
   withNoStoreRouteErrorHandling,
 } from "@/lib/server/http";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 
 export const runtime = "nodejs";
 
@@ -91,21 +92,25 @@ async function postAuthVerify(request: NextRequest) {
       value: result.token,
     });
 
-    const pendingReferral = parseReferralPendingCookie(
-      request.cookies.get("academy_referral")?.value ?? null,
-    );
-    if (pendingReferral) {
-      try {
-        await bindAcademyReferral(db, {
-          referredUserId: result.user.id,
-          chainId: result.session.chainId,
-          refId: pendingReferral.refId,
-        });
-      } catch {
-        // Referral binding should never block authentication.
+    if (ACADEMY_ENABLED) {
+      const pendingReferral = parseReferralPendingCookie(
+        request.cookies.get("academy_referral")?.value ?? null,
+      );
+      if (pendingReferral) {
+        try {
+          await bindAcademyReferral(db, {
+            referredUserId: result.user.id,
+            chainId: result.session.chainId,
+            refId: pendingReferral.refId,
+          });
+        } catch {
+          // Referral binding should never block authentication.
+        }
       }
     }
 
+    // Clear stale referral cookies while Academy is disabled, without enabling
+    // the referral side effect during otherwise-normal wallet authentication.
     response.cookies.set(createClearedAcademyReferralPendingCookie());
 
     return response;

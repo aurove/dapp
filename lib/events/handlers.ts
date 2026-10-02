@@ -23,6 +23,7 @@ import {
   resolveAcademyTaskDefinition,
   resolveActiveAcademyProgram,
 } from "@/lib/academy/tasks/points";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 import { getAuroveSupportedPool } from "@/lib/config/supported-liquidity-pools";
 import { getKnownMusdConfig } from "@/lib/config/musd";
 import { db } from "@/lib/db";
@@ -193,6 +194,10 @@ async function awardActivity(input: {
   sourceReference: string;
   sourceDetails: Record<string, unknown>;
 }): Promise<AwardResult> {
+  if (!ACADEMY_ENABLED) {
+    return { status: "skipped", taskCode: input.taskCode, reason: "academy_disabled" };
+  }
+
   if (input.userPoints <= 0n)
     return { status: "skipped", taskCode: input.taskCode, reason: "zero_value" };
   const user = await resolveAcademyUserByWalletAddress(input.wallet);

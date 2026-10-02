@@ -7,6 +7,7 @@ import { EcosystemPartnersCarousel } from "@/components/marketing/ecosystem-part
 import { ProtocolStatsSection } from "@/components/marketing/protocol-stats-section";
 import { SwapPage } from "@/components/features/swap";
 import { JsonLd } from "@/components/site/json-ld";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 import { getHomeJsonLd } from "@/lib/seo/json-ld";
 import {
   DEFAULT_DESCRIPTION,
@@ -172,43 +173,45 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="landing-section landing-section--academy">
-        <div className="landing-container academy-grid">
-          <div className="academy-copy">
-            <p className="section-kicker">AUROVE ACADEMY</p>
-            <h2 className="academy-title">
-              Learn Mezo Earn.
-              <br />
-              Use it with confidence.
-              <br />
-              <span className="hero-title__accent">Earn points.</span>
-            </h2>
-            <p className="section-copy academy-copy__text">
-              Aurove Academy helps new users learn the basics and gives returning users a simple way
-              to stay active. Swap through Aurove&apos;s supported pools, collect liquidity fees,
-              and track your points across the Aurove experience.{" "}
-              <a
-                className="academy-link academy-link--inline"
-                href="https://x.com/aurove_xyz/status/2069109875112554548"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <span className="academy-link__icon" aria-hidden="true">
-                  <FaXTwitter className="h-3.5 w-3.5" />
-                </span>
-                <span>Learn more</span>
-              </a>
-            </p>
+      {ACADEMY_ENABLED ? (
+        <section className="landing-section landing-section--academy">
+          <div className="landing-container academy-grid">
+            <div className="academy-copy">
+              <p className="section-kicker">AUROVE ACADEMY</p>
+              <h2 className="academy-title">
+                Learn Mezo Earn.
+                <br />
+                Use it with confidence.
+                <br />
+                <span className="hero-title__accent">Earn points.</span>
+              </h2>
+              <p className="section-copy academy-copy__text">
+                Aurove Academy helps new users learn the basics and gives returning users a simple way
+                to stay active. Swap through Aurove&apos;s supported pools, collect liquidity fees,
+                and track your points across the Aurove experience.{" "}
+                <a
+                  className="academy-link academy-link--inline"
+                  href="https://x.com/aurove_xyz/status/2069109875112554548"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <span className="academy-link__icon" aria-hidden="true">
+                    <FaXTwitter className="h-3.5 w-3.5" />
+                  </span>
+                  <span>Learn more</span>
+                </a>
+              </p>
 
-            <div className="hero-actions hero-actions--academy">
-              <Link href="/academy" className="btn btn--gold">
-                Open Academy
-                <ArrowRight className="btn__icon" aria-hidden="true" />
-              </Link>
+              <div className="hero-actions hero-actions--academy">
+                <Link href="/academy" className="btn btn--gold">
+                  Open Academy
+                  <ArrowRight className="btn__icon" aria-hidden="true" />
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <footer className="landing-footer">
         <div className="landing-container landing-footer__inner">

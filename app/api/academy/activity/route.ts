@@ -7,11 +7,16 @@ import {
   withNoStoreRouteErrorHandling,
 } from "@/lib/server/http";
 import { AcademyActivityUserNotFoundError } from "@/lib/academy/tasks/errors";
+import { ACADEMY_DISABLED_CODE, ACADEMY_DISABLED_MESSAGE, ACADEMY_ENABLED } from "@/lib/academy/availability";
 import { getAcademyContext } from "../_shared";
 
 export const runtime = "nodejs";
 
 async function getAcademyActivity(request: NextRequest) {
+  if (!ACADEMY_ENABLED) {
+    return createNoStoreErrorResponse(ACADEMY_DISABLED_MESSAGE, 404, ACADEMY_DISABLED_CODE);
+  }
+
   const address = request.nextUrl.searchParams.get("address");
   if (!address) {
     return createNoStoreErrorResponse("Missing Academy user.", 400, "ACADEMY_ACTIVITY_USER_REQUIRED");

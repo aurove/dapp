@@ -16,6 +16,7 @@ import { DocsContentFooter } from "@/components/docs/docs-content-footer";
 import { DocsProse } from "@/components/docs/prose";
 import { JsonLd } from "@/components/site/json-ld";
 import { getBreadcrumbJsonLd, getWebPageJsonLd } from "@/lib/seo/json-ld";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 
 export default function DocsHomePage() {
   const webPageJsonLd = getWebPageJsonLd({
@@ -99,12 +100,14 @@ export default function DocsHomePage() {
             href="/docs/guides/create-position"
             icon={<BookOpen className="h-4 w-4" />}
           />
-          <DocsCard
-            title="Academy"
-            description="Points, tasks, leaderboard, and referrals after Sign In."
-            href="/docs/guides/academy"
-            icon={<Award className="h-4 w-4" />}
-          />
+          {ACADEMY_ENABLED ? (
+            <DocsCard
+              title="Academy"
+              description="Points, tasks, leaderboard, and referrals after Sign In."
+              href="/docs/guides/academy"
+              icon={<Award className="h-4 w-4" />}
+            />
+          ) : null}
           <DocsCard
             title="Protocol"
             description="Custody, assets, rewards, upgradeability, and limitations."

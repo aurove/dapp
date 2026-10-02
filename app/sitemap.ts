@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { flattenDocsNav } from "@/lib/docs/navigation";
 import { SITE_URL } from "@/lib/seo/site";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 
 /**
  * Indexable public product surfaces only.
@@ -37,7 +38,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     entry("/earn", 0.9, "weekly", lastModified),
     entry("/earn/stake/btc", 0.7, "monthly", lastModified),
     entry("/earn/stake/mezo", 0.7, "monthly", lastModified),
-    entry("/academy", 0.8, "weekly", lastModified),
+    ...(ACADEMY_ENABLED ? [entry("/academy", 0.8, "weekly", lastModified)] : []),
     entry("/docs", 0.85, "weekly", lastModified),
   ];
 

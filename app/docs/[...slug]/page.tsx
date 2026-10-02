@@ -14,6 +14,7 @@ import {
   getFaqPageJsonLd,
 } from "@/lib/seo/json-ld";
 import { createPageMetadata } from "@/lib/seo/site";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 
 type PageProps = {
   params: Promise<{ slug: string[] }>;
@@ -28,6 +29,15 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug: parts } = await params;
   const slug = parts.join("/");
+  if (!ACADEMY_ENABLED && slug === "guides/academy") {
+    return createPageMetadata({
+      title: "Documentation · Aurove Docs",
+      description: "Aurove protocol documentation.",
+      path: "/docs",
+      absoluteTitle: true,
+      noIndex: true,
+    });
+  }
   const page = getDocPage(slug);
   if (!page) {
     return createPageMetadata({
@@ -51,6 +61,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function DocArticlePage({ params }: PageProps) {
   const { slug: parts } = await params;
   const slug = parts.join("/");
+  if (!ACADEMY_ENABLED && slug === "guides/academy") notFound();
   const page = getDocPage(slug);
   if (!page) notFound();
 

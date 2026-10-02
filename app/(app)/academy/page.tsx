@@ -6,8 +6,10 @@ import { getCurrentWalletAuthContextFromCookies } from "@/lib/auth/current";
 import { getRequestOrigin } from "@/lib/auth/utils";
 import type { AcademyLeaderboardEntry } from "@/lib/academy/types";
 import { createPageMetadata } from "@/lib/seo/site";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 import { cookies } from "next/headers";
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 
 const TITLE = "Academy Points & Leaderboard";
 const DESCRIPTION =
@@ -43,6 +45,8 @@ type AcademyPageProps = {
 };
 
 export default async function AcademyPage({ searchParams }: AcademyPageProps) {
+  if (!ACADEMY_ENABLED) notFound();
+
   const cookieStore = await cookies();
   const headerStore = await headers();
   const session = await getCurrentWalletAuthContextFromCookies(cookieStore);

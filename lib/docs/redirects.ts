@@ -1,3 +1,8 @@
+// This file is also loaded directly by next.config.ts before the app module
+// graph is available, so keep its config-time flag check self-contained.
+const ACADEMY_ENABLED =
+  (process.env.NEXT_PUBLIC_ACADEMY_ENABLED ?? "false").trim().toLowerCase() === "true";
+
 export const DOC_REDIRECTS: Array<{ source: string; destination: string }> = [
   { source: "/docs/introduction/what-is-aurove", destination: "/docs/guides/what-is-aurove" },
   { source: "/docs/introduction/why-aurove", destination: "/docs/guides/what-is-aurove" },
@@ -16,9 +21,14 @@ export const DOC_REDIRECTS: Array<{ source: string; destination: string }> = [
   { source: "/docs/liquidity/providing-liquidity", destination: "/docs/guides/liquidity" },
   { source: "/docs/liquidity/concentrated-liquidity", destination: "/docs/guides/price-range" },
   { source: "/docs/liquidity/gauges", destination: "/docs/protocol/liquidity" },
-  { source: "/docs/academy/points", destination: "/docs/guides/academy" },
-  { source: "/docs/academy/quests", destination: "/docs/guides/academy" },
-  { source: "/docs/academy/referrals", destination: "/docs/guides/academy" },
+  // Keep legacy Academy redirects available for a future re-enable.
+  ...(ACADEMY_ENABLED
+    ? [
+        { source: "/docs/academy/points", destination: "/docs/guides/academy" },
+        { source: "/docs/academy/quests", destination: "/docs/guides/academy" },
+        { source: "/docs/academy/referrals", destination: "/docs/guides/academy" },
+      ]
+    : []),
   { source: "/docs/protocol/id20", destination: "/docs/protocol/assets" },
   { source: "/docs/protocol/ledger", destination: "/docs/protocol/custody" },
   { source: "/docs/protocol/vaults", destination: "/docs/protocol/custody" },

@@ -7,6 +7,7 @@ import {
   SITE_URL,
   TWITTER_HANDLE,
 } from "./site";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 
 function absoluteUrl(path: string): string {
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
@@ -70,7 +71,7 @@ export function getHomeJsonLd() {
   };
 }
 
-/** WebPage graph for product surfaces (Earn, Liquidity, Academy, docs hub). */
+/** WebPage graph for product surfaces (Earn, Liquidity, and docs hub). */
 export function getWebPageJsonLd(input: { path: string; title: string; description: string }) {
   const url = absoluteUrl(input.path);
   const imageUrl = absoluteUrl(DEFAULT_OG_IMAGE_PATH);
@@ -196,7 +197,7 @@ export function getFaqPageJsonLd(input: {
  * Canonical FAQ pairs for /docs/faq (page body + FAQPage schema).
  * Keep answers plain text for structured data.
  */
-export const AUROVE_FAQ_ITEMS: readonly FaqItem[] = [
+const ALL_AUROVE_FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "Why do I only see Connect Wallet?",
     answer:
@@ -238,6 +239,12 @@ export const AUROVE_FAQ_ITEMS: readonly FaqItem[] = [
       "Connect your wallet and click Sign In. Without a session, personalized Academy stats stay locked.",
   },
 ] as const;
+
+export const AUROVE_FAQ_ITEMS: readonly FaqItem[] = ALL_AUROVE_FAQ_ITEMS.filter(
+  (item) =>
+    ACADEMY_ENABLED ||
+    (!item.question.toLowerCase().includes("academy") && item.question !== "What is Sign In for?"),
+);
 
 /** Safe JSON-LD script content (escapes `<` to reduce XSS risk). */
 export function serializeJsonLd(data: unknown): string {

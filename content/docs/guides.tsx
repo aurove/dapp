@@ -2,6 +2,7 @@ import { Callout } from "@/components/docs/callout";
 import { DocRouteLink } from "@/components/docs/doc-route-link";
 import { DocsCard, DocsCardGrid } from "@/components/docs/docs-card";
 import { MEZO_CHAIN_ID, MEZO_EXPLORER, MEZO_RPC_HTTP } from "@/lib/docs/contracts-reference";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 import type { DocPageDefinition } from "@/lib/docs/types";
 import { AddressTable, ProductionStatus } from "./shared";
 
@@ -13,7 +14,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
       "Aurove turns locked Mezo Earn positions into liquid tokens you can hold, swap, or use as liquidity.",
     tags: ["guides", "overview", "avBTCm", "avMEZOm"],
     searchText:
-      "what is aurove liquid veBTC veMEZO avBTCm avMEZOm Mezo Earn swap liquidity academy",
+      "what is aurove liquid veBTC veMEZO avBTCm avMEZOm Mezo Earn swap liquidity",
     Content: () => (
       <>
         <h1>What is Aurove</h1>
@@ -42,9 +43,11 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             <strong>Earn</strong> — create a liquid position, view balances, claim rewards, unwrap,
             and redeem.
           </li>
-          <li>
-            <strong>Academy</strong> — points, tasks, a leaderboard, and referrals after Sign In.
-          </li>
+          {ACADEMY_ENABLED ? (
+            <li>
+              <strong>Academy</strong> — points, tasks, a leaderboard, and referrals after Sign In.
+            </li>
+          ) : null}
         </ul>
         <ProductionStatus />
         <h2>Start here</h2>
@@ -164,15 +167,14 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
   {
     slug: "guides/connect-wallet",
     title: "Connect a wallet",
-    description: "Connect with RainbowKit, switch to Mezo Mainnet, and sign in for Academy.",
+    description: "Connect with RainbowKit and switch to Mezo Mainnet.",
     tags: ["guides", "wallet", "connect", "sign-in"],
-    searchText: "connect wallet wrong network sign in rainbowkit mezo mainnet academy",
+    searchText: "connect wallet wrong network sign in rainbowkit mezo mainnet",
     Content: () => (
       <>
         <h1>Connect a wallet</h1>
         <p>
-          Swap, Liquidity, and Earn need a connected wallet on Mezo. Academy personalization also
-          needs <strong>Sign In</strong>.
+          Swap, Liquidity, and Earn need a connected wallet on Mezo.
         </p>
         <h2>Before you start</h2>
         <ul>
@@ -192,9 +194,11 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             Confirm the header badge reads <strong>Network Mezo Mainnet</strong>. If it reads{" "}
             <strong>Wrong Network</strong>, click that button and approve the switch.
           </li>
-          <li>
-            For Academy, click <strong>Sign In</strong> and sign the authentication message.
-          </li>
+          {ACADEMY_ENABLED ? (
+            <li>
+              For Academy, click <strong>Sign In</strong> and sign the authentication message.
+            </li>
+          ) : null}
         </ol>
         <h2>What you should see</h2>
         <table>
@@ -236,10 +240,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             Rejecting the network switch leaves Wrong Network visible. No Aurove transaction will
             send.
           </li>
-          <li>
-            You can use Swap, Liquidity, and Earn without Sign In. Academy points stay locked until
-            you sign.
-          </li>
+          <li>You can use Swap, Liquidity, and Earn without Sign In.</li>
         </ul>
       </>
     ),

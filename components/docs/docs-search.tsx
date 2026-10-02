@@ -135,7 +135,7 @@ export function DocsSearch({ documents }: { documents: DocSearchDocument[] }) {
           <div className="max-h-[min(60vh,28rem)] overflow-y-auto p-2">
             {!query.trim() ? (
               <p className="px-3 py-6 text-center text-sm text-white/40">
-                Type to search protocol concepts, user flows, contracts, and Academy topics.
+                Type to search protocol concepts, user flows, and contracts.
               </p>
             ) : results.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-white/40">

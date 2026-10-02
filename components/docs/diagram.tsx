@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@ui";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 
 export function Diagram({
   title,
@@ -80,7 +81,7 @@ export function ArchitectureDiagram() {
           <Node>Earn</Node>
           <Node>Swap</Node>
           <Node>Liquidity</Node>
-          <Node>Academy</Node>
+          {ACADEMY_ENABLED ? <Node>Academy</Node> : null}
         </Row>
         <div className="text-white/30">↓</div>
         <Row>

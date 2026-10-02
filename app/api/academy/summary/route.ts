@@ -1,12 +1,17 @@
 import { NextRequest } from "next/server";
 
 import { getRequestOrigin } from "@/lib/auth/utils";
-import { createNoStoreJsonResponse, withNoStoreRouteErrorHandling } from "@/lib/server/http";
+import { createNoStoreErrorResponse, createNoStoreJsonResponse, withNoStoreRouteErrorHandling } from "@/lib/server/http";
+import { ACADEMY_DISABLED_CODE, ACADEMY_DISABLED_MESSAGE, ACADEMY_ENABLED } from "@/lib/academy/availability";
 import { getAcademyContext } from "../_shared";
 
 export const runtime = "nodejs";
 
 async function getAcademySummary(request: NextRequest) {
+  if (!ACADEMY_ENABLED) {
+    return createNoStoreErrorResponse(ACADEMY_DISABLED_MESSAGE, 404, ACADEMY_DISABLED_CODE);
+  }
+
   const { service, session } = await getAcademyContext(request);
   const summary = await service.getSummary({
     userId: session?.user.id ?? null,

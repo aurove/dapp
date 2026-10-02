@@ -5,15 +5,16 @@ import type { DocFrontmatter, DocPageDefinition, DocSearchDocument } from "@/lib
 import { DEVELOPER_PAGES } from "./developers";
 import { GUIDE_PAGES } from "./guides";
 import { PROTOCOL_PAGES } from "./protocol";
+import { ACADEMY_ENABLED } from "@/lib/academy/availability";
 
 export type { DocPageDefinition };
 
 const FAQ_PAGE: DocPageDefinition = {
   slug: "faq",
   title: "FAQ",
-  description: "Answers to common wallet, Swap, Liquidity, Earn, and Academy questions.",
+  description: "Answers to common wallet, Swap, Liquidity, and Earn questions.",
   tags: ["faq", "wallet", "earn", "swap"],
-  searchText: "faq connect wallet wrong network sign in redeem swap liquidity academy",
+  searchText: "faq connect wallet wrong network sign in redeem swap liquidity",
   Content: () => (
     <>
       <h1>FAQ</h1>
@@ -28,11 +29,15 @@ const FAQ_PAGE: DocPageDefinition = {
         Your wallet is not on Mezo Mainnet (chain id 31612). Click <strong>Wrong Network</strong>{" "}
         and approve the switch. The header should then read <strong>Network Mezo Mainnet</strong>.
       </p>
-      <h3>What is Sign In for?</h3>
-      <p>
-        A signed session for Academy points, tasks, and your referral link. Swap, Liquidity, and
-        Earn only need a connected wallet on Mezo Mainnet.
-      </p>
+      {ACADEMY_ENABLED ? (
+        <>
+          <h3>What is Sign In for?</h3>
+          <p>
+            A signed session for Academy points, tasks, and your referral link. Swap, Liquidity, and
+            Earn only need a connected wallet on Mezo Mainnet.
+          </p>
+        </>
+      ) : null}
       <h2>Swap</h2>
       <h3>Why is there no route or insufficient liquidity on Swap?</h3>
       <p>
@@ -58,12 +63,16 @@ const FAQ_PAGE: DocPageDefinition = {
         inventory whenever Mezo allows that managed withdraw. Mezo epoch rules can still cause a
         revert.
       </p>
-      <h2>Academy</h2>
-      <h3>Why do Academy points show “Visible after wallet authentication”?</h3>
-      <p>
-        Connect your wallet and click <strong>Sign In</strong>. Without a session, personalized
-        Academy stats stay locked.
-      </p>
+      {ACADEMY_ENABLED ? (
+        <>
+          <h2>Academy</h2>
+          <h3>Why do Academy points show “Visible after wallet authentication”?</h3>
+          <p>
+            Connect your wallet and click <strong>Sign In</strong>. Without a session, personalized
+            Academy stats stay locked.
+          </p>
+        </>
+      ) : null}
       <Callout variant="info">
         For contract addresses see{" "}
         <DocRouteLink href="/docs/developers/deployment">Deployment reference</DocRouteLink>. For
@@ -75,7 +84,7 @@ const FAQ_PAGE: DocPageDefinition = {
 };
 
 const pages: DocPageDefinition[] = [
-  ...GUIDE_PAGES,
+  ...GUIDE_PAGES.filter((page) => ACADEMY_ENABLED || page.slug !== "guides/academy"),
   ...PROTOCOL_PAGES,
   ...DEVELOPER_PAGES,
   FAQ_PAGE,
