@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useReadContracts } from "wagmi";
-import { parseAbiItem, type Abi, type Address, type Hex } from "viem";
+import { encodeFunctionData, parseAbiItem, type Abi, type Address, type Hex } from "viem";
 
 import { getContractConfig, getContractDeploymentBlock } from "@/contracts/shared";
 import { useId20Portfolio } from "@/features/portfolio";
@@ -30,6 +30,35 @@ const CREDIT_READ_CONCURRENCY = 32;
 const creditIssuedEvent = parseAbiItem(
   "event CreditIssued(address indexed lender, address indexed borrower, uint256 amount)",
 );
+
+const multicall3Aggregate3Abi = [
+  {
+    type: "function",
+    name: "aggregate3",
+    stateMutability: "payable",
+    inputs: [
+      {
+        name: "calls",
+        type: "tuple[]",
+        components: [
+          { name: "target", type: "address" },
+          { name: "allowFailure", type: "bool" },
+          { name: "callData", type: "bytes" },
+        ],
+      },
+    ],
+    outputs: [
+      {
+        name: "returnData",
+        type: "tuple[]",
+        components: [
+          { name: "success", type: "bool" },
+          { name: "returnData", type: "bytes" },
+        ],
+      },
+    ],
+  },
+] as const satisfies Abi;
 
 type CreditPair = { lender: Address; borrower: Address; firstSeenBlock: bigint };
 
@@ -85,12 +114,43 @@ type GaugeAccountState = {
   claimableReward: bigint;
 };
 
+type GaugeAccountViewFunction = "accountState" | "accountMetadata";
+
+function getGaugeAccountViewFunction(abi: Abi): GaugeAccountViewFunction | null {
+  if (abi.some((item) => item.type === "function" && item.name === "accountState")) {
+    return "accountState";
+  }
+  if (abi.some((item) => item.type === "function" && item.name === "accountMetadata")) {
+    return "accountMetadata";
+  }
+  return null;
+}
+
 function readAddress(value: unknown): Address | null {
   return typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value) ? (value as Address) : null;
 }
 
-function readGaugeAccountState(value: unknown): GaugeAccountState | null {
+function readGaugeAccountState(value: unknown, legacy = false): GaugeAccountState | null {
   if (Array.isArray(value)) {
+    if (legacy) {
+      const [isActive, weight, debt, credit, lent, accruedReward] = value;
+      if (
+        typeof isActive !== "boolean" ||
+        ![weight, debt, credit, lent, accruedReward].every((item) => typeof item === "bigint")
+      )
+        return null;
+      const settledUnits = weight as bigint;
+      const debtWeight = debt as bigint;
+      return {
+        isActivated: isActive,
+        settledUnits,
+        rewardWeight: settledUnits + debtWeight,
+        debtWeight,
+        unsettledCredit: credit as bigint,
+        lentWeight: lent as bigint,
+        claimableReward: accruedReward as bigint,
+      };
+    }
     const [
       isActivated,
       settledUnits,
@@ -120,6 +180,28 @@ function readGaugeAccountState(value: unknown): GaugeAccountState | null {
 
   if (!value || typeof value !== "object") return null;
   const state = value as Record<string, unknown>;
+  // Testnet gauges predate accountState and expose accountMetadata instead. Its `weight`,
+  // `debt`, `credit`, and `lent` fields are the legacy names for the corresponding gauge
+  // accounting values. `earned` is cumulative, while `accruedReward` is currently claimable.
+  if (
+    typeof state.isActive === "boolean" &&
+    [state.weight, state.debt, state.credit, state.lent, state.accruedReward].every(
+      (item) => typeof item === "bigint",
+    )
+  ) {
+    const settledUnits = state.weight as bigint;
+    const debtWeight = state.debt as bigint;
+    return {
+      isActivated: state.isActive,
+      settledUnits,
+      rewardWeight: settledUnits + debtWeight,
+      debtWeight,
+      unsettledCredit: state.credit as bigint,
+      lentWeight: state.lent as bigint,
+      claimableReward: state.accruedReward as bigint,
+    };
+  }
+
   if (
     typeof state.isActivated !== "boolean" ||
     ![
@@ -141,6 +223,22 @@ function readGaugeAccountState(value: unknown): GaugeAccountState | null {
     lentWeight: state.lentWeight as bigint,
     claimableReward: state.claimableReward as bigint,
   };
+}
+
+async function readGaugeAccountView(
+  publicClient: TxFlowRuntimeContext["publicClient"],
+  gaugeAddress: Address,
+  gaugeAbi: Abi,
+  account: Address,
+): Promise<unknown> {
+  const functionName = getGaugeAccountViewFunction(gaugeAbi);
+  if (!functionName) throw new Error("ID20 gauge account view is unavailable.");
+  return publicClient.readContract({
+    address: gaugeAddress,
+    abi: gaugeAbi,
+    functionName,
+    args: [account],
+  } as never);
 }
 
 export function getId20GaugeDescriptors(chainId: number): Id20GaugeDescriptor[] {
@@ -184,13 +282,18 @@ async function resolveGaugeAddress(
 
 async function isGaugeActivated(ctx: TxFlowRuntimeContext, descriptor: Id20GaugeDescriptor) {
   const gaugeAddress = await resolveGaugeAddress(ctx, descriptor);
-  const accountState = await ctx.publicClient.readContract({
-    address: gaugeAddress,
-    abi: descriptor.gaugeAbi,
-    functionName: "accountState",
-    args: [ctx.account],
-  } as never);
-  return readGaugeAccountState(accountState)?.isActivated === true;
+  const accountState = await readGaugeAccountView(
+    ctx.publicClient,
+    gaugeAddress,
+    descriptor.gaugeAbi,
+    ctx.account,
+  );
+  return (
+    readGaugeAccountState(
+      accountState,
+      getGaugeAccountViewFunction(descriptor.gaugeAbi) === "accountMetadata",
+    )?.isActivated === true
+  );
 }
 
 export function makeId20ActivationStep(
@@ -293,13 +396,16 @@ async function readAccountState(
   ctx: Pick<TxFlowRuntimeContext, "publicClient" | "account">,
   position: Id20GaugePosition,
 ): Promise<GaugeAccountState | null> {
-  const raw = await ctx.publicClient.readContract({
-    address: position.gaugeAddress,
-    abi: position.gaugeAbi,
-    functionName: "accountState",
-    args: [ctx.account],
-  } as never);
-  return readGaugeAccountState(raw);
+  const raw = await readGaugeAccountView(
+    ctx.publicClient,
+    position.gaugeAddress,
+    position.gaugeAbi,
+    ctx.account,
+  );
+  return readGaugeAccountState(
+    raw,
+    getGaugeAccountViewFunction(position.gaugeAbi) === "accountMetadata",
+  );
 }
 
 async function readId20Balance(
@@ -439,20 +545,20 @@ async function evaluateCreditSettlementPlan(
   if (positive.length === 0) return { enough: false, pairs: [], capacity: 0n, target };
 
   const lenders = [...new Set(positive.map((pair) => pair.lender.toLowerCase()))];
-  const lenderStates = await mapWithConcurrency(
-    lenders,
-    CREDIT_READ_CONCURRENCY,
-    (lender) =>
-      ctx.publicClient.readContract({
-        address: position.gaugeAddress,
-        abi: position.gaugeAbi,
-        functionName: "accountState",
-        args: [lender as Address],
-      } as never) as Promise<unknown>,
+  const lenderStates = await mapWithConcurrency(lenders, CREDIT_READ_CONCURRENCY, (lender) =>
+    readGaugeAccountView(
+      ctx.publicClient,
+      position.gaugeAddress,
+      position.gaugeAbi,
+      lender as Address,
+    ),
   );
   const budgets = new Map<string, bigint>();
   for (let index = 0; index < lenders.length; index += 1) {
-    const state = readGaugeAccountState(lenderStates[index]);
+    const state = readGaugeAccountState(
+      lenderStates[index],
+      getGaugeAccountViewFunction(position.gaugeAbi) === "accountMetadata",
+    );
     const lender = lenders[index]!;
     const deficiency =
       state && state.lentWeight > state.unsettledCredit
@@ -634,9 +740,58 @@ function makeId20SettleCreditsBatchStep(
   };
 }
 
+function makeId20SettleCreditsMulticallStep(
+  position: Id20GaugePosition,
+  planRef: { pairs: SettleableCreditPair[] },
+  displayLabelBtn: boolean,
+): TxPreparedWriteStep {
+  return {
+    type: "write",
+    key: `id20-settle-credits-${position.key}`,
+    label: `Settle ${position.symbol} credit`,
+    displayLabelBtn,
+    portfolioDomains: ["id20", "rewards"],
+    shouldSkip: async (ctx) => {
+      const accountState = await readAccountState(ctx, position);
+      if (!accountState) return true;
+      if (planRef.pairs.length === 0) {
+        throw new Error(`No complete ${position.symbol} credit settlement plan was discovered.`);
+      }
+      return false;
+    },
+    prepare: async (ctx) => {
+      const multicall3Address = ctx.publicClient.chain?.contracts?.multicall3?.address;
+      if (!multicall3Address) {
+        throw new Error("Multicall3 is not configured for this network.");
+      }
+      if (planRef.pairs.length === 0) {
+        throw new Error(`No complete ${position.symbol} credit settlement plan was discovered.`);
+      }
+      return {
+        contract: { address: multicall3Address, abi: multicall3Aggregate3Abi },
+        request: {
+          functionName: "aggregate3",
+          args: [
+            planRef.pairs.map(({ lender, borrower }) => ({
+              target: position.gaugeAddress,
+              allowFailure: false,
+              callData: encodeFunctionData({
+                abi: position.gaugeAbi,
+                functionName: "settleCredit",
+                args: [ctx.account, lender, borrower],
+              } as never) as Hex,
+            })),
+          ],
+        },
+      } as never;
+    },
+  };
+}
+
 /**
- * Prepend activation (if needed), discover a complete settlement plan, and settle it in one
- * atomic batch before ID20 unwrap/exit. Discovery is read-only and runs before the batch write.
+ * Prepend activation (if needed), discover a complete settlement plan, and settle before
+ * ID20 unwrap/exit. Use the gauge batch entrypoint where available; older testnet gauges use
+ * Multicall3 to call their permissionless settleCredit entrypoint atomically.
  */
 export function makeId20CreditSettlementSteps(
   position: Id20GaugePosition,
@@ -649,12 +804,15 @@ export function makeId20CreditSettlementSteps(
   const displayLabelBtn = options?.displayLabelBtn ?? true;
   const steps: TxStep[] = [];
   const planRef: { pairs: SettleableCreditPair[] } = { pairs: [] };
+  const supportsBatchSettlement = position.gaugeAbi.some(
+    (item) => item.type === "function" && item.name === "settleCredits",
+  );
 
   if (id20ExitNeedsActivation(position, requiredAmount)) {
     steps.push(makeId20ActivationStep(position, displayLabelBtn));
   }
 
-  steps.push({
+  const discoveryStep: TxStep = {
     type: "custom",
     key: `id20-discover-settlement-${position.key}`,
     label: `Find ${position.symbol} credit borrowers`,
@@ -670,8 +828,13 @@ export function makeId20CreditSettlementSteps(
       planRef.pairs = plan.pairs;
       return "skip";
     },
-  });
-  steps.push(makeId20SettleCreditsBatchStep(position, requiredAmount, planRef, displayLabelBtn));
+  };
+  steps.push(discoveryStep);
+  if (supportsBatchSettlement) {
+    steps.push(makeId20SettleCreditsBatchStep(position, requiredAmount, planRef, displayLabelBtn));
+  } else {
+    steps.push(makeId20SettleCreditsMulticallStep(position, planRef, displayLabelBtn));
+  }
 
   // Final guard so a missing counterpart surface as a clear error instead of UnsettledCredit on unwrap.
   steps.push({
@@ -727,7 +890,7 @@ export function useId20GaugePositions(chainId: number, account?: Address) {
             {
               address: gaugeAddress,
               abi: descriptor.gaugeAbi,
-              functionName: "accountState",
+              functionName: getGaugeAccountViewFunction(descriptor.gaugeAbi) ?? "accountState",
               args: [account],
               chainId,
             },
@@ -747,6 +910,7 @@ export function useId20GaugePositions(chainId: number, account?: Address) {
       if (!account || !gaugeAddress) return [];
       const accountState = readGaugeAccountState(
         accountStateReads.data?.[accountStateIndex++]?.result,
+        getGaugeAccountViewFunction(descriptor.gaugeAbi) === "accountMetadata",
       );
       if (!accountState) return [];
       const balance = Object.values(id20Portfolio.data?.balances ?? {}).find(
