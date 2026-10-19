@@ -8,9 +8,9 @@ const LABELS: Record<DocStatus, string> = {
 };
 
 const STYLES: Record<DocStatus, string> = {
-  live: "border-emerald-400/25 bg-emerald-500/10 text-emerald-100",
-  "in-development": "border-sky-400/25 bg-sky-500/10 text-sky-100",
-  planned: "border-white/15 bg-white/5 text-white/65",
+  live: "border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100",
+  "in-development": "border-sky-500/25 bg-sky-500/10 text-sky-800 dark:text-sky-100",
+  planned: "border-foreground/15 bg-foreground/5 text-foreground/65",
 };
 
 export function StatusBadge({

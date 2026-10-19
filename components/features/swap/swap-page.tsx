@@ -184,10 +184,10 @@ function TokenMark({ asset }: { asset: SwapAsset }) {
       className={cn(
         "grid h-8 w-8 shrink-0 place-items-center rounded-full border text-[10px] font-bold",
         asset.form === "underlying" || asset.form === "venft"
-          ? "border-amber-300/30 bg-amber-300/10 text-amber-100"
+          ? "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-100"
           : asset.form === "tranche"
-            ? "border-sky-300/30 bg-sky-300/10 text-sky-100"
-            : "border-emerald-300/30 bg-emerald-300/10 text-emerald-100",
+            ? "border-sky-500/35 bg-sky-500/10 text-sky-800 dark:text-sky-100"
+            : "border-emerald-500/35 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100",
       )}
     >
       {asset.symbol.slice(0, 3)}
@@ -290,7 +290,7 @@ function AssetSelector({
           if (!next) setSearch("");
         }}
       >
-        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md min-w-0 overflow-hidden border-white/12 bg-[#111820]">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md min-w-0 overflow-hidden border-foreground/12 bg-panel">
           <DialogHeader className="min-w-0 pr-8">
             <DialogTitle className="text-balance">
               Select an asset to {side.toLowerCase()}
@@ -302,7 +302,7 @@ function AssetSelector({
             </DialogDescription>
           </DialogHeader>
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/35" />
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -311,7 +311,7 @@ function AssetSelector({
               className="pl-9"
             />
           </div>
-          <div className="flex items-center justify-between text-xs text-white/38">
+          <div className="flex items-center justify-between text-xs text-foreground/38">
             <span>
               {new Intl.NumberFormat().format(filteredAssets.length)} asset
               {filteredAssets.length === 1 ? "" : "s"}
@@ -319,7 +319,7 @@ function AssetSelector({
             {search ? (
               <button
                 type="button"
-                className="text-[#d8b884] hover:text-[#efd39e]"
+                className="text-[var(--accent)] hover:text-[var(--accent-soft)]"
                 onClick={() => setSearch("")}
               >
                 Clear search
@@ -330,7 +330,7 @@ function AssetSelector({
             <div className="min-w-0 max-w-full space-y-4">
               {groups.map(([label, options]) => (
                 <section key={label} aria-label={label} className="min-w-0">
-                  <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">
+                  <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/35">
                     {label}
                   </p>
                   <div className="min-w-0 space-y-2">
@@ -346,23 +346,23 @@ function AssetSelector({
                         className={cn(
                           "grid w-full min-w-0 max-w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-xl border p-3 text-left transition",
                           option.id === asset?.id
-                            ? "border-[#b58f5f]/60 bg-[#b58f5f]/12"
-                            : "border-white/10 bg-white/[0.025] hover:bg-white/[0.06]",
+                            ? "border-[var(--accent)]/60 bg-[var(--accent)]/12"
+                            : "border-foreground/10 bg-foreground/[0.025] hover:bg-foreground/[0.06]",
                         )}
                       >
                         <TokenMark asset={option} />
                         <span className="min-w-0 overflow-hidden">
-                          <span className="block truncate font-semibold text-white">
+                          <span className="block truncate font-semibold text-foreground">
                             {option.symbol}
                           </span>
-                          <span className="block break-words text-xs leading-snug text-white/48 [overflow-wrap:anywhere] line-clamp-2">
+                          <span className="block break-words text-xs leading-snug text-foreground/48 [overflow-wrap:anywhere] line-clamp-2">
                             {(() => {
                               const detail = formLabel(option).replace(/^·\s*/, "").trim();
                               return detail ? `${option.name} · ${detail}` : option.name;
                             })()}
                           </span>
                         </span>
-                        <span className="shrink-0 justify-self-end text-right text-xs tabular-nums text-white/55">
+                        <span className="shrink-0 justify-self-end text-right text-xs tabular-nums text-foreground/55">
                           <span className="block whitespace-nowrap">
                             {balancesLoading
                               ? "…"
@@ -372,7 +372,7 @@ function AssetSelector({
                                   null,
                                 )}
                           </span>
-                          <span className="text-white/35">Balance</span>
+                          <span className="text-foreground/35">Balance</span>
                         </span>
                       </button>
                     ))}
@@ -380,7 +380,7 @@ function AssetSelector({
                 </section>
               ))}
               {!filteredAssets.length ? (
-                <p className="p-5 text-center text-sm text-white/50">
+                <p className="p-5 text-center text-sm text-foreground/50">
                   {search
                     ? "No assets match your search."
                     : "No valid assets for this side of the route."}
@@ -446,10 +446,10 @@ function AssetAmountField(props: {
   };
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 focus-within:border-[#b58f5f]/45">
+    <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.035] p-4 focus-within:border-[var(--accent)]/45">
       <div className="mb-3 flex items-center justify-between text-xs">
-        <span className="font-medium text-white/55">{props.label}</span>
-        <span className="text-white/45">
+        <span className="font-medium text-foreground/55">{props.label}</span>
+        <span className="text-foreground/45">
           Balance:{" "}
           {props.balanceLoading
             ? "…"
@@ -460,7 +460,7 @@ function AssetAmountField(props: {
             <button
               type="button"
               onClick={props.onMax}
-              className="ml-1 font-semibold text-[#d8b884] hover:text-[#efd39e]"
+              className="ml-1 font-semibold text-[var(--accent)] hover:text-[var(--accent-soft)]"
             >
               Max
             </button>
@@ -489,7 +489,7 @@ function AssetAmountField(props: {
           onSelect={props.onAsset}
         />
       </div>
-      <div className="mt-1 min-h-4 text-xs text-white/38">
+      <div className="mt-1 min-h-4 text-xs text-foreground/38">
         {props.fiat ?? (props.asset ? props.asset.name : "")}
       </div>
     </div>
@@ -521,7 +521,7 @@ function VeNftSellBreakdown(props: {
         : "—"
     : "—";
   return (
-    <div className="mx-1 mt-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.055] p-3 text-xs text-white/60">
+    <div className="mx-1 mt-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.055] p-3 text-xs text-foreground/60">
       <div className="mb-3 grid grid-cols-4 gap-2" aria-label="veNFT sell fraction">
         {[2500, 5000, 7500, 10000].map((bps) => (
           <Button
@@ -554,7 +554,7 @@ function VeNftSellBreakdown(props: {
         />
         <DetailRow label="Expected output" value={expectedOutput} />
       </div>
-      <div className="mt-2 border-t border-white/8 pt-2">
+      <div className="mt-2 border-t border-foreground/8 pt-2">
         <DetailRow label="Execution path" value={props.path} />
       </div>
     </div>
@@ -564,8 +564,8 @@ function VeNftSellBreakdown(props: {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <span className="text-white/48">{label}</span>
-      <span className="text-right font-medium text-white/82">{value}</span>
+      <span className="text-foreground/48">{label}</span>
+      <span className="text-right font-medium text-foreground/82">{value}</span>
     </div>
   );
 }
@@ -893,18 +893,18 @@ export function SwapPage() {
     <form
       onSubmit={formik.handleSubmit}
       noValidate
-      className="mx-auto w-full max-w-[500px] rounded-[28px] border border-white/12 bg-[rgba(13,19,25,0.94)] p-3 shadow-[0_28px_80px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:p-4"
+      className="mx-auto w-full max-w-[500px] rounded-[28px] border border-foreground/12 bg-panel p-3 shadow-[var(--shadow)] backdrop-blur-xl sm:p-4"
       aria-label="Aurove swap"
     >
       <div className="flex items-center justify-between px-2 pb-3 pt-1">
         <div>
-          <h2 className="text-lg font-semibold text-white">Swap</h2>
-          <p className="flex items-center gap-1.5 text-xs text-white/42" aria-live="polite">
+          <h2 className="text-lg font-semibold text-foreground">Swap</h2>
+          <p className="flex items-center gap-1.5 text-xs text-foreground/42" aria-live="polite">
             Swap through Mezo CL and AMM
             {registry && registryQuery.isError ? (
               <>
                 <span>·</span>
-                <span className="text-amber-200/75">Using cached markets</span>
+                <span className="text-amber-800/80 dark:text-amber-200/75">Using cached markets</span>
               </>
             ) : registry && registryQuery.isFetching ? (
               <>
@@ -926,8 +926,8 @@ export function SwapPage() {
         </Button>
       </div>
       {settingsOpen ? (
-        <div className="mb-3 grid grid-cols-2 gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-xs">
-          <label className="space-y-1 text-white/55">
+        <div className="mb-3 grid grid-cols-2 gap-3 rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-3 text-xs">
+          <label className="space-y-1 text-foreground/55">
             <span>Slippage tolerance</span>
             <span className="flex items-center gap-1">
               <Input
@@ -945,7 +945,7 @@ export function SwapPage() {
               <span>%</span>
             </span>
           </label>
-          <label className="space-y-1 text-white/55">
+          <label className="space-y-1 text-foreground/55">
             <span>Deadline</span>
             <span className="flex items-center gap-1">
               <Input
@@ -999,7 +999,7 @@ export function SwapPage() {
             variant="secondary"
             onClick={reverse}
             disabled={!canReverse}
-            className="h-9 w-9 rounded-xl border-4 border-[#0d1319]"
+            className="h-9 w-9 rounded-xl border-4 border-panel"
             aria-label={canReverse ? "Reverse swap direction" : "Reverse route unavailable"}
           >
             <ArrowDown className="h-4 w-4" />
@@ -1021,7 +1021,7 @@ export function SwapPage() {
       </div>
       {activeQuote && supportedPlan ? (
         <div className="mt-3 rounded-xl px-2 py-2 text-xs">
-          <div className="flex items-center justify-between gap-3 text-white/62">
+          <div className="flex items-center justify-between gap-3 text-foreground/62">
             <button
               type="button"
               onClick={() =>
@@ -1029,10 +1029,10 @@ export function SwapPage() {
               }
               className="min-w-0 flex-1 text-left"
             >
-              <span className="block truncate font-medium text-white/80">
+              <span className="block truncate font-medium text-foreground/80">
                 {routeModeText} · {routeText}
               </span>
-              <span className="mt-0.5 block truncate text-white/42">
+              <span className="mt-0.5 block truncate text-foreground/42">
                 {activeQuote.routeLabel} ·{" "}
                 {activeRouteCandidate ? routeQualityText(activeRouteCandidate) : "Route ready"}
               </span>
@@ -1042,7 +1042,7 @@ export function SwapPage() {
               onClick={() =>
                 setOpenDetailsKey((value) => (value === detailsKey ? undefined : detailsKey))
               }
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-white/62 transition hover:bg-white/[0.06] hover:text-white"
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-foreground/62 transition hover:bg-foreground/[0.06] hover:text-foreground"
               aria-label={detailsOpen ? "Close swap details" : "Open swap details"}
               aria-expanded={detailsOpen}
             >
@@ -1054,7 +1054,7 @@ export function SwapPage() {
             </button>
           </div>
           {detailsOpen ? (
-            <div className="mt-3 space-y-2 border-t border-white/8 pt-3">
+            <div className="mt-3 space-y-2 border-t border-foreground/8 pt-3">
               <div className="space-y-2">
                 <button
                   type="button"
@@ -1062,21 +1062,21 @@ export function SwapPage() {
                   className={cn(
                     "grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-xl border p-3 text-left transition",
                     !selectedRouteCandidate
-                      ? "border-[#b58f5f]/60 bg-[#b58f5f]/12"
-                      : "border-white/10 bg-white/[0.025] hover:bg-white/[0.06]",
+                      ? "border-[var(--accent)]/60 bg-[var(--accent)]/12"
+                      : "border-foreground/10 bg-foreground/[0.025] hover:bg-foreground/[0.06]",
                   )}
                 >
                   <span className="min-w-0">
-                    <span className="block truncate font-semibold text-white">
+                    <span className="block truncate font-semibold text-foreground">
                       Auto · {routeTextFor(bestRouteCandidate?.hops ?? [])}
                     </span>
-                    <span className="mt-1 block truncate text-white/45">
+                    <span className="mt-1 block truncate text-foreground/45">
                       {bestRouteCandidate
                         ? `${bestRouteCandidate.label} · ${routeQualityText(bestRouteCandidate)}`
                         : "Best executable route"}
                     </span>
                   </span>
-                  <span className="text-right font-semibold text-emerald-100">Best</span>
+                  <span className="text-right font-semibold text-emerald-700 dark:text-emerald-100">Best</span>
                 </button>
                 {routeCandidates.map((route) => (
                   <button
@@ -1090,27 +1090,27 @@ export function SwapPage() {
                     className={cn(
                       "grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-xl border p-3 text-left transition",
                       selectedRouteCandidate?.id === route.id
-                        ? "border-[#b58f5f]/60 bg-[#b58f5f]/12"
-                        : "border-white/10 bg-white/[0.025] hover:bg-white/[0.06]",
+                        ? "border-[var(--accent)]/60 bg-[var(--accent)]/12"
+                        : "border-foreground/10 bg-foreground/[0.025] hover:bg-foreground/[0.06]",
                     )}
                   >
                     <span className="min-w-0">
-                      <span className="block truncate font-semibold text-white">
+                      <span className="block truncate font-semibold text-foreground">
                         {route.label} · {routeTextFor(route.hops)}
                       </span>
-                      <span className="mt-1 block truncate text-white/45">
+                      <span className="mt-1 block truncate text-foreground/45">
                         {routeQualityText(route)} · {route.hopCount} hop
                         {route.hopCount === 1 ? "" : "s"}
                       </span>
                     </span>
                     <span className="text-right">
-                      <span className="block font-semibold text-white">
+                      <span className="block font-semibold text-foreground">
                         {amountText(
                           tradeType === "exactInput" ? route.amountOut : route.amountIn,
                           tradeType === "exactInput" ? buy : sell,
                         )}
                       </span>
-                      <span className="text-white/42">
+                      <span className="text-foreground/42">
                         {routeDeltaText(
                           route,
                           bestRouteCandidate,
@@ -1121,24 +1121,24 @@ export function SwapPage() {
                   </button>
                 ))}
               </div>
-              <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.025] p-3">
+              <div className="space-y-2 rounded-xl border border-foreground/10 bg-foreground/[0.025] p-3">
                 {sell?.form === "venft" || sell?.form === "tranche" ? (
                   <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-                    <span className="truncate font-medium text-white/82">{sell.symbol}</span>
-                    <span className="rounded-lg bg-white/[0.06] px-2 py-1 text-[11px] text-white/48">
+                    <span className="truncate font-medium text-foreground/82">{sell.symbol}</span>
+                    <span className="rounded-lg bg-foreground/[0.06] px-2 py-1 text-[11px] text-foreground/48">
                       Deposit
                     </span>
-                    <span className="truncate text-right font-medium text-white/82">
+                    <span className="truncate text-right font-medium text-foreground/82">
                       ERC1155 units
                     </span>
                   </div>
                 ) : sell?.form === "underlying" ? (
                   <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-                    <span className="truncate font-medium text-white/82">{sell.symbol}</span>
-                    <span className="rounded-lg bg-white/[0.06] px-2 py-1 text-[11px] text-white/48">
+                    <span className="truncate font-medium text-foreground/82">{sell.symbol}</span>
+                    <span className="rounded-lg bg-foreground/[0.06] px-2 py-1 text-[11px] text-foreground/48">
                       Aurove
                     </span>
-                    <span className="truncate text-right font-medium text-white/82">
+                    <span className="truncate text-right font-medium text-foreground/82">
                       {activeQuote.legs[0]?.tokenIn
                         ? routeSymbol(activeQuote.legs[0].tokenIn)
                         : "ID20"}
@@ -1150,13 +1150,13 @@ export function SwapPage() {
                     key={`${leg.type}:${leg.pool ?? index}:${leg.tokenIn ?? ""}:${leg.tokenOut ?? ""}`}
                     className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2"
                   >
-                    <span className="truncate font-medium text-white/82">
+                    <span className="truncate font-medium text-foreground/82">
                       {leg.tokenIn ? routeSymbol(leg.tokenIn) : index === 0 ? sell?.symbol : "Asset"}
                     </span>
-                    <span className="rounded-lg bg-white/[0.06] px-2 py-1 text-[11px] text-white/48">
+                    <span className="rounded-lg bg-foreground/[0.06] px-2 py-1 text-[11px] text-foreground/48">
                       {leg.label}
                     </span>
-                    <span className="truncate text-right font-medium text-white/82">
+                    <span className="truncate text-right font-medium text-foreground/82">
                       {leg.tokenOut ? routeSymbol(leg.tokenOut) : buy?.symbol}
                     </span>
                   </div>
@@ -1233,12 +1233,12 @@ export function SwapPage() {
         </div>
       ) : null}
       {activeQuote && (activeQuote.priceImpactBps ?? 0) >= 500 ? (
-        <div className="mx-2 mt-2 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs text-amber-100">
+        <div className="mx-2 mt-2 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-100">
           High price impact. Review this route carefully.
         </div>
       ) : null}
       {formik.submitCount > 0 && formError ? (
-        <p role="alert" className="mx-2 mt-2 text-xs text-red-200">
+        <p role="alert" className="mx-2 mt-2 text-xs text-red-700 dark:text-red-200">
           {formError}
         </p>
       ) : null}
@@ -1254,7 +1254,7 @@ export function SwapPage() {
         <button
           type="button"
           onClick={execution.reset}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm text-emerald-100"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3 text-sm text-emerald-800 dark:text-emerald-100"
         >
           <Check className="h-4 w-4" /> Swap confirmed
         </button>
@@ -1262,7 +1262,7 @@ export function SwapPage() {
         <button
           type="button"
           onClick={execution.reset}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-300/20 bg-red-300/10 p-3 text-sm text-red-100"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-sm text-red-800 dark:text-red-100"
         >
           <XCircle className="h-4 w-4" />
           {execution.state === "failed-simulation" ? "Simulation failed: " : ""}
@@ -1277,14 +1277,14 @@ export function SwapPage() {
           if (!open && execution.state === "reviewing") dismissReview();
         }}
       >
-        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md border-white/12 bg-[#111820]">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md border-foreground/12 bg-panel">
           <DialogHeader>
             <DialogTitle>Review swap</DialogTitle>
             <DialogDescription>
               Confirm the exact route that will be simulated and submitted.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+          <div className="space-y-3 rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
             <DetailRow
               label="You sell"
               value={`${amountText(supportedPlan?.amountIn, sell)} ${sell?.symbol ?? ""}`}

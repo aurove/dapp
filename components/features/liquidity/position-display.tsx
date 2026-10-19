@@ -38,7 +38,7 @@ export function TokenMark({ token, className }: { token?: TokenMeta; className?:
   return (
     <span
       className={cn(
-        "grid shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#18222b]",
+        "grid shrink-0 overflow-hidden rounded-full border border-foreground/10 bg-panel",
         className,
       )}
     >
@@ -64,7 +64,7 @@ export function TokenPair({ token0, token1 }: { token0?: TokenMeta; token1?: Tok
         <span
           key={`${mark.family}-${index}`}
           className={cn(
-            "absolute grid overflow-hidden rounded-full border-2 border-[#10161c] bg-[#18222b]",
+            "absolute grid overflow-hidden rounded-full border-2 border-[#10161c] bg-panel",
             index === 0 ? "left-0 top-0 h-11 w-11" : "bottom-0 right-0 h-7 w-7",
           )}
         >
@@ -82,19 +82,19 @@ export function TokenPair({ token0, token1 }: { token0?: TokenMeta; token1?: Tok
 }
 
 export function statusOf(position: Position) {
-  if (position.liquidity === 0n) return { label: "Closed", help: "Closed — no active liquidity", tone: "border-white/15 bg-white/5 text-white/60" };
+  if (position.liquidity === 0n) return { label: "Closed", help: "Closed — no active liquidity", tone: "border-foreground/15 bg-foreground/5 text-foreground/60" };
   if (position.isStaked) {
     if (position.currentTick === undefined) {
-      return { label: "Staked", help: "Staked in gauge — earning emissions", tone: "border-sky-300/25 bg-sky-300/10 text-sky-100" };
+      return { label: "Staked", help: "Staked in gauge — earning emissions", tone: "border-sky-300/25 bg-sky-300/10 text-sky-800 dark:text-sky-100" };
     }
     const active = position.currentTick >= position.tickLower && position.currentTick < position.tickUpper;
     return active
-      ? { label: "Staked · In range", help: "Staked and in range — earning swap fees and gauge emissions", tone: "border-sky-300/25 bg-sky-300/10 text-sky-100" }
-      : { label: "Staked · Out of range", help: "Staked but out of range — still earning gauge emissions", tone: "border-sky-300/25 bg-sky-300/10 text-sky-100" };
+      ? { label: "Staked · In range", help: "Staked and in range — earning swap fees and gauge emissions", tone: "border-sky-300/25 bg-sky-300/10 text-sky-800 dark:text-sky-100" }
+      : { label: "Staked · Out of range", help: "Staked but out of range — still earning gauge emissions", tone: "border-sky-300/25 bg-sky-300/10 text-sky-800 dark:text-sky-100" };
   }
-  if (position.currentTick === undefined) return { label: "Unavailable", help: "Pool status is temporarily unavailable", tone: "border-white/15 bg-white/5 text-white/60" };
+  if (position.currentTick === undefined) return { label: "Unavailable", help: "Pool status is temporarily unavailable", tone: "border-foreground/15 bg-foreground/5 text-foreground/60" };
   const active = position.currentTick >= position.tickLower && position.currentTick < position.tickUpper;
   return active
-    ? { label: "In range", help: "In range — earning swap fees", tone: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100" }
-    : { label: "Out of range", help: "Out of range — not currently earning swap fees", tone: "border-amber-300/25 bg-amber-300/10 text-amber-100" };
+    ? { label: "In range", help: "In range — earning swap fees", tone: "border-emerald-300/25 bg-emerald-300/10 text-emerald-800 dark:text-emerald-100" }
+    : { label: "Out of range", help: "Out of range — not currently earning swap fees", tone: "border-amber-300/25 bg-amber-300/10 text-amber-900 dark:text-amber-100" };
 }

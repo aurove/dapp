@@ -100,8 +100,8 @@ function createInitialPoolFormState(): Record<LiquidityPoolKey, PoolFormState> {
 
 function poolButtonTone(selected: boolean) {
   return selected
-    ? "border-[var(--accent)]/60 bg-[linear-gradient(180deg,rgba(196,160,106,0.16),rgba(196,160,106,0.08))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-    : "border-transparent bg-transparent text-white/68 hover:border-white/10 hover:bg-white/[0.03]";
+    ? "border-[var(--accent)]/60 bg-[var(--accent)]/12 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)]"
+    : "border-transparent bg-transparent text-foreground/68 hover:border-foreground/10 hover:bg-foreground/[0.03]";
 }
 
 function TokenMarkStack({ symbol }: { symbol: LiquidityPoolKey }) {
@@ -109,7 +109,7 @@ function TokenMarkStack({ symbol }: { symbol: LiquidityPoolKey }) {
 
   return (
     <div className="relative h-12 w-12 shrink-0 sm:h-14 sm:w-14">
-      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[var(--accent)]/35 bg-[rgba(196,160,106,0.08)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:h-14 sm:w-14">
+      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[var(--accent)]/35 bg-[var(--accent)]/10 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)] sm:h-14 sm:w-14">
         <Image
           src={tokenImage}
           alt={`${symbol} token`}
@@ -118,7 +118,7 @@ function TokenMarkStack({ symbol }: { symbol: LiquidityPoolKey }) {
           className="h-full w-full object-contain"
         />
       </div>
-      <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#0c1117] shadow-[0_8px_18px_rgba(0,0,0,0.35)] sm:h-7 sm:w-7">
+      <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-foreground/15 bg-panel shadow-[var(--shadow)] sm:h-7 sm:w-7">
         <Image
           src="/tokens/Aurove.png"
           alt="Aurove"
@@ -167,10 +167,10 @@ function QuoteStat({
   testId?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/42">{label}</p>
-      <p data-testid={testId} className="mt-2 text-lg font-semibold text-white">{value}</p>
-      <p className="mt-1 text-xs leading-5 text-white/48">{detail}</p>
+    <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground/42">{label}</p>
+      <p data-testid={testId} className="mt-2 text-lg font-semibold text-foreground">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-foreground/48">{detail}</p>
     </div>
   );
 }
@@ -543,11 +543,11 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
     ? ["assetB", "assetA"]
     : ["assetA", "assetB"];
   const statusTone: Record<SlipstreamLiquidityQuote["status"], string> = {
-    ok: "border-emerald-300/25 bg-emerald-300/10 text-emerald-100",
-    "insufficient-balance": "border-rose-300/25 bg-rose-300/10 text-rose-100",
-    "unsupported-input-combination": "border-amber-300/25 bg-amber-300/10 text-amber-100",
-    "invalid-range": "border-rose-300/25 bg-rose-300/10 text-rose-100",
-    "unavailable-quote": "border-white/15 bg-white/[0.04] text-white/70",
+    ok: "border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100",
+    "insufficient-balance": "border-rose-500/25 bg-rose-500/10 text-rose-800 dark:text-rose-100",
+    "unsupported-input-combination": "border-amber-500/25 bg-amber-500/10 text-amber-900 dark:text-amber-100",
+    "invalid-range": "border-rose-500/25 bg-rose-500/10 text-rose-800 dark:text-rose-100",
+    "unavailable-quote": "border-foreground/15 bg-foreground/[0.04] text-foreground/70",
   };
 
   const statusLabel: Record<SlipstreamLiquidityQuote["status"], string> = {
@@ -559,22 +559,22 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
   };
 
   return (
-    <Card className="relative overflow-hidden border border-white/12 bg-[linear-gradient(160deg,rgba(19,24,33,0.98),rgba(10,13,18,0.98))] shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
+    <Card className="relative overflow-hidden border border-foreground/12 shadow-[var(--shadow)]">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(196,160,106,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(96,128,194,0.12),transparent_32%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_srgb,var(--accent)_12%,transparent),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(96,128,194,0.1),transparent_32%)]"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(234,209,165,0.36),transparent)]"
+        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--accent)_42%,transparent),transparent)]"
       />
 
       <form onSubmit={formik.handleSubmit} noValidate>
 
-      <CardHeader className="relative space-y-4 border-b border-white/10 p-5 sm:p-6">
+      <CardHeader className="relative space-y-4 border-b border-foreground/10 p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--accent)]/35 bg-[linear-gradient(160deg,rgba(196,160,106,0.16),rgba(196,160,106,0.05))] text-[var(--accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--accent)]/35 bg-[var(--accent)]/12 text-[var(--accent)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)]">
               <ArrowRightLeft className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
@@ -588,7 +588,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
               type="button"
               title="Choose the pool you want to add liquidity to."
               aria-label="Choose the pool you want to add liquidity to."
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.03] text-white/55 transition hover:border-[var(--accent)]/40 hover:bg-white/[0.06] hover:text-white"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/12 bg-foreground/[0.03] text-foreground/55 transition hover:border-[var(--accent)]/40 hover:bg-foreground/[0.06] hover:text-foreground"
             >
               <Info className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -601,13 +601,13 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
       <CardContent className="relative space-y-5 p-5 sm:p-6">
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm">
-            <label className="font-medium text-white">Pool</label>
-            <span className="text-white/45">
+            <label className="font-medium text-foreground">Pool</label>
+            <span className="text-foreground/45">
               {availablePools.length === 0 ? "No pools available" : `${availablePools.length} available`}
             </span>
           </div>
 
-          <div id="liquidity-pool-selector" tabIndex={-1} className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">
+          <div id="liquidity-pool-selector" tabIndex={-1} className="grid grid-cols-2 gap-2 rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">
             {poolOptions.map((poolOption) => {
               const selected = selectedPool === poolOption.key;
 
@@ -621,13 +621,13 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
                   className={cn(
                     "flex min-h-16 items-center justify-center gap-3 rounded-xl border px-4 py-3 text-left text-sm font-medium transition sm:min-h-18 sm:justify-start",
                     poolButtonTone(selected),
-                    !poolOption.available && "cursor-not-allowed opacity-40 hover:border-white/10 hover:bg-transparent",
+                    !poolOption.available && "cursor-not-allowed opacity-40 hover:border-foreground/10 hover:bg-transparent",
                   )}
                 >
                   <TokenMarkStack symbol={poolOption.key} />
                   <div className="min-w-0 space-y-0.5">
-                    <p className="text-base font-semibold text-white">{poolOption.key}</p>
-                    <p className="text-xs text-white/45">{poolOption.label}</p>
+                    <p className="text-base font-semibold text-foreground">{poolOption.key}</p>
+                    <p className="text-xs text-foreground/45">{poolOption.label}</p>
                   </div>
                 </button>
               );
@@ -637,8 +637,8 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
 
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm">
-            <label className="font-medium text-white">Concentrated range</label>
-            <span className="text-white/45">Slipstream adapter</span>
+            <label className="font-medium text-foreground">Concentrated range</label>
+            <span className="text-foreground/45">Slipstream adapter</span>
           </div>
 
           {availablePools.length > 0 ? (
@@ -651,17 +651,17 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
               onSelectionChange={handleGraphSelection}
             />
           ) : (
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] px-5 py-8 text-sm text-white/45">
+            <div className="rounded-3xl border border-foreground/10 bg-foreground/[0.03] px-5 py-8 text-sm text-foreground/45">
               No pool is currently available on this network.
             </div>
           )}
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-2 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+          <div className="space-y-2 rounded-[24px] border border-foreground/10 bg-foreground/[0.03] p-4">
             <div className="flex items-center justify-between gap-3">
-              <label className="text-sm font-medium text-white">Low price</label>
-              <span className="text-xs text-white/40">
+              <label className="text-sm font-medium text-foreground">Low price</label>
+              <span className="text-xs text-foreground/40">
                 {formatDisplayPair(pool)}
               </span>
             </div>
@@ -684,14 +684,14 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
                 }));
               }}
               placeholder="0.0000149"
-              className="h-16 w-full rounded-2xl border border-white/10 bg-[#0d1319] px-4 text-2xl font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-[var(--accent)]/50"
+              className="h-16 w-full rounded-2xl border border-foreground/10 bg-panel px-4 text-2xl font-semibold text-foreground outline-none transition placeholder:text-foreground/20 focus:border-[var(--accent)]/50"
             />
           </div>
 
-          <div className="space-y-2 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+          <div className="space-y-2 rounded-[24px] border border-foreground/10 bg-foreground/[0.03] p-4">
             <div className="flex items-center justify-between gap-3">
-              <label className="text-sm font-medium text-white">High price</label>
-              <span className="text-xs text-white/40">
+              <label className="text-sm font-medium text-foreground">High price</label>
+              <span className="text-xs text-foreground/40">
                 {formatDisplayPair(pool)}
               </span>
             </div>
@@ -714,13 +714,13 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
                 }));
               }}
               placeholder="0.0000161"
-              className="h-16 w-full rounded-2xl border border-white/10 bg-[#0d1319] px-4 text-2xl font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-[var(--accent)]/50"
+              className="h-16 w-full rounded-2xl border border-foreground/10 bg-panel px-4 text-2xl font-semibold text-foreground outline-none transition placeholder:text-foreground/20 focus:border-[var(--accent)]/50"
             />
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
-          <p className="text-xs leading-5 text-white/46">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-foreground/10 bg-foreground/[0.02] px-4 py-3">
+          <p className="text-xs leading-5 text-foreground/46">
             Manual range uses {formatDisplayPair(pool)} pricing and snaps to the pool tick spacing when applied.
           </p>
           <Button
@@ -770,7 +770,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
           })}
         </div>
 
-        <div className="space-y-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] p-4 sm:p-5">
+        <div className="space-y-4 rounded-[28px] border border-foreground/10 bg-foreground/[0.03] p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -782,26 +782,26 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
                   {statusLabel[quote.status]}
                 </Badge>
               </div>
-              <p className="text-sm text-white/55">
+              <p className="text-sm text-foreground/55">
                 {rangeLabel}
               </p>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-white/45">
+            <div className="flex items-center gap-2 text-xs text-foreground/45">
               <Wallet className="h-4 w-4" aria-hidden="true" />
               {selectedSourceCount} source{selectedSourceCount === 1 ? "" : "s"} selected
             </div>
           </div>
 
           {quote.errorMessage ? (
-            <div className="flex items-start gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/8 px-4 py-3 text-sm text-amber-50/90">
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <p>{quote.errorMessage}</p>
             </div>
           ) : null}
 
           {inactiveRequiredId20s.length > 0 ? (
-            <div className="flex items-start gap-3 rounded-2xl border border-sky-300/20 bg-sky-300/8 px-4 py-3 text-sm text-sky-50/90">
+            <div className="flex items-start gap-3 rounded-2xl border border-sky-500/25 bg-sky-500/10 px-4 py-3 text-sm text-sky-900 dark:text-sky-100">
               <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <p>
                 Activate {inactiveRequiredId20s.map((item) => item.symbol).join(" and ")} rewards before

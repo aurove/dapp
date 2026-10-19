@@ -7,6 +7,7 @@ import { NotificationsToaster } from "@/lib/notifications";
 import { GlobalPriceTicker } from "@/components/market/global-price-ticker";
 import { GTag } from "@/components/site/gtag";
 import { Hotjar } from "@/components/site/hotjar";
+import { resolveAppTheme, themeColorFor } from "@/lib/config/theme";
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_KEYWORDS,
@@ -17,6 +18,9 @@ import {
   SITE_URL,
   TWITTER_HANDLE,
 } from "@/lib/seo/site";
+
+const appTheme = resolveAppTheme();
+const themeColor = themeColorFor(appTheme);
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -74,16 +78,13 @@ export const metadata: Metadata = {
     site: TWITTER_HANDLE,
   },
   other: {
-    "theme-color": "#0a0f15",
+    "theme-color": themeColor,
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0a0f15" },
-    { media: "(prefers-color-scheme: light)", color: "#0a0f15" },
-  ],
-  colorScheme: "dark",
+  themeColor,
+  colorScheme: appTheme,
   width: "device-width",
   initialScale: 1,
 };
@@ -94,8 +95,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
+    <html lang="en" className={`h-full antialiased ${appTheme}`} data-theme={appTheme}>
+      <body className="min-h-full flex flex-col bg-background text-foreground">
         <GTag />
         <Hotjar />
         <Web3Providers>

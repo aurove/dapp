@@ -215,8 +215,8 @@ export function useSlipstreamPoolState(chainId: number, poolKey: SlipstreamPoolK
 
 function classForPreset(selected: boolean) {
   return selected
-    ? "border-[var(--accent)]/50 bg-[linear-gradient(180deg,rgba(196,160,106,0.16),rgba(196,160,106,0.08))] text-white"
-    : "border-white/10 bg-white/[0.03] text-white/68 hover:border-white/15 hover:bg-white/[0.05] hover:text-white";
+    ? "border-[var(--accent)]/50 bg-[var(--accent)]/12 text-foreground"
+    : "border-foreground/10 bg-foreground/[0.03] text-foreground/68 hover:border-foreground/15 hover:bg-foreground/[0.05] hover:text-foreground";
 }
 
 export function LiquidityRangeGraph({
@@ -586,29 +586,29 @@ export function LiquidityRangeGraph({
   ]);
 
   return (
-    <div className="space-y-4 rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-5">
+    <div className="space-y-4 rounded-3xl border border-foreground/10 bg-foreground/[0.03] p-4 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent)] sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-medium text-white">Price range</p>
-            <Badge className="border-white/10 bg-white/[0.04] text-white/70">{presetLabel}</Badge>
+            <p className="text-sm font-medium text-foreground">Price range</p>
+            <Badge className="border-foreground/10 bg-foreground/[0.04] text-foreground/70">{presetLabel}</Badge>
             {depthQuery.data?.status === "complete" ? (
-              <Badge className="border-emerald-400/20 bg-emerald-400/10 text-emerald-100">
+              <Badge className="border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100">
                 On-chain liquidity
               </Badge>
             ) : depthQuery.data?.status === "partial" ? (
-              <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-100">
+              <Badge className="border-amber-500/25 bg-amber-500/10 text-amber-900 dark:text-amber-100">
                 Partial on-chain data
               </Badge>
             ) : depthError ? (
-              <Badge className="border-rose-300/20 bg-rose-300/10 text-rose-100">Unavailable</Badge>
+              <Badge className="border-rose-500/25 bg-rose-500/10 text-rose-800 dark:text-rose-100">Unavailable</Badge>
             ) : (
-              <Badge className="border-white/10 bg-white/[0.04] text-white/55">
+              <Badge className="border-foreground/10 bg-foreground/[0.04] text-foreground/55">
                 Loading pool depth
               </Badge>
             )}
           </div>
-          <p className="text-xs text-white/45">{formatDisplayPair(pool)}</p>
+          <p className="text-xs text-foreground/45">{formatDisplayPair(pool)}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -640,7 +640,7 @@ export function LiquidityRangeGraph({
         data-testid="cl-liquidity-depth-chart"
         data-liquidity-source={depthQuery.data ? "on-chain" : "unavailable"}
         data-snapshot-block={depthQuery.data?.blockNumber.toString()}
-        className="relative h-[252px] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#090d13]"
+        className="relative h-[252px] w-full overflow-hidden rounded-2xl border border-foreground/10 bg-background"
       >
         {size.width > 0 &&
         xScale !== null &&
@@ -800,13 +800,13 @@ export function LiquidityRangeGraph({
               </Group>
             </svg>
 
-            <div className="pointer-events-none absolute left-3 top-2 text-[10px] font-medium uppercase tracking-[0.12em] text-white/38">
+            <div className="pointer-events-none absolute left-3 top-2 text-[10px] font-medium uppercase tracking-[0.12em] text-foreground/38">
               Raw active liquidity
             </div>
 
             {hoveredInterval && hoveredDisplayTicks ? (
-              <div className="pointer-events-none absolute right-3 top-3 z-30 max-w-[min(19rem,calc(100%-1.5rem))] rounded-xl border border-white/12 bg-[#10151d]/95 px-3 py-2 text-[11px] leading-5 text-white/68 shadow-2xl backdrop-blur">
-                <p className="font-medium text-white">
+              <div className="pointer-events-none absolute right-3 top-3 z-30 max-w-[min(19rem,calc(100%-1.5rem))] rounded-xl border border-foreground/12 bg-chrome/95 px-3 py-2 text-[11px] leading-5 text-foreground/68 shadow-2xl backdrop-blur">
+                <p className="font-medium text-foreground">
                   Tick {hoveredInterval.tickLower} → {hoveredInterval.tickUpper}
                 </p>
                 <p>
@@ -847,7 +847,7 @@ export function LiquidityRangeGraph({
                 }}
                 onKeyDown={(event) => handleRangeKeyDown(event, "lower")}
               >
-                <span className="flex h-10 w-3 items-center justify-center rounded-full border border-[rgba(196,160,106,0.38)] bg-[rgba(8,12,18,0.96)] shadow-[0_10px_24px_rgba(0,0,0,0.42)]">
+                <span className="flex h-10 w-3 items-center justify-center rounded-full border border-[var(--accent)]/40 bg-chrome shadow-[var(--shadow)]">
                   <span className="h-5 w-1 rounded-full bg-[var(--accent)]/90" />
                 </span>
               </button>
@@ -871,19 +871,19 @@ export function LiquidityRangeGraph({
                 }}
                 onKeyDown={(event) => handleRangeKeyDown(event, "upper")}
               >
-                <span className="flex h-10 w-3 items-center justify-center rounded-full border border-[rgba(196,160,106,0.38)] bg-[rgba(8,12,18,0.96)] shadow-[0_10px_24px_rgba(0,0,0,0.42)]">
+                <span className="flex h-10 w-3 items-center justify-center rounded-full border border-[var(--accent)]/40 bg-chrome shadow-[var(--shadow)]">
                   <span className="h-5 w-1 rounded-full bg-[var(--accent)]/90" />
                 </span>
               </button>
             ) : null}
 
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between px-4 pb-3 text-[11px] text-white/40">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between px-4 pb-3 text-[11px] text-foreground/40">
               <span>
                 {leftVisibleTick === null
                   ? "—"
                   : (formatTickPrice({ pool, tick: leftVisibleTick }) ?? `Tick ${leftVisibleTick}`)}
               </span>
-              <span data-testid="depth-chart-current-price" className="text-white/55">
+              <span data-testid="depth-chart-current-price" className="text-foreground/55">
                 {currentPriceText ?? "Current price unavailable"}
               </span>
               <span>
@@ -895,7 +895,7 @@ export function LiquidityRangeGraph({
             </div>
 
             {!hasVisibleLiquidity ? (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-12 text-center text-xs text-white/48">
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-12 text-center text-xs text-foreground/48">
                 Zero active pool liquidity in this viewport.
               </div>
             ) : null}
@@ -905,12 +905,12 @@ export function LiquidityRangeGraph({
         {depthError ? (
           <div
             role="status"
-            className="flex h-full items-center justify-center px-6 text-center text-sm text-rose-100/78"
+            className="flex h-full items-center justify-center px-6 text-center text-sm text-rose-800/78 dark:text-rose-100/78"
           >
             Pool liquidity data is unavailable. {depthError}
           </div>
         ) : size.width === 0 || !xScale || !yScale || !visibleRange || !depthQuery.data ? (
-          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/45">
+          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-foreground/45">
             Loading initialized ticks and active liquidity...
           </div>
         ) : null}
@@ -918,24 +918,24 @@ export function LiquidityRangeGraph({
 
       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
         <div className="space-y-2">
-          <div className="flex flex-wrap gap-2 text-xs text-white/60">
-            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+          <div className="flex flex-wrap gap-2 text-xs text-foreground/60">
+            <span className="rounded-full border border-foreground/10 bg-foreground/[0.03] px-3 py-1">
               Lower: {rangeText?.lower ?? "Unavailable"}
             </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+            <span className="rounded-full border border-foreground/10 bg-foreground/[0.03] px-3 py-1">
               Upper: {rangeText?.upper ?? "Unavailable"}
             </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+            <span className="rounded-full border border-foreground/10 bg-foreground/[0.03] px-3 py-1">
               Current tick: {currentTick ?? "Unavailable"}
             </span>
           </div>
-          <p className="text-xs leading-relaxed text-white/42">
+          <p className="text-xs leading-relaxed text-foreground/42">
             Gold depth is raw active pool liquidity reconstructed between initialized ticks. Blue is
             the proposed range{referenceRange ? "; the gold outline is the current position range" : ""}.
             Handles snap to pool tick spacing; zoom changes only the viewport.
           </p>
           {depthQuery.data?.status === "partial" ? (
-            <p role="status" className="text-xs leading-relaxed text-amber-100/72">
+            <p role="status" className="text-xs leading-relaxed text-amber-900/80 dark:text-amber-100/72">
               Partial data: ticks outside {depthQuery.data.coverage.tickLower} to{" "}
               {depthQuery.data.coverage.tickUpper} were not loaded and are not represented.
             </p>

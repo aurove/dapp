@@ -34,7 +34,7 @@ export function VotePageSkeleton() {
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {[0, 1].map((item) => (
-          <Card key={item} className="border-white/10 bg-white/[0.035]">
+          <Card key={item} className="border-foreground/10 bg-foreground/[0.035]">
             <CardHeader className="space-y-2">
               <Skeleton className="h-6 w-36 rounded-full" />
             </CardHeader>
@@ -47,12 +47,12 @@ export function VotePageSkeleton() {
                 <Skeleton className="h-4 w-40 rounded-full" />
                 <Skeleton className="h-5 w-32 rounded-full" />
               </div>
-              <div className="space-y-2 rounded-lg border border-white/10 p-3">
+              <div className="space-y-2 rounded-lg border border-foreground/10 p-3">
                 <Skeleton className="h-4 w-28 rounded-full" />
                 <Skeleton className="h-7 w-36 rounded-full" />
                 <Skeleton className="h-7 w-32 rounded-full" />
               </div>
-              <div className="space-y-2 rounded-lg border border-white/10 p-3">
+              <div className="space-y-2 rounded-lg border border-foreground/10 p-3">
                 <Skeleton className="h-4 w-28 rounded-full" />
                 <Skeleton className="h-4 w-40 rounded-full" />
                 <Skeleton className="h-4 w-full rounded-full" />
@@ -219,7 +219,7 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
       )}
       {query.isPending && <VotePageSkeleton />}
       {query.isError && (
-        <div role="alert" className="text-red-300">
+        <div role="alert" className="text-red-700 dark:text-red-300">
           Unable to load current voting data: {query.error.message}{" "}
           <Button onClick={() => void query.refetch()}>Retry</Button>
         </div>
@@ -227,7 +227,7 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
       {data && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <p className="text-white/60">This voting round</p>
+            <p className="text-foreground/60">This voting round</p>
             <p>
               {Math.floor(Number(data.next - data.now) / 86400)}d{" "}
               {Math.floor((Number(data.next - data.now) % 86400) / 3600)}h left
@@ -254,7 +254,7 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
                   <label className="flex flex-wrap items-center gap-3">
                     Choose your veBTC position
                     <select
-                      className="rounded border border-white/20 bg-black p-2"
+                      className="rounded border border-foreground/20 bg-black p-2"
                       value={user?.id.toString() ?? ""}
                       disabled={pending}
                       onChange={(e) => {
@@ -278,9 +278,9 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
                       Available power: {amount(user.power)} veBTC · Allocated: {amount(user.used)}{" "}
                       veBTC
                     </p>
-                    <p className="text-sm text-white/60">You can vote once each round.</p>
+                    <p className="text-sm text-foreground/60">You can vote once each round.</p>
                     <details className="space-y-2">
-                      <summary className="cursor-pointer text-sm text-white/60">
+                      <summary className="cursor-pointer text-sm text-foreground/60">
                         Your current votes
                       </summary>
                       {user.allocations.length ? (
@@ -293,13 +293,13 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
                           </p>
                         ))
                       ) : (
-                        <p className="text-white/50">No existing allocations.</p>
+                        <p className="text-foreground/50">No existing allocations.</p>
                       )}
                     </details>
                   </>
                 )}
                 {restriction && (
-                  <p role="status" className="text-amber-200">
+                  <p role="status" className="text-amber-800 dark:text-amber-200">
                     {restriction}
                   </p>
                 )}
@@ -308,17 +308,17 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
           )}
           <div className="grid gap-4 lg:grid-cols-2">
             {data.pools.map((p, i) => (
-              <Card key={p.target.poolAddress} className="border-white/10 bg-white/[0.035]">
+              <Card key={p.target.poolAddress} className="border-foreground/10 bg-foreground/[0.035]">
                 <CardHeader>
                   <h2 className="text-lg font-semibold">{p.target.pair.pairLabel}</h2>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-sm text-white/50">Share of votes</span>
+                    <span className="text-sm text-foreground/50">Share of votes</span>
                     <span className="text-xl font-medium">{voteShare(p.weight, data.total)}</span>
                   </div>
                   <div>
-                    <h3 className="text-sm text-white/50">Rewards for voters this round</h3>
+                    <h3 className="text-sm text-foreground/50">Rewards for voters this round</h3>
                     {p.incentives.tokens
                       .filter((t) => t.currentEpochIncentives !== 0n)
                       .map((t) => (
@@ -333,8 +333,8 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
                       <p>No rewards added yet.</p>
                     )}
                   </div>
-                  <div className="rounded-lg border border-white/10 p-3">
-                    <span className="text-sm text-white/50">Current epoch fees</span>
+                  <div className="rounded-lg border border-foreground/10 p-3">
+                    <span className="text-sm text-foreground/50">Current epoch fees</span>
                     {!p.accumulatedFees ? (
                       <p className="text-xl font-medium">Unavailable</p>
                     ) : p.accumulatedFees.every((fee) => fee.amount === 0n) ? (
@@ -349,7 +349,7 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
                       </div>
                     )}
                   </div>
-                  <div className="space-y-3 rounded-lg border border-white/10 p-3 text-sm">
+                  <div className="space-y-3 rounded-lg border border-foreground/10 p-3 text-sm">
                     <p>Total votes: {amount(p.weight)} veBTC</p>
                     <p>
                       Your vote:{" "}
@@ -390,7 +390,7 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
                               : "Connect and select a veBTC NFT to view your share."}
                           </p>
                         )}
-                        <p className="text-xs text-white/50">
+                        <p className="text-xs text-foreground/50">
                           Projection from your confirmed allocation, assuming reward balances, total
                           supply and posted incentives remain unchanged until epoch close. Not
                           claimable yet; draft votes are excluded.
@@ -406,7 +406,7 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
                         min="0"
                         max="100"
                         step="1"
-                        className="w-24 rounded border border-white/20 bg-transparent p-2"
+                        className="w-24 rounded border border-foreground/20 bg-transparent p-2"
                         value={values[i]}
                         disabled={pending || !!restriction || query.isError}
                         onChange={(e) => edit(p.target.poolAddress, e.target.value)}
@@ -425,7 +425,7 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
                   {review ? "Review allocation" : "Allocate voting power"}
                 </h2>
                 {review && (
-                  <p className="text-sm text-amber-100">
+                  <p className="text-sm text-amber-900 dark:text-amber-100">
                     This replaces all your current votes, including pools outside Aurove. You cannot
                     change them again this round.
                   </p>
@@ -440,7 +440,7 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
                         </p>
                       ),
                   )}
-                <p className="text-sm text-white/50">{validation ?? "Ready to review."}</p>
+                <p className="text-sm text-foreground/50">{validation ?? "Ready to review."}</p>
                 <Button
                   disabled={pending || !!restriction || !!validation || query.isError}
                   onClick={() => (review ? void submit() : setReview(true))}
@@ -455,7 +455,7 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
               </CardContent>
             </Card>
           )}
-          <details className="text-sm text-white/50">
+          <details className="text-sm text-foreground/50">
             <summary className="cursor-pointer">How voting works & data details</summary>
             <p className="mt-3">
               Round starts {new Date(Number(data.start) * 1000).toUTCString()}. Voting opens after{" "}
@@ -482,7 +482,7 @@ function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: Vote
         </>
       )}
       {message && (
-        <p role="status" className="break-words rounded-lg border border-white/15 p-4">
+        <p role="status" className="break-words rounded-lg border border-foreground/15 p-4">
           {message}
         </p>
       )}

@@ -12,7 +12,7 @@ const navItems = [
 
 export function TopNav() {
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-[rgba(8,11,15,0.82)] backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-chrome/82 backdrop-blur-xl">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="inline-flex items-center gap-2">
           <span className="text-lg font-semibold tracking-tight text-[var(--foreground)]">

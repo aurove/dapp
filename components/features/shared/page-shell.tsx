@@ -3,7 +3,7 @@ import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, cn } 
 
 export function FeatureHeroSection({ children }: { children: ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-white/12 bg-[linear-gradient(135deg,rgba(22,29,36,0.98),rgba(9,13,18,0.94))] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32)] md:p-7">
+    <section className="surface-card overflow-hidden rounded-2xl border border-foreground/12 p-5 shadow-[var(--shadow)] md:p-7">
       {children}
     </section>
   );
@@ -25,12 +25,12 @@ export function FeatureMetricCard({
   subtle?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-white/12 bg-white/[0.035] p-4">
-      <p className="text-xs font-medium uppercase text-white/45">{label}</p>
-      <p className={cn("mt-2 text-2xl font-semibold", subtle ? "text-white/70" : "text-white")}>
+    <div className="rounded-xl border border-foreground/12 bg-foreground/[0.035] p-4">
+      <p className="text-xs font-medium uppercase text-foreground/45">{label}</p>
+      <p className={cn("mt-2 text-2xl font-semibold", subtle ? "text-foreground/70" : "text-foreground")}>
         {value}
       </p>
-      {detail ? <p className="mt-1 text-xs text-white/45">{detail}</p> : null}
+      {detail ? <p className="mt-1 text-xs text-foreground/45">{detail}</p> : null}
     </div>
   );
 }
@@ -49,8 +49,8 @@ export function FeatureStatusPanel({
       className={cn(
         "flex items-start gap-3 rounded-xl border p-4 text-sm",
         tone === "success"
-          ? "border-emerald-300/25 bg-emerald-500/10 text-emerald-100"
-          : "border-red-300/25 bg-red-500/10 text-red-100",
+          ? "border-emerald-300/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100"
+          : "border-red-300/25 bg-red-500/10 text-red-800 dark:text-red-100",
       )}
     >
       <div className="mt-0.5 h-4 w-4 rounded-full border border-current/40" />
@@ -82,7 +82,7 @@ export function FeaturePanelCard({
             {description ? <CardDescription>{description}</CardDescription> : null}
           </div>
           {badge ? (
-            <Badge className="border-white/15 bg-white/[0.04] text-white/70">{badge}</Badge>
+            <Badge className="border-foreground/15 bg-foreground/[0.04] text-foreground/70">{badge}</Badge>
           ) : null}
         </div>
       </CardHeader>

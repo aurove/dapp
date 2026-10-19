@@ -91,7 +91,7 @@ export default async function DocArticlePage({ params }: PageProps) {
       <DocsArticle
         header={
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/40">
               {section}
             </p>
             {page.status ? <StatusBadge status={page.status} /> : null}
@@ -100,11 +100,11 @@ export default async function DocArticlePage({ params }: PageProps) {
         footer={
           <>
             {page.tags?.length ? (
-              <div className="mt-10 flex flex-wrap gap-1.5 border-t border-white/8 pt-6">
+              <div className="mt-10 flex flex-wrap gap-1.5 border-t border-foreground/8 pt-6">
                 {page.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-white/45"
+                    className="rounded-full border border-foreground/10 bg-foreground/[0.03] px-2 py-0.5 text-[11px] text-foreground/45"
                   >
                     {tag}
                   </span>

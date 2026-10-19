@@ -57,7 +57,7 @@ export function AddressRow({ entry }: { entry: DeploymentEntry }) {
       </td>
       <td>
         {entry.verification === "none" ? (
-          <span className="text-white/45">Not independently verified</span>
+          <span className="text-foreground/45">Not independently verified</span>
         ) : (
           <div className="flex flex-col items-start gap-1">
             <VerifiedTag entry={entry} />

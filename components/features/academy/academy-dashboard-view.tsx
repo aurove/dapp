@@ -57,14 +57,14 @@ function StatCard({
   icon: ComponentType<{ className?: string }>;
 }) {
   return (
-    <Card className="border-white/10 bg-white/[0.03]">
+    <Card className="border-foreground/10 bg-foreground/[0.03]">
       <CardContent className="flex items-start justify-between gap-3 p-4">
         <div className="space-y-1">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-white/45">{label}</p>
-          <p className="text-2xl font-semibold tracking-tight text-white">{value}</p>
-          {description ? <p className="text-xs leading-relaxed text-white/50">{description}</p> : null}
+          <p className="text-[11px] uppercase tracking-[0.24em] text-foreground/45">{label}</p>
+          <p className="text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+          {description ? <p className="text-xs leading-relaxed text-foreground/50">{description}</p> : null}
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-[#e6d2ad]">
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/5 p-3 text-[var(--accent)]">
           <Icon className="h-5 w-5" />
         </div>
       </CardContent>
@@ -74,7 +74,7 @@ function StatCard({
 
 function rankTone(rank: number) {
   if (rank === 1) {
-    return "border-amber-300/30 bg-amber-300/10 text-amber-100";
+    return "border-amber-300/30 bg-amber-300/10 text-amber-900 dark:text-amber-100";
   }
 
   if (rank === 2) {
@@ -82,10 +82,10 @@ function rankTone(rank: number) {
   }
 
   if (rank === 3) {
-    return "border-orange-300/25 bg-orange-300/10 text-orange-100";
+    return "border-orange-300/25 bg-orange-300/10 text-orange-800 dark:text-orange-100";
   }
 
-  return "border-white/10 bg-white/5 text-white/80";
+  return "border-foreground/10 bg-foreground/5 text-foreground/80";
 }
 
 type LeaderboardRowProps = {
@@ -107,7 +107,7 @@ function LeaderboardRow({ entry, onOpen, onPrefetch }: LeaderboardRowProps) {
         "flex w-full min-w-0 flex-col gap-2 rounded-2xl border p-3 text-left transition sm:flex-row sm:items-center sm:justify-between",
         entry.isCurrentUser
           ? "border-amber-300/30 bg-amber-300/[0.08] ring-1 ring-amber-300/20"
-          : "border-white/10 bg-white/[0.03]",
+          : "border-foreground/10 bg-foreground/[0.03]",
         "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/40",
       )}
     >
@@ -117,19 +117,19 @@ function LeaderboardRow({ entry, onOpen, onPrefetch }: LeaderboardRowProps) {
         </div>
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <p className="min-w-0 truncate font-medium text-white" title={entry.walletAddress}>
+            <p className="min-w-0 truncate font-medium text-foreground" title={entry.walletAddress}>
               {shortenWalletAddress(entry.walletAddress)}
             </p>
             {entry.isCurrentUser ? (
-              <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">You</Badge>
+              <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-900 dark:text-amber-100">You</Badge>
             ) : null}
           </div>
         </div>
       </div>
       <div className="shrink-0 self-start text-left sm:self-auto sm:text-right">
-        <p className="flex flex-wrap items-center gap-x-1 text-base font-semibold text-white">
+        <p className="flex flex-wrap items-center gap-x-1 text-base font-semibold text-foreground">
           <span>{formatPoints(entry.totalPoints)} pts</span>
-          <span className="text-white/30">•</span>
+          <span className="text-foreground/30">•</span>
           <span>{new Intl.NumberFormat("en-US").format(entry.referrals)} referrals</span>
         </p>
       </div>
@@ -145,9 +145,9 @@ function ReferralMetric({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-      <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-white">{value}</p>
+    <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-3">
+      <p className="text-[10px] uppercase tracking-[0.22em] text-foreground/45">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-foreground">{value}</p>
     </div>
   );
 }
@@ -167,8 +167,8 @@ function NoticeCard({
     <div role="alert" className="rounded-2xl border border-rose-300/20 bg-rose-500/10 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <p className="font-medium text-rose-100">{title}</p>
-          <p className="text-sm leading-6 text-rose-100/75">{description}</p>
+          <p className="font-medium text-rose-800 dark:text-rose-100">{title}</p>
+          <p className="text-sm leading-6 text-rose-800/75 dark:text-rose-100/75">{description}</p>
         </div>
         <Button type="button" variant="secondary" size="sm" className="shrink-0" onClick={onAction}>
           {actionLabel}
@@ -256,26 +256,26 @@ export function AcademyDashboardView({
         />
       ) : null}
 
-      <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.06)_0%,rgba(255,255,255,0.025)_40%,rgba(196,160,106,0.08)_100%)] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+      <section className="relative overflow-hidden rounded-[2rem] border border-foreground/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.06)_0%,rgba(255,255,255,0.025)_40%,rgba(196,160,106,0.08)_100%)] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(196,160,106,0.22),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(72,99,132,0.25),transparent_30%)]" />
         <div className="relative grid gap-8 p-6 sm:p-8 xl:grid-cols-[1.4fr_0.9fr]">
           <div className="space-y-5">
-            <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-100">
+            <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-900 dark:text-amber-100">
               <Sparkles className="mr-1 h-3.5 w-3.5" />
               Aurove Academy
             </Badge>
           <div className="space-y-3">
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
               Earn points as you grow with Aurove.
             </h1>
-            <p className="max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
+            <p className="max-w-2xl text-sm leading-7 text-foreground/68 sm:text-base">
               Complete on-chain and off-chain actions, build your Academy score, and stay ready
               for future campaigns across the Aurove ecosystem.{" "}
               <a
                 href="https://x.com/aurove_xyz/status/2069109875112554548"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-amber-100 transition hover:text-amber-50"
+                className="inline-flex items-center gap-1.5 text-amber-900 dark:text-amber-100 transition hover:text-amber-900 dark:hover:text-amber-50"
               >
                 <FaXTwitter className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Learn more</span>
@@ -285,10 +285,10 @@ export function AcademyDashboardView({
           </div>
 
           <div className="flex">
-            <Card className="w-full border-white/10 bg-black/20 backdrop-blur-md">
+            <Card className="w-full border-foreground/10 bg-panel/80 backdrop-blur-md">
               <CardHeader className="space-y-2">
-                <CardTitle className="flex items-center gap-2 text-xl text-white">
-                  <Link2 className="h-5 w-5 text-[#e6d2ad]" />
+                <CardTitle className="flex items-center gap-2 text-xl text-foreground">
+                  <Link2 className="h-5 w-5 text-[var(--accent)]" />
                   Referral network
                 </CardTitle>
                 <CardDescription>
@@ -298,7 +298,7 @@ export function AcademyDashboardView({
               <CardContent className="space-y-4">
                 {isAuthenticated ? (
                   isSummaryLoading ? (
-                    <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="space-y-3 rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-4">
                       <Skeleton className="h-3 w-24 rounded-full" />
                       <Skeleton className="h-10 w-full rounded-2xl" />
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -315,12 +315,12 @@ export function AcademyDashboardView({
                     />
                   ) : referral?.referralLink ? (
                     <>
-                      <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                        <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">
+                      <div className="space-y-2 rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-4">
+                        <p className="text-[10px] uppercase tracking-[0.22em] text-foreground/45">
                           Referral link
                         </p>
                         <div className="flex items-start gap-2">
-                          <p className="min-w-0 flex-1 break-all text-sm text-white/80">
+                          <p className="min-w-0 flex-1 break-all text-sm text-foreground/80">
                             {referral.referralLink}
                           </p>
                           <Button
@@ -342,12 +342,12 @@ export function AcademyDashboardView({
                       </div>
                     </>
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-5 text-sm leading-6 text-white/58">
+                    <div className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.025] p-5 text-sm leading-6 text-foreground/58">
                       Your referral link will appear here once your Academy profile is ready.
                     </div>
                   )
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-5 text-sm leading-6 text-white/58">
+                  <div className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.025] p-5 text-sm leading-6 text-foreground/58">
                     Authenticate your wallet to unlock your referral link and track your Academy network.
                   </div>
                 )}
@@ -381,10 +381,10 @@ export function AcademyDashboardView({
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,0.33fr)_minmax(0,0.67fr)]">
         <AcademyTasksCarousel />
 
-        <Card className="min-w-0 overflow-hidden border-white/10">
+        <Card className="min-w-0 overflow-hidden border-foreground/10">
           <CardHeader className="space-y-2">
             <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl">
-              <Users className="h-5 w-5 text-[#e6d2ad]" />
+              <Users className="h-5 w-5 text-[var(--accent)]" />
               Leaderboard
             </CardTitle>
             <CardDescription>{leaderboardDescription}</CardDescription>
@@ -408,8 +408,8 @@ export function AcademyDashboardView({
                 {leaderboardMode === "global" && currentUserLeaderboardEntry ? (
                   <div className="min-w-0 space-y-2 rounded-3xl border border-amber-300/20 bg-amber-300/[0.06] p-3">
                     <div className="flex items-center justify-between gap-2 px-1">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-amber-100/70">Your position</p>
-                      <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">Pinned</Badge>
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-amber-900/70 dark:text-amber-100/70">Your position</p>
+                      <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-900 dark:text-amber-100">Pinned</Badge>
                     </div>
                     <LeaderboardRow
                       entry={currentUserLeaderboardEntry}
@@ -430,7 +430,7 @@ export function AcademyDashboardView({
                 </div>
 
                 {leaderboardError ? (
-                  <p className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                  <p className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-900 dark:text-amber-100">
                     We are showing the last loaded leaderboard snapshot while a refresh is attempted.
                   </p>
                 ) : null}
@@ -448,7 +448,7 @@ export function AcademyDashboardView({
                         <ChevronLeft className="h-4 w-4" />
                         Prev
                       </Button>
-                      <p className="text-center text-xs text-white/45 sm:flex-1 sm:text-left">
+                      <p className="text-center text-xs text-foreground/45 sm:flex-1 sm:text-left">
                         Page {leaderboard.page} of {leaderboard.totalPages || 1}
                       </p>
                       <Button
@@ -476,7 +476,7 @@ export function AcademyDashboardView({
                         <ChevronLeft className="h-4 w-4" />
                         Previous Epoch
                       </Button>
-                      <p className="text-center text-xs text-white/45 sm:flex-1 sm:text-left">
+                      <p className="text-center text-xs text-foreground/45 sm:flex-1 sm:text-left">
                         Selected epoch{epochRangeLabel ? ` · ${epochRangeLabel}` : ""}
                       </p>
                       <Button
@@ -494,7 +494,7 @@ export function AcademyDashboardView({
                 ) : null}
               </>
             ) : (
-              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-6 text-sm text-white/55">
+              <div className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.025] p-6 text-sm text-foreground/55">
                 {leaderboardMode === "epoch"
                   ? "This epoch does not have enough Academy activity yet."
                   : season

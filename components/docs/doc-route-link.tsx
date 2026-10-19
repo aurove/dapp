@@ -23,9 +23,9 @@ export function DocRouteLink({
       target="_blank"
       rel="noreferrer"
       className={cn(
-        "text-[#ecd09b] underline-offset-4 transition hover:underline",
+        "text-[var(--accent)] underline-offset-4 transition hover:underline",
         code &&
-          "rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[12.5px] no-underline hover:border-[#d2a45f]/35 hover:bg-[#d2a45f]/10",
+          "rounded-md border border-foreground/10 bg-foreground/5 px-1.5 py-0.5 font-mono text-[12.5px] no-underline hover:border-[var(--accent)]/35 hover:bg-[var(--accent)]/10",
         className,
       )}
     >

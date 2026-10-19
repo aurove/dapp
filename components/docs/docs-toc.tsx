@@ -61,13 +61,13 @@ export function DocsTocNav({
 }) {
   if (!items.length) {
     return (
-      <p className={cn("text-xs text-white/35", className)}>No sections on this page.</p>
+      <p className={cn("text-xs text-foreground/35", className)}>No sections on this page.</p>
     );
   }
 
   return (
     <nav aria-label="On this page" className={className}>
-      <ul className="space-y-0.5 border-l border-white/10">
+      <ul className="space-y-0.5 border-l border-foreground/10">
         {items.map((item) => {
           const active = activeId === item.id;
           return (
@@ -95,8 +95,8 @@ export function DocsTocNav({
                   "-ml-px block border-l-2 py-1.5 text-[12.5px] leading-snug transition",
                   item.level === 3 ? "pl-5" : "pl-3",
                   active
-                    ? "border-[#d2a45f] text-[#ecd09b]"
-                    : "border-transparent text-white/45 hover:border-white/25 hover:text-white/80",
+                    ? "border-[var(--accent)] text-[var(--accent)]"
+                    : "border-transparent text-foreground/45 hover:border-foreground/25 hover:text-foreground/80",
                 )}
               >
                 {item.text}
@@ -212,15 +212,15 @@ export function DocsTocSidebar({
   const mobileDetails = (
     <details
       ref={mobileDetailsRef}
-      className="group rounded-2xl border border-white/10 bg-white/[0.02]"
+      className="group rounded-2xl border border-foreground/10 bg-foreground/[0.02]"
     >
-      <summary className="cursor-pointer list-none px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/50 marker:content-none [&::-webkit-details-marker]:hidden">
+      <summary className="cursor-pointer list-none px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-foreground/50 marker:content-none [&::-webkit-details-marker]:hidden">
         <span className="flex items-center justify-between gap-2">
           On this page
-          <span className="text-white/35 transition group-open:rotate-180">▾</span>
+          <span className="text-foreground/35 transition group-open:rotate-180">▾</span>
         </span>
       </summary>
-      <div className="border-t border-white/8 px-4 pb-4 pt-2">{nav}</div>
+      <div className="border-t border-foreground/8 px-4 pb-4 pt-2">{nav}</div>
     </details>
   );
 
@@ -233,7 +233,7 @@ export function DocsTocSidebar({
     return (
       <aside className="flex h-full w-52 shrink-0 flex-col overflow-hidden 2xl:w-56">
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pl-1 pr-1">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/40">
             On this page
           </p>
           {nav}
@@ -246,7 +246,7 @@ export function DocsTocSidebar({
     <>
       <aside className="hidden w-52 shrink-0 xl:block 2xl:w-56">
         <div className="max-h-full overflow-y-auto pl-1">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/40">
             On this page
           </p>
           {nav}

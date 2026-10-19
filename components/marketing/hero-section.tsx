@@ -78,7 +78,7 @@ export function HeroSection() {
             {flow.map((step, index) => (
               <div
                 key={step.title}
-                className="rounded-xl border border-white/10 bg-[rgba(255,255,255,0.02)] px-4 py-3"
+                className="rounded-xl border border-foreground/10 bg-[rgba(255,255,255,0.02)] px-4 py-3"
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.13em] text-[var(--accent-soft)]">
                   Step {index + 1}

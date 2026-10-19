@@ -19,32 +19,32 @@ const SWIPE_THRESHOLD_PX = 50;
 
 function LiquidityProviderTaskSlide() {
   return (
-    <Card className="h-full border-white/10 bg-white/[0.03]">
+    <Card className="h-full border-foreground/10 bg-foreground/[0.03]">
       <CardHeader className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-100">
+          <Badge className="border-amber-300/20 bg-amber-300/10 text-amber-900 dark:text-amber-100">
             <Droplets className="mr-1 h-3.5 w-3.5" />
             Liquidity provider task
           </Badge>
-          <Badge className="border-white/10 bg-white/5 text-white/70">90% allocation</Badge>
+          <Badge className="border-foreground/10 bg-foreground/5 text-foreground/70">90% allocation</Badge>
         </div>
-        <CardTitle className="text-2xl text-white">Collect fees, earn points</CardTitle>
+        <CardTitle className="text-2xl text-foreground">Collect fees, earn points</CardTitle>
         <CardDescription>
           Collect actual fees from a position in either supported Aurove concentrated-liquidity
           pool.
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-3 text-sm leading-6 text-white/65">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-          Earn <span className="font-semibold text-white">3.6 points per MUSD</span> of collected
+      <CardContent className="space-y-3 text-sm leading-6 text-foreground/65">
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
+          Earn <span className="font-semibold text-foreground">3.6 points per MUSD</span> of collected
           fee value.
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
           This equals 1.08% of the underlying qualifying swap volume and gives LPs nine points for
           every one swapper point.
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
           Only fees actually collected from the canonical pools qualify; deposits, liquidity, and
           uncollected fee growth do not.
         </div>
@@ -61,34 +61,34 @@ function LiquidityProviderTaskSlide() {
 
 function SwapperTaskSlide() {
   return (
-    <Card className="h-full border-white/10 bg-white/[0.03]">
+    <Card className="h-full border-foreground/10 bg-foreground/[0.03]">
       <CardHeader className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Badge className="border-sky-300/20 bg-sky-300/10 text-sky-100">
+          <Badge className="border-sky-300/20 bg-sky-300/10 text-sky-800 dark:text-sky-100">
             <ArrowLeftRight className="mr-1 h-3.5 w-3.5" />
             Swapper task
           </Badge>
-          <Badge className="border-white/10 bg-white/5 text-white/70">10% allocation</Badge>
+          <Badge className="border-foreground/10 bg-foreground/5 text-foreground/70">10% allocation</Badge>
         </div>
-        <CardTitle className="text-2xl text-white">Swap through Aurove</CardTitle>
+        <CardTitle className="text-2xl text-foreground">Swap through Aurove</CardTitle>
         <CardDescription>
           Make a swap routed through or involving either supported Aurove concentrated-liquidity
           pool.
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-3 text-sm leading-6 text-white/65">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+      <CardContent className="space-y-3 text-sm leading-6 text-foreground/65">
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
           Earn points equal to{" "}
-          <span className="font-semibold text-white">
+          <span className="font-semibold text-foreground">
             0.12% of the input token&apos;s MUSD value
           </span>
           .
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
           Input value is measured in MUSD at the time of the qualifying swap.
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
           Each economic swap earns once, including routed swaps that pass through multiple internal
           calls.
         </div>
@@ -105,25 +105,25 @@ function SwapperTaskSlide() {
 
 function MomentumSlide() {
   return (
-    <Card className="h-full border-white/10 bg-white/[0.03]">
+    <Card className="h-full border-foreground/10 bg-foreground/[0.03]">
       <CardHeader className="space-y-2">
-        <Badge className="border-white/10 bg-white/5 text-white/75">
+        <Badge className="border-foreground/10 bg-foreground/5 text-foreground/75">
           <Sparkles className="mr-1 h-3.5 w-3.5" />
           Academy workflow
         </Badge>
-        <CardTitle className="text-2xl text-white">Keep the season moving</CardTitle>
+        <CardTitle className="text-2xl text-foreground">Keep the season moving</CardTitle>
         <CardDescription>The carousel will expand as more Academy tasks go live.</CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-3 text-sm leading-6 text-white/65">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+      <CardContent className="space-y-3 text-sm leading-6 text-foreground/65">
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
           Swap through Aurove or collect fees from a supported liquidity position to keep earning
           points.
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
           Your activity updates the leaderboard, feed, and referral rewards in real time.
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
           More tasks will slot into this carousel as the Academy program expands.
         </div>
       </CardContent>
@@ -196,7 +196,7 @@ export function AcademyTasksCarousel() {
 
   return (
     <Card
-      className="min-w-0 border-white/10"
+      className="min-w-0 border-foreground/10"
       onPointerEnter={(event) => {
         if (event.pointerType !== "touch") setIsHovered(true);
       }}
@@ -215,7 +215,7 @@ export function AcademyTasksCarousel() {
       <CardHeader className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl">
-            <Target className="h-5 w-5 text-[#e6d2ad]" />
+            <Target className="h-5 w-5 text-[var(--accent)]" />
             Tasks carousel
           </CardTitle>
           <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -296,7 +296,7 @@ export function AcademyTasksCarousel() {
               type="button"
               className={cn(
                 "h-2.5 rounded-full transition-all",
-                activeIndex === index ? "w-8 bg-amber-300" : "w-2.5 bg-white/20",
+                activeIndex === index ? "w-8 bg-amber-300" : "w-2.5 bg-foreground/20",
               )}
               onClick={() => navigateTo(index)}
               aria-label={`Go to slide ${index + 1}`}

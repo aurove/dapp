@@ -2,27 +2,27 @@ import Link from "next/link";
 
 export function DocsContentFooter() {
   return (
-    <footer className="mt-12 border-t border-white/8 pb-2 pt-6 text-xs text-white/40">
+    <footer className="mt-12 border-t border-foreground/8 pb-2 pt-6 text-xs text-foreground/40">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p>© {new Date().getFullYear()} Aurove. Protocol documentation for the Mezo deployment.</p>
         <div className="flex flex-wrap gap-4">
-          <Link href="/swap" className="hover:text-white/70">
+          <Link href="/swap" className="hover:text-foreground/70">
             Swap
           </Link>
-          <Link href="/liquidity" className="hover:text-white/70">
+          <Link href="/liquidity" className="hover:text-foreground/70">
             Liquidity
           </Link>
-          <Link href="/earn" className="hover:text-white/70">
+          <Link href="/earn" className="hover:text-foreground/70">
             Earn
           </Link>
-          <Link href="/docs" className="hover:text-white/70">
+          <Link href="/docs" className="hover:text-foreground/70">
             Docs home
           </Link>
           <a
             href="https://x.com/aurove_xyz"
             target="_blank"
             rel="noreferrer"
-            className="hover:text-white/70"
+            className="hover:text-foreground/70"
           >
             X
           </a>

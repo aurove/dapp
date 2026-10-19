@@ -44,12 +44,12 @@ function variantCopy(variant: EarnVariant) {
     ? {
         headline: "BTC-backed fungible Earn products",
         asset: "BTC",
-        tone: "border-amber-300/25 bg-amber-300/10 text-amber-100",
+        tone: "border-amber-300/25 bg-amber-300/10 text-amber-900 dark:text-amber-100",
       }
     : {
         headline: "MEZO-backed fungible Earn products",
         asset: "MEZO",
-        tone: "border-sky-300/25 bg-sky-300/10 text-sky-100",
+        tone: "border-sky-300/25 bg-sky-300/10 text-sky-800 dark:text-sky-100",
       };
 }
 
@@ -354,20 +354,20 @@ function CreatePositionForm({
   });
 
   return (
-    <Card className="relative overflow-hidden border border-white/12 bg-[linear-gradient(160deg,rgba(19,24,33,0.98),rgba(10,13,18,0.98))] shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
+    <Card className="relative overflow-hidden border border-foreground/12 shadow-[var(--shadow)]">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(196,160,106,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(96,128,194,0.12),transparent_32%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_srgb,var(--accent)_12%,transparent),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(96,128,194,0.1),transparent_32%)]"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(234,209,165,0.36),transparent)]"
+        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--accent)_42%,transparent),transparent)]"
       />
 
-      <CardHeader className="relative space-y-4 border-b border-white/10 p-5 sm:p-6">
+      <CardHeader className="relative space-y-4 border-b border-foreground/10 p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--accent)]/35 bg-[linear-gradient(160deg,rgba(196,160,106,0.16),rgba(196,160,106,0.05))] text-[var(--accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--accent)]/35 bg-[var(--accent)]/12 text-[var(--accent)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)]">
               <LockKeyhole className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
@@ -379,14 +379,14 @@ function CreatePositionForm({
             type="button"
             title={cardDescription}
             aria-label={cardDescription}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.03] text-white/55 transition hover:border-[var(--accent)]/40 hover:bg-white/[0.06] hover:text-white"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/12 bg-foreground/[0.03] text-foreground/55 transition hover:border-[var(--accent)]/40 hover:bg-foreground/[0.06] hover:text-foreground"
           >
             <Info className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
         <div
-          className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.025] p-1.5"
+          className="grid grid-cols-2 gap-2 rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-1.5"
           role="tablist"
           aria-label="Create position mode"
         >
@@ -408,8 +408,8 @@ function CreatePositionForm({
                 className={cn(
                   "flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
                   selected
-                    ? "border-[var(--accent)]/60 bg-[linear-gradient(180deg,rgba(196,160,106,0.16),rgba(196,160,106,0.08))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                    : "border-transparent bg-transparent text-white/68 hover:border-white/10 hover:bg-white/[0.03]",
+                    ? "border-[var(--accent)]/60 bg-[var(--accent)]/12 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)]"
+                    : "border-transparent bg-transparent text-foreground/68 hover:border-foreground/10 hover:bg-foreground/[0.03]",
                 )}
               >
                 <Icon className="h-4 w-4" aria-hidden="true" />
@@ -436,8 +436,8 @@ function CreatePositionForm({
                   className={cn(
                     "flex h-12 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
                     selected
-                      ? "border-[var(--accent)]/70 bg-[linear-gradient(180deg,rgba(196,160,106,0.18),rgba(196,160,106,0.06))] text-white shadow-[0_0_0_1px_rgba(196,160,106,0.12)]"
-                      : "border-white/10 bg-white/[0.02] text-white/72 hover:border-white/15 hover:bg-white/[0.05]",
+                      ? "border-[var(--accent)]/70 bg-[var(--accent)]/14 text-foreground shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_12%,transparent)]"
+                      : "border-foreground/10 bg-foreground/[0.02] text-foreground/72 hover:border-foreground/15 hover:bg-foreground/[0.05]",
                   )}
                 >
                   <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full">
@@ -460,10 +460,10 @@ function CreatePositionForm({
             <div className="space-y-5">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <label htmlFor="earn-amount" className="font-medium text-white">
+                  <label htmlFor="earn-amount" className="font-medium text-foreground">
                     Amount
                   </label>
-                  <span className="text-white/45">
+                  <span className="text-foreground/45">
                     Balance{" "}
                     {formatCompactRawTokenAmount(
                       selectedToken?.balanceRaw ?? 0n,
@@ -490,12 +490,12 @@ function CreatePositionForm({
                   )}
                 />
                 {formik.touched.amount && formik.errors.amount ? (
-                  <p role="alert" className="text-xs text-red-200">
+                  <p role="alert" className="text-xs text-red-700 dark:text-red-200">
                     {formik.errors.amount}
                   </p>
                 ) : null}
                 <div className="space-y-2 pt-1">
-                  <div className="flex items-center justify-between text-xs text-white/45">
+                  <div className="flex items-center justify-between text-xs text-foreground/45">
                     <span>Use balance</span>
                     <span>{balancePercent}%</span>
                   </div>
@@ -523,10 +523,10 @@ function CreatePositionForm({
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
-                <label htmlFor="earn-venft" className="font-medium text-white">
+                <label htmlFor="earn-venft" className="font-medium text-foreground">
                   Existing position
                 </label>
-                <span className="text-white/45">
+                <span className="text-foreground/45">
                   {veNftsLoading || veNftsFetching
                     ? "Loading..."
                     : `${selectedVeNftOptions.length} available`}
@@ -541,7 +541,7 @@ function CreatePositionForm({
                   setSelectedVeNftKey(event.target.value);
                   void formik.setFieldValue("selectedVeNftKey", event.target.value);
                 }}
-                className="h-12 w-full rounded-2xl border border-white/10 bg-[#10161e] px-3 text-sm text-white outline-none transition focus:border-[var(--accent)]"
+                className="h-12 w-full rounded-2xl border border-foreground/10 bg-panel px-3 text-sm text-foreground outline-none transition focus:border-[var(--accent)]"
               >
                 <option value="">Select position</option>
                 {selectedVeNftOptions.map((veNft) => {
@@ -556,44 +556,44 @@ function CreatePositionForm({
                 })}
               </select>
               {formik.touched.selectedVeNftKey && formik.errors.selectedVeNftKey ? (
-                <p role="alert" className="text-xs text-red-200">
+                <p role="alert" className="text-xs text-red-700 dark:text-red-200">
                   {formik.errors.selectedVeNftKey}
                 </p>
               ) : null}
               {selectedVeNft ? (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 text-sm">
+                <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4 text-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-white/50">Lock amount</span>
-                    <span className="font-medium text-white">
+                    <span className="text-foreground/50">Lock amount</span>
+                    <span className="font-medium text-foreground">
                       {selectedVeNft.lockAmountFormatted} {copy.asset}
                     </span>
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-3">
-                    <span className="text-white/50">Lock end</span>
-                    <span className="font-medium text-white">{selectedVeNft.lockEndLabel}</span>
+                    <span className="text-foreground/50">Lock end</span>
+                    <span className="font-medium text-foreground">{selectedVeNft.lockEndLabel}</span>
                   </div>
                 </div>
               ) : null}
               {selectedVeNft?.isPermanent ? (
-                <div className="flex items-start gap-2 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs text-amber-100">
+                <div className="flex items-start gap-2 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs text-amber-900 dark:text-amber-100">
                   <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>This permanent position will be unlocked before deposit.</span>
                 </div>
               ) : null}
               {veNftsError ? (
-                <p className="text-sm text-amber-100/80">Could not load existing positions.</p>
+                <p className="text-sm text-amber-900/80 dark:text-amber-100/80">Could not load existing positions.</p>
               ) : null}
             </div>
           )}
 
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+          <div className="space-y-3 rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
             <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="font-medium text-white">You will receive</span>
-              <span className="text-white/45">{receiveSymbol}</span>
+              <span className="font-medium text-foreground">You will receive</span>
+              <span className="text-foreground/45">{receiveSymbol}</span>
             </div>
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-foreground/10 bg-foreground/[0.04] px-4 py-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[var(--accent)]/35 bg-[rgba(196,160,106,0.08)]">
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[var(--accent)]/35 bg-[var(--accent)]/10">
                   <Image
                     src="/tokens/Aurove.png"
                     alt={`Aurove ${copy.asset} token`}
@@ -603,14 +603,14 @@ function CreatePositionForm({
                   />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">{`Aurove ${copy.asset}`}</p>
-                  <p className="text-xs text-white/45">
+                  <p className="text-sm font-semibold text-foreground">{`Aurove ${copy.asset}`}</p>
+                  <p className="text-xs text-foreground/45">
                     1 {copy.asset} = 1 {receiveSymbol}
                   </p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-base font-semibold text-white">{receiveAmount}</p>
+                <p className="text-base font-semibold text-foreground">{receiveAmount}</p>
               </div>
             </div>
           </div>

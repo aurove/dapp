@@ -35,37 +35,37 @@ export default function DocsHomePage() {
       <JsonLd data={webPageJsonLd} />
       <JsonLd data={breadcrumbJsonLd} />
       <div className="mx-auto max-w-3xl pb-4">
-        <div className="mb-8 rounded-3xl border border-white/10 bg-gradient-to-b from-[#d2a45f]/10 via-white/[0.02] to-transparent px-6 py-8 sm:px-8">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#ecd09b]/90">
+        <div className="mb-8 rounded-3xl border border-foreground/10 bg-gradient-to-b from-[var(--accent)]/10 via-foreground/[0.02] to-transparent px-6 py-8 sm:px-8">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
             Aurove documentation
           </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[#f6f3ef] sm:text-4xl">
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             Liquid claims on Mezo Earn.
           </h1>
-          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-white/60">
+          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-foreground/60">
             Guides follow the production dApp. Protocol pages explain custody, wrapping, and
             rewards. Developer pages list the canonical Mezo deployment and integration paths.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
               href="/docs/guides/connect-wallet"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#d2a45f] px-4 py-2 text-sm font-medium text-[#20160b] transition hover:bg-[#ecd09b]"
+              className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-ink)] transition hover:bg-[var(--accent-soft)]"
             >
               Get started
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="/docs/developers/deployment"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
+              className="inline-flex items-center gap-2 rounded-xl border border-foreground/15 bg-foreground/5 px-4 py-2 text-sm text-foreground/80 transition hover:bg-foreground/10"
             >
               <Terminal className="h-4 w-4" />
               Deployment reference
             </Link>
           </div>
-          <p className="mt-4 inline-flex items-center gap-2 text-xs text-white/40">
+          <p className="mt-4 inline-flex items-center gap-2 text-xs text-foreground/40">
             <Search className="h-3.5 w-3.5" />
             Press{" "}
-            <kbd className="rounded border border-white/15 bg-black/30 px-1.5 py-0.5 font-mono">
+            <kbd className="rounded border border-foreground/15 bg-foreground/5 px-1.5 py-0.5 font-mono">
               ⌘K
             </kbd>{" "}
             to search

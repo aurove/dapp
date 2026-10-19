@@ -9,7 +9,7 @@ const navItems = [
 
 export function SiteFooter() {
   return (
-    <footer className="mt-20 border-t border-white/10 py-9">
+    <footer className="mt-20 border-t border-foreground/10 py-9">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 sm:px-6 lg:px-8 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-base font-semibold tracking-tight text-[var(--foreground)]">Aurove</p>

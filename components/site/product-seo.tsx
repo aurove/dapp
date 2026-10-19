@@ -34,12 +34,12 @@ export function ProductSeo({
     <>
       <JsonLd data={jsonLd} />
       <section
-        className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4 sm:px-5"
+        className="rounded-2xl border border-foreground/10 bg-foreground/[0.02] px-4 py-4 sm:px-5"
         aria-label={`${title} overview`}
       >
-        <p className="text-sm leading-relaxed text-white/65">{description}</p>
+        <p className="text-sm leading-relaxed text-foreground/65">{description}</p>
         {bullets.length > 0 ? (
-          <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-white/55">
+          <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-foreground/55">
             {bullets.map((bullet) => (
               <li key={bullet}>{bullet}</li>
             ))}
@@ -47,14 +47,14 @@ export function ProductSeo({
         ) : null}
         {relatedLinks.length > 0 ? (
           <nav
-            className="mt-3 flex flex-wrap gap-x-4 gap-y-2 border-t border-white/8 pt-3 text-sm"
+            className="mt-3 flex flex-wrap gap-x-4 gap-y-2 border-t border-foreground/8 pt-3 text-sm"
             aria-label="Related documentation"
           >
             {relatedLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="font-medium text-[#ecd09b]/90 transition hover:text-[#f6e7c8]"
+                className="font-medium text-[var(--accent)] transition hover:text-[var(--accent-soft)]"
               >
                 {link.label}
               </Link>

@@ -35,7 +35,7 @@ export function DocsTabs({
         <TabsContent
           key={tab.id}
           value={tab.id}
-          className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4 text-sm leading-relaxed text-white/80"
+          className="mt-4 rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4 text-sm leading-relaxed text-foreground/80"
         >
           {tab.content}
         </TabsContent>

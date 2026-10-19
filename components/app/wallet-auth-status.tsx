@@ -18,7 +18,7 @@ export function WalletAuthStatus() {
   if (isAuthenticating) {
     return (
       <div className="flex items-center gap-2">
-        <Badge className="border-amber-400/30 bg-amber-500/10 text-amber-100">
+        <Badge className="border-amber-400/30 bg-amber-500/10 text-amber-900 dark:text-amber-100">
           <LoaderCircle className="mr-1 h-3.5 w-3.5 animate-spin" />
           Signing
         </Badge>
@@ -34,7 +34,7 @@ export function WalletAuthStatus() {
     return (
       <div className="flex flex-col items-end gap-1">
         <div className="flex items-center gap-2">
-          <Badge className="border-emerald-400/30 bg-emerald-500/10 text-emerald-100">
+          <Badge className="border-emerald-400/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100">
             <ShieldCheck className="mr-1 h-3.5 w-3.5" />
             Signed in
           </Badge>
@@ -53,7 +53,7 @@ export function WalletAuthStatus() {
         <LogIn className="h-3.5 w-3.5" />
         Sign In
       </Button>
-      <span className="text-[11px] text-white/45">Sign the nonce to unlock the app session.</span>
+      <span className="text-[11px] text-foreground/45">Sign the nonce to unlock the app session.</span>
     </div>
   );
 }

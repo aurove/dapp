@@ -47,13 +47,13 @@ function EmptyPositions() {
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   return (
-    <Card className="border-dashed border-white/15 bg-white/[0.025]">
+    <Card className="border-dashed border-foreground/15 bg-foreground/[0.025]">
       <CardContent className="flex min-h-56 flex-col items-center justify-center text-center">
-        <span className="grid h-12 w-12 place-items-center rounded-full bg-white/5">
-          <Wallet className="h-6 w-6 text-white/55" />
+        <span className="grid h-12 w-12 place-items-center rounded-full bg-foreground/5">
+          <Wallet className="h-6 w-6 text-foreground/55" />
         </span>
-        <h3 className="mt-4 text-lg font-semibold text-white">No liquid positions</h3>
-        <p className="mt-1 max-w-sm text-sm text-white/55">
+        <h3 className="mt-4 text-lg font-semibold text-foreground">No liquid positions</h3>
+        <p className="mt-1 max-w-sm text-sm text-foreground/55">
           Deposit BTC, MEZO, or an existing Mezo Earn position to start earning with a liquid Aurove
           asset.
         </p>
@@ -112,18 +112,18 @@ export function EarnPositions() {
     <section className="space-y-4" aria-labelledby="earn-positions-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 id="earn-positions-title" className="text-2xl font-semibold text-white">
+          <h2 id="earn-positions-title" className="text-2xl font-semibold text-foreground">
             Your liquid positions
           </h2>
-          <p className="mt-1 text-sm text-white/55">
+          <p className="mt-1 text-sm text-foreground/55">
             {[positionCountLabel, userPositions.length > 0 ? `Total TVL ${totalTvlLabel}` : null]
               .filter(Boolean)
               .join(" · ")}
           </p>
           {userPositions.length > 0 ? (
-            <p className="mt-2 text-lg font-semibold text-white">
+            <p className="mt-2 text-lg font-semibold text-foreground">
               {totalTvlLabel}
-              <span className="ml-2 text-sm font-normal text-white/45">total TVL</span>
+              <span className="ml-2 text-sm font-normal text-foreground/45">total TVL</span>
             </p>
           ) : null}
         </div>

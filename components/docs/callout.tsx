@@ -6,26 +6,26 @@ const variants = {
   info: {
     icon: Info,
     label: "Info",
-    className: "border-sky-400/25 bg-sky-500/8 text-sky-50/95",
-    iconClassName: "text-sky-300",
+    className: "border-sky-500/30 bg-sky-500/10 text-sky-950 dark:text-sky-50/95",
+    iconClassName: "text-sky-700 dark:text-sky-300",
   },
   warning: {
     icon: AlertTriangle,
     label: "Warning",
-    className: "border-amber-400/30 bg-amber-500/10 text-amber-50/95",
-    iconClassName: "text-amber-300",
+    className: "border-amber-500/35 bg-amber-500/10 text-amber-950 dark:text-amber-50/95",
+    iconClassName: "text-amber-700 dark:text-amber-300",
   },
   important: {
     icon: ShieldAlert,
     label: "Important",
-    className: "border-[#d2a45f]/35 bg-[#d2a45f]/10 text-[#f6f3ef]",
-    iconClassName: "text-[#ecd09b]",
+    className: "border-[var(--accent)]/35 bg-[var(--accent)]/10 text-foreground",
+    iconClassName: "text-[var(--accent)]",
   },
   "coming-soon": {
     icon: Clock3,
     label: "Coming soon",
-    className: "border-white/15 bg-white/[0.04] text-white/80",
-    iconClassName: "text-white/55",
+    className: "border-foreground/15 bg-foreground/[0.04] text-foreground/80",
+    iconClassName: "text-foreground/55",
   },
 } as const;
 
@@ -59,7 +59,7 @@ export function Callout({
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] opacity-80">
             {title ?? config.label}
           </p>
-          <div className="text-[13.5px] text-inherit/95 [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-black/20 [&_code]:px-1 [&_p+p]:mt-2">
+          <div className="text-[13.5px] text-inherit/95 [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-foreground/10 [&_code]:px-1 [&_p+p]:mt-2">
             {children}
           </div>
         </div>

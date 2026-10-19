@@ -37,7 +37,7 @@ function RewardTokenMark({ symbol }: { symbol: string }) {
   const family = rewardTokenFamily(symbol);
 
   return (
-    <span className="grid h-7 w-7 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#18222b]">
+    <span className="grid h-7 w-7 shrink-0 overflow-hidden rounded-full border border-foreground/10 bg-panel">
       <Image
         src={`/tokens/${family}.png`}
         alt={`${symbol} reward token`}
@@ -108,8 +108,8 @@ function RewardMessage({ success, error }: { success: string | null; error: stri
       className={cn(
         "rounded-lg border px-3 py-2 text-xs",
         error
-          ? "border-red-300/20 bg-red-300/10 text-red-100"
-          : "border-emerald-300/20 bg-emerald-300/10 text-emerald-100",
+          ? "border-red-300/20 bg-red-300/10 text-red-800 dark:text-red-100"
+          : "border-emerald-300/20 bg-emerald-300/10 text-emerald-800 dark:text-emerald-100",
       )}
     >
       {error ?? success}
@@ -157,15 +157,15 @@ export function EarnRewards() {
 
   return (
     <div className="space-y-3">
-      <Card className="border-white/10 bg-gradient-to-r from-emerald-300/[0.045] via-white/[0.025] to-transparent">
+      <Card className="border-foreground/10 bg-gradient-to-r from-emerald-300/[0.045] via-foreground/[0.025] to-transparent">
         <CardContent className="grid gap-4 py-5 lg:grid-cols-[minmax(180px,0.65fr)_minmax(0,1.5fr)_auto] lg:items-center">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300/10 text-emerald-100">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300/10 text-emerald-800 dark:text-emerald-100">
               <Coins className="h-4 w-4" />
             </span>
             <div>
-              <h3 className="font-medium text-white">Available rewards</h3>
-              <p className="text-xs text-white/50">
+              <h3 className="font-medium text-foreground">Available rewards</h3>
+              <p className="text-xs text-foreground/50">
                 {gauges.isLoading
                   ? "Loading tranche and ID20 rewards"
                   : claimableSourceCount > 0
@@ -175,21 +175,21 @@ export function EarnRewards() {
             </div>
           </div>
 
-          <div className="flex min-h-16 min-w-0 flex-wrap items-center rounded-xl border border-white/[0.06] bg-white/[0.035] px-1">
+          <div className="flex min-h-16 min-w-0 flex-wrap items-center rounded-xl border border-foreground/[0.06] bg-foreground/[0.035] px-1">
             {rewardAmounts.map((reward, index) => (
               <div
                 key={reward.key}
                 className={cn(
                   "flex min-w-36 flex-1 items-center gap-2 px-4 py-2",
-                  index > 0 && "border-l border-white/10",
+                  index > 0 && "border-l border-foreground/10",
                 )}
               >
                 <RewardTokenMark symbol={reward.symbol} />
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-white">
+                  <p className="truncate text-sm font-semibold text-foreground">
                     {formatCompactRawTokenAmount(reward.amountRaw, reward.decimals, null)}
                   </p>
-                  <p className="truncate text-xs text-white/55">
+                  <p className="truncate text-xs text-foreground/55">
                     {reward.symbol} · {reward.sourceLabel}
                   </p>
                 </div>
@@ -201,7 +201,7 @@ export function EarnRewards() {
                 <Skeleton className="mt-2 h-3 w-32" />
               </div>
             ) : rewardAmounts.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-white/45">
+              <p className="px-4 py-3 text-sm text-foreground/45">
                 Your tranche and ID20 rewards will appear here.
               </p>
             ) : null}
@@ -233,7 +233,7 @@ export function EarnRewards() {
       {gauges.error ? (
         <p
           role="status"
-          className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100"
+          className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100"
         >
           ID20 gauge rewards are temporarily unavailable. Tranche rewards remain visible.
         </p>
@@ -241,7 +241,7 @@ export function EarnRewards() {
       {claimableSummaries.length > 0 && !rewardSinkAbi ? (
         <p
           role="status"
-          className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100"
+          className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100"
         >
           Tranche reward claims are not configured on this network.
         </p>

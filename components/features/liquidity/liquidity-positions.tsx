@@ -100,29 +100,29 @@ function AggregateFeeCollection({
     : [];
 
   return (
-    <Card className="border-white/10 bg-gradient-to-r from-emerald-300/[0.045] via-white/[0.025] to-transparent">
+    <Card className="border-foreground/10 bg-gradient-to-r from-emerald-300/[0.045] via-foreground/[0.025] to-transparent">
       <CardContent className="grid gap-4 py-5 lg:grid-cols-[minmax(180px,0.65fr)_minmax(0,1.5fr)_auto] lg:items-center">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300/10 text-emerald-100"><Coins className="h-4 w-4" /></span>
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300/10 text-emerald-800 dark:text-emerald-100"><Coins className="h-4 w-4" /></span>
           <div>
-            <h3 className="font-medium text-white">Available fees</h3>
-            <p className="text-xs text-white/50">
+            <h3 className="font-medium text-foreground">Available fees</h3>
+            <p className="text-xs text-foreground/50">
               {collectablePositions.length > 0
                 ? `Across ${collectablePositions.length} position${collectablePositions.length === 1 ? "" : "s"}`
                 : "No fees available to collect"}
             </p>
           </div>
         </div>
-        <div className="flex min-h-16 min-w-0 flex-wrap items-center rounded-xl border border-white/[0.06] bg-white/[0.035] px-1">
+        <div className="flex min-h-16 min-w-0 flex-wrap items-center rounded-xl border border-foreground/[0.06] bg-foreground/[0.035] px-1">
           {feeTotals.length > 0 ? feeTotals.map(([tokenAddress, total], index) => (
-            <div key={tokenAddress} className={cn("flex min-w-36 flex-1 items-center gap-2 px-4 py-2", index > 0 && "border-l border-white/10")}>
+            <div key={tokenAddress} className={cn("flex min-w-36 flex-1 items-center gap-2 px-4 py-2", index > 0 && "border-l border-foreground/10")}>
               <TokenMark token={total.token} className="h-7 w-7" />
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">{total.token ? formatCompactRawTokenAmount(total.raw, total.token.decimals, null) : total.raw.toString()}</p>
-                <p className="truncate text-xs text-white/55">{total.token?.symbol ?? `${tokenAddress.slice(0, 6)}…${tokenAddress.slice(-4)}`}</p>
+                <p className="truncate text-sm font-semibold text-foreground">{total.token ? formatCompactRawTokenAmount(total.raw, total.token.decimals, null) : total.raw.toString()}</p>
+                <p className="truncate text-xs text-foreground/55">{total.token?.symbol ?? `${tokenAddress.slice(0, 6)}…${tokenAddress.slice(-4)}`}</p>
               </div>
             </div>
-          )) : <p className="px-4 py-3 text-sm text-white/45">Your collected fee totals will appear here.</p>}
+          )) : <p className="px-4 py-3 text-sm text-foreground/45">Your collected fee totals will appear here.</p>}
         </div>
         <div className="shrink-0 space-y-2 lg:min-w-44">
           <TransactionFlowButton
@@ -164,31 +164,31 @@ function PositionRange({
     && position.currentTick < position.tickUpper;
   const status = statusOf(position);
   const values = [
-    { label: "Min price", value: formatPriceLabel({ pool: poolState, tick: lowTick }), tone: "text-white" },
-    { label: "Current price", value: position.currentTick === undefined ? "Unavailable" : formatPriceLabel({ pool: poolState, tick: position.currentTick }), tone: inRange ? "text-emerald-300" : "text-amber-200" },
-    { label: "Max price", value: formatPriceLabel({ pool: poolState, tick: highTick }), tone: "text-white" },
+    { label: "Min price", value: formatPriceLabel({ pool: poolState, tick: lowTick }), tone: "text-foreground" },
+    { label: "Current price", value: position.currentTick === undefined ? "Unavailable" : formatPriceLabel({ pool: poolState, tick: position.currentTick }), tone: inRange ? "text-emerald-700 dark:text-emerald-300" : "text-amber-800 dark:text-amber-200" },
+    { label: "Max price", value: formatPriceLabel({ pool: poolState, tick: highTick }), tone: "text-foreground" },
   ];
 
   return (
-    <div className="rounded-2xl border border-white/[0.07] bg-black/10 px-4 py-4 sm:px-5">
+    <div className="rounded-2xl border border-foreground/[0.07] bg-black/10 px-4 py-4 sm:px-5">
       <div className="grid gap-4 lg:grid-cols-[160px_1fr] lg:items-start">
         <div className="lg:pt-1">
-          <p className="text-sm text-white/65">{status.help}</p>
+          <p className="text-sm text-foreground/65">{status.help}</p>
         </div>
         <div>
           <div className="grid grid-cols-3 gap-3 text-center">
             {values.map((item) => (
               <div key={item.label}>
                 <p className={cn("truncate text-xs font-medium sm:text-sm", item.tone)}>{item.value}</p>
-                <p className="mt-0.5 text-[11px] text-white/45">{item.label}</p>
+                <p className="mt-0.5 text-[11px] text-foreground/45">{item.label}</p>
               </div>
             ))}
           </div>
           <div className="relative mt-5 h-7" aria-label="Position price range">
-            <div className="absolute left-0 right-0 top-3 h-1.5 rounded-full bg-white/[0.07]" />
+            <div className="absolute left-0 right-0 top-3 h-1.5 rounded-full bg-foreground/[0.07]" />
             <div className="absolute left-[24%] top-3 h-1.5 w-[52%] rounded-full bg-gradient-to-r from-emerald-300/65 via-emerald-200 to-emerald-300/65" />
-            <span className="absolute left-[24%] top-1.5 h-4 w-1 -translate-x-1/2 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.35)]" />
-            <span className="absolute left-[76%] top-1.5 h-4 w-1 -translate-x-1/2 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.35)]" />
+            <span className="absolute left-[24%] top-1.5 h-4 w-1 -translate-x-1/2 rounded-full bg-foreground shadow-[0_0_8px_rgba(255,255,255,0.35)]" />
+            <span className="absolute left-[76%] top-1.5 h-4 w-1 -translate-x-1/2 rounded-full bg-foreground shadow-[0_0_8px_rgba(255,255,255,0.35)]" />
             <span
               className={cn("absolute top-0 h-0 w-0 -translate-x-1/2 border-x-[5px] border-b-[7px] border-x-transparent", inRange ? "border-b-emerald-300" : "border-b-amber-200")}
               style={{ left: `${currentPercent}%` }}
@@ -256,7 +256,7 @@ function LiquidityPositionCard({
   const share = position.poolLiquidity && position.poolLiquidity > 0n ? Number(position.liquidity * 1_000_000n / position.poolLiquidity) / 10_000 : null;
 
   return (
-    <Card className="overflow-hidden border-white/10 bg-gradient-to-br from-white/[0.05] via-white/[0.025] to-transparent">
+    <Card className="overflow-hidden border-foreground/10 bg-gradient-to-br from-foreground/[0.05] via-foreground/[0.025] to-transparent">
       <button type="button" className="w-full px-5 py-5 text-left sm:px-6" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
         <div className="grid gap-5 lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)] lg:items-center">
           <div className="relative flex items-start gap-4 pr-8">
@@ -266,26 +266,26 @@ function LiquidityPositionCard({
               <CardDescription className="mt-1">{position.poolKey} · Tick spacing {position.tickSpacing} · NFT #{position.tokenId.toString()}</CardDescription>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge className={cn(status.tone)}>{status.label}</Badge>
-                {position.isStaked ? <Badge className="border-sky-300/25 bg-sky-300/10 text-sky-100">Gauge</Badge> : null}
+                {position.isStaked ? <Badge className="border-sky-300/25 bg-sky-300/10 text-sky-800 dark:text-sky-100">Gauge</Badge> : null}
               </div>
             </div>
-            <span className="absolute right-0 top-1 text-white/65">{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
+            <span className="absolute right-0 top-1 text-foreground/65">{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
-            <div className="min-w-0 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3">
-              <p className="text-xs text-white/45">Liquidity value</p>
-              <p className="mt-1 text-sm font-medium text-white">{formatCompactUsd(liquidityValueMusd)}</p>
+            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-black/10 px-4 py-3">
+              <p className="text-xs text-foreground/45">Liquidity value</p>
+              <p className="mt-1 text-sm font-medium text-foreground">{formatCompactUsd(liquidityValueMusd)}</p>
             </div>
-            <div className="min-w-0 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3">
-              <p className="text-xs text-white/45">Deposited</p>
+            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-black/10 px-4 py-3">
+              <p className="text-xs text-foreground/45">Deposited</p>
               {depositedAmounts.map(([raw, token], index) => (
-                <p key={index} className={cn("truncate text-sm font-medium text-white", index === 0 && "mt-1")}>{amount(raw, token)}</p>
+                <p key={index} className={cn("truncate text-sm font-medium text-foreground", index === 0 && "mt-1")}>{amount(raw, token)}</p>
               ))}
             </div>
-            <div className="min-w-0 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3">
-              <p className="text-xs text-white/45">{position.isStaked ? "Gauge emissions" : "Available fees"}</p>
+            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-black/10 px-4 py-3">
+              <p className="text-xs text-foreground/45">{position.isStaked ? "Gauge emissions" : "Available fees"}</p>
               {position.isStaked ? (
-                <p className="mt-1 truncate text-sm font-medium text-white">
+                <p className="mt-1 truncate text-sm font-medium text-foreground">
                   {amount(
                     position.gaugeEarnedRaw,
                     rewardTokenMeta ?? (position.rewardToken
@@ -294,22 +294,22 @@ function LiquidityPositionCard({
                   )}
                 </p>
               ) : feeAmounts.map(([raw, token], index) => (
-                <p key={index} className={cn("truncate text-sm font-medium text-white", index === 0 && "mt-1")}>{amount(raw, token)}</p>
+                <p key={index} className={cn("truncate text-sm font-medium text-foreground", index === 0 && "mt-1")}>{amount(raw, token)}</p>
               ))}
             </div>
-            <div className="min-w-0 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3">
-              <p className="text-xs text-white/45">Current price</p>
-              <p className="mt-1 text-sm font-medium text-white">{position.currentTick === undefined ? "Unavailable" : formatPriceLabel({ pool: poolState, tick: position.currentTick })}</p>
+            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-black/10 px-4 py-3">
+              <p className="text-xs text-foreground/45">Current price</p>
+              <p className="mt-1 text-sm font-medium text-foreground">{position.currentTick === undefined ? "Unavailable" : formatPriceLabel({ pool: poolState, tick: position.currentTick })}</p>
             </div>
-            <div className="min-w-0 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3">
-              <p className="text-xs text-white/45">Pool share</p>
-              <p className="mt-1 text-sm font-medium text-white">{formatPercentage(share)}</p>
+            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-black/10 px-4 py-3">
+              <p className="text-xs text-foreground/45">Pool share</p>
+              <p className="mt-1 text-sm font-medium text-foreground">{formatPercentage(share)}</p>
             </div>
           </div>
         </div>
       </button>
       {open ? (
-        <CardContent className="space-y-5 border-t border-white/10 px-5 py-5 sm:px-6">
+        <CardContent className="space-y-5 border-t border-foreground/10 px-5 py-5 sm:px-6">
           <PositionRange position={position} poolState={poolState} lowTick={lowTick} highTick={highTick} displayInverted={displayTokenOrientation.inverted} />
           <PositionManagePanel
             position={position}
@@ -412,12 +412,12 @@ export function LiquidityPositions() {
     <section className="space-y-4" aria-labelledby="liquidity-positions-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 id="liquidity-positions-title" className="text-2xl font-semibold text-white">Your liquidity positions</h2>
-          <p className="mt-1 text-sm text-white/55">{summaryParts.join(" · ")}</p>
+          <h2 id="liquidity-positions-title" className="text-2xl font-semibold text-foreground">Your liquidity positions</h2>
+          <p className="mt-1 text-sm text-foreground/55">{summaryParts.join(" · ")}</p>
           {positions.length > 0 ? (
-            <p className="mt-2 text-lg font-semibold text-white">
+            <p className="mt-2 text-lg font-semibold text-foreground">
               {totalValueLabel}
-              <span className="ml-2 text-sm font-normal text-white/45">total liquidity</span>
+              <span className="ml-2 text-sm font-normal text-foreground/45">total liquidity</span>
             </p>
           ) : null}
         </div>
@@ -431,11 +431,11 @@ export function LiquidityPositions() {
           <Skeleton className="h-48 rounded-xl" />
         </div>
       ) : positions.length === 0 ? (
-        <Card className="border-dashed border-white/15 bg-white/[0.025]">
+        <Card className="border-dashed border-foreground/15 bg-foreground/[0.025]">
           <CardContent className="flex min-h-56 flex-col items-center justify-center text-center">
-            <span className="grid h-12 w-12 place-items-center rounded-full bg-white/5"><Droplets className="h-6 w-6 text-white/55" /></span>
-            <h3 className="mt-4 text-lg font-semibold text-white">No liquidity positions</h3>
-            <p className="mt-1 max-w-sm text-sm text-white/55">Add liquidity to an Aurove pool to start earning swap fees.</p>
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-foreground/5"><Droplets className="h-6 w-6 text-foreground/55" /></span>
+            <h3 className="mt-4 text-lg font-semibold text-foreground">No liquidity positions</h3>
+            <p className="mt-1 max-w-sm text-sm text-foreground/55">Add liquidity to an Aurove pool to start earning swap fees.</p>
             <Button className="mt-5" onClick={scrollToAdd}>Add liquidity</Button>
           </CardContent>
         </Card>
@@ -462,10 +462,10 @@ export function LiquidityPositions() {
           ))}
         </div>
       ) : (
-        <p className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">Position management is not configured on this network.</p>
+        <p className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-900 dark:text-amber-100">Position management is not configured on this network.</p>
       )}
       {liquidity.data?.meta.failures.length ? (
-        <p className="text-xs text-amber-100/65">Some position details are temporarily unavailable. Confirmed values remain visible.</p>
+        <p className="text-xs text-amber-900/65 dark:text-amber-100/65">Some position details are temporarily unavailable. Confirmed values remain visible.</p>
       ) : null}
     </section>
   );

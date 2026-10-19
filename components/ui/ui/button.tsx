@@ -4,16 +4,19 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../lib/cn";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b58f5f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0c1117]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-background",
   {
     variants: {
       variant: {
         default:
-          "border border-transparent bg-[linear-gradient(135deg,#ccb98f_0%,#a78858_100%)] text-[#1e160b] shadow-[0_10px_30px_rgba(167,136,88,0.35)] hover:brightness-105",
-        secondary: "border border-white/15 bg-white/[0.03] text-white hover:bg-white/[0.08]",
-        outline: "border border-white/15 bg-transparent text-white hover:bg-white/[0.06]",
-        ghost: "text-white hover:bg-white/[0.06]",
-        destructive: "border border-red-500/50 bg-red-500/20 text-red-100 hover:bg-red-500/30",
+          "border border-transparent bg-[linear-gradient(135deg,#ccb98f_0%,#a78858_100%)] text-[var(--accent-ink)] shadow-[0_10px_30px_rgba(167,136,88,0.35)] hover:brightness-105",
+        secondary:
+          "border border-[var(--line-strong)] bg-foreground/[0.03] text-foreground hover:bg-foreground/[0.08]",
+        outline:
+          "border border-[var(--line-strong)] bg-transparent text-foreground hover:bg-foreground/[0.06]",
+        ghost: "text-foreground hover:bg-foreground/[0.06]",
+        destructive:
+          "border border-red-500/50 bg-red-500/20 text-red-800 hover:bg-red-500/30 dark:text-red-100",
       },
       size: {
         default: "h-10 px-4 py-2",

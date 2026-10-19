@@ -303,8 +303,8 @@ export function AdjustAmountPanel({
   return (
     <div className="space-y-4">
       <div>
-        <h4 className="font-medium text-white">Adjust amount</h4>
-        <p className="text-xs text-white/50">
+        <h4 className="font-medium text-foreground">Adjust amount</h4>
+        <p className="text-xs text-foreground/50">
           Add more liquidity in the current ticks, or withdraw a percentage. Removal collects owed tokens in the same position-manager transaction.
         </p>
       </div>
@@ -312,8 +312,8 @@ export function AdjustAmountPanel({
       {hasFees ? (
         <div className="flex flex-col gap-3 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-medium text-emerald-50">Uncollected fees</p>
-            <div className="mt-1 flex flex-wrap gap-2 text-xs text-emerald-100/80">
+            <p className="text-sm font-medium text-emerald-900 dark:text-emerald-50">Uncollected fees</p>
+            <div className="mt-1 flex flex-wrap gap-2 text-xs text-emerald-800/80 dark:text-emerald-100/80">
               {feeAmounts.map(([raw, token], index) => (
                 <span key={index}>{amount(raw, token)}</span>
               ))}
@@ -351,8 +351,8 @@ export function AdjustAmountPanel({
       />
 
       {mode === "add" ? (
-        <form onSubmit={increaseFormik.handleSubmit} noValidate className="space-y-3 rounded-2xl border border-white/15 bg-black/10 p-5">
-          <p className="text-xs text-white/50">Supply more tokens into this NFT&apos;s exact range.</p>
+        <form onSubmit={increaseFormik.handleSubmit} noValidate className="space-y-3 rounded-2xl border border-foreground/15 bg-black/10 p-5">
+          <p className="text-xs text-foreground/50">Supply more tokens into this NFT&apos;s exact range.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {increaseDisplaySides.map((side) => {
               const token = side === "assetA" ? token0 : token1;
@@ -382,20 +382,20 @@ export function AdjustAmountPanel({
             })}
           </div>
           {inactiveRequiredId20s.length > 0 ? (
-            <p role="status" className="rounded-lg border border-sky-300/20 bg-sky-300/10 px-3 py-2 text-xs text-sky-100">
+            <p role="status" className="rounded-lg border border-sky-300/20 bg-sky-300/10 px-3 py-2 text-xs text-sky-800 dark:text-sky-100">
               Activate {inactiveRequiredId20s.map((item) => item.symbol).join(" and ")} rewards first. The activation step is included and these increase-liquidity inputs will be preserved.
             </p>
           ) : null}
           {increaseRouterCall && !routerSupportsIncrease ? (
-            <p role="status" className="text-xs text-amber-100">
+            <p role="status" className="text-xs text-amber-900 dark:text-amber-100">
               The configured zap router does not yet expose position-aware increase methods. Deploy and sync the updated router before using this action.
             </p>
           ) : null}
           {increaseFormik.submitCount > 0 && (increaseFormik.errors.amount || increaseFormik.errors.slippage) ? (
-            <p role="alert" className="text-xs text-red-200">{increaseFormik.errors.amount ?? increaseFormik.errors.slippage}</p>
+            <p role="alert" className="text-xs text-red-700 dark:text-red-200">{increaseFormik.errors.amount ?? increaseFormik.errors.slippage}</p>
           ) : null}
           <div className="grid gap-2 lg:grid-cols-[minmax(7.5rem,1fr)_5fr] lg:items-end">
-            <label className="block text-xs text-white/60">
+            <label className="block text-xs text-foreground/60">
               Slippage (%)
               <Input
                 name="slippage"
@@ -425,13 +425,13 @@ export function AdjustAmountPanel({
           </div>
         </form>
       ) : (
-        <form onSubmit={removeFormik.handleSubmit} noValidate className="space-y-2.5 rounded-2xl border border-white/15 bg-black/10 p-4">
-          <p className="text-xs text-white/50">Partially or fully withdraw the active position. Owed fees are collected in the same transaction.</p>
+        <form onSubmit={removeFormik.handleSubmit} noValidate className="space-y-2.5 rounded-2xl border border-foreground/15 bg-black/10 p-4">
+          <p className="text-xs text-foreground/50">Partially or fully withdraw the active position. Owed fees are collected in the same transaction.</p>
           <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_6.5rem] xl:items-end">
-            <label className="block text-xs text-white/60">
+            <label className="block text-xs text-foreground/60">
               <span className="flex items-center justify-between gap-3">
                 <span>Percentage</span>
-                <span className="font-medium text-white">{numericPercent}%</span>
+                <span className="font-medium text-foreground">{numericPercent}%</span>
               </span>
               <input
                 aria-label="Percentage of liquidity to remove"
@@ -449,7 +449,7 @@ export function AdjustAmountPanel({
                 className="mt-2 w-full accent-[var(--accent)]"
               />
             </label>
-            <label className="block text-xs text-white/60">
+            <label className="block text-xs text-foreground/60">
               Slippage (%)
               <Input
                 name="slippage"
@@ -466,11 +466,11 @@ export function AdjustAmountPanel({
           </div>
           <div className="grid grid-cols-2 gap-1.5 text-xs">
             {estimatedAmounts.map(([raw, token], index) => (
-              <span key={index} className="truncate rounded-lg bg-white/5 px-2.5 py-2">Est. {amount(raw, token)}</span>
+              <span key={index} className="truncate rounded-lg bg-foreground/5 px-2.5 py-2">Est. {amount(raw, token)}</span>
             ))}
           </div>
           {removingAll ? (
-            <label className="flex items-center gap-2 border-t border-white/[0.07] pt-2.5 text-xs text-white/65">
+            <label className="flex items-center gap-2 border-t border-foreground/[0.07] pt-2.5 text-xs text-foreground/65">
               <input
                 type="checkbox"
                 checked={burnAfterRemove}
@@ -480,7 +480,7 @@ export function AdjustAmountPanel({
             </label>
           ) : null}
           {removeFormik.submitCount > 0 && (removeFormik.errors.percent || removeFormik.errors.slippage) ? (
-            <p role="alert" className="text-xs text-red-200">{removeFormik.errors.percent ?? removeFormik.errors.slippage}</p>
+            <p role="alert" className="text-xs text-red-700 dark:text-red-200">{removeFormik.errors.percent ?? removeFormik.errors.slippage}</p>
           ) : null}
           <TransactionFlowButton
             ref={removeTransactionRef}
@@ -503,8 +503,8 @@ export function AdjustAmountPanel({
       )}
 
       {canBurn ? (
-        <form onSubmit={burnFormik.handleSubmit} noValidate className="rounded-2xl border border-white/15 bg-black/10 p-4">
-          <label className="flex items-start gap-2 text-xs text-white/65">
+        <form onSubmit={burnFormik.handleSubmit} noValidate className="rounded-2xl border border-foreground/15 bg-black/10 p-4">
+          <label className="flex items-start gap-2 text-xs text-foreground/65">
             <input
               name="burnConfirmed"
               type="checkbox"
@@ -517,7 +517,7 @@ export function AdjustAmountPanel({
             I confirm this empty NFT should be permanently burned.
           </label>
           {burnFormik.submitCount > 0 && burnFormik.errors.burnConfirmed ? (
-            <p role="alert" className="mt-2 text-xs text-red-200">{burnFormik.errors.burnConfirmed}</p>
+            <p role="alert" className="mt-2 text-xs text-red-700 dark:text-red-200">{burnFormik.errors.burnConfirmed}</p>
           ) : null}
           <TransactionFlowButton
             ref={burnTransactionRef}

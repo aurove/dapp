@@ -194,8 +194,8 @@ export function AdjustRangePanel({
   return (
     <form onSubmit={formik.handleSubmit} noValidate className="space-y-4">
       <div>
-        <h4 className="font-medium text-white">Adjust range</h4>
-        <p className="text-xs text-white/50">
+        <h4 className="font-medium text-foreground">Adjust range</h4>
+        <p className="text-xs text-foreground/50">
           Concentrated-liquidity ranges are immutable on the NFT. This flow withdraws the current position, mints a replacement NFT on the new ticks, and burns the empty one — in a single position-manager transaction after any required token approvals.
         </p>
       </div>
@@ -215,15 +215,15 @@ export function AdjustRangePanel({
           }}
         />
       ) : (
-        <p className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+        <p className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
           Range chart is unavailable for this pool.
         </p>
       )}
 
       <div className="grid gap-3 md:grid-cols-2">
-        <label className="space-y-2 rounded-[24px] border border-white/10 bg-white/[0.03] p-4 text-xs text-white/60">
+        <label className="space-y-2 rounded-[24px] border border-foreground/10 bg-foreground/[0.03] p-4 text-xs text-foreground/60">
           <span className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-white">Low price</span>
+            <span className="text-sm font-medium text-foreground">Low price</span>
             <span>{formatDisplayPair(pool)}</span>
           </span>
           <input
@@ -236,12 +236,12 @@ export function AdjustRangePanel({
               void formik.setFieldValue("lower", value);
               setRangeStrategy("custom");
             }}
-            className="h-14 w-full rounded-2xl border border-white/10 bg-[#0d1319] px-4 text-xl font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-[var(--accent)]/50"
+            className="h-14 w-full rounded-2xl border border-foreground/10 bg-panel px-4 text-xl font-semibold text-foreground outline-none transition placeholder:text-foreground/20 focus:border-[var(--accent)]/50"
           />
         </label>
-        <label className="space-y-2 rounded-[24px] border border-white/10 bg-white/[0.03] p-4 text-xs text-white/60">
+        <label className="space-y-2 rounded-[24px] border border-foreground/10 bg-foreground/[0.03] p-4 text-xs text-foreground/60">
           <span className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-white">High price</span>
+            <span className="text-sm font-medium text-foreground">High price</span>
             <span>{formatDisplayPair(pool)}</span>
           </span>
           <input
@@ -254,13 +254,13 @@ export function AdjustRangePanel({
               void formik.setFieldValue("upper", value);
               setRangeStrategy("custom");
             }}
-            className="h-14 w-full rounded-2xl border border-white/10 bg-[#0d1319] px-4 text-xl font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-[var(--accent)]/50"
+            className="h-14 w-full rounded-2xl border border-foreground/10 bg-panel px-4 text-xl font-semibold text-foreground outline-none transition placeholder:text-foreground/20 focus:border-[var(--accent)]/50"
           />
         </label>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
-        <p className="text-xs leading-5 text-white/46">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-foreground/10 bg-foreground/[0.02] px-4 py-3">
+        <p className="text-xs leading-5 text-foreground/46">
           Current range {formatPriceLabel({ pool, tick: getDisplayPriceRangeTicks(pool, currentRange).lowTick })} to {formatPriceLabel({ pool, tick: getDisplayPriceRangeTicks(pool, currentRange).highTick })}. Uncollected fees are redeployed with the principal.
         </p>
         <Button
@@ -279,20 +279,20 @@ export function AdjustRangePanel({
       </div>
 
       <div className="grid gap-2 sm:grid-cols-3">
-        <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
-          <p className="text-xs text-white/45">New range status</p>
-          <p className="mt-1 text-sm font-medium text-white">{quote.beginsInRange ? "In range" : "Out of range"}</p>
+        <div className="rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
+          <p className="text-xs text-foreground/45">New range status</p>
+          <p className="mt-1 text-sm font-medium text-foreground">{quote.beginsInRange ? "In range" : "Out of range"}</p>
         </div>
-        <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
-          <p className="text-xs text-white/45">Deployed</p>
+        <div className="rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
+          <p className="text-xs text-foreground/45">Deployed</p>
           {usedAmounts.map(([raw, token], index) => (
-            <p key={index} className="mt-1 truncate text-sm font-medium text-white">{amount(raw, token)}</p>
+            <p key={index} className="mt-1 truncate text-sm font-medium text-foreground">{amount(raw, token)}</p>
           ))}
         </div>
-        <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
-          <p className="text-xs text-white/45">Returned to wallet</p>
+        <div className="rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
+          <p className="text-xs text-foreground/45">Returned to wallet</p>
           {leftoverAmounts.map(([raw, token], index) => (
-            <p key={index} className="mt-1 truncate text-sm font-medium text-white">
+            <p key={index} className="mt-1 truncate text-sm font-medium text-foreground">
               {token ? formatCompactRawTokenAmount(raw, token.decimals, token.symbol) : "Unavailable"}
             </p>
           ))}
@@ -300,11 +300,11 @@ export function AdjustRangePanel({
       </div>
 
       {position.liquidity <= 0n ? (
-        <p role="status" className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+        <p role="status" className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
           This NFT has no active liquidity. Add liquidity on the current ticks, or open a new position to choose a different range.
         </p>
       ) : quote.errorMessage ? (
-        <p role="status" className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+        <p role="status" className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
           {quote.errorMessage}
         </p>
       ) : null}
@@ -316,7 +316,7 @@ export function AdjustRangePanel({
       />
 
       <div className="grid gap-2 lg:grid-cols-[minmax(7.5rem,1fr)_5fr] lg:items-end">
-        <label className="block text-xs text-white/60">
+        <label className="block text-xs text-foreground/60">
           Slippage (%)
           <Input
             name="slippage"

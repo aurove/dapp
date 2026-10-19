@@ -10,22 +10,22 @@ function typeStyles(type: string) {
   switch (type) {
     case "pending":
       return {
-        badge: "border-amber-400/40 bg-amber-400/15 text-amber-100",
+        badge: "border-amber-400/40 bg-amber-400/15 text-amber-900 dark:text-amber-100",
         bar: "bg-amber-300",
       };
     case "success":
       return {
-        badge: "border-emerald-400/40 bg-emerald-400/15 text-emerald-100",
+        badge: "border-emerald-400/40 bg-emerald-400/15 text-emerald-800 dark:text-emerald-100",
         bar: "bg-emerald-300",
       };
     case "error":
       return {
-        badge: "border-red-400/40 bg-red-400/15 text-red-100",
+        badge: "border-red-400/40 bg-red-400/15 text-red-800 dark:text-red-100",
         bar: "bg-red-300",
       };
     default:
       return {
-        badge: "border-sky-400/40 bg-sky-400/15 text-sky-100",
+        badge: "border-sky-400/40 bg-sky-400/15 text-sky-800 dark:text-sky-100",
         bar: "bg-sky-300",
       };
   }
@@ -89,7 +89,7 @@ function Toast({ id, onClose }: { id: string; onClose: () => void }) {
   return (
     <div
       role="status"
-      className="pointer-events-auto overflow-hidden rounded-2xl border border-white/15 bg-[#0b1118]/95 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur"
+      className="pointer-events-auto overflow-hidden rounded-2xl border border-foreground/15 bg-chrome/95 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -101,8 +101,8 @@ function Toast({ id, onClose }: { id: string; onClose: () => void }) {
         </span>
 
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-white">{item.title}</p>
-          {item.message ? <p className="mt-1 text-xs text-white/65">{item.message}</p> : null}
+          <p className="text-sm font-semibold text-foreground">{item.title}</p>
+          {item.message ? <p className="mt-1 text-xs text-foreground/65">{item.message}</p> : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {item.txHash ? (
@@ -111,13 +111,13 @@ function Toast({ id, onClose }: { id: string; onClose: () => void }) {
                   href={txUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 rounded-lg border border-white/20 px-2 py-1 text-xs text-white/75 transition hover:bg-white/10 hover:text-white"
+                  className="inline-flex items-center gap-1 rounded-lg border border-foreground/20 px-2 py-1 text-xs text-foreground/75 transition hover:bg-foreground/10 hover:text-foreground"
                 >
                   View tx {shortHash(item.txHash)}
                   <ExternalLink className="h-3 w-3" />
                 </a>
               ) : (
-                <span className="rounded-lg border border-white/20 px-2 py-1 text-xs text-white/65">
+                <span className="rounded-lg border border-foreground/20 px-2 py-1 text-xs text-foreground/65">
                   Tx {shortHash(item.txHash)}
                 </span>
               )
@@ -129,7 +129,7 @@ function Toast({ id, onClose }: { id: string; onClose: () => void }) {
                   href={item.action.href}
                   target={item.action.external ? "_blank" : undefined}
                   rel={item.action.external ? "noreferrer" : undefined}
-                  className="inline-flex items-center rounded-lg border border-white/20 px-2 py-1 text-xs text-white/75 transition hover:bg-white/10 hover:text-white"
+                  className="inline-flex items-center rounded-lg border border-foreground/20 px-2 py-1 text-xs text-foreground/75 transition hover:bg-foreground/10 hover:text-foreground"
                 >
                   {item.action.label}
                 </a>
@@ -145,7 +145,7 @@ function Toast({ id, onClose }: { id: string; onClose: () => void }) {
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-white/50 transition hover:bg-white/10 hover:text-white"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-foreground/50 transition hover:bg-foreground/10 hover:text-foreground"
           aria-label="Close notification"
         >
           <X className="h-3.5 w-3.5" />
@@ -153,7 +153,7 @@ function Toast({ id, onClose }: { id: string; onClose: () => void }) {
       </div>
 
       {!item.persistent && dismissAfterMs > 0 ? (
-        <div className="h-1 w-full bg-white/5">
+        <div className="h-1 w-full bg-foreground/5">
           <div
             className={`h-full transition-[width] duration-75 ease-linear ${styles.bar}`}
             style={{ width: `${progressPercent}%` }}

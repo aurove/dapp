@@ -53,22 +53,22 @@ function normalizeAmountInput(value: string, decimals: number) {
 
 function BoundTarget({ target }: { target: GaugeIncentiveTarget }) {
   return (
-    <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:grid-cols-2">
+    <div className="grid gap-3 rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4 sm:grid-cols-2">
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/40">
           Selected pair
         </p>
-        <p className="mt-1 font-medium text-white">{target.pair.pairLabel}</p>
-        <code className="mt-1 block truncate text-xs text-white/45" title={target.poolAddress}>
+        <p className="mt-1 font-medium text-foreground">{target.pair.pairLabel}</p>
+        <code className="mt-1 block truncate text-xs text-foreground/45" title={target.poolAddress}>
           Pool {shortAddress(target.poolAddress)}
         </code>
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/40">
           Selected gauge
         </p>
-        <p className="mt-1 font-medium text-white">CL voting gauge</p>
-        <code className="mt-1 block truncate text-xs text-white/45" title={target.gaugeAddress}>
+        <p className="mt-1 font-medium text-foreground">CL voting gauge</p>
+        <code className="mt-1 block truncate text-xs text-foreground/45" title={target.gaugeAddress}>
           {shortAddress(target.gaugeAddress)}
         </code>
       </div>
@@ -128,7 +128,7 @@ function GaugeIncentiveModal(props: {
       }}
     >
       <DialogContent
-        className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto border-white/12 bg-[#0d1218] p-4 sm:w-[calc(100vw-2rem)] sm:p-6"
+        className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto border-foreground/12 bg-panel p-4 sm:w-[calc(100vw-2rem)] sm:p-6"
         onPointerDownOutside={(event) => {
           if (transaction.isPending) event.preventDefault();
         }}
@@ -148,33 +148,33 @@ function GaugeIncentiveModal(props: {
         <BoundTarget target={props.target} />
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
+          <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/40">
               Current incentive epoch
             </p>
-            <p className="mt-2 text-sm font-medium text-white">
+            <p className="mt-2 text-sm font-medium text-foreground">
               {epochStart === null ? "Loading…" : formatEpochTime(epochStart)}
             </p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
+          <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/40">
               Closes
             </p>
-            <p className="mt-2 text-sm font-medium text-white">
+            <p className="mt-2 text-sm font-medium text-foreground">
               {epochClosesAt === null ? "Loading…" : formatEpochTime(epochClosesAt)}
             </p>
           </div>
         </div>
 
         {dataQuery.isLoading ? (
-          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-5 text-sm text-white/55">
+          <div className="flex items-center gap-2 rounded-2xl border border-foreground/10 bg-foreground/[0.025] px-4 py-5 text-sm text-foreground/55">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Loading gauge incentives and supported tokens…
           </div>
         ) : unavailableReason ? (
           <div
             role="alert"
-            className="flex items-start gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/8 px-4 py-3 text-sm text-amber-50/90"
+            className="flex items-start gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/8 px-4 py-3 text-sm text-amber-900/90 dark:text-amber-50/90"
           >
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <p>{unavailableReason}</p>
@@ -183,8 +183,8 @@ function GaugeIncentiveModal(props: {
 
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="text-sm font-medium text-white">Supported incentive token</label>
-            <span className="text-xs text-white/45">
+            <label className="text-sm font-medium text-foreground">Supported incentive token</label>
+            <span className="text-xs text-foreground/45">
               Filtered by the Mezo voter and voting-reward contract
             </span>
           </div>
@@ -207,12 +207,12 @@ function GaugeIncentiveModal(props: {
                     className={cn(
                       "rounded-xl border px-3 py-2 text-left transition",
                       selected
-                        ? "border-[var(--accent)]/50 bg-[var(--accent)]/10 text-white"
-                        : "border-white/10 bg-white/[0.025] text-white/65 hover:bg-white/[0.06]",
+                        ? "border-[var(--accent)]/50 bg-[var(--accent)]/10 text-foreground"
+                        : "border-foreground/10 bg-foreground/[0.025] text-foreground/65 hover:bg-foreground/[0.06]",
                     )}
                   >
                     <span className="block text-sm font-semibold">{token.symbol}</span>
-                    <span className="block truncate text-[11px] text-white/40">
+                    <span className="block truncate text-[11px] text-foreground/40">
                       {shortAddress(token.address)}
                     </span>
                   </button>
@@ -220,18 +220,18 @@ function GaugeIncentiveModal(props: {
               })}
             </div>
           ) : !dataQuery.isLoading && gaugeAvailable ? (
-            <p className="rounded-xl border border-white/10 bg-white/[0.025] p-3 text-sm text-white/55">
+            <p className="rounded-xl border border-foreground/10 bg-foreground/[0.025] p-3 text-sm text-foreground/55">
               No supported incentive tokens are currently available.
             </p>
           ) : null}
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
           <div className="flex items-center justify-between gap-3">
-            <label htmlFor="gauge-incentive-amount" className="text-sm font-medium text-white">
+            <label htmlFor="gauge-incentive-amount" className="text-sm font-medium text-foreground">
               Amount
             </label>
-            <span className="text-xs text-white/50">
+            <span className="text-xs text-foreground/50">
               Balance:{" "}
               {selectedToken
                 ? formatCompactRawTokenAmount(
@@ -272,16 +272,16 @@ function GaugeIncentiveModal(props: {
             </Button>
           </div>
           {amount && validation.error ? (
-            <p role="alert" className="mt-2 text-xs text-red-200">
+            <p role="alert" className="mt-2 text-xs text-red-700 dark:text-red-200">
               {validation.error}
             </p>
           ) : null}
         </div>
 
-        <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+        <div className="space-y-3 rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-white">Existing incentives this epoch</p>
-            <Badge className="border-white/10 bg-white/[0.04] text-white/65">
+            <p className="text-sm font-medium text-foreground">Existing incentives this epoch</p>
+            <Badge className="border-foreground/10 bg-foreground/[0.04] text-foreground/65">
               Voting incentives
             </Badge>
           </div>
@@ -294,8 +294,8 @@ function GaugeIncentiveModal(props: {
                     key={token.address}
                     className="flex items-center justify-between gap-3 text-sm"
                   >
-                    <span className="text-white/60">{token.symbol}</span>
-                    <span className="font-medium text-white">
+                    <span className="text-foreground/60">{token.symbol}</span>
+                    <span className="font-medium text-foreground">
                       {formatCompactRawTokenAmount(
                         token.currentEpochIncentives,
                         token.decimals,
@@ -306,30 +306,30 @@ function GaugeIncentiveModal(props: {
                 ))}
             </div>
           ) : (
-            <p className="text-sm text-white/50">No incentives have been posted for this epoch.</p>
+            <p className="text-sm text-foreground/50">No incentives have been posted for this epoch.</p>
           )}
         </div>
 
-        <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.025] p-4 text-sm">
-          <p className="font-medium text-white">Transaction summary</p>
-          <div className="flex items-center justify-between gap-3 text-white/55">
+        <div className="space-y-2 rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4 text-sm">
+          <p className="font-medium text-foreground">Transaction summary</p>
+          <div className="flex items-center justify-between gap-3 text-foreground/55">
             <span>Token and amount</span>
-            <span className="text-right text-white">
+            <span className="text-right text-foreground">
               {amount || "0"} {selectedToken?.symbol ?? "token"}
             </span>
           </div>
-          <div className="flex items-center justify-between gap-3 text-white/55">
+          <div className="flex items-center justify-between gap-3 text-foreground/55">
             <span>Recipient</span>
             <code
-              className="text-right text-xs text-white"
+              className="text-right text-xs text-foreground"
               title={props.target.incentiveRecipientAddress}
             >
               {shortAddress(props.target.incentiveRecipientAddress)}
             </code>
           </div>
-          <div className="flex items-center justify-between gap-3 text-white/55">
+          <div className="flex items-center justify-between gap-3 text-foreground/55">
             <span>Period</span>
-            <span className="text-right text-white">Current seven-day voting epoch</span>
+            <span className="text-right text-foreground">Current seven-day voting epoch</span>
           </div>
         </div>
 
@@ -416,7 +416,7 @@ export function IncentiviseGaugeButton({ pair }: { pair: AuroveLiquidityPair }) 
         Incentivise gauge
       </Button>
       {!resolution.available ? (
-        <p className="max-w-xs text-xs leading-5 text-amber-100/70">{resolution.reason}</p>
+        <p className="max-w-xs text-xs leading-5 text-amber-900/70 dark:text-amber-100/70">{resolution.reason}</p>
       ) : null}
       {resolution.available ? (
         <GaugeIncentiveModal

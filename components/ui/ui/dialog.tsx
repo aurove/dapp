@@ -31,13 +31,13 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-[101] grid w-[calc(100%-2rem)] max-w-xl min-w-0 -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border border-white/15 bg-[#0d1218] p-6 shadow-2xl",
+        "fixed left-1/2 top-1/2 z-[101] grid w-[calc(100%-2rem)] max-w-xl min-w-0 -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border border-foreground/15 bg-panel p-6 shadow-2xl",
         className,
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-white/60 hover:bg-white/10 hover:text-white">
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-foreground/60 hover:bg-foreground/10 hover:text-foreground">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -65,7 +65,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-semibold text-white", className)}
+    className={cn("text-lg font-semibold text-foreground", className)}
     {...props}
   />
 ));
@@ -77,7 +77,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn("max-w-full text-pretty break-words text-sm text-white/65 whitespace-normal", className)}
+    className={cn("max-w-full text-pretty break-words text-sm text-foreground/65 whitespace-normal", className)}
     {...props}
   />
 ));

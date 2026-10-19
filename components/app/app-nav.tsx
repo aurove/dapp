@@ -62,14 +62,14 @@ export function AppNav({ variant = "inline", onSelect }: AppNavProps) {
             href={route.href}
             onClick={onSelect}
             className={cn(
-              "transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b58f5f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0c1117]",
+              "transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               variant === "sidebar" &&
-                "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:bg-white/5 hover:text-white",
+                "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-foreground/65 hover:bg-foreground/5 hover:text-foreground",
               variant === "inline" &&
-                "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:bg-white/5 hover:text-white",
+                "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-foreground/65 hover:bg-foreground/5 hover:text-foreground",
               variant === "bottom" &&
-                "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-1.5 py-2 text-[10px] font-medium text-white/65 sm:min-w-20 sm:px-3 sm:text-[11px]",
-              isActive && "bg-white/10 text-white",
+                "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-1.5 py-2 text-[10px] font-medium text-foreground/65 sm:min-w-20 sm:px-3 sm:text-[11px]",
+              isActive && "bg-foreground/10 text-foreground",
             )}
           >
             <route.icon className={cn("h-4 w-4", variant === "bottom" && "h-4 w-4")} />

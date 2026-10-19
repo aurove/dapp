@@ -7,7 +7,7 @@ export function TokenMarks({ marks, className }: { marks: readonly string[]; cla
       {marks.map((mark) => (
         <span
           key={mark}
-          className="grid h-11 w-11 overflow-hidden rounded-full border-2 border-[#111820] bg-[#18222b]"
+          className="grid h-11 w-11 overflow-hidden rounded-full border-2 border-[#111820] bg-panel"
         >
           <Image
             src={`/tokens/${mark}.png`}

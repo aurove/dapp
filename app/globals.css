@@ -1,7 +1,46 @@
 @import "tailwindcss";
 @source "../components/ui";
 
-:root {
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Theme tokens. Default (:root / .light) is light for local + testnet.
+ * Mainnet builds add `class="dark"` on <html> via resolveAppTheme().
+ */
+:root,
+html.light {
+  --background: #f4efe6;
+  --background-soft: #ebe4d8;
+  --foreground: #161b22;
+  --muted: #5f675f;
+  --line: rgba(22, 27, 34, 0.12);
+  --line-strong: rgba(22, 27, 34, 0.2);
+  --accent: #a78858;
+  --accent-soft: #8a6d3f;
+  --accent-ink: #20160b;
+  --chrome: #efe8db;
+  --panel: #fbf7f0;
+  --card-fill: linear-gradient(160deg, rgba(255, 252, 246, 0.98), rgba(243, 236, 224, 0.96));
+  --body-bg:
+    radial-gradient(circle at 50% 12%, rgba(167, 136, 88, 0.16), transparent 24%),
+    radial-gradient(circle at 50% 94%, rgba(90, 120, 170, 0.12), transparent 20%),
+    radial-gradient(circle at 8% 40%, rgba(167, 136, 88, 0.1), transparent 30%),
+    radial-gradient(circle at 92% 42%, rgba(90, 120, 170, 0.08), transparent 28%),
+    linear-gradient(180deg, #f7f2e9 0%, #f1ebe0 52%, #ece4d7 100%);
+  --shell-veil: linear-gradient(180deg, rgba(247, 242, 233, 0.92) 0%, rgba(241, 235, 224, 0.96) 46%, rgba(236, 228, 215, 1) 100%);
+  --shell-glow: linear-gradient(125deg, rgba(167, 136, 88, 0.14) 0%, rgba(167, 136, 88, 0.04) 22%, transparent 44%),
+    linear-gradient(235deg, rgba(90, 120, 170, 0.12) 0%, rgba(90, 120, 170, 0.03) 26%, transparent 55%);
+  --shell-grid: linear-gradient(rgba(22, 27, 34, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(22, 27, 34, 0.04) 1px, transparent 1px);
+  --selection-fg: #161b22;
+  --shadow: 0 18px 44px rgba(40, 32, 18, 0.12);
+  --stat-card-bg: linear-gradient(180deg, rgba(255, 252, 246, 0.98), rgba(243, 236, 224, 0.92));
+  --stat-card-label: rgba(22, 27, 34, 0.58);
+  --stat-card-border: rgba(22, 27, 34, 0.1);
+  --stat-card-icon-bg: rgba(22, 27, 34, 0.04);
+}
+
+html.dark {
   --background: #05070c;
   --background-soft: #0b1017;
   --foreground: #f6f3ef;
@@ -11,11 +50,38 @@
   --accent: #d2a45f;
   --accent-soft: #ecd09b;
   --accent-ink: #20160b;
+  --chrome: #0a0f15;
+  --panel: #0d1218;
+  --card-fill: linear-gradient(160deg, rgba(18, 23, 30, 0.96), rgba(12, 16, 22, 0.94));
+  --body-bg:
+    radial-gradient(circle at 50% 12%, rgba(196, 160, 106, 0.13), transparent 22%),
+    radial-gradient(circle at 50% 94%, rgba(80, 123, 204, 0.28), transparent 18%),
+    radial-gradient(circle at 8% 40%, rgba(196, 160, 106, 0.09), transparent 28%),
+    radial-gradient(circle at 92% 42%, rgba(74, 104, 156, 0.08), transparent 28%),
+    linear-gradient(180deg, #070b12 0%, #080c12 52%, #05070c 100%);
+  --shell-veil: linear-gradient(180deg, rgba(13, 19, 27, 0.96) 0%, rgba(8, 12, 18, 0.98) 46%, rgba(6, 9, 14, 1) 100%);
+  --shell-glow: linear-gradient(125deg, rgba(196, 160, 106, 0.13) 0%, rgba(196, 160, 106, 0.035) 22%, transparent 44%),
+    linear-gradient(235deg, rgba(72, 99, 132, 0.16) 0%, rgba(72, 99, 132, 0.035) 26%, transparent 55%);
+  --shell-grid: linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  --selection-fg: #ffffff;
+  --shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+  --stat-card-bg: linear-gradient(180deg, rgba(11, 16, 23, 0.96), rgba(9, 13, 18, 0.88));
+  --stat-card-label: rgba(232, 230, 225, 0.62);
+  --stat-card-border: rgba(255, 255, 255, 0.12);
+  --stat-card-icon-bg: rgba(255, 255, 255, 0.025);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-soft: var(--background-soft);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-chrome: var(--chrome);
+  --color-panel: var(--panel);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
   --font-sans: "Satoshi", "Manrope", "Avenir Next", "Segoe UI", sans-serif;
   --font-serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
   --font-mono:
@@ -34,12 +100,7 @@ body {
 body {
   margin: 0;
   color: var(--foreground);
-  background:
-    radial-gradient(circle at 50% 12%, rgba(196, 160, 106, 0.13), transparent 22%),
-    radial-gradient(circle at 50% 94%, rgba(80, 123, 204, 0.28), transparent 18%),
-    radial-gradient(circle at 8% 40%, rgba(196, 160, 106, 0.09), transparent 28%),
-    radial-gradient(circle at 92% 42%, rgba(74, 104, 156, 0.08), transparent 28%),
-    linear-gradient(180deg, #070b12 0%, #080c12 52%, #05070c 100%);
+  background: var(--body-bg);
   background-attachment: fixed;
   background-color: var(--background);
   font-family: var(--font-sans);
@@ -52,7 +113,7 @@ a {
 
 ::selection {
   background: rgba(196, 160, 106, 0.35);
-  color: #ffffff;
+  color: var(--selection-fg);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -72,8 +133,31 @@ a {
   }
 }
 
+.app-shell-veil {
+  background-image: var(--shell-veil);
+}
+
+.app-shell-glow {
+  background-image: var(--shell-glow);
+}
+
+.app-shell-grid {
+  background-image: var(--shell-grid);
+  background-size: 72px 72px;
+}
+
+.surface-card {
+  background-image: var(--card-fill);
+}
+
 .landing-page {
   overflow-x: clip;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(167, 136, 88, 0.08), transparent 28%),
+    linear-gradient(180deg, color-mix(in srgb, var(--foreground) 2%, transparent), transparent 18%);
+}
+
+html.dark .landing-page {
   background:
     radial-gradient(circle at 50% 0%, rgba(234, 194, 118, 0.05), transparent 28%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 18%);
@@ -379,13 +463,11 @@ a {
   flex-direction: row;
   align-items: center;
   gap: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--stat-card-border);
   border-radius: 24px;
-  background: linear-gradient(180deg, rgba(11, 16, 23, 0.96), rgba(9, 13, 18, 0.88));
+  background: var(--stat-card-bg);
   padding: 22px 20px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 16px 36px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow);
 }
 
 .protocol-stat-card__icon-wrap {
@@ -396,9 +478,9 @@ a {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(255, 255, 255, 0.025);
-  color: #f0c57a;
+  border: 1px solid var(--line);
+  background: var(--stat-card-icon-bg);
+  color: var(--accent);
 }
 
 .protocol-stat-card__icon {
@@ -428,7 +510,7 @@ a {
 
 .protocol-stat-card__label {
   margin: 0;
-  color: rgba(232, 230, 225, 0.62);
+  color: var(--stat-card-label);
   font-size: 0.95rem;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -492,13 +574,11 @@ a {
 
 .feature-card {
   min-height: 260px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--stat-card-border);
   border-radius: 24px;
-  background: linear-gradient(180deg, rgba(11, 16, 23, 0.96), rgba(9, 13, 18, 0.88));
+  background: var(--stat-card-bg);
   padding: 18px 18px 16px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 16px 36px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow);
 }
 
 .feature-card__header {
@@ -516,9 +596,9 @@ a {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(255, 255, 255, 0.025);
-  color: #f0c57a;
+  border: 1px solid var(--line);
+  background: var(--stat-card-icon-bg);
+  color: var(--accent);
 }
 
 .feature-card__icon {
@@ -539,14 +619,14 @@ a {
 
 .feature-card__lede {
   margin: 8px 0 0;
-  color: rgba(232, 230, 225, 0.92);
+  color: color-mix(in srgb, var(--foreground) 88%, transparent);
   font-size: 1.02rem;
   line-height: 1.55;
 }
 
 .feature-card__body {
   margin: 16px 0 0;
-  color: rgba(232, 230, 225, 0.68);
+  color: var(--muted);
   font-size: 1.02rem;
   line-height: 1.7;
   white-space: pre-line;
@@ -555,15 +635,13 @@ a {
 .landing-swap__card {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.13);
+  border: 1px solid var(--stat-card-border);
   border-radius: 24px;
   background:
-    linear-gradient(140deg, rgba(235, 192, 116, 0.08), transparent 32%),
-    linear-gradient(180deg, rgba(16, 22, 30, 0.98), rgba(8, 12, 18, 0.95));
+    linear-gradient(140deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 32%),
+    var(--stat-card-bg);
   padding: 18px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 24px 70px rgba(0, 0, 0, 0.34);
+  box-shadow: var(--shadow);
 }
 
 .landing-swap__card-header {
@@ -663,11 +741,11 @@ a {
   align-items: center;
   justify-content: center;
   margin: -4px auto;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--line-strong);
   border-radius: 9999px;
-  background: #101821;
-  color: #f1c77d;
-  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.28);
+  background: var(--panel);
+  color: var(--accent);
+  box-shadow: var(--shadow);
 }
 
 .landing-swap__route {
@@ -676,11 +754,11 @@ a {
   justify-content: space-between;
   gap: 12px;
   margin-top: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  border: 1px solid var(--line);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--stat-card-icon-bg);
   padding: 12px 13px;
-  color: rgba(232, 230, 225, 0.78);
+  color: var(--muted);
   font-size: 0.9rem;
 }
 

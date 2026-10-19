@@ -23,10 +23,10 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const sheetVariants = {
-  right: "inset-y-0 right-0 h-full w-full border-l border-white/15 sm:max-w-md",
-  left: "inset-y-0 left-0 h-full w-full border-r border-white/15 sm:max-w-md",
-  top: "inset-x-0 top-0 border-b border-white/15",
-  bottom: "inset-x-0 bottom-0 border-t border-white/15",
+  right: "inset-y-0 right-0 h-full w-full border-l border-foreground/15 sm:max-w-md",
+  left: "inset-y-0 left-0 h-full w-full border-r border-foreground/15 sm:max-w-md",
+  top: "inset-x-0 top-0 border-b border-foreground/15",
+  bottom: "inset-x-0 bottom-0 border-t border-foreground/15",
 } as const;
 
 interface SheetContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
@@ -42,14 +42,14 @@ const SheetContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed z-50 grid gap-4 bg-[#0d1218] p-6 shadow-xl duration-200",
+        "fixed z-50 grid gap-4 bg-panel p-6 shadow-xl duration-200",
         sheetVariants[side],
         className,
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-white/60 hover:bg-white/10 hover:text-white">
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-foreground/60 hover:bg-foreground/10 hover:text-foreground">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -77,7 +77,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-semibold text-white", className)}
+    className={cn("text-lg font-semibold text-foreground", className)}
     {...props}
   />
 ));
@@ -89,7 +89,7 @@ const SheetDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn("text-sm text-white/65", className)}
+    className={cn("text-sm text-foreground/65", className)}
     {...props}
   />
 ));

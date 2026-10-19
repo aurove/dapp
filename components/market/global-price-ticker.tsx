@@ -19,7 +19,7 @@ const TickerItem = memo(function TickerItem({ quote }: { quote: MarketPriceQuote
       role="listitem"
       aria-label={`${label} price ${priceText}`}
     >
-      <span className="text-[11px] font-medium tracking-wide text-white/55 sm:text-xs">
+      <span className="text-[11px] font-medium tracking-wide text-foreground/55 sm:text-xs">
         {quote.symbol}
       </span>
       <span className="text-[12px] font-semibold tabular-nums tracking-tight text-[var(--foreground)] sm:text-[13px]">
@@ -50,7 +50,7 @@ function GlobalPriceTickerInner() {
 
   return (
     <div
-      className="price-ticker sticky top-0 z-[60] border-b border-white/[0.07] bg-[#06090e]/95 backdrop-blur-md"
+      className="price-ticker sticky top-0 z-[60] border-b border-foreground/[0.07] bg-chrome/95 backdrop-blur-md"
       data-fetching={isFetching ? "true" : "false"}
     >
       <div className="mx-auto flex h-9 w-full max-w-7xl items-center px-0 sm:px-2 md:px-4">
@@ -64,7 +64,7 @@ function GlobalPriceTickerInner() {
           {showSkeleton ? (
             <TickerSkeleton />
           ) : isError && !data ? (
-            <p className="px-4 text-[11px] text-white/40">Prices unavailable</p>
+            <p className="px-4 text-[11px] text-foreground/40">Prices unavailable</p>
           ) : (
             quotes.map((quote) => <TickerItem key={quote.id} quote={quote} />)
           )}

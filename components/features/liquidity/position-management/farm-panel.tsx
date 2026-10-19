@@ -56,14 +56,14 @@ export function FarmPanel({
     : [];
 
   return (
-    <div className="space-y-4 rounded-2xl border border-white/15 bg-black/10 p-5">
+    <div className="space-y-4 rounded-2xl border border-foreground/15 bg-black/10 p-5">
       <div className="flex items-start gap-3">
-        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${position.isStaked ? "bg-emerald-300/10 text-emerald-100" : "bg-sky-300/10 text-sky-100"}`}>
+        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${position.isStaked ? "bg-emerald-300/10 text-emerald-800 dark:text-emerald-100" : "bg-sky-300/10 text-sky-800 dark:text-sky-100"}`}>
           {position.isStaked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
         </span>
         <div>
-          <h4 className="font-medium text-white">{position.isStaked ? "Farming" : "Farm this position"}</h4>
-          <p className="mt-1 text-sm text-white/55">
+          <h4 className="font-medium text-foreground">{position.isStaked ? "Farming" : "Farm this position"}</h4>
+          <p className="mt-1 text-sm text-foreground/55">
             {position.isStaked
               ? `NFT #${position.tokenId.toString()} is deposited in the ${position.poolKey} gauge. Unstake returns the NFT and claims outstanding emissions in the same transaction.`
               : `Deposit NFT #${position.tokenId.toString()} into the ${position.poolKey} gauge to earn emissions. Swap fees still accrue while the range is active.`}
@@ -72,20 +72,20 @@ export function FarmPanel({
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
-          <p className="text-xs text-white/45">{position.isStaked ? "Claimable emissions" : "Position"}</p>
-          <p className="mt-1 text-sm font-medium text-white">
+        <div className="rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
+          <p className="text-xs text-foreground/45">{position.isStaked ? "Claimable emissions" : "Position"}</p>
+          <p className="mt-1 text-sm font-medium text-foreground">
             {position.isStaked ? earnedLabel : `NFT #${position.tokenId.toString()}`}
           </p>
         </div>
-        <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
-          <p className="text-xs text-white/45">Gauge</p>
-          <p className="mt-1 truncate text-sm font-medium text-white">{gauge?.key ?? "Unavailable"}</p>
+        <div className="rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
+          <p className="text-xs text-foreground/45">Gauge</p>
+          <p className="mt-1 truncate text-sm font-medium text-foreground">{gauge?.key ?? "Unavailable"}</p>
         </div>
       </div>
 
       {!gauge ? (
-        <p role="status" className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+        <p role="status" className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
           No CL gauge is configured for this pool on the current network.
         </p>
       ) : position.isStaked ? (
@@ -115,7 +115,7 @@ export function FarmPanel({
           </TransactionFlowButton>
         </div>
       ) : position.liquidity <= 0n ? (
-        <p role="status" className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+        <p role="status" className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
           Add liquidity before farming this empty position.
         </p>
       ) : (

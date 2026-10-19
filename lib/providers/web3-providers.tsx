@@ -1,12 +1,13 @@
 "use client";
 
 import "@rainbow-me/rainbowkit/styles.css";
-import { darkTheme, RainbowKitProvider } from "@rainbow-me/rainbowkit";
+import { darkTheme, lightTheme, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { createContext, useContext, useMemo, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Config, WagmiProvider } from "wagmi";
 
 import { getActiveChain } from "@/lib/config/chains";
+import { resolveAppTheme } from "@/lib/config/theme";
 import { getWagmiConfig } from "@/lib/config/wagmi";
 import contracts from "@/contracts/registry";
 import type { TxContractsDeclaration, TxIconState, TxNotifyApi } from "@/lib/tx-flow/types";
@@ -49,6 +50,7 @@ export function Web3Providers({
   notify,
 }: Web3ProvidersProps) {
   const activeChain = getActiveChain();
+  const appTheme = resolveAppTheme();
   const resolvedWagmiConfig = useMemo(() => {
     // Seed deterministic burner PK (E2E/local) before connectors initialize.
     ensureDeterministicBurnerPrivateKey();
@@ -60,14 +62,14 @@ export function Web3Providers({
         ? false
         : (rainbowKit ?? {
             initialChain: activeChain,
-            theme: darkTheme({
+            theme: (appTheme === "dark" ? darkTheme : lightTheme)({
               accentColor: "#a78858",
-              accentColorForeground: "#fefaf0",
+              accentColorForeground: appTheme === "dark" ? "#fefaf0" : "#1e160b",
               borderRadius: "medium",
               overlayBlur: "small",
             }),
           }),
-    [activeChain, rainbowKit],
+    [activeChain, appTheme, rainbowKit],
   );
 
   const [iconState, setIconState] = useState<TxIconState>("idle");

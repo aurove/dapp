@@ -51,8 +51,8 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
         className={cn(
           "mb-3 block rounded-xl px-3 py-2 text-sm font-medium transition",
           pathname === "/docs"
-            ? "bg-[#d2a45f]/12 text-[#f0e2c8]"
-            : "text-white/60 hover:bg-white/5 hover:text-white",
+            ? "bg-[var(--accent)]/12 text-[var(--accent-soft)]"
+            : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground",
         )}
       >
         Documentation home
@@ -65,7 +65,7 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
             <button
               type="button"
               onClick={() => toggle(section.title)}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40 transition hover:text-white/70"
+              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/40 transition hover:text-foreground/70"
               aria-expanded={isOpen}
             >
               {section.title}
@@ -75,7 +75,7 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
               />
             </button>
             {isOpen ? (
-              <ul className="ml-3 mt-0.5 space-y-0.5 border-l border-white/8 pl-2">
+              <ul className="ml-3 mt-0.5 space-y-0.5 border-l border-foreground/8 pl-2">
                 {section.items.map((item) => {
                   const href = `/docs/${item.slug}`;
                   const active = activeSlug === item.slug;
@@ -87,8 +87,8 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
                         className={cn(
                           "flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition",
                           active
-                            ? "bg-white/10 text-white"
-                            : "text-white/55 hover:bg-white/5 hover:text-white/90",
+                            ? "bg-foreground/10 text-foreground"
+                            : "text-foreground/55 hover:bg-foreground/5 hover:text-foreground/90",
                         )}
                       >
                         <span className="truncate">{item.title}</span>
@@ -111,7 +111,7 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
 /** Desktop left nav — stays put; only its own list scrolls if long. */
 export function DocsSidebar() {
   return (
-    <aside className="hidden h-full w-64 shrink-0 flex-col overflow-hidden border-r border-white/5 py-4 pr-2 lg:flex md:py-6">
+    <aside className="hidden h-full w-64 shrink-0 flex-col overflow-hidden border-r border-foreground/5 py-4 pr-2 lg:flex md:py-6">
       <ScrollArea className="h-full pr-2">
         <NavTree />
       </ScrollArea>
@@ -129,16 +129,16 @@ export function DocsMobileNav() {
           className={buttonVariants({
             variant: "secondary",
             size: "sm",
-            className: "gap-2 border border-white/10 bg-white/5",
+            className: "gap-2 border border-foreground/10 bg-foreground/5",
           })}
         >
           <Menu className="h-4 w-4" />
           Menu
         </SheetTrigger>
-        <SheetContent side="left" className="w-[min(100%,20rem)] border-white/10 bg-[#0a0f15] p-0">
-          <div className="border-b border-white/10 px-4 py-4 pr-12">
-            <SheetTitle className="text-sm font-semibold text-white">Documentation</SheetTitle>
-            <SheetDescription className="mt-0.5 text-xs text-white/45">
+        <SheetContent side="left" className="w-[min(100%,20rem)] border-foreground/10 bg-chrome p-0">
+          <div className="border-b border-foreground/10 px-4 py-4 pr-12">
+            <SheetTitle className="text-sm font-semibold text-foreground">Documentation</SheetTitle>
+            <SheetDescription className="mt-0.5 text-xs text-foreground/45">
               Browse topics
             </SheetDescription>
           </div>

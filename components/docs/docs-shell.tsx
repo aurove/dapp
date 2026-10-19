@@ -15,15 +15,15 @@ export function DocsShell({
   searchDocuments: DocSearchDocument[];
 }) {
   return (
-    <div className="relative isolate flex h-dvh flex-col overflow-hidden bg-[#070b10]">
-      <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(180deg,rgba(13,19,27,0.96)_0%,rgba(8,12,18,0.98)_46%,rgba(6,9,14,1)_100%)]" />
-      <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_18%_0%,rgba(210,164,95,0.09),transparent_28%),radial-gradient(circle_at_88%_8%,rgba(72,99,132,0.1),transparent_24%)]" />
+    <div className="relative isolate flex h-dvh flex-col overflow-hidden bg-background">
+      <div className="app-shell-veil pointer-events-none fixed inset-0 z-0" />
+      <div className="app-shell-glow pointer-events-none fixed inset-0 z-0" />
 
       {/* Top nav — fixed chrome, not part of content scroll */}
-      <header className="relative z-40 shrink-0 border-b border-white/10 bg-[#0a0f15]/92 backdrop-blur-xl">
+      <header className="relative z-40 shrink-0 border-b border-foreground/10 bg-chrome/92 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[90rem] items-center justify-between gap-3 px-4 py-3 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <Link href="/" className="inline-flex items-center rounded-xl text-white">
+            <Link href="/" className="inline-flex items-center rounded-xl text-foreground">
               <span className="relative block h-7 w-[7.5rem] overflow-hidden sm:h-8 sm:w-[8.5rem]">
                 <Image
                   src="/logo_mark.png"
@@ -35,10 +35,10 @@ export function DocsShell({
                 />
               </span>
             </Link>
-            <span className="hidden h-4 w-px bg-white/15 sm:block" aria-hidden />
+            <span className="hidden h-4 w-px bg-foreground/15 sm:block" aria-hidden />
             <Link
               href="/docs"
-              className="hidden text-sm font-medium text-white/70 transition hover:text-white sm:inline"
+              className="hidden text-sm font-medium text-foreground/70 transition hover:text-foreground sm:inline"
             >
               Docs
             </Link>
@@ -61,7 +61,7 @@ export function DocsShell({
             </Link>
           </div>
         </div>
-        <div className="border-t border-white/5 px-4 py-2 md:hidden">
+        <div className="border-t border-foreground/5 px-4 py-2 md:hidden">
           <DocsSearch documents={searchDocuments} />
         </div>
       </header>

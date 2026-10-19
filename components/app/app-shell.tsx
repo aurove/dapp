@@ -18,18 +18,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const year = useMemo(() => new Date().getFullYear(), []);
 
   return (
-    <div className="relative isolate min-h-screen overflow-hidden bg-[#070b10] pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
-      <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(180deg,rgba(13,19,27,0.96)_0%,rgba(8,12,18,0.98)_46%,rgba(6,9,14,1)_100%)]" />
-      <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(125deg,rgba(196,160,106,0.13)_0%,rgba(196,160,106,0.035)_22%,transparent_44%),linear-gradient(235deg,rgba(72,99,132,0.16)_0%,rgba(72,99,132,0.035)_26%,transparent_55%)]" />
-      <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(rgba(255,255,255,0.026)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.022)_1px,transparent_1px)] bg-[size:72px_72px] opacity-55 [mask-image:linear-gradient(180deg,rgba(0,0,0,0.8),rgba(0,0,0,0.42)_62%,transparent_100%)]" />
+    <div className="relative isolate min-h-screen overflow-hidden bg-background pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
+      <div className="app-shell-veil pointer-events-none fixed inset-0 z-0" />
+      <div className="app-shell-glow pointer-events-none fixed inset-0 z-0" />
+      <div className="app-shell-grid pointer-events-none fixed inset-0 z-0 opacity-55 [mask-image:linear-gradient(180deg,rgba(0,0,0,0.8),rgba(0,0,0,0.42)_62%,transparent_100%)]" />
       {/* Fixed below the global price ticker (h-9 / 2.25rem). */}
-      <header className="fixed inset-x-0 top-9 z-40 border-b border-white/10 bg-[#0a0f15]/92 backdrop-blur-xl">
+      <header className="fixed inset-x-0 top-9 z-40 border-b border-[var(--line)] bg-chrome/92 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6">
           <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="inline-flex items-center rounded-xl pt-2 text-white"
-            >
+            <Link href="/" className="inline-flex items-center rounded-xl pt-2 text-foreground">
               <span className="relative block h-6 w-[10rem] overflow-hidden sm:h-10 sm:w-[10.5rem]">
                 <Image
                   src="/logo_mark.png"
@@ -56,8 +53,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Badge
             className={
               wrongNetwork
-                ? "normal-case tracking-normal border-red-400/30 bg-red-500/10 text-red-100"
-                : "normal-case tracking-normal border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+                ? "normal-case tracking-normal border-red-400/30 bg-red-500/10 text-red-700 dark:text-red-100"
+                : "normal-case tracking-normal border-emerald-400/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100"
             }
           >
             <BellRing className="mr-1 h-3.5 w-3.5" />
@@ -75,19 +72,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main>{children}</main>
       </div>
 
-      <footer className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-8 pt-2 text-xs text-white/40 md:px-6">
+      <footer className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-8 pt-2 text-xs text-foreground/40 md:px-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {year} Aurove. This interface reflects configured contract state. Verify transaction
             details and destination contracts before signing.
           </p>
-          <Link href="/docs" className="text-white/55 transition hover:text-white/80">
+          <Link href="/docs" className="text-foreground/55 transition hover:text-foreground/80">
             Documentation
           </Link>
         </div>
       </footer>
 
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0a0f15]/96 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_36px_rgba(0,0,0,0.35)] backdrop-blur lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--line)] bg-chrome/96 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_36px_rgba(0,0,0,0.18)] backdrop-blur lg:hidden">
         <AppNav variant="bottom" />
       </div>
     </div>

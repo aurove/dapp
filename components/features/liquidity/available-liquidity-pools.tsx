@@ -75,7 +75,7 @@ function PoolCard({
       href={`/liquidity/add/${routeSlug}`}
       className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
     >
-      <Card className="h-full border-white/10 bg-white/[0.035] transition duration-200 group-hover:-translate-y-0.5 group-hover:border-[var(--accent)]/35 group-hover:bg-white/[0.05]">
+      <Card className="h-full border-foreground/10 bg-foreground/[0.035] transition duration-200 group-hover:-translate-y-0.5 group-hover:border-[var(--accent)]/35 group-hover:bg-foreground/[0.05]">
         <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-4">
             <TokenMarks marks={marks} />
@@ -84,19 +84,19 @@ function PoolCard({
               <CardDescription className="mt-1">{description}</CardDescription>
             </div>
           </div>
-          <Badge className="w-fit border-emerald-300/25 bg-emerald-300/10 text-emerald-100">
+          <Badge className="w-fit border-emerald-300/25 bg-emerald-300/10 text-emerald-800 dark:text-emerald-100">
             Available
           </Badge>
         </CardHeader>
-        <CardContent className="grid gap-4 border-t border-white/8 pt-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+        <CardContent className="grid gap-4 border-t border-foreground/8 pt-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
           <div>
-            <p className="text-xs uppercase tracking-wide text-white/40">Current pool price</p>
-            <p className="mt-1 text-sm text-white/75">{price}</p>
+            <p className="text-xs uppercase tracking-wide text-foreground/40">Current pool price</p>
+            <p className="mt-1 text-sm text-foreground/75">{price}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-white/40">MEZO emissions APR</p>
-            <p className="mt-1 text-sm text-white/75">{aprLabel}</p>
-            <p className="mt-0.5 text-xs text-white/40">{aprDetail}</p>
+            <p className="text-xs uppercase tracking-wide text-foreground/40">MEZO emissions APR</p>
+            <p className="mt-1 text-sm text-foreground/75">{aprLabel}</p>
+            <p className="mt-0.5 text-xs text-foreground/40">{aprDetail}</p>
           </div>
           <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-[var(--accent)]">
             Add liquidity{" "}
@@ -118,11 +118,11 @@ export function AvailableLiquidityPools() {
       <div>
         <div className="flex items-center gap-2">
           <Droplets className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
-          <h1 id="available-pools-title" className="text-2xl font-semibold text-white">
+          <h1 id="available-pools-title" className="text-2xl font-semibold text-foreground">
             Supply liquidity with your locked BTC and locked MEZO.
           </h1>
         </div>
-        <p className="mt-1 text-sm text-white/55">
+        <p className="mt-1 text-sm text-foreground/55">
           Add another income stream to your Mezo Earn positions. Keep earning in Mezo Earn while
           collecting swap fees whenever trades move through your active price range.
         </p>

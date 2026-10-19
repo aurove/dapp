@@ -26,7 +26,7 @@ function AssetCard({
       className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
       aria-label={`Create ${asset.productSymbol} position`}
     >
-      <Card className="h-full border-white/10 bg-white/[0.035] transition duration-200 group-hover:-translate-y-0.5 group-hover:border-[var(--accent)]/35 group-hover:bg-white/[0.05]">
+      <Card className="h-full border-foreground/10 bg-foreground/[0.035] transition duration-200 group-hover:-translate-y-0.5 group-hover:border-[var(--accent)]/35 group-hover:bg-foreground/[0.05]">
         <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-4">
             <TokenMarks marks={asset.marks} />
@@ -38,17 +38,17 @@ function AssetCard({
           <Badge
             className={
               available
-                ? "w-fit border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
-                : "w-fit border-white/15 bg-white/5 text-white/60"
+                ? "w-fit border-emerald-300/25 bg-emerald-300/10 text-emerald-800 dark:text-emerald-100"
+                : "w-fit border-foreground/15 bg-foreground/5 text-foreground/60"
             }
           >
             {available ? "Available" : "Unavailable"}
           </Badge>
         </CardHeader>
-        <CardContent className="flex items-end justify-between gap-4 border-t border-white/8 pt-5">
+        <CardContent className="flex items-end justify-between gap-4 border-t border-foreground/8 pt-5">
           <div>
-            <p className="text-xs uppercase tracking-wide text-white/40">Annualised APR</p>
-            <p className="mt-1 text-sm text-white/75">{apr.value}</p>
+            <p className="text-xs uppercase tracking-wide text-foreground/40">Annualised APR</p>
+            <p className="mt-1 text-sm text-foreground/75">{apr.value}</p>
           </div>
           <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-[var(--accent)]">
             Create position{" "}
@@ -82,11 +82,11 @@ export function AvailableEarningAssets() {
       <div>
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
-          <h1 id="available-assets-title" className="text-2xl font-semibold text-white">
+          <h1 id="available-assets-title" className="text-2xl font-semibold text-foreground">
             Turn Mezo Earn positions into liquid assets you can use.
           </h1>
         </div>
-        <p className="mt-1 text-sm text-white/55">
+        <p className="mt-1 text-sm text-foreground/55">
           Deposit BTC, MEZO, or an existing locked Mezo Earn position and receive a liquid Aurove
           asset. Keep earning from the underlying position while remaining free to swap.
         </p>

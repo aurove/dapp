@@ -69,18 +69,18 @@ function getAwardLabel(sourceDetails: Record<string, unknown>): string | null {
 function getAwardLabelClass(sourceDetails: Record<string, unknown>): string {
   const awardType = typeof sourceDetails.awardType === "string" ? sourceDetails.awardType : null;
   if (awardType === "task_award_user") {
-    return "border-amber-300/25 bg-amber-300/10 text-amber-50 shadow-[0_0_24px_rgba(245,158,11,0.18)]";
+    return "border-amber-300/25 bg-amber-300/10 text-amber-900 dark:text-amber-50 shadow-[0_0_24px_rgba(245,158,11,0.18)]";
   }
 
   if (awardType === "task_award_referral_grand") {
-    return "border-violet-300/25 bg-violet-300/10 text-violet-50 shadow-[0_0_24px_rgba(139,92,246,0.16)]";
+    return "border-violet-300/25 bg-violet-300/10 text-violet-900 dark:text-violet-50 shadow-[0_0_24px_rgba(139,92,246,0.16)]";
   }
 
   if (awardType === "task_award_referral_direct") {
-    return "border-sky-300/25 bg-sky-300/10 text-sky-50 shadow-[0_0_24px_rgba(56,189,248,0.14)]";
+    return "border-sky-300/25 bg-sky-300/10 text-sky-900 dark:text-sky-50 shadow-[0_0_24px_rgba(56,189,248,0.14)]";
   }
 
-  return "border-white/10 bg-white/5 text-white/75";
+  return "border-foreground/10 bg-foreground/5 text-foreground/75";
 }
 
 function groupByDate(items: AcademyActivityEntry[]): Array<{ dateKey: string; label: string; entries: AcademyActivityEntry[] }> {
@@ -112,9 +112,9 @@ function ActivityLoadingState() {
 
 function EmptyState({ title, description }: { title: string; description: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-6 text-sm text-white/58">
-      <p className="font-medium text-white">{title}</p>
-      <p className="mt-1 leading-7 text-white/55">{description}</p>
+    <div className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.025] p-6 text-sm text-foreground/58">
+      <p className="font-medium text-foreground">{title}</p>
+      <p className="mt-1 leading-7 text-foreground/55">{description}</p>
     </div>
   );
 }
@@ -127,21 +127,21 @@ function ActivityEntryCard({ entry }: { entry: AcademyActivityEntry }) {
   const awardLabel = getAwardLabel(entry.sourceDetails);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+    <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium text-white">{entry.activityName}</p>
-            <Badge className="border-white/10 bg-white/5 text-white/75">{toLabel(entry.sourceKind)}</Badge>
+            <p className="font-medium text-foreground">{entry.activityName}</p>
+            <Badge className="border-foreground/10 bg-foreground/5 text-foreground/75">{toLabel(entry.sourceKind)}</Badge>
             {awardLabel ? (
               <Badge className={getAwardLabelClass(entry.sourceDetails)}>{awardLabel}</Badge>
             ) : null}
           </div>
-          <p className="text-xs text-white/45">
+          <p className="text-xs text-foreground/45">
             {formatActivityDate(entry.occurredAt)} at {formatActivityTime(entry.occurredAt)}
           </p>
         </div>
-        <p className={cn("text-sm font-semibold", positive ? "text-emerald-300" : "text-rose-300")}>
+        <p className={cn("text-sm font-semibold", positive ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300")}>
           {pointsLabel} points
         </p>
       </div>
@@ -193,7 +193,7 @@ export function AcademyActivityDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] max-w-4xl overflow-hidden p-0 sm:w-[calc(100vw-2rem)]">
         <div className="flex max-h-[90vh] flex-col">
-          <DialogHeader className="border-b border-white/10 px-4 py-5 sm:px-6">
+          <DialogHeader className="border-b border-foreground/10 px-4 py-5 sm:px-6">
             <DialogTitle className="text-2xl">Academy activity</DialogTitle>
             <DialogDescription>
               {user ? `Activity history for ${shortenWalletAddress(user.walletAddress)}` : "Activity history for the selected Academy participant."}
@@ -201,14 +201,14 @@ export function AcademyActivityDialog({
 
             {user ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Badge className="border-white/10 bg-white/5 text-white/75">
+                <Badge className="border-foreground/10 bg-foreground/5 text-foreground/75">
                   {formatPoints(user.totalPoints)} points
                 </Badge>
-                <Badge className="border-white/10 bg-white/5 text-white/75">
+                <Badge className="border-foreground/10 bg-foreground/5 text-foreground/75">
                   {user.rank ? `Rank #${user.rank}` : "Unranked"}
                 </Badge>
                 {user.isCurrentUser ? (
-                  <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-100">You</Badge>
+                  <Badge className="border-amber-300/25 bg-amber-300/10 text-amber-900 dark:text-amber-100">You</Badge>
                 ) : null}
               </div>
             ) : null}
@@ -237,9 +237,9 @@ export function AcademyActivityDialog({
                 {groups.map((group) => (
                   <div key={group.dateKey} className="space-y-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-px flex-1 bg-white/10" />
-                      <p className="text-xs uppercase tracking-[0.24em] text-white/40">{group.label}</p>
-                      <div className="h-px flex-1 bg-white/10" />
+                      <div className="h-px flex-1 bg-foreground/10" />
+                      <p className="text-xs uppercase tracking-[0.24em] text-foreground/40">{group.label}</p>
+                      <div className="h-px flex-1 bg-foreground/10" />
                     </div>
 
                     <div className="space-y-3">
@@ -253,8 +253,8 @@ export function AcademyActivityDialog({
             ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-4 py-4 text-sm sm:px-6">
-            <p className="text-xs text-white/45">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-foreground/10 px-4 py-4 text-sm sm:px-6">
+            <p className="text-xs text-foreground/45">
               {isFetching && !isLoading ? "Refreshing activity log..." : `Page ${page} of ${totalPages || 1}`}
             </p>
 

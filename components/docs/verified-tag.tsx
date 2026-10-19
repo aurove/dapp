@@ -25,7 +25,7 @@ export function VerifiedTag({
       target="_blank"
       rel="noreferrer"
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-emerald-100 hover:border-emerald-300/40",
+        "inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-emerald-800 hover:border-emerald-500/40 dark:text-emerald-100",
         className,
       )}
     >
@@ -42,7 +42,7 @@ export function SourcifyAlsoLink({ entry }: { entry: DeploymentEntry }) {
       href={sourcifyVerificationUrl(entry.address)}
       target="_blank"
       rel="noreferrer"
-      className="text-[11px] text-white/45 underline-offset-2 hover:text-white/70 hover:underline"
+      className="text-[11px] text-foreground/45 underline-offset-2 hover:text-foreground/70 hover:underline"
     >
       Also verified on Sourcify
     </a>
@@ -61,7 +61,7 @@ export function ExplorerContractLink({
       href={explorerAddressUrl(address, "contract")}
       target="_blank"
       rel="noreferrer"
-      className="break-all font-mono text-[12px] text-[#ecd09b] underline-offset-2 hover:underline"
+      className="break-all font-mono text-[12px] text-[var(--accent)] underline-offset-2 hover:underline"
     >
       {children ?? address}
     </a>

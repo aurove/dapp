@@ -68,7 +68,7 @@ const venftSelectStyles: StylesConfig<VenftSelectOption, true> = {
       : state.isFocused
         ? "rgba(255, 255, 255, 0.06)"
         : "transparent",
-    color: state.isDisabled ? "rgba(255, 255, 255, 0.35)" : "#f6f3ef",
+    color: state.isDisabled ? "rgba(255, 255, 255, 0.35)" : "var(--foreground)",
     opacity: state.isDisabled ? 0.7 : 1,
   }),
   multiValue: (base) => ({
@@ -78,7 +78,7 @@ const venftSelectStyles: StylesConfig<VenftSelectOption, true> = {
   }),
   multiValueLabel: (base) => ({
     ...base,
-    color: "#f6f3ef",
+    color: "var(--foreground)",
     fontSize: 12,
   }),
   multiValueRemove: (base) => ({
@@ -95,11 +95,11 @@ const venftSelectStyles: StylesConfig<VenftSelectOption, true> = {
   }),
   singleValue: (base) => ({
     ...base,
-    color: "#f6f3ef",
+    color: "var(--foreground)",
   }),
   input: (base) => ({
     ...base,
-    color: "#f6f3ef",
+    color: "var(--foreground)",
   }),
   indicatorSeparator: (base) => ({
     ...base,
@@ -368,18 +368,18 @@ function PositionCardContent({
           />
         ) : null}
 
-        <details className="group rounded-xl border border-white/10 bg-white/[0.025] p-3">
+        <details className="group rounded-xl border border-foreground/10 bg-foreground/[0.025] p-3">
           <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-white">Redemption</p>
-                <p className="text-xs text-white/45">
+                <p className="text-sm font-medium text-foreground">Redemption</p>
+                <p className="text-xs text-foreground/45">
                   Available whenever Mezo permits the selected managed inventory to withdraw
                 </p>
               </div>
               <span
                 aria-hidden="true"
-                className="text-white/45 transition group-open:rotate-45 group-open:text-white"
+                className="text-foreground/45 transition group-open:rotate-45 group-open:text-foreground"
               >
                 +
               </span>
@@ -388,10 +388,10 @@ function PositionCardContent({
 
           <form onSubmit={formik.handleSubmit} noValidate className="pt-3">
             <div className="flex items-center justify-between gap-3">
-              <label htmlFor={actionControlId} className="text-sm font-medium text-white">
+              <label htmlFor={actionControlId} className="text-sm font-medium text-foreground">
                 Redemption amount
               </label>
-              <span className="text-xs text-white/45">
+              <span className="text-xs text-foreground/45">
                 Selected{" "}
                 {formatAmount(selectedRedemptionTotalRaw, product.decimals, product.symbol)}
               </span>
@@ -400,7 +400,7 @@ function PositionCardContent({
             <div className="space-y-2 pt-3">
               <label
                 htmlFor={`redeem-venfts-${product.id}`}
-                className="text-sm font-medium text-white"
+                className="text-sm font-medium text-foreground"
               >
                 Select veNFTs to redeem
               </label>
@@ -425,8 +425,8 @@ function PositionCardContent({
                 formatOptionLabel={(option, { context }) =>
                   context === "menu" ? (
                     <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
-                      <span className="font-medium text-white">#{option.tokenId}</span>
-                      <span className="text-xs text-white/45">
+                      <span className="font-medium text-foreground">#{option.tokenId}</span>
+                      <span className="text-xs text-foreground/45">
                         {option.amountLabel}
                         {option.exceedsBalance ? " · exceeds your balance" : ""}
                       </span>
@@ -447,7 +447,7 @@ function PositionCardContent({
                 className="w-full text-sm"
               />
               {mezoInventoryExceedsBalance ? (
-                <p role="alert" className="text-xs text-red-200">
+                <p role="alert" className="text-xs text-red-700 dark:text-red-200">
                   Selected inventory exceeds your redeemable{" "}
                   {formatAmount(
                     product.userAvailableBalanceRaw,
@@ -475,7 +475,7 @@ function PositionCardContent({
                   value={formatUnits(selectedRedemptionTotalRaw, product.decimals)}
                   disabled
                 />
-                <p className="text-xs text-white/45">
+                <p className="text-xs text-foreground/45">
                   MEZO redemption uses the selected veNFTs only. The amount updates from the selected
                   tokens automatically.
                 </p>
@@ -507,17 +507,17 @@ function PositionCardContent({
                     Max
                   </Button>
                 </div>
-                <p className="text-xs text-white/45">
+                <p className="text-xs text-foreground/45">
                   BTC redemption can use any selected veNFTs as inventory. Enter the exact amount to
                   redeem.
                 </p>
               </div>
             )}
           {formik.submitCount > 0 && typeof formik.errors.redemptionKeys === "string" ? (
-            <p role="alert" className="mt-2 text-xs text-red-200">{formik.errors.redemptionKeys}</p>
+            <p role="alert" className="mt-2 text-xs text-red-700 dark:text-red-200">{formik.errors.redemptionKeys}</p>
           ) : null}
           {formik.touched.amount && formik.errors.amount ? (
-            <p role="alert" className="mt-2 text-xs text-red-200">{formik.errors.amount}</p>
+            <p role="alert" className="mt-2 text-xs text-red-700 dark:text-red-200">{formik.errors.amount}</p>
           ) : null}
           <TransactionFlowButton
             ref={transactionRef}
@@ -644,18 +644,18 @@ function Id20ExitPanel({
   if (!id20Address) return null;
 
   return (
-    <details className="group rounded-xl border border-white/10 bg-white/[0.025] p-3">
+    <details className="group rounded-xl border border-foreground/10 bg-foreground/[0.025] p-3">
       <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-white">Exit ID20 to tranche</p>
-            <p className="text-xs text-white/45">
+            <p className="text-sm font-medium text-foreground">Exit ID20 to tranche</p>
+            <p className="text-xs text-foreground/45">
               Unwrap liquid {product.symbol} ID20 back to ERC-1155 tranche units (1:1).
             </p>
           </div>
           <span
             aria-hidden="true"
-            className="text-white/45 transition group-open:rotate-45 group-open:text-white"
+            className="text-foreground/45 transition group-open:rotate-45 group-open:text-foreground"
           >
             +
           </span>
@@ -663,14 +663,14 @@ function Id20ExitPanel({
       </summary>
 
       <form onSubmit={formik.handleSubmit} noValidate className="space-y-3 pt-3">
-        <div className="flex items-center justify-between gap-3 text-xs text-white/45">
+        <div className="flex items-center justify-between gap-3 text-xs text-foreground/45">
           <span>ID20 balance</span>
-          <span className="tabular-nums text-white/70">
+          <span className="tabular-nums text-foreground/70">
             {formatAmount(product.id20BalanceRaw, product.decimals, product.symbol)}
           </span>
         </div>
         {needsCreditSettlement ? (
-          <p className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
+          <p className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
             This amount includes unsettled gauge credit (
             {formatAmount(gaugePosition?.unsettledCreditRaw ?? 0n, product.decimals, product.symbol)}). Credit
             will be settled into reward weight before unwrapping to the tranche.
@@ -704,7 +704,7 @@ function Id20ExitPanel({
           </Button>
         </div>
         {formik.touched.amount && formik.errors.amount ? (
-          <p role="alert" className="text-xs text-red-200">
+          <p role="alert" className="text-xs text-red-700 dark:text-red-200">
             {formik.errors.amount}
           </p>
         ) : null}
@@ -790,9 +790,9 @@ function useInView<T extends HTMLElement>() {
 
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-      <p className="text-xs text-white/42">{label}</p>
-      <p className="mt-1 break-words text-sm font-medium text-white">{value}</p>
+    <div className="rounded-xl border border-foreground/10 bg-foreground/[0.025] p-3">
+      <p className="text-xs text-foreground/42">{label}</p>
+      <p className="mt-1 break-words text-sm font-medium text-foreground">{value}</p>
     </div>
   );
 }
@@ -806,11 +806,11 @@ function variantCopy(variant: EarnVariant) {
     ? {
         headline: "BTC-backed fungible Earn products",
         asset: "BTC",
-        tone: "border-amber-300/25 bg-amber-300/10 text-amber-100",
+        tone: "border-amber-300/25 bg-amber-300/10 text-amber-900 dark:text-amber-100",
       }
     : {
         headline: "MEZO-backed fungible Earn products",
         asset: "MEZO",
-        tone: "border-sky-300/25 bg-sky-300/10 text-sky-100",
+        tone: "border-sky-300/25 bg-sky-300/10 text-sky-800 dark:text-sky-100",
       };
 }
