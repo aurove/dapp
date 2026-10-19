@@ -11,7 +11,6 @@ import { getEarnProtocolConfig } from "@/contracts/earn";
 import {
   id20ExitNeedsCreditSettlement,
   makeId20CreditSettlementSteps,
-  makeId20GaugeClaimStep,
   useId20GaugePositions,
 } from "@/components/features/id20/use-id20-gauges";
 import TransactionFlowButton, { type TransactionFlowButtonHandle } from "@/lib/tx-flow/TransactionFlowButton";
@@ -608,7 +607,6 @@ function Id20ExitPanel({
       ) ?? null,
     [gauges.positions, product.id20Address],
   );
-  const gaugeClaimableRaw = gaugePosition?.claimableRewardRaw ?? 0n;
   const parsedUnwrap = parseAmountRaw(unwrapAmount, product.decimals);
   const needsCreditSettlement =
     gaugePosition !== null &&
@@ -671,13 +669,6 @@ function Id20ExitPanel({
             {formatAmount(product.id20BalanceRaw, product.decimals, product.symbol)}
           </span>
         </div>
-        {gaugeClaimableRaw > 0n ? (
-          <p className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
-            Unclaimed ID20 gauge rewards (
-            {formatAmount(gaugeClaimableRaw, product.decimals, product.symbol)}) will be claimed
-            before unwrap so they are not left stranded after exit.
-          </p>
-        ) : null}
         {needsCreditSettlement ? (
           <p className="rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">
             This amount includes unsettled gauge credit (
@@ -726,12 +717,8 @@ function Id20ExitPanel({
           steps={({ account }) => {
             if (!id20Address || !parsedUnwrap || parsedUnwrap <= 0n) return [];
             const steps: TxStep[] = [];
-            // Claim gauge rewards first when present so exit does not leave unclaimed rewards behind.
-            if (gaugePosition && gaugePosition.isActivated && gaugePosition.claimableRewardRaw > 0n) {
-              steps.push(makeId20GaugeClaimStep(gaugePosition, account, true) as unknown as TxStep);
-            }
             // Settle credit into weight when the unwrap amount exceeds burnable units.
-            // Must run after claim/activate path and before unwrap (gauge reverts UnsettledCredit otherwise).
+            // Must run before unwrap (gauge reverts UnsettledCredit otherwise).
             if (gaugePosition && id20ExitNeedsCreditSettlement(gaugePosition, parsedUnwrap)) {
               steps.push(
                 ...makeId20CreditSettlementSteps(gaugePosition, parsedUnwrap, {
@@ -758,7 +745,6 @@ function Id20ExitPanel({
             setUnwrapAmount("");
             void formik.setFieldValue("amount", "");
             const parts: string[] = [];
-            if (gaugeClaimableRaw > 0n) parts.push("gauge rewards claimed");
             if (needsCreditSettlement) parts.push("credit settled");
             parts.push("ID20 unwrapped to ERC-1155 tranche");
             onSuccess(`${product.symbol}: ${parts.join(", ")}.`);
@@ -767,13 +753,9 @@ function Id20ExitPanel({
         >
           {product.id20BalanceRaw <= 0n
             ? "No ID20 balance"
-            : needsCreditSettlement && gaugeClaimableRaw > 0n
-              ? "Claim, settle credit & exit"
-              : needsCreditSettlement
-                ? "Settle credit & exit"
-                : gaugeClaimableRaw > 0n
-                  ? "Claim rewards & exit"
-                  : "Exit to tranche"}
+            : needsCreditSettlement
+              ? "Settle credit & exit"
+              : "Exit to tranche"}
         </TransactionFlowButton>
       </form>
     </details>

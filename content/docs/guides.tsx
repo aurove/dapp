@@ -854,9 +854,8 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
           Redeem uses ERC-1155 units. If you only hold the ERC-20 wrapper, open{" "}
           <strong>Exit ID20 to tranche</strong> on the position card, enter an amount, and confirm.
           The button label is <strong>Exit to tranche</strong>, or{" "}
-          <strong>Claim rewards &amp; exit</strong> / <strong>Settle credit &amp; exit</strong> /{" "}
-          <strong>Claim, settle credit &amp; exit</strong> when those extra steps are required. With
-          no wrapper balance it reads <strong>No ID20 balance</strong>.
+          <strong>Settle credit &amp; exit</strong> when credit settlement is required. With no
+          wrapper balance it reads <strong>No ID20 balance</strong>.
         </p>
         <h2>Redeem tranche units</h2>
         <ol>
