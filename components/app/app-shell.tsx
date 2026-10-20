@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { BellRing } from "lucide-react";
 import { Badge } from "@ui";
+import { usePathname } from "next/navigation";
 import { AppNav } from "@/components/app/app-nav";
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";
 import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
@@ -13,7 +14,15 @@ import { XAccountLink } from "./x-account-link";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const chainId = useChainId();
-  const expectedChain = useMemo(() => getActiveChain(resolveAppEnvironment()), []);
+  const pathname = usePathname();
+  const appEnvironment = resolveAppEnvironment();
+  const expectedChain = useMemo(() => getActiveChain(appEnvironment), [appEnvironment]);
+  const networkSwitchHref =
+    appEnvironment === "testnet"
+      ? `https://www.aurove.xyz${pathname}`
+      : appEnvironment === "mainnet"
+        ? `https://testnet.aurove.xyz${pathname}`
+        : null;
   const wrongNetwork = chainId !== undefined && chainId !== expectedChain.id;
   const year = useMemo(() => new Date().getFullYear(), []);
 
@@ -50,18 +59,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-2 px-4 pb-3 md:px-6">
-          <Badge
-            className={
-              wrongNetwork
-                ? "normal-case tracking-normal border-red-400/30 bg-red-500/10 text-red-700 dark:text-red-100"
-                : "normal-case tracking-normal border-emerald-400/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100"
-            }
-          >
-            <BellRing className="mr-1 h-3.5 w-3.5" />
-            {wrongNetwork
-              ? `Wrong network (expected ${expectedChain.name})`
-              : `Network ${expectedChain.name}`}
-          </Badge>
+          {networkSwitchHref ? (
+            <Link
+              href={networkSwitchHref}
+              prefetch={false}
+              aria-label={`Switch to ${appEnvironment === "testnet" ? "Mezo Mainnet" : "Mezo Testnet"}`}
+              title={`Switch to ${appEnvironment === "testnet" ? "Mezo Mainnet" : "Mezo Testnet"}`}
+              className={`inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                wrongNetwork
+                  ? "border-red-400/30 bg-red-500/10 text-red-700 dark:text-red-100"
+                  : "border-emerald-400/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100"
+              }`}
+            >
+              <BellRing className="mr-1 h-3.5 w-3.5" />
+              {wrongNetwork
+                ? `Wrong network (expected ${expectedChain.name})`
+                : `Network ${expectedChain.name}`}
+            </Link>
+          ) : (
+            <Badge
+              className={
+                wrongNetwork
+                  ? "normal-case tracking-normal border-red-400/30 bg-red-500/10 text-red-700 dark:text-red-100"
+                  : "normal-case tracking-normal border-emerald-400/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100"
+              }
+            >
+              <BellRing className="mr-1 h-3.5 w-3.5" />
+              {wrongNetwork
+                ? `Wrong network (expected ${expectedChain.name})`
+                : `Network ${expectedChain.name}`}
+            </Badge>
+          )}
         </div>
       </header>
 
