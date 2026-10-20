@@ -379,7 +379,7 @@ function CreatePositionForm({
             type="button"
             title={cardDescription}
             aria-label={cardDescription}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/12 bg-foreground/[0.03] text-foreground/55 transition hover:border-[var(--accent)]/40 hover:bg-foreground/[0.06] hover:text-foreground"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/12 bg-foreground/[0.03] text-muted transition hover:border-[var(--accent)]/40 hover:bg-foreground/[0.06] hover:text-foreground"
           >
             <Info className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -463,7 +463,7 @@ function CreatePositionForm({
                   <label htmlFor="earn-amount" className="font-medium text-foreground">
                     Amount
                   </label>
-                  <span className="text-foreground/45">
+                  <span className="text-muted">
                     Balance{" "}
                     {formatCompactRawTokenAmount(
                       selectedToken?.balanceRaw ?? 0n,
@@ -495,7 +495,7 @@ function CreatePositionForm({
                   </p>
                 ) : null}
                 <div className="space-y-2 pt-1">
-                  <div className="flex items-center justify-between text-xs text-foreground/45">
+                  <div className="flex items-center justify-between text-xs text-muted">
                     <span>Use balance</span>
                     <span>{balancePercent}%</span>
                   </div>
@@ -526,7 +526,7 @@ function CreatePositionForm({
                 <label htmlFor="earn-venft" className="font-medium text-foreground">
                   Existing position
                 </label>
-                <span className="text-foreground/45">
+                <span className="text-muted">
                   {veNftsLoading || veNftsFetching
                     ? "Loading..."
                     : `${selectedVeNftOptions.length} available`}
@@ -563,13 +563,13 @@ function CreatePositionForm({
               {selectedVeNft ? (
                 <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4 text-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-foreground/50">Lock amount</span>
+                    <span className="text-muted">Lock amount</span>
                     <span className="font-medium text-foreground">
                       {selectedVeNft.lockAmountFormatted} {copy.asset}
                     </span>
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-3">
-                    <span className="text-foreground/50">Lock end</span>
+                    <span className="text-muted">Lock end</span>
                     <span className="font-medium text-foreground">{selectedVeNft.lockEndLabel}</span>
                   </div>
                 </div>
@@ -589,7 +589,7 @@ function CreatePositionForm({
           <div className="space-y-3 rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="font-medium text-foreground">You will receive</span>
-              <span className="text-foreground/45">{receiveSymbol}</span>
+              <span className="text-muted">{receiveSymbol}</span>
             </div>
             <div className="flex items-center justify-between gap-4 rounded-xl border border-foreground/10 bg-foreground/[0.04] px-4 py-3">
               <div className="flex items-center gap-3">
@@ -604,7 +604,7 @@ function CreatePositionForm({
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground">{`Aurove ${copy.asset}`}</p>
-                  <p className="text-xs text-foreground/45">
+                  <p className="text-xs text-muted">
                     1 {copy.asset} = 1 {receiveSymbol}
                   </p>
                 </div>

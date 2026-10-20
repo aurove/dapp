@@ -50,10 +50,10 @@ function EmptyPositions() {
     <Card className="border-dashed border-foreground/15 bg-foreground/[0.025]">
       <CardContent className="flex min-h-56 flex-col items-center justify-center text-center">
         <span className="grid h-12 w-12 place-items-center rounded-full bg-foreground/5">
-          <Wallet className="h-6 w-6 text-foreground/55" />
+          <Wallet className="h-6 w-6 text-muted" />
         </span>
         <h3 className="mt-4 text-lg font-semibold text-foreground">No liquid positions</h3>
-        <p className="mt-1 max-w-sm text-sm text-foreground/55">
+        <p className="mt-1 max-w-sm text-sm text-muted">
           Deposit BTC, MEZO, or an existing Mezo Earn position to start earning with a liquid Aurove
           asset.
         </p>
@@ -115,7 +115,7 @@ export function EarnPositions() {
           <h2 id="earn-positions-title" className="text-2xl font-semibold text-foreground">
             Your liquid positions
           </h2>
-          <p className="mt-1 text-sm text-foreground/55">
+          <p className="mt-1 text-sm text-muted">
             {[positionCountLabel, userPositions.length > 0 ? `Total TVL ${totalTvlLabel}` : null]
               .filter(Boolean)
               .join(" · ")}
@@ -123,7 +123,7 @@ export function EarnPositions() {
           {userPositions.length > 0 ? (
             <p className="mt-2 text-lg font-semibold text-foreground">
               {totalTvlLabel}
-              <span className="ml-2 text-sm font-normal text-foreground/45">total TVL</span>
+              <span className="ml-2 text-sm font-normal text-muted">total TVL</span>
             </p>
           ) : null}
         </div>

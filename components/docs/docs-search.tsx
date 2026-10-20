@@ -74,14 +74,14 @@ export function DocsSearch({ documents }: { documents: DocSearchDocument[] }) {
           trackDocsEvent({ type: "docs_search_open" });
         }}
         className={cn(
-          "inline-flex h-9 w-full max-w-sm items-center gap-2 rounded-xl border border-foreground/10 bg-foreground/[0.04] px-3 text-left text-sm text-foreground/45 transition",
+          "inline-flex h-9 w-full max-w-sm items-center gap-2 rounded-xl border border-foreground/10 bg-foreground/[0.04] px-3 text-left text-sm text-muted transition",
           "hover:border-foreground/20 hover:bg-foreground/[0.06] hover:text-foreground/70",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
         )}
       >
         <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
         <span className="flex-1 truncate">Search docs…</span>
-        <kbd className="hidden rounded-md border border-foreground/10 bg-black/30 px-1.5 py-0.5 font-mono text-[10px] text-foreground/45 sm:inline">
+        <kbd className="hidden rounded-md border border-foreground/10 bg-foreground/[0.04] px-1.5 py-0.5 font-mono text-[10px] text-muted sm:inline">
           ⌘K
         </kbd>
       </button>
@@ -96,7 +96,7 @@ export function DocsSearch({ documents }: { documents: DocSearchDocument[] }) {
         <DialogContent className="top-[12%] max-w-xl translate-y-0 gap-0 overflow-hidden border-foreground/10 bg-background-soft p-0 sm:rounded-2xl">
           <DialogTitle className="sr-only">Search documentation</DialogTitle>
           <div className="flex items-center gap-2 border-b border-foreground/10 px-3">
-            <Search className="h-4 w-4 text-foreground/40" aria-hidden />
+            <Search className="h-4 w-4 text-muted" aria-hidden />
             <Input
               ref={inputRef}
               value={query}
@@ -124,7 +124,7 @@ export function DocsSearch({ documents }: { documents: DocSearchDocument[] }) {
               <button
                 type="button"
                 onClick={() => setQuery("")}
-                className="rounded-md p-1 text-foreground/40 hover:bg-foreground/5 hover:text-foreground"
+                className="rounded-md p-1 text-muted hover:bg-foreground/5 hover:text-foreground"
                 aria-label="Clear search"
               >
                 <X className="h-4 w-4" />
@@ -134,11 +134,11 @@ export function DocsSearch({ documents }: { documents: DocSearchDocument[] }) {
 
           <div className="max-h-[min(60vh,28rem)] overflow-y-auto p-2">
             {!query.trim() ? (
-              <p className="px-3 py-6 text-center text-sm text-foreground/40">
+              <p className="px-3 py-6 text-center text-sm text-muted">
                 Type to search protocol concepts, user flows, and contracts.
               </p>
             ) : results.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-foreground/40">
+              <p className="px-3 py-6 text-center text-sm text-muted">
                 No results for <span className="text-foreground/70">“{query.trim()}”</span>
               </p>
             ) : (
@@ -157,7 +157,7 @@ export function DocsSearch({ documents }: { documents: DocSearchDocument[] }) {
                       <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
                       <span className="min-w-0">
                         <span className="block text-sm font-medium text-foreground">{result.title}</span>
-                        <span className="mt-0.5 block truncate text-xs text-foreground/45">
+                        <span className="mt-0.5 block truncate text-xs text-muted">
                           {result.section} · {result.description}
                         </span>
                       </span>

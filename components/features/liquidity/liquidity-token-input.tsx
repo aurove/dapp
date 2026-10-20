@@ -97,7 +97,7 @@ export function FundingSourceOption({
           <p className="truncate text-sm font-semibold text-foreground">{source.label}</p>
           <div className="mt-2 flex items-center gap-2">
             {sourceTokenIdLabel(source) ? (
-              <span className="text-xs text-foreground/48">{sourceTokenIdLabel(source)}</span>
+              <span className="text-xs text-muted">{sourceTokenIdLabel(source)}</span>
             ) : null}
             <FundingSourceBadge source={source} />
             {source.kind === "venft" && source.isPermanent ? (
@@ -106,7 +106,7 @@ export function FundingSourceOption({
               </Badge>
             ) : null}
           </div>
-          <p className="mt-0.5 text-xs text-foreground/48">{sourceBalanceLabel(source)} available</p>
+          <p className="mt-0.5 text-xs text-muted">{sourceBalanceLabel(source)} available</p>
         </div>
         <Check className={cn("h-4 w-4 shrink-0 text-[var(--accent)]", !selected && "invisible")} aria-hidden="true" />
       </button>
@@ -200,8 +200,8 @@ export function LiquidityTokenInput({
         )}
       >
         <div className="mb-2 flex items-center justify-between">
-          <label htmlFor={id} className="text-xs font-medium text-foreground/52">{actionLabel}</label>
-          <span className="text-[11px] font-medium text-foreground/38">{loading ? "Loading…" : isEditing ? "Editing" : "Quoted"}</span>
+          <label htmlFor={id} className="text-xs font-medium text-muted">{actionLabel}</label>
+          <span className="text-[11px] font-medium text-muted">{loading ? "Loading…" : isEditing ? "Editing" : "Quoted"}</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
@@ -216,9 +216,9 @@ export function LiquidityTokenInput({
               readOnly={!isEditing}
               disabled={disabled || loading}
               aria-invalid={insufficientBalance}
-              className="h-auto min-w-0 border-0 bg-transparent p-0 text-3xl font-medium tabular-nums text-foreground shadow-none placeholder:text-foreground/25 focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-4xl"
+              className="h-auto min-w-0 border-0 bg-transparent p-0 text-3xl font-medium tabular-nums text-foreground shadow-none placeholder:text-muted focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-4xl"
             />
-            <p className="mt-1 h-4 truncate text-xs text-foreground/38">{fiatValue ?? ""}</p>
+            <p className="mt-1 h-4 truncate text-xs text-muted">{fiatValue ?? ""}</p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1.5">
             <FundingSourceSelector
@@ -242,14 +242,14 @@ export function LiquidityTokenInput({
                     />
                   </span>
                   <span className="text-sm font-semibold text-foreground">{tokenSymbol ?? "—"}</span>
-                  <ChevronDown className="h-3.5 w-3.5 text-foreground/55" aria-hidden="true" />
+                  <ChevronDown className="h-3.5 w-3.5 text-muted" aria-hidden="true" />
                 </button>
               }
             />
             {selectedSource ? (
               <div className="flex max-w-48 items-center justify-end gap-1.5 text-right">
                 {sourceTokenIdLabel(selectedSource) ? (
-                  <span className="text-[10px] text-foreground/38">{sourceTokenIdLabel(selectedSource)}</span>
+                  <span className="text-[10px] text-muted">{sourceTokenIdLabel(selectedSource)}</span>
                 ) : null}
                 <FundingSourceBadge source={selectedSource} />
               </div>
@@ -257,19 +257,19 @@ export function LiquidityTokenInput({
           </div>
         </div>
         <div className="mt-2 flex items-center justify-between gap-3 text-xs">
-          <span className="truncate text-foreground/48">Balance: {balanceLabel}</span>
+          <span className="truncate text-muted">Balance: {balanceLabel}</span>
           <button
             type="button"
             onClick={onMax}
             disabled={!canMax}
-            className="font-semibold text-[var(--accent)] transition hover:text-[var(--accent-soft)] disabled:cursor-not-allowed disabled:text-foreground/25"
+            className="font-semibold text-[var(--accent)] transition hover:text-[var(--accent-soft)] disabled:cursor-not-allowed disabled:text-muted"
           >
             Max
           </button>
         </div>
       </div>
       {selectedSource && fundingHelper(selectedSource, tokenSymbol) ? (
-        <p className="px-1 text-xs leading-5 text-foreground/48">{fundingHelper(selectedSource, tokenSymbol)}</p>
+        <p className="px-1 text-xs leading-5 text-muted">{fundingHelper(selectedSource, tokenSymbol)}</p>
       ) : null}
     </div>
   );

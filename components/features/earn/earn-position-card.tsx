@@ -39,11 +39,11 @@ const venftSelectStyles: StylesConfig<VenftSelectOption, true> = {
     ...base,
     minHeight: 48,
     borderRadius: 12,
-    borderColor: state.isFocused ? "var(--accent)" : "rgba(255, 255, 255, 0.1)",
-    backgroundColor: "rgba(8, 12, 18, 0.85)",
+    borderColor: state.isFocused ? "var(--accent)" : "var(--line)",
+    backgroundColor: "var(--panel)",
     boxShadow: state.isFocused ? "0 0 0 1px var(--accent)" : "none",
     ":hover": {
-      borderColor: state.isFocused ? "var(--accent)" : "rgba(255, 255, 255, 0.2)",
+      borderColor: state.isFocused ? "var(--accent)" : "var(--line-strong)",
     },
   }),
   menu: (base) => ({
@@ -51,8 +51,8 @@ const venftSelectStyles: StylesConfig<VenftSelectOption, true> = {
     zIndex: 40,
     borderRadius: 12,
     overflow: "hidden",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    backgroundColor: "#0d1219",
+    border: "1px solid var(--line)",
+    backgroundColor: "var(--panel)",
   }),
   menuList: (base) => ({
     ...base,
@@ -64,17 +64,17 @@ const venftSelectStyles: StylesConfig<VenftSelectOption, true> = {
     borderRadius: 8,
     cursor: state.isDisabled ? "not-allowed" : "pointer",
     backgroundColor: state.isSelected
-      ? "rgba(196, 160, 106, 0.22)"
+      ? "color-mix(in srgb, var(--accent) 22%, transparent)"
       : state.isFocused
-        ? "rgba(255, 255, 255, 0.06)"
+        ? "color-mix(in srgb, var(--foreground) 6%, transparent)"
         : "transparent",
-    color: state.isDisabled ? "rgba(255, 255, 255, 0.35)" : "var(--foreground)",
-    opacity: state.isDisabled ? 0.7 : 1,
+    color: state.isDisabled ? "var(--muted)" : "var(--foreground)",
+    opacity: state.isDisabled ? 0.85 : 1,
   }),
   multiValue: (base) => ({
     ...base,
     borderRadius: 8,
-    backgroundColor: "rgba(196, 160, 106, 0.16)",
+    backgroundColor: "color-mix(in srgb, var(--accent) 16%, transparent)",
   }),
   multiValueLabel: (base) => ({
     ...base,
@@ -83,15 +83,15 @@ const venftSelectStyles: StylesConfig<VenftSelectOption, true> = {
   }),
   multiValueRemove: (base) => ({
     ...base,
-    color: "rgba(255, 255, 255, 0.55)",
+    color: "var(--muted)",
     ":hover": {
-      backgroundColor: "rgba(196, 160, 106, 0.28)",
-      color: "#fff",
+      backgroundColor: "color-mix(in srgb, var(--accent) 28%, transparent)",
+      color: "var(--foreground)",
     },
   }),
   placeholder: (base) => ({
     ...base,
-    color: "rgba(255, 255, 255, 0.4)",
+    color: "var(--muted)",
   }),
   singleValue: (base) => ({
     ...base,
@@ -103,21 +103,21 @@ const venftSelectStyles: StylesConfig<VenftSelectOption, true> = {
   }),
   indicatorSeparator: (base) => ({
     ...base,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "var(--line)",
   }),
   dropdownIndicator: (base) => ({
     ...base,
-    color: "rgba(255, 255, 255, 0.45)",
-    ":hover": { color: "rgba(255, 255, 255, 0.75)" },
+    color: "var(--muted)",
+    ":hover": { color: "var(--foreground)" },
   }),
   clearIndicator: (base) => ({
     ...base,
-    color: "rgba(255, 255, 255, 0.45)",
-    ":hover": { color: "rgba(255, 255, 255, 0.75)" },
+    color: "var(--muted)",
+    ":hover": { color: "var(--foreground)" },
   }),
   noOptionsMessage: (base) => ({
     ...base,
-    color: "rgba(255, 255, 255, 0.45)",
+    color: "var(--muted)",
   }),
 };
 
@@ -373,13 +373,13 @@ function PositionCardContent({
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">Redemption</p>
-                <p className="text-xs text-foreground/45">
+                <p className="text-xs text-muted">
                   Available whenever Mezo permits the selected managed inventory to withdraw
                 </p>
               </div>
               <span
                 aria-hidden="true"
-                className="text-foreground/45 transition group-open:rotate-45 group-open:text-foreground"
+                className="text-muted transition group-open:rotate-45 group-open:text-foreground"
               >
                 +
               </span>
@@ -391,7 +391,7 @@ function PositionCardContent({
               <label htmlFor={actionControlId} className="text-sm font-medium text-foreground">
                 Redemption amount
               </label>
-              <span className="text-xs text-foreground/45">
+              <span className="text-xs text-muted">
                 Selected{" "}
                 {formatAmount(selectedRedemptionTotalRaw, product.decimals, product.symbol)}
               </span>
@@ -426,7 +426,7 @@ function PositionCardContent({
                   context === "menu" ? (
                     <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
                       <span className="font-medium text-foreground">#{option.tokenId}</span>
-                      <span className="text-xs text-foreground/45">
+                      <span className="text-xs text-muted">
                         {option.amountLabel}
                         {option.exceedsBalance ? " · exceeds your balance" : ""}
                       </span>
@@ -475,7 +475,7 @@ function PositionCardContent({
                   value={formatUnits(selectedRedemptionTotalRaw, product.decimals)}
                   disabled
                 />
-                <p className="text-xs text-foreground/45">
+                <p className="text-xs text-muted">
                   MEZO redemption uses the selected veNFTs only. The amount updates from the selected
                   tokens automatically.
                 </p>
@@ -507,7 +507,7 @@ function PositionCardContent({
                     Max
                   </Button>
                 </div>
-                <p className="text-xs text-foreground/45">
+                <p className="text-xs text-muted">
                   BTC redemption can use any selected veNFTs as inventory. Enter the exact amount to
                   redeem.
                 </p>
@@ -649,13 +649,13 @@ function Id20ExitPanel({
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">Exit ID20 to tranche</p>
-            <p className="text-xs text-foreground/45">
+            <p className="text-xs text-muted">
               Unwrap liquid {product.symbol} ID20 back to ERC-1155 tranche units (1:1).
             </p>
           </div>
           <span
             aria-hidden="true"
-            className="text-foreground/45 transition group-open:rotate-45 group-open:text-foreground"
+            className="text-muted transition group-open:rotate-45 group-open:text-foreground"
           >
             +
           </span>
@@ -663,7 +663,7 @@ function Id20ExitPanel({
       </summary>
 
       <form onSubmit={formik.handleSubmit} noValidate className="space-y-3 pt-3">
-        <div className="flex items-center justify-between gap-3 text-xs text-foreground/45">
+        <div className="flex items-center justify-between gap-3 text-xs text-muted">
           <span>ID20 balance</span>
           <span className="tabular-nums text-foreground/70">
             {formatAmount(product.id20BalanceRaw, product.decimals, product.symbol)}
@@ -791,7 +791,7 @@ function useInView<T extends HTMLElement>() {
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-foreground/10 bg-foreground/[0.025] p-3">
-      <p className="text-xs text-foreground/42">{label}</p>
+      <p className="text-xs text-muted">{label}</p>
       <p className="mt-1 break-words text-sm font-medium text-foreground">{value}</p>
     </div>
   );

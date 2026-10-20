@@ -39,7 +39,7 @@ export function ProductSeo({
       >
         <p className="text-sm leading-relaxed text-foreground/65">{description}</p>
         {bullets.length > 0 ? (
-          <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-foreground/55">
+          <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-muted">
             {bullets.map((bullet) => (
               <li key={bullet}>{bullet}</li>
             ))}

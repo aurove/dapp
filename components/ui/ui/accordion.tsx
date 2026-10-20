@@ -20,7 +20,7 @@ function AccordionItem({
     <details
       open={defaultOpen}
       className={cn(
-        "group rounded-xl border border-[var(--line)] bg-[linear-gradient(155deg,rgba(20,26,34,0.95),rgba(12,17,23,0.95))] p-5",
+        "group rounded-xl border border-[var(--line)] bg-panel p-5",
         className,
       )}
     >

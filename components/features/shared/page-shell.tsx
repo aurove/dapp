@@ -26,11 +26,11 @@ export function FeatureMetricCard({
 }) {
   return (
     <div className="rounded-xl border border-foreground/12 bg-foreground/[0.035] p-4">
-      <p className="text-xs font-medium uppercase text-foreground/45">{label}</p>
+      <p className="text-xs font-medium uppercase text-muted">{label}</p>
       <p className={cn("mt-2 text-2xl font-semibold", subtle ? "text-foreground/70" : "text-foreground")}>
         {value}
       </p>
-      {detail ? <p className="mt-1 text-xs text-foreground/45">{detail}</p> : null}
+      {detail ? <p className="mt-1 text-xs text-muted">{detail}</p> : null}
     </div>
   );
 }

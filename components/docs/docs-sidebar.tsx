@@ -52,7 +52,7 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
           "mb-3 block rounded-xl px-3 py-2 text-sm font-medium transition",
           pathname === "/docs"
             ? "bg-[var(--accent)]/12 text-[var(--accent-soft)]"
-            : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground",
+            : "text-muted hover:bg-foreground/5 hover:text-foreground",
         )}
       >
         Documentation home
@@ -65,7 +65,7 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
             <button
               type="button"
               onClick={() => toggle(section.title)}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/40 transition hover:text-foreground/70"
+              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-muted transition hover:text-foreground/70"
               aria-expanded={isOpen}
             >
               {section.title}
@@ -88,7 +88,7 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
                           "flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition",
                           active
                             ? "bg-foreground/10 text-foreground"
-                            : "text-foreground/55 hover:bg-foreground/5 hover:text-foreground/90",
+                            : "text-muted hover:bg-foreground/5 hover:text-foreground/90",
                         )}
                       >
                         <span className="truncate">{item.title}</span>
@@ -138,7 +138,7 @@ export function DocsMobileNav() {
         <SheetContent side="left" className="w-[min(100%,20rem)] border-foreground/10 bg-chrome p-0">
           <div className="border-b border-foreground/10 px-4 py-4 pr-12">
             <SheetTitle className="text-sm font-semibold text-foreground">Documentation</SheetTitle>
-            <SheetDescription className="mt-0.5 text-xs text-foreground/45">
+            <SheetDescription className="mt-0.5 text-xs text-muted">
               Browse topics
             </SheetDescription>
           </div>

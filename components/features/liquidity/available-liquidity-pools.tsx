@@ -90,13 +90,13 @@ function PoolCard({
         </CardHeader>
         <CardContent className="grid gap-4 border-t border-foreground/8 pt-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
           <div>
-            <p className="text-xs uppercase tracking-wide text-foreground/40">Current pool price</p>
+            <p className="text-xs uppercase tracking-wide text-muted">Current pool price</p>
             <p className="mt-1 text-sm text-foreground/75">{price}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-foreground/40">MEZO emissions APR</p>
+            <p className="text-xs uppercase tracking-wide text-muted">MEZO emissions APR</p>
             <p className="mt-1 text-sm text-foreground/75">{aprLabel}</p>
-            <p className="mt-0.5 text-xs text-foreground/40">{aprDetail}</p>
+            <p className="mt-0.5 text-xs text-muted">{aprDetail}</p>
           </div>
           <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-[var(--accent)]">
             Add liquidity{" "}
@@ -122,7 +122,7 @@ export function AvailableLiquidityPools() {
             Supply liquidity with your locked BTC and locked MEZO.
           </h1>
         </div>
-        <p className="mt-1 text-sm text-foreground/55">
+        <p className="mt-1 text-sm text-muted">
           Add another income stream to your Mezo Earn positions. Keep earning in Mezo Earn while
           collecting swap fees whenever trades move through your active price range.
         </p>

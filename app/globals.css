@@ -323,9 +323,9 @@ html.dark .landing-page {
 }
 
 .hero-divider__spark {
-  color: #f1c77d;
+  color: var(--landing-accent-end);
   font-size: 1rem;
-  text-shadow: 0 0 18px rgba(241, 199, 125, 0.8);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .hero-secondary {
@@ -848,8 +848,8 @@ html.dark .landing-page {
   align-items: center;
   justify-content: center;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(12, 16, 22, 0.72);
+  border: 1px solid var(--line);
+  background: var(--panel);
   color: var(--foreground);
   transition:
     transform 180ms ease,
@@ -860,8 +860,8 @@ html.dark .landing-page {
 
 .partners-carousel__control:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: rgba(236, 208, 155, 0.36);
-  background: rgba(18, 24, 32, 0.9);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: var(--background-soft);
 }
 
 .partners-carousel__control:disabled {
@@ -959,7 +959,7 @@ html.dark .landing-page {
   width: 10px;
   border: 0;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--line-strong);
   transition:
     width 180ms ease,
     background-color 180ms ease,
@@ -972,7 +972,7 @@ html.dark .landing-page {
 
 .partners-carousel__dot.is-active {
   width: 34px;
-  background: #efbf72;
+  background: var(--landing-accent-end);
 }
 
 .academy-grid {

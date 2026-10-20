@@ -53,7 +53,7 @@ export function WalletAuthStatus() {
         <LogIn className="h-3.5 w-3.5" />
         Sign In
       </Button>
-      <span className="text-[11px] text-foreground/45">Sign the nonce to unlock the app session.</span>
+      <span className="text-[11px] text-muted">Sign the nonce to unlock the app session.</span>
     </div>
   );
 }

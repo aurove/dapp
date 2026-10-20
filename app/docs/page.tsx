@@ -42,7 +42,7 @@ export default function DocsHomePage() {
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             Liquid claims on Mezo Earn.
           </h1>
-          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-foreground/60">
+          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted">
             Guides follow the production dApp. Protocol pages explain custody, wrapping, and
             rewards. Developer pages list the canonical Mezo deployment and integration paths.
           </p>
@@ -62,7 +62,7 @@ export default function DocsHomePage() {
               Deployment reference
             </Link>
           </div>
-          <p className="mt-4 inline-flex items-center gap-2 text-xs text-foreground/40">
+          <p className="mt-4 inline-flex items-center gap-2 text-xs text-muted">
             <Search className="h-3.5 w-3.5" />
             Press{" "}
             <kbd className="rounded border border-foreground/15 bg-foreground/5 px-1.5 py-0.5 font-mono">

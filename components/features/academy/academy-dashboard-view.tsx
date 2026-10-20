@@ -60,9 +60,9 @@ function StatCard({
     <Card className="border-foreground/10 bg-foreground/[0.03]">
       <CardContent className="flex items-start justify-between gap-3 p-4">
         <div className="space-y-1">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-foreground/45">{label}</p>
+          <p className="text-[11px] uppercase tracking-[0.24em] text-muted">{label}</p>
           <p className="text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-          {description ? <p className="text-xs leading-relaxed text-foreground/50">{description}</p> : null}
+          {description ? <p className="text-xs leading-relaxed text-muted">{description}</p> : null}
         </div>
         <div className="rounded-2xl border border-foreground/10 bg-foreground/5 p-3 text-[var(--accent)]">
           <Icon className="h-5 w-5" />
@@ -78,7 +78,7 @@ function rankTone(rank: number) {
   }
 
   if (rank === 2) {
-    return "border-slate-300/25 bg-slate-300/10 text-slate-100";
+    return "border-slate-300/25 bg-slate-300/10 text-slate-700 dark:text-slate-100";
   }
 
   if (rank === 3) {
@@ -129,7 +129,7 @@ function LeaderboardRow({ entry, onOpen, onPrefetch }: LeaderboardRowProps) {
       <div className="shrink-0 self-start text-left sm:self-auto sm:text-right">
         <p className="flex flex-wrap items-center gap-x-1 text-base font-semibold text-foreground">
           <span>{formatPoints(entry.totalPoints)} pts</span>
-          <span className="text-foreground/30">•</span>
+          <span className="text-muted">•</span>
           <span>{new Intl.NumberFormat("en-US").format(entry.referrals)} referrals</span>
         </p>
       </div>
@@ -146,7 +146,7 @@ function ReferralMetric({
 }) {
   return (
     <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-3">
-      <p className="text-[10px] uppercase tracking-[0.22em] text-foreground/45">{label}</p>
+      <p className="text-[10px] uppercase tracking-[0.22em] text-muted">{label}</p>
       <p className="mt-1 text-lg font-semibold text-foreground">{value}</p>
     </div>
   );
@@ -316,7 +316,7 @@ export function AcademyDashboardView({
                   ) : referral?.referralLink ? (
                     <>
                       <div className="space-y-2 rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-4">
-                        <p className="text-[10px] uppercase tracking-[0.22em] text-foreground/45">
+                        <p className="text-[10px] uppercase tracking-[0.22em] text-muted">
                           Referral link
                         </p>
                         <div className="flex items-start gap-2">
@@ -342,12 +342,12 @@ export function AcademyDashboardView({
                       </div>
                     </>
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.025] p-5 text-sm leading-6 text-foreground/58">
+                    <div className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.025] p-5 text-sm leading-6 text-muted">
                       Your referral link will appear here once your Academy profile is ready.
                     </div>
                   )
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.025] p-5 text-sm leading-6 text-foreground/58">
+                  <div className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.025] p-5 text-sm leading-6 text-muted">
                     Authenticate your wallet to unlock your referral link and track your Academy network.
                   </div>
                 )}
@@ -448,7 +448,7 @@ export function AcademyDashboardView({
                         <ChevronLeft className="h-4 w-4" />
                         Prev
                       </Button>
-                      <p className="text-center text-xs text-foreground/45 sm:flex-1 sm:text-left">
+                      <p className="text-center text-xs text-muted sm:flex-1 sm:text-left">
                         Page {leaderboard.page} of {leaderboard.totalPages || 1}
                       </p>
                       <Button
@@ -476,7 +476,7 @@ export function AcademyDashboardView({
                         <ChevronLeft className="h-4 w-4" />
                         Previous Epoch
                       </Button>
-                      <p className="text-center text-xs text-foreground/45 sm:flex-1 sm:text-left">
+                      <p className="text-center text-xs text-muted sm:flex-1 sm:text-left">
                         Selected epoch{epochRangeLabel ? ` · ${epochRangeLabel}` : ""}
                       </p>
                       <Button
@@ -494,7 +494,7 @@ export function AcademyDashboardView({
                 ) : null}
               </>
             ) : (
-              <div className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.025] p-6 text-sm text-foreground/55">
+              <div className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.025] p-6 text-sm text-muted">
                 {leaderboardMode === "epoch"
                   ? "This epoch does not have enough Academy activity yet."
                   : season

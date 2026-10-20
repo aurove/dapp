@@ -42,7 +42,7 @@ export function SourcifyAlsoLink({ entry }: { entry: DeploymentEntry }) {
       href={sourcifyVerificationUrl(entry.address)}
       target="_blank"
       rel="noreferrer"
-      className="text-[11px] text-foreground/45 underline-offset-2 hover:text-foreground/70 hover:underline"
+      className="text-[11px] text-muted underline-offset-2 hover:text-foreground/70 hover:underline"
     >
       Also verified on Sourcify
     </a>

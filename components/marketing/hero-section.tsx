@@ -54,7 +54,7 @@ export function HeroSection() {
           <div className="mt-8 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
             {highlights.map((highlight) => (
               <Card key={highlight.label} className="rounded-2xl px-5 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#3f5368]">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                   {highlight.label}
                 </p>
                 <p className="mt-2 text-[1.08rem] font-semibold tracking-tight">

@@ -100,13 +100,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main>{children}</main>
       </div>
 
-      <footer className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-8 pt-2 text-xs text-foreground/40 md:px-6">
+      <footer className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-8 pt-2 text-xs text-muted md:px-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {year} Aurove. This interface reflects configured contract state. Verify transaction
             details and destination contracts before signing.
           </p>
-          <Link href="/docs" className="text-foreground/55 transition hover:text-foreground/80">
+          <Link href="/docs" className="text-muted transition hover:text-foreground/80">
             Documentation
           </Link>
         </div>

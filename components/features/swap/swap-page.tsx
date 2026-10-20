@@ -302,7 +302,7 @@ function AssetSelector({
             </DialogDescription>
           </DialogHeader>
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/35" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -311,7 +311,7 @@ function AssetSelector({
               className="pl-9"
             />
           </div>
-          <div className="flex items-center justify-between text-xs text-foreground/38">
+          <div className="flex items-center justify-between text-xs text-muted">
             <span>
               {new Intl.NumberFormat().format(filteredAssets.length)} asset
               {filteredAssets.length === 1 ? "" : "s"}
@@ -330,7 +330,7 @@ function AssetSelector({
             <div className="min-w-0 max-w-full space-y-4">
               {groups.map(([label, options]) => (
                 <section key={label} aria-label={label} className="min-w-0">
-                  <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/35">
+                  <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
                     {label}
                   </p>
                   <div className="min-w-0 space-y-2">
@@ -355,14 +355,14 @@ function AssetSelector({
                           <span className="block truncate font-semibold text-foreground">
                             {option.symbol}
                           </span>
-                          <span className="block break-words text-xs leading-snug text-foreground/48 [overflow-wrap:anywhere] line-clamp-2">
+                          <span className="block break-words text-xs leading-snug text-muted [overflow-wrap:anywhere] line-clamp-2">
                             {(() => {
                               const detail = formLabel(option).replace(/^·\s*/, "").trim();
                               return detail ? `${option.name} · ${detail}` : option.name;
                             })()}
                           </span>
                         </span>
-                        <span className="shrink-0 justify-self-end text-right text-xs tabular-nums text-foreground/55">
+                        <span className="shrink-0 justify-self-end text-right text-xs tabular-nums text-muted">
                           <span className="block whitespace-nowrap">
                             {balancesLoading
                               ? "…"
@@ -372,7 +372,7 @@ function AssetSelector({
                                   null,
                                 )}
                           </span>
-                          <span className="text-foreground/35">Balance</span>
+                          <span className="text-muted">Balance</span>
                         </span>
                       </button>
                     ))}
@@ -380,7 +380,7 @@ function AssetSelector({
                 </section>
               ))}
               {!filteredAssets.length ? (
-                <p className="p-5 text-center text-sm text-foreground/50">
+                <p className="p-5 text-center text-sm text-muted">
                   {search
                     ? "No assets match your search."
                     : "No valid assets for this side of the route."}
@@ -448,8 +448,8 @@ function AssetAmountField(props: {
   return (
     <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.035] p-4 focus-within:border-[var(--accent)]/45">
       <div className="mb-3 flex items-center justify-between text-xs">
-        <span className="font-medium text-foreground/55">{props.label}</span>
-        <span className="text-foreground/45">
+        <span className="font-medium text-muted">{props.label}</span>
+        <span className="text-muted">
           Balance:{" "}
           {props.balanceLoading
             ? "…"
@@ -489,7 +489,7 @@ function AssetAmountField(props: {
           onSelect={props.onAsset}
         />
       </div>
-      <div className="mt-1 min-h-4 text-xs text-foreground/38">
+      <div className="mt-1 min-h-4 text-xs text-muted">
         {props.fiat ?? (props.asset ? props.asset.name : "")}
       </div>
     </div>
@@ -521,7 +521,7 @@ function VeNftSellBreakdown(props: {
         : "—"
     : "—";
   return (
-    <div className="mx-1 mt-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.055] p-3 text-xs text-foreground/60">
+    <div className="mx-1 mt-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.055] p-3 text-xs text-muted">
       <div className="mb-3 grid grid-cols-4 gap-2" aria-label="veNFT sell fraction">
         {[2500, 5000, 7500, 10000].map((bps) => (
           <Button
@@ -564,7 +564,7 @@ function VeNftSellBreakdown(props: {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <span className="text-foreground/48">{label}</span>
+      <span className="text-muted">{label}</span>
       <span className="text-right font-medium text-foreground/82">{value}</span>
     </div>
   );
@@ -899,7 +899,7 @@ export function SwapPage() {
       <div className="flex items-center justify-between px-2 pb-3 pt-1">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Swap</h2>
-          <p className="flex items-center gap-1.5 text-xs text-foreground/42" aria-live="polite">
+          <p className="flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
             Swap through Mezo CL and AMM
             {registry && registryQuery.isError ? (
               <>
@@ -927,7 +927,7 @@ export function SwapPage() {
       </div>
       {settingsOpen ? (
         <div className="mb-3 grid grid-cols-2 gap-3 rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-3 text-xs">
-          <label className="space-y-1 text-foreground/55">
+          <label className="space-y-1 text-muted">
             <span>Slippage tolerance</span>
             <span className="flex items-center gap-1">
               <Input
@@ -945,7 +945,7 @@ export function SwapPage() {
               <span>%</span>
             </span>
           </label>
-          <label className="space-y-1 text-foreground/55">
+          <label className="space-y-1 text-muted">
             <span>Deadline</span>
             <span className="flex items-center gap-1">
               <Input
@@ -1032,7 +1032,7 @@ export function SwapPage() {
               <span className="block truncate font-medium text-foreground/80">
                 {routeModeText} · {routeText}
               </span>
-              <span className="mt-0.5 block truncate text-foreground/42">
+              <span className="mt-0.5 block truncate text-muted">
                 {activeQuote.routeLabel} ·{" "}
                 {activeRouteCandidate ? routeQualityText(activeRouteCandidate) : "Route ready"}
               </span>
@@ -1070,7 +1070,7 @@ export function SwapPage() {
                     <span className="block truncate font-semibold text-foreground">
                       Auto · {routeTextFor(bestRouteCandidate?.hops ?? [])}
                     </span>
-                    <span className="mt-1 block truncate text-foreground/45">
+                    <span className="mt-1 block truncate text-muted">
                       {bestRouteCandidate
                         ? `${bestRouteCandidate.label} · ${routeQualityText(bestRouteCandidate)}`
                         : "Best executable route"}
@@ -1098,7 +1098,7 @@ export function SwapPage() {
                       <span className="block truncate font-semibold text-foreground">
                         {route.label} · {routeTextFor(route.hops)}
                       </span>
-                      <span className="mt-1 block truncate text-foreground/45">
+                      <span className="mt-1 block truncate text-muted">
                         {routeQualityText(route)} · {route.hopCount} hop
                         {route.hopCount === 1 ? "" : "s"}
                       </span>
@@ -1110,7 +1110,7 @@ export function SwapPage() {
                           tradeType === "exactInput" ? buy : sell,
                         )}
                       </span>
-                      <span className="text-foreground/42">
+                      <span className="text-muted">
                         {routeDeltaText(
                           route,
                           bestRouteCandidate,
@@ -1125,7 +1125,7 @@ export function SwapPage() {
                 {sell?.form === "venft" || sell?.form === "tranche" ? (
                   <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                     <span className="truncate font-medium text-foreground/82">{sell.symbol}</span>
-                    <span className="rounded-lg bg-foreground/[0.06] px-2 py-1 text-[11px] text-foreground/48">
+                    <span className="rounded-lg bg-foreground/[0.06] px-2 py-1 text-[11px] text-muted">
                       Deposit
                     </span>
                     <span className="truncate text-right font-medium text-foreground/82">
@@ -1135,7 +1135,7 @@ export function SwapPage() {
                 ) : sell?.form === "underlying" ? (
                   <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                     <span className="truncate font-medium text-foreground/82">{sell.symbol}</span>
-                    <span className="rounded-lg bg-foreground/[0.06] px-2 py-1 text-[11px] text-foreground/48">
+                    <span className="rounded-lg bg-foreground/[0.06] px-2 py-1 text-[11px] text-muted">
                       Aurove
                     </span>
                     <span className="truncate text-right font-medium text-foreground/82">
@@ -1153,7 +1153,7 @@ export function SwapPage() {
                     <span className="truncate font-medium text-foreground/82">
                       {leg.tokenIn ? routeSymbol(leg.tokenIn) : index === 0 ? sell?.symbol : "Asset"}
                     </span>
-                    <span className="rounded-lg bg-foreground/[0.06] px-2 py-1 text-[11px] text-foreground/48">
+                    <span className="rounded-lg bg-foreground/[0.06] px-2 py-1 text-[11px] text-muted">
                       {leg.label}
                     </span>
                     <span className="truncate text-right font-medium text-foreground/82">

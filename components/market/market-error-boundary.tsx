@@ -32,7 +32,7 @@ export class MarketErrorBoundary extends Component<Props, State> {
           <div
             role="status"
             aria-live="polite"
-            className="border-b border-foreground/8 bg-background px-4 py-1.5 text-center text-[11px] text-foreground/40"
+            className="border-b border-foreground/8 bg-background px-4 py-1.5 text-center text-[11px] text-muted"
           >
             Market data temporarily unavailable
           </div>

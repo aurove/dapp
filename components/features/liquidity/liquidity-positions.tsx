@@ -106,7 +106,7 @@ function AggregateFeeCollection({
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300/10 text-emerald-800 dark:text-emerald-100"><Coins className="h-4 w-4" /></span>
           <div>
             <h3 className="font-medium text-foreground">Available fees</h3>
-            <p className="text-xs text-foreground/50">
+            <p className="text-xs text-muted">
               {collectablePositions.length > 0
                 ? `Across ${collectablePositions.length} position${collectablePositions.length === 1 ? "" : "s"}`
                 : "No fees available to collect"}
@@ -119,10 +119,10 @@ function AggregateFeeCollection({
               <TokenMark token={total.token} className="h-7 w-7" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-foreground">{total.token ? formatCompactRawTokenAmount(total.raw, total.token.decimals, null) : total.raw.toString()}</p>
-                <p className="truncate text-xs text-foreground/55">{total.token?.symbol ?? `${tokenAddress.slice(0, 6)}…${tokenAddress.slice(-4)}`}</p>
+                <p className="truncate text-xs text-muted">{total.token?.symbol ?? `${tokenAddress.slice(0, 6)}…${tokenAddress.slice(-4)}`}</p>
               </div>
             </div>
-          )) : <p className="px-4 py-3 text-sm text-foreground/45">Your collected fee totals will appear here.</p>}
+          )) : <p className="px-4 py-3 text-sm text-muted">Your collected fee totals will appear here.</p>}
         </div>
         <div className="shrink-0 space-y-2 lg:min-w-44">
           <TransactionFlowButton
@@ -170,7 +170,7 @@ function PositionRange({
   ];
 
   return (
-    <div className="rounded-2xl border border-foreground/[0.07] bg-black/10 px-4 py-4 sm:px-5">
+    <div className="rounded-2xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-4 sm:px-5">
       <div className="grid gap-4 lg:grid-cols-[160px_1fr] lg:items-start">
         <div className="lg:pt-1">
           <p className="text-sm text-foreground/65">{status.help}</p>
@@ -180,7 +180,7 @@ function PositionRange({
             {values.map((item) => (
               <div key={item.label}>
                 <p className={cn("truncate text-xs font-medium sm:text-sm", item.tone)}>{item.value}</p>
-                <p className="mt-0.5 text-[11px] text-foreground/45">{item.label}</p>
+                <p className="mt-0.5 text-[11px] text-muted">{item.label}</p>
               </div>
             ))}
           </div>
@@ -272,18 +272,18 @@ function LiquidityPositionCard({
             <span className="absolute right-0 top-1 text-foreground/65">{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
-            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-black/10 px-4 py-3">
-              <p className="text-xs text-foreground/45">Liquidity value</p>
+            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
+              <p className="text-xs text-muted">Liquidity value</p>
               <p className="mt-1 text-sm font-medium text-foreground">{formatCompactUsd(liquidityValueMusd)}</p>
             </div>
-            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-black/10 px-4 py-3">
-              <p className="text-xs text-foreground/45">Deposited</p>
+            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
+              <p className="text-xs text-muted">Deposited</p>
               {depositedAmounts.map(([raw, token], index) => (
                 <p key={index} className={cn("truncate text-sm font-medium text-foreground", index === 0 && "mt-1")}>{amount(raw, token)}</p>
               ))}
             </div>
-            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-black/10 px-4 py-3">
-              <p className="text-xs text-foreground/45">{position.isStaked ? "Gauge emissions" : "Available fees"}</p>
+            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
+              <p className="text-xs text-muted">{position.isStaked ? "Gauge emissions" : "Available fees"}</p>
               {position.isStaked ? (
                 <p className="mt-1 truncate text-sm font-medium text-foreground">
                   {amount(
@@ -297,12 +297,12 @@ function LiquidityPositionCard({
                 <p key={index} className={cn("truncate text-sm font-medium text-foreground", index === 0 && "mt-1")}>{amount(raw, token)}</p>
               ))}
             </div>
-            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-black/10 px-4 py-3">
-              <p className="text-xs text-foreground/45">Current price</p>
+            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
+              <p className="text-xs text-muted">Current price</p>
               <p className="mt-1 text-sm font-medium text-foreground">{position.currentTick === undefined ? "Unavailable" : formatPriceLabel({ pool: poolState, tick: position.currentTick })}</p>
             </div>
-            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-black/10 px-4 py-3">
-              <p className="text-xs text-foreground/45">Pool share</p>
+            <div className="min-w-0 rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
+              <p className="text-xs text-muted">Pool share</p>
               <p className="mt-1 text-sm font-medium text-foreground">{formatPercentage(share)}</p>
             </div>
           </div>
@@ -413,11 +413,11 @@ export function LiquidityPositions() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="liquidity-positions-title" className="text-2xl font-semibold text-foreground">Your liquidity positions</h2>
-          <p className="mt-1 text-sm text-foreground/55">{summaryParts.join(" · ")}</p>
+          <p className="mt-1 text-sm text-muted">{summaryParts.join(" · ")}</p>
           {positions.length > 0 ? (
             <p className="mt-2 text-lg font-semibold text-foreground">
               {totalValueLabel}
-              <span className="ml-2 text-sm font-normal text-foreground/45">total liquidity</span>
+              <span className="ml-2 text-sm font-normal text-muted">total liquidity</span>
             </p>
           ) : null}
         </div>
@@ -433,9 +433,9 @@ export function LiquidityPositions() {
       ) : positions.length === 0 ? (
         <Card className="border-dashed border-foreground/15 bg-foreground/[0.025]">
           <CardContent className="flex min-h-56 flex-col items-center justify-center text-center">
-            <span className="grid h-12 w-12 place-items-center rounded-full bg-foreground/5"><Droplets className="h-6 w-6 text-foreground/55" /></span>
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-foreground/5"><Droplets className="h-6 w-6 text-muted" /></span>
             <h3 className="mt-4 text-lg font-semibold text-foreground">No liquidity positions</h3>
-            <p className="mt-1 max-w-sm text-sm text-foreground/55">Add liquidity to an Aurove pool to start earning swap fees.</p>
+            <p className="mt-1 max-w-sm text-sm text-muted">Add liquidity to an Aurove pool to start earning swap fees.</p>
             <Button className="mt-5" onClick={scrollToAdd}>Add liquidity</Button>
           </CardContent>
         </Card>

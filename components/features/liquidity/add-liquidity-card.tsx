@@ -168,9 +168,9 @@ function QuoteStat({
 }) {
   return (
     <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.025] p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground/42">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">{label}</p>
       <p data-testid={testId} className="mt-2 text-lg font-semibold text-foreground">{value}</p>
-      <p className="mt-1 text-xs leading-5 text-foreground/48">{detail}</p>
+      <p className="mt-1 text-xs leading-5 text-muted">{detail}</p>
     </div>
   );
 }
@@ -588,7 +588,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
               type="button"
               title="Choose the pool you want to add liquidity to."
               aria-label="Choose the pool you want to add liquidity to."
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/12 bg-foreground/[0.03] text-foreground/55 transition hover:border-[var(--accent)]/40 hover:bg-foreground/[0.06] hover:text-foreground"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/12 bg-foreground/[0.03] text-muted transition hover:border-[var(--accent)]/40 hover:bg-foreground/[0.06] hover:text-foreground"
             >
               <Info className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -602,7 +602,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm">
             <label className="font-medium text-foreground">Pool</label>
-            <span className="text-foreground/45">
+            <span className="text-muted">
               {availablePools.length === 0 ? "No pools available" : `${availablePools.length} available`}
             </span>
           </div>
@@ -627,7 +627,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
                   <TokenMarkStack symbol={poolOption.key} />
                   <div className="min-w-0 space-y-0.5">
                     <p className="text-base font-semibold text-foreground">{poolOption.key}</p>
-                    <p className="text-xs text-foreground/45">{poolOption.label}</p>
+                    <p className="text-xs text-muted">{poolOption.label}</p>
                   </div>
                 </button>
               );
@@ -638,7 +638,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm">
             <label className="font-medium text-foreground">Concentrated range</label>
-            <span className="text-foreground/45">Slipstream adapter</span>
+            <span className="text-muted">Slipstream adapter</span>
           </div>
 
           {availablePools.length > 0 ? (
@@ -651,7 +651,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
               onSelectionChange={handleGraphSelection}
             />
           ) : (
-            <div className="rounded-3xl border border-foreground/10 bg-foreground/[0.03] px-5 py-8 text-sm text-foreground/45">
+            <div className="rounded-3xl border border-foreground/10 bg-foreground/[0.03] px-5 py-8 text-sm text-muted">
               No pool is currently available on this network.
             </div>
           )}
@@ -661,7 +661,7 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
           <div className="space-y-2 rounded-[24px] border border-foreground/10 bg-foreground/[0.03] p-4">
             <div className="flex items-center justify-between gap-3">
               <label className="text-sm font-medium text-foreground">Low price</label>
-              <span className="text-xs text-foreground/40">
+              <span className="text-xs text-muted">
                 {formatDisplayPair(pool)}
               </span>
             </div>
@@ -684,14 +684,14 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
                 }));
               }}
               placeholder="0.0000149"
-              className="h-16 w-full rounded-2xl border border-foreground/10 bg-panel px-4 text-2xl font-semibold text-foreground outline-none transition placeholder:text-foreground/20 focus:border-[var(--accent)]/50"
+              className="h-16 w-full rounded-2xl border border-foreground/10 bg-panel px-4 text-2xl font-semibold text-foreground outline-none transition placeholder:text-muted focus:border-[var(--accent)]/50"
             />
           </div>
 
           <div className="space-y-2 rounded-[24px] border border-foreground/10 bg-foreground/[0.03] p-4">
             <div className="flex items-center justify-between gap-3">
               <label className="text-sm font-medium text-foreground">High price</label>
-              <span className="text-xs text-foreground/40">
+              <span className="text-xs text-muted">
                 {formatDisplayPair(pool)}
               </span>
             </div>
@@ -714,13 +714,13 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
                 }));
               }}
               placeholder="0.0000161"
-              className="h-16 w-full rounded-2xl border border-foreground/10 bg-panel px-4 text-2xl font-semibold text-foreground outline-none transition placeholder:text-foreground/20 focus:border-[var(--accent)]/50"
+              className="h-16 w-full rounded-2xl border border-foreground/10 bg-panel px-4 text-2xl font-semibold text-foreground outline-none transition placeholder:text-muted focus:border-[var(--accent)]/50"
             />
           </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-foreground/10 bg-foreground/[0.02] px-4 py-3">
-          <p className="text-xs leading-5 text-foreground/46">
+          <p className="text-xs leading-5 text-muted">
             Manual range uses {formatDisplayPair(pool)} pricing and snaps to the pool tick spacing when applied.
           </p>
           <Button
@@ -782,12 +782,12 @@ export function AddLiquidityCard({ initialPool = "BTC" }: { initialPool?: Liquid
                   {statusLabel[quote.status]}
                 </Badge>
               </div>
-              <p className="text-sm text-foreground/55">
+              <p className="text-sm text-muted">
                 {rangeLabel}
               </p>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-foreground/45">
+            <div className="flex items-center gap-2 text-xs text-muted">
               <Wallet className="h-4 w-4" aria-hidden="true" />
               {selectedSourceCount} source{selectedSourceCount === 1 ? "" : "s"} selected
             </div>

@@ -51,16 +51,16 @@ export function CodeBlock({
       )}
     >
       <div className="flex items-center justify-between gap-3 border-b border-foreground/8 bg-foreground/[0.03] px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2 text-[11px] uppercase tracking-[0.12em] text-foreground/45">
+        <div className="flex min-w-0 items-center gap-2 text-[11px] uppercase tracking-[0.12em] text-muted">
           <span className="rounded-md border border-foreground/10 bg-foreground/5 px-1.5 py-0.5 text-[10px] text-[var(--accent)]">
             {label}
           </span>
-          {filename ? <span className="truncate normal-case tracking-normal text-foreground/55">{filename}</span> : null}
+          {filename ? <span className="truncate normal-case tracking-normal text-muted">{filename}</span> : null}
         </div>
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/10 bg-foreground/5 px-2 py-1 text-[11px] text-foreground/60 transition hover:bg-foreground/10 hover:text-foreground"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/10 bg-foreground/5 px-2 py-1 text-[11px] text-muted transition hover:bg-foreground/10 hover:text-foreground"
           aria-label="Copy code"
         >
           {copied ? <Check className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}

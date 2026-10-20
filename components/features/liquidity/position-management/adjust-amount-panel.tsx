@@ -304,7 +304,7 @@ export function AdjustAmountPanel({
     <div className="space-y-4">
       <div>
         <h4 className="font-medium text-foreground">Adjust amount</h4>
-        <p className="text-xs text-foreground/50">
+        <p className="text-xs text-muted">
           Add more liquidity in the current ticks, or withdraw a percentage. Removal collects owed tokens in the same position-manager transaction.
         </p>
       </div>
@@ -351,8 +351,8 @@ export function AdjustAmountPanel({
       />
 
       {mode === "add" ? (
-        <form onSubmit={increaseFormik.handleSubmit} noValidate className="space-y-3 rounded-2xl border border-foreground/15 bg-black/10 p-5">
-          <p className="text-xs text-foreground/50">Supply more tokens into this NFT&apos;s exact range.</p>
+        <form onSubmit={increaseFormik.handleSubmit} noValidate className="space-y-3 rounded-2xl border border-foreground/15 bg-foreground/[0.03] p-5">
+          <p className="text-xs text-muted">Supply more tokens into this NFT&apos;s exact range.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {increaseDisplaySides.map((side) => {
               const token = side === "assetA" ? token0 : token1;
@@ -395,7 +395,7 @@ export function AdjustAmountPanel({
             <p role="alert" className="text-xs text-red-700 dark:text-red-200">{increaseFormik.errors.amount ?? increaseFormik.errors.slippage}</p>
           ) : null}
           <div className="grid gap-2 lg:grid-cols-[minmax(7.5rem,1fr)_5fr] lg:items-end">
-            <label className="block text-xs text-foreground/60">
+            <label className="block text-xs text-muted">
               Slippage (%)
               <Input
                 name="slippage"
@@ -425,10 +425,10 @@ export function AdjustAmountPanel({
           </div>
         </form>
       ) : (
-        <form onSubmit={removeFormik.handleSubmit} noValidate className="space-y-2.5 rounded-2xl border border-foreground/15 bg-black/10 p-4">
-          <p className="text-xs text-foreground/50">Partially or fully withdraw the active position. Owed fees are collected in the same transaction.</p>
+        <form onSubmit={removeFormik.handleSubmit} noValidate className="space-y-2.5 rounded-2xl border border-foreground/15 bg-foreground/[0.03] p-4">
+          <p className="text-xs text-muted">Partially or fully withdraw the active position. Owed fees are collected in the same transaction.</p>
           <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_6.5rem] xl:items-end">
-            <label className="block text-xs text-foreground/60">
+            <label className="block text-xs text-muted">
               <span className="flex items-center justify-between gap-3">
                 <span>Percentage</span>
                 <span className="font-medium text-foreground">{numericPercent}%</span>
@@ -449,7 +449,7 @@ export function AdjustAmountPanel({
                 className="mt-2 w-full accent-[var(--accent)]"
               />
             </label>
-            <label className="block text-xs text-foreground/60">
+            <label className="block text-xs text-muted">
               Slippage (%)
               <Input
                 name="slippage"
@@ -503,7 +503,7 @@ export function AdjustAmountPanel({
       )}
 
       {canBurn ? (
-        <form onSubmit={burnFormik.handleSubmit} noValidate className="rounded-2xl border border-foreground/15 bg-black/10 p-4">
+        <form onSubmit={burnFormik.handleSubmit} noValidate className="rounded-2xl border border-foreground/15 bg-foreground/[0.03] p-4">
           <label className="flex items-start gap-2 text-xs text-foreground/65">
             <input
               name="burnConfirmed"

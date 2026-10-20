@@ -41,7 +41,7 @@ export function DocsCard({
         </div>
         {status ? <StatusBadge status={status} /> : null}
       </div>
-      <p className="mt-3 flex-1 text-sm leading-relaxed text-foreground/55">{description}</p>
+      <p className="mt-3 flex-1 text-sm leading-relaxed text-muted">{description}</p>
       <span className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-[var(--accent)] transition group-hover:gap-1.5">
         Explore
         <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />

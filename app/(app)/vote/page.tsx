@@ -51,14 +51,14 @@ export default function Page() {
       <JsonLd data={getWebPageJsonLd({ path: "/vote", title, description })} />
       <header>
         <h1 className="text-3xl font-semibold">Vote</h1>
-        <p className="mt-2 max-w-xl text-foreground/60">
+        <p className="mt-2 max-w-xl text-muted">
           Explore voter rewards and choose where your veBTC votes go.
         </p>
       </header>
       <Suspense fallback={<VotePageSkeleton />}>
         <VotingPools />
       </Suspense>
-      <nav aria-label="Learn more" className="flex gap-5 text-sm text-foreground/50">
+      <nav aria-label="Learn more" className="flex gap-5 text-sm text-muted">
         <Link href="/liquidity" className="hover:text-foreground">
           Explore liquidity pools
         </Link>

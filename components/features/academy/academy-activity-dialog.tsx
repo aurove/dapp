@@ -112,9 +112,9 @@ function ActivityLoadingState() {
 
 function EmptyState({ title, description }: { title: string; description: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.025] p-6 text-sm text-foreground/58">
+    <div className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.025] p-6 text-sm text-muted">
       <p className="font-medium text-foreground">{title}</p>
-      <p className="mt-1 leading-7 text-foreground/55">{description}</p>
+      <p className="mt-1 leading-7 text-muted">{description}</p>
     </div>
   );
 }
@@ -137,7 +137,7 @@ function ActivityEntryCard({ entry }: { entry: AcademyActivityEntry }) {
               <Badge className={getAwardLabelClass(entry.sourceDetails)}>{awardLabel}</Badge>
             ) : null}
           </div>
-          <p className="text-xs text-foreground/45">
+          <p className="text-xs text-muted">
             {formatActivityDate(entry.occurredAt)} at {formatActivityTime(entry.occurredAt)}
           </p>
         </div>
@@ -238,7 +238,7 @@ export function AcademyActivityDialog({
                   <div key={group.dateKey} className="space-y-3">
                     <div className="flex items-center gap-3">
                       <div className="h-px flex-1 bg-foreground/10" />
-                      <p className="text-xs uppercase tracking-[0.24em] text-foreground/40">{group.label}</p>
+                      <p className="text-xs uppercase tracking-[0.24em] text-muted">{group.label}</p>
                       <div className="h-px flex-1 bg-foreground/10" />
                     </div>
 
@@ -254,7 +254,7 @@ export function AcademyActivityDialog({
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-foreground/10 px-4 py-4 text-sm sm:px-6">
-            <p className="text-xs text-foreground/45">
+            <p className="text-xs text-muted">
               {isFetching && !isLoading ? "Refreshing activity log..." : `Page ${page} of ${totalPages || 1}`}
             </p>
 

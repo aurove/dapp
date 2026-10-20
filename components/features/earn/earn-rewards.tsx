@@ -165,7 +165,7 @@ export function EarnRewards() {
             </span>
             <div>
               <h3 className="font-medium text-foreground">Available rewards</h3>
-              <p className="text-xs text-foreground/50">
+              <p className="text-xs text-muted">
                 {gauges.isLoading
                   ? "Loading tranche and ID20 rewards"
                   : claimableSourceCount > 0
@@ -189,7 +189,7 @@ export function EarnRewards() {
                   <p className="truncate text-sm font-semibold text-foreground">
                     {formatCompactRawTokenAmount(reward.amountRaw, reward.decimals, null)}
                   </p>
-                  <p className="truncate text-xs text-foreground/55">
+                  <p className="truncate text-xs text-muted">
                     {reward.symbol} · {reward.sourceLabel}
                   </p>
                 </div>
@@ -201,7 +201,7 @@ export function EarnRewards() {
                 <Skeleton className="mt-2 h-3 w-32" />
               </div>
             ) : rewardAmounts.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-foreground/45">
+              <p className="px-4 py-3 text-sm text-muted">
                 Your tranche and ID20 rewards will appear here.
               </p>
             ) : null}

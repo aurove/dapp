@@ -25,7 +25,7 @@ const variants = {
     icon: Clock3,
     label: "Coming soon",
     className: "border-foreground/15 bg-foreground/[0.04] text-foreground/80",
-    iconClassName: "text-foreground/55",
+    iconClassName: "text-muted",
   },
 } as const;
 

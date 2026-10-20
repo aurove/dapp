@@ -24,7 +24,7 @@ export function DocsProse({
         "[&_strong]:font-semibold [&_strong]:text-foreground",
         "[&_code]:rounded-md [&_code]:border [&_code]:border-foreground/10 [&_code]:bg-foreground/5 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12.5px] [&_code]:text-[var(--accent)]",
         "[&_table]:my-5 [&_table]:w-full [&_table]:border-collapse [&_table]:text-sm",
-        "[&_th]:border-b [&_th]:border-foreground/12 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-[0.08em] [&_th]:text-foreground/45",
+        "[&_th]:border-b [&_th]:border-foreground/12 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-[0.08em] [&_th]:text-muted",
         "[&_td]:border-b [&_td]:border-foreground/8 [&_td]:px-3 [&_td]:py-2.5 [&_td]:align-top [&_td]:text-foreground/70",
         className,
       )}

@@ -39,7 +39,7 @@ function AssetCard({
             className={
               available
                 ? "w-fit border-emerald-300/25 bg-emerald-300/10 text-emerald-800 dark:text-emerald-100"
-                : "w-fit border-foreground/15 bg-foreground/5 text-foreground/60"
+                : "w-fit border-foreground/15 bg-foreground/5 text-muted"
             }
           >
             {available ? "Available" : "Unavailable"}
@@ -47,7 +47,7 @@ function AssetCard({
         </CardHeader>
         <CardContent className="flex items-end justify-between gap-4 border-t border-foreground/8 pt-5">
           <div>
-            <p className="text-xs uppercase tracking-wide text-foreground/40">Annualised APR</p>
+            <p className="text-xs uppercase tracking-wide text-muted">Annualised APR</p>
             <p className="mt-1 text-sm text-foreground/75">{apr.value}</p>
           </div>
           <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-[var(--accent)]">
@@ -86,7 +86,7 @@ export function AvailableEarningAssets() {
             Turn Mezo Earn positions into liquid assets you can use.
           </h1>
         </div>
-        <p className="mt-1 text-sm text-foreground/55">
+        <p className="mt-1 text-sm text-muted">
           Deposit BTC, MEZO, or an existing locked Mezo Earn position and receive a liquid Aurove
           asset. Keep earning from the underlying position while remaining free to swap.
         </p>

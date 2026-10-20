@@ -82,7 +82,7 @@ export function TokenPair({ token0, token1 }: { token0?: TokenMeta; token1?: Tok
 }
 
 export function statusOf(position: Position) {
-  if (position.liquidity === 0n) return { label: "Closed", help: "Closed — no active liquidity", tone: "border-foreground/15 bg-foreground/5 text-foreground/60" };
+  if (position.liquidity === 0n) return { label: "Closed", help: "Closed — no active liquidity", tone: "border-foreground/15 bg-foreground/5 text-muted" };
   if (position.isStaked) {
     if (position.currentTick === undefined) {
       return { label: "Staked", help: "Staked in gauge — earning emissions", tone: "border-sky-300/25 bg-sky-300/10 text-sky-800 dark:text-sky-100" };
@@ -92,7 +92,7 @@ export function statusOf(position: Position) {
       ? { label: "Staked · In range", help: "Staked and in range — earning swap fees and gauge emissions", tone: "border-sky-300/25 bg-sky-300/10 text-sky-800 dark:text-sky-100" }
       : { label: "Staked · Out of range", help: "Staked but out of range — still earning gauge emissions", tone: "border-sky-300/25 bg-sky-300/10 text-sky-800 dark:text-sky-100" };
   }
-  if (position.currentTick === undefined) return { label: "Unavailable", help: "Pool status is temporarily unavailable", tone: "border-foreground/15 bg-foreground/5 text-foreground/60" };
+  if (position.currentTick === undefined) return { label: "Unavailable", help: "Pool status is temporarily unavailable", tone: "border-foreground/15 bg-foreground/5 text-muted" };
   const active = position.currentTick >= position.tickLower && position.currentTick < position.tickUpper;
   return active
     ? { label: "In range", help: "In range — earning swap fees", tone: "border-emerald-300/25 bg-emerald-300/10 text-emerald-800 dark:text-emerald-100" }

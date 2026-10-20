@@ -195,7 +195,7 @@ export function AdjustRangePanel({
     <form onSubmit={formik.handleSubmit} noValidate className="space-y-4">
       <div>
         <h4 className="font-medium text-foreground">Adjust range</h4>
-        <p className="text-xs text-foreground/50">
+        <p className="text-xs text-muted">
           Concentrated-liquidity ranges are immutable on the NFT. This flow withdraws the current position, mints a replacement NFT on the new ticks, and burns the empty one — in a single position-manager transaction after any required token approvals.
         </p>
       </div>
@@ -221,7 +221,7 @@ export function AdjustRangePanel({
       )}
 
       <div className="grid gap-3 md:grid-cols-2">
-        <label className="space-y-2 rounded-[24px] border border-foreground/10 bg-foreground/[0.03] p-4 text-xs text-foreground/60">
+        <label className="space-y-2 rounded-[24px] border border-foreground/10 bg-foreground/[0.03] p-4 text-xs text-muted">
           <span className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-foreground">Low price</span>
             <span>{formatDisplayPair(pool)}</span>
@@ -236,10 +236,10 @@ export function AdjustRangePanel({
               void formik.setFieldValue("lower", value);
               setRangeStrategy("custom");
             }}
-            className="h-14 w-full rounded-2xl border border-foreground/10 bg-panel px-4 text-xl font-semibold text-foreground outline-none transition placeholder:text-foreground/20 focus:border-[var(--accent)]/50"
+            className="h-14 w-full rounded-2xl border border-foreground/10 bg-panel px-4 text-xl font-semibold text-foreground outline-none transition placeholder:text-muted focus:border-[var(--accent)]/50"
           />
         </label>
-        <label className="space-y-2 rounded-[24px] border border-foreground/10 bg-foreground/[0.03] p-4 text-xs text-foreground/60">
+        <label className="space-y-2 rounded-[24px] border border-foreground/10 bg-foreground/[0.03] p-4 text-xs text-muted">
           <span className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-foreground">High price</span>
             <span>{formatDisplayPair(pool)}</span>
@@ -254,13 +254,13 @@ export function AdjustRangePanel({
               void formik.setFieldValue("upper", value);
               setRangeStrategy("custom");
             }}
-            className="h-14 w-full rounded-2xl border border-foreground/10 bg-panel px-4 text-xl font-semibold text-foreground outline-none transition placeholder:text-foreground/20 focus:border-[var(--accent)]/50"
+            className="h-14 w-full rounded-2xl border border-foreground/10 bg-panel px-4 text-xl font-semibold text-foreground outline-none transition placeholder:text-muted focus:border-[var(--accent)]/50"
           />
         </label>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-foreground/10 bg-foreground/[0.02] px-4 py-3">
-        <p className="text-xs leading-5 text-foreground/46">
+        <p className="text-xs leading-5 text-muted">
           Current range {formatPriceLabel({ pool, tick: getDisplayPriceRangeTicks(pool, currentRange).lowTick })} to {formatPriceLabel({ pool, tick: getDisplayPriceRangeTicks(pool, currentRange).highTick })}. Uncollected fees are redeployed with the principal.
         </p>
         <Button
@@ -280,17 +280,17 @@ export function AdjustRangePanel({
 
       <div className="grid gap-2 sm:grid-cols-3">
         <div className="rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
-          <p className="text-xs text-foreground/45">New range status</p>
+          <p className="text-xs text-muted">New range status</p>
           <p className="mt-1 text-sm font-medium text-foreground">{quote.beginsInRange ? "In range" : "Out of range"}</p>
         </div>
         <div className="rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
-          <p className="text-xs text-foreground/45">Deployed</p>
+          <p className="text-xs text-muted">Deployed</p>
           {usedAmounts.map(([raw, token], index) => (
             <p key={index} className="mt-1 truncate text-sm font-medium text-foreground">{amount(raw, token)}</p>
           ))}
         </div>
         <div className="rounded-xl border border-foreground/[0.07] bg-foreground/[0.03] px-4 py-3">
-          <p className="text-xs text-foreground/45">Returned to wallet</p>
+          <p className="text-xs text-muted">Returned to wallet</p>
           {leftoverAmounts.map(([raw, token], index) => (
             <p key={index} className="mt-1 truncate text-sm font-medium text-foreground">
               {token ? formatCompactRawTokenAmount(raw, token.decimals, token.symbol) : "Unavailable"}
@@ -316,7 +316,7 @@ export function AdjustRangePanel({
       />
 
       <div className="grid gap-2 lg:grid-cols-[minmax(7.5rem,1fr)_5fr] lg:items-end">
-        <label className="block text-xs text-foreground/60">
+        <label className="block text-xs text-muted">
           Slippage (%)
           <Input
             name="slippage"

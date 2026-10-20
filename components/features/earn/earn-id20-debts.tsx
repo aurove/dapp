@@ -24,7 +24,7 @@ function Metric({
 }) {
   return (
     <div className="min-w-0">
-      <p className="text-[0.68rem] uppercase tracking-[0.12em] text-foreground/40">{label}</p>
+      <p className="text-[0.68rem] uppercase tracking-[0.12em] text-muted">{label}</p>
       <p
         className={cn(
           "mt-1 truncate text-sm",
@@ -43,12 +43,12 @@ function DebtRow({ position }: { position: Id20GaugePosition }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-medium text-foreground">{position.symbol} ID20</p>
-          <p className="mt-1 text-xs text-foreground/45">
+          <p className="mt-1 text-xs text-muted">
             {position.isActivated ? "Activated reward account" : "Not activated"}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-foreground/45">Wallet balance</p>
+          <p className="text-xs text-muted">Wallet balance</p>
           <p className="mt-1 text-sm font-medium text-foreground">
             {amountLabel(position.balanceRaw, position)} {position.symbol}
           </p>
@@ -99,7 +99,7 @@ export function EarnId20Debts() {
         <h2 id="earn-id20-debts-title" className="text-2xl font-semibold text-foreground">
           Your ID20 debt &amp; rewards
         </h2>
-        <p className="mt-1 text-sm text-foreground/55">
+        <p className="mt-1 text-sm text-muted">
           Debt-backed reward weight, unsettled credit, and every claimable reward tied to your ID20
           accounts.
         </p>

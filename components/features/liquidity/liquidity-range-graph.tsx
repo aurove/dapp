@@ -603,12 +603,12 @@ export function LiquidityRangeGraph({
             ) : depthError ? (
               <Badge className="border-rose-500/25 bg-rose-500/10 text-rose-800 dark:text-rose-100">Unavailable</Badge>
             ) : (
-              <Badge className="border-foreground/10 bg-foreground/[0.04] text-foreground/55">
+              <Badge className="border-foreground/10 bg-foreground/[0.04] text-muted">
                 Loading pool depth
               </Badge>
             )}
           </div>
-          <p className="text-xs text-foreground/45">{formatDisplayPair(pool)}</p>
+          <p className="text-xs text-muted">{formatDisplayPair(pool)}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -770,10 +770,10 @@ export function LiquidityRangeGraph({
                       x2={currentX}
                       y1={CHART_PADDING.top}
                       y2={CHART_PADDING.top + innerHeight}
-                      stroke="rgba(255,255,255,0.72)"
+                      stroke="color-mix(in srgb, var(--foreground) 72%, transparent)"
                       strokeDasharray="4 6"
                     />
-                    <circle cx={currentX} cy={CHART_PADDING.top + 8} r={4.5} fill="#f3dfb9" />
+                    <circle cx={currentX} cy={CHART_PADDING.top + 8} r={4.5} fill="var(--accent)" />
                   </>
                 ) : null}
 
@@ -800,7 +800,7 @@ export function LiquidityRangeGraph({
               </Group>
             </svg>
 
-            <div className="pointer-events-none absolute left-3 top-2 text-[10px] font-medium uppercase tracking-[0.12em] text-foreground/38">
+            <div className="pointer-events-none absolute left-3 top-2 text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
               Raw active liquidity
             </div>
 
@@ -877,13 +877,13 @@ export function LiquidityRangeGraph({
               </button>
             ) : null}
 
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between px-4 pb-3 text-[11px] text-foreground/40">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between px-4 pb-3 text-[11px] text-muted">
               <span>
                 {leftVisibleTick === null
                   ? "—"
                   : (formatTickPrice({ pool, tick: leftVisibleTick }) ?? `Tick ${leftVisibleTick}`)}
               </span>
-              <span data-testid="depth-chart-current-price" className="text-foreground/55">
+              <span data-testid="depth-chart-current-price" className="text-muted">
                 {currentPriceText ?? "Current price unavailable"}
               </span>
               <span>
@@ -895,7 +895,7 @@ export function LiquidityRangeGraph({
             </div>
 
             {!hasVisibleLiquidity ? (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-12 text-center text-xs text-foreground/48">
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-12 text-center text-xs text-muted">
                 Zero active pool liquidity in this viewport.
               </div>
             ) : null}
@@ -910,7 +910,7 @@ export function LiquidityRangeGraph({
             Pool liquidity data is unavailable. {depthError}
           </div>
         ) : size.width === 0 || !xScale || !yScale || !visibleRange || !depthQuery.data ? (
-          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-foreground/45">
+          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted">
             Loading initialized ticks and active liquidity...
           </div>
         ) : null}
@@ -918,7 +918,7 @@ export function LiquidityRangeGraph({
 
       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
         <div className="space-y-2">
-          <div className="flex flex-wrap gap-2 text-xs text-foreground/60">
+          <div className="flex flex-wrap gap-2 text-xs text-muted">
             <span className="rounded-full border border-foreground/10 bg-foreground/[0.03] px-3 py-1">
               Lower: {rangeText?.lower ?? "Unavailable"}
             </span>
@@ -929,7 +929,7 @@ export function LiquidityRangeGraph({
               Current tick: {currentTick ?? "Unavailable"}
             </span>
           </div>
-          <p className="text-xs leading-relaxed text-foreground/42">
+          <p className="text-xs leading-relaxed text-muted">
             Gold depth is raw active pool liquidity reconstructed between initialized ticks. Blue is
             the proposed range{referenceRange ? "; the gold outline is the current position range" : ""}.
             Handles snap to pool tick spacing; zoom changes only the viewport.

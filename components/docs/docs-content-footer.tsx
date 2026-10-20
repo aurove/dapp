@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export function DocsContentFooter() {
   return (
-    <footer className="mt-12 border-t border-foreground/8 pb-2 pt-6 text-xs text-foreground/40">
+    <footer className="mt-12 border-t border-foreground/8 pb-2 pt-6 text-xs text-muted">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p>© {new Date().getFullYear()} Aurove. Protocol documentation for the Mezo deployment.</p>
         <div className="flex flex-wrap gap-4">

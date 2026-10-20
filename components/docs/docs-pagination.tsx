@@ -16,7 +16,7 @@ export function DocsPagination({ slug }: { slug: string }) {
           href={`/docs/${prev.slug}`}
           className="group rounded-2xl border border-foreground/10 bg-foreground/[0.02] p-4 transition hover:border-[var(--accent)]/30 hover:bg-foreground/[0.04]"
         >
-          <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.12em] text-foreground/40">
+          <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.12em] text-muted">
             <ArrowLeft className="h-3 w-3" />
             Previous
           </span>
@@ -32,7 +32,7 @@ export function DocsPagination({ slug }: { slug: string }) {
           href={`/docs/${next.slug}`}
           className="group rounded-2xl border border-foreground/10 bg-foreground/[0.02] p-4 text-right transition hover:border-[var(--accent)]/30 hover:bg-foreground/[0.04]"
         >
-          <span className="inline-flex items-center justify-end gap-1 text-[11px] uppercase tracking-[0.12em] text-foreground/40">
+          <span className="inline-flex items-center justify-end gap-1 text-[11px] uppercase tracking-[0.12em] text-muted">
             Next
             <ArrowRight className="h-3 w-3" />
           </span>
