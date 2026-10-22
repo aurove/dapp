@@ -30,6 +30,8 @@ export async function fetchVoteData(
 ) {
   const contracts = getContractsByChainId(chainId);
   if (!contracts) throw new Error("Voting is not configured on this network.");
+  const veBtc = contracts.VeBTC;
+  if (!veBtc?.address) throw new Error("Voting is not configured on this network.");
   const block = await client.getBlock();
   const snapshotClient = {
     ...client,
@@ -68,10 +70,10 @@ export async function fetchVoteData(
     v<bigint>("totalWeight"),
     v<bigint>("maxVotingNum"),
   ]);
-  if (ve.toLowerCase() !== contracts.VeBTC.address.toLowerCase())
+  if (ve.toLowerCase() !== veBtc.address.toLowerCase())
     throw new Error("Voter escrow does not match the configured veBTC.");
   const e = <T>(name: string, args: readonly unknown[] = []) =>
-    read<T>(ve, contracts.VeBTC.abi, name, args);
+    read<T>(ve, veBtc.abi, name, args);
   // Reuse the portfolio's veBTC discovery, then verify ownership at the snapshot block.
   const ownership = await Promise.all(
     ownedIds.map(async (id) => ({ id, owner: await e<Address>("ownerOf", [id]) })),
@@ -107,6 +109,7 @@ export async function fetchVoteData(
     await Promise.all(
       AUROVE_LIQUIDITY_PAIRS.map(async (pair) => {
         const pool = contracts[pair.poolContractName];
+        if (!pool?.address) return null;
         const gauge = await v<Address>("gauges", [pool.address]);
         if (gauge === zeroAddress) return null;
         const [alive, registered, mappedPool] = await Promise.all([
