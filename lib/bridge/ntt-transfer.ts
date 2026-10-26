@@ -7,7 +7,7 @@ import {
 } from "@wormhole-foundation/sdk";
 import { EvmNtt } from "@wormhole-foundation/sdk-evm-ntt";
 import { toNative, type ChainAddress } from "@wormhole-foundation/sdk-definitions";
-import { register as registerNttPayloads } from "@wormhole-foundation/sdk-definitions-ntt";
+import { Ntt, register as registerNttPayloads } from "@wormhole-foundation/sdk-definitions-ntt";
 import { JsonRpcProvider, type Provider } from "ethers";
 import { createPublicClient, http, type Address, type Chain as ViemChain, type Hex, type PublicClient, type WalletClient } from "viem";
 import {
@@ -214,9 +214,15 @@ export async function redeemHorizonNttTransfer(
     throw new Error("Unsupported destination chain for redeem.");
   }
 
-  let attestation;
+  // Runtime payload id stays "Ntt:WormholeTransfer". Casts avoid Vercel/npm typecheck
+  // failures when `@wormhole-foundation/sdk@^6.1.4` resolves to 6.1.5 and the NTT
+  // PayloadLiteral module augmentation no longer lines up with deserialize().
+  let attestation: Ntt.Attestation;
   try {
-    attestation = deserialize("Ntt:WormholeTransfer", encoding.b64.decode(vaaBase64));
+    attestation = deserialize(
+      "Ntt:WormholeTransfer" as "Uint8Array",
+      encoding.b64.decode(vaaBase64),
+    ) as unknown as Ntt.Attestation;
   } catch (error) {
     throw new Error(
       `Could not decode the Wormhole VAA for redeem: ${error instanceof Error ? error.message : String(error)}`,
