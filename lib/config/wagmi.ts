@@ -12,6 +12,7 @@ import { rainbowkitBurnerWallet } from "burner-connector";
 import type { Chain } from "viem";
 import { createConfig, http, type Config } from "wagmi";
 import { getRuntimeConfig } from "@/lib/config/env";
+import { baseSepoliaChain } from "@/lib/config/chains";
 import { shouldShowBurnerWallet } from "@/lib/config/scaffold";
 import { ensureDeterministicBurnerPrivateKey } from "@/lib/web3/burner-wallet";
 
@@ -79,10 +80,13 @@ function getChainRpcUrl(chain: Chain): string {
 function getServerWagmiConfig(activeChain: Chain): Config {
   if (!serverWagmiConfig || serverWagmiConfigChainId !== activeChain.id) {
     serverWagmiConfig = createConfig({
-      chains: [activeChain],
+      chains: [activeChain, ...(activeChain.id === 31611 ? [baseSepoliaChain] : [])],
       multiInjectedProviderDiscovery: false,
       transports: {
         [activeChain.id]: http(getChainRpcUrl(activeChain)),
+        ...(activeChain.id === 31611
+          ? { [baseSepoliaChain.id]: http(getChainRpcUrl(baseSepoliaChain)) }
+          : {}),
       },
       ssr: true,
     });
@@ -105,12 +109,15 @@ export function getWagmiConfig(activeChain: Chain): Config {
   if (!wagmiConfig || wagmiConfigChainId !== activeChain.id) {
     wagmiConfig = getDefaultConfig({
       appName: "Aurove",
-      chains: [activeChain],
+      chains: [activeChain, ...(activeChain.id === 31611 ? [baseSepoliaChain] : [])],
       multiInjectedProviderDiscovery: false,
       wallets: buildWalletList(activeChain),
       projectId: runtime.walletConnectProjectId,
       transports: {
         [activeChain.id]: http(getChainRpcUrl(activeChain)),
+        ...(activeChain.id === 31611
+          ? { [baseSepoliaChain.id]: http(getChainRpcUrl(baseSepoliaChain)) }
+          : {}),
       },
       ssr: true,
     });

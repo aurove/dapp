@@ -101,6 +101,21 @@ export const mezoMainnetChain: Chain = defineChain({
   },
 });
 
+export const baseSepoliaChain: Chain = defineChain({
+  id: 84532,
+  name: "Base Sepolia",
+  nativeCurrency: { decimals: 18, name: "Ether", symbol: "ETH" },
+  rpcUrls: {
+    default: {
+      http: [process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_HTTP || "https://sepolia.base.org"],
+    },
+  },
+  blockExplorers: {
+    default: { name: "BaseScan", url: "https://sepolia.basescan.org" },
+  },
+  testnet: true,
+});
+
 export function getActiveChain(environment = resolveAppEnvironment()): Chain {
   if (environment === "testnet") return mezoTestnetChain;
   if (environment === "mainnet") return mezoMainnetChain;
@@ -111,4 +126,5 @@ export const supportedChains = [
   withMulticall(hardhat),
   mezoTestnetChain,
   mezoMainnetChain,
+  baseSepoliaChain,
 ] as const;

@@ -5,6 +5,16 @@ import { DOC_REDIRECTS } from "./lib/docs/redirects";
 const projectRoot = process.cwd();
 
 const nextConfig: NextConfig = {
+  transpilePackages: [
+    "@wormhole-foundation/sdk",
+    "@wormhole-foundation/sdk-base",
+    "@wormhole-foundation/sdk-connect",
+    "@wormhole-foundation/sdk-definitions",
+    "@wormhole-foundation/sdk-definitions-ntt",
+    "@wormhole-foundation/sdk-evm",
+    "@wormhole-foundation/sdk-evm-core",
+    "@wormhole-foundation/sdk-evm-ntt",
+  ],
   turbopack: {
     // Local pnpm dependencies are linked from the parent workspace. Vercel
     // installs dependencies inside the cloned app, so its tracing and bundling

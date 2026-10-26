@@ -8,7 +8,7 @@ import { Badge } from "@ui";
 import { usePathname } from "next/navigation";
 import { AppNav } from "@/components/app/app-nav";
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";
-import { getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
+import { baseSepoliaChain, getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { useChainId } from "wagmi";
 import { XAccountLink } from "./x-account-link";
 
@@ -23,7 +23,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       : appEnvironment === "mainnet"
         ? `https://testnet.aurove.xyz${pathname}`
         : null;
-  const wrongNetwork = chainId !== undefined && chainId !== expectedChain.id;
+  const isBridgePairNetwork =
+    pathname.startsWith("/bridge") &&
+    appEnvironment === "testnet" &&
+    (chainId === expectedChain.id || chainId === baseSepoliaChain.id);
+  const wrongNetwork = chainId !== undefined && chainId !== expectedChain.id && !isBridgePairNetwork;
   const year = useMemo(() => new Date().getFullYear(), []);
 
   return (
@@ -74,7 +78,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <BellRing className="mr-1 h-3.5 w-3.5" />
               {wrongNetwork
                 ? `Wrong network (expected ${expectedChain.name})`
-                : `Network ${expectedChain.name}`}
+                : isBridgePairNetwork
+                  ? `Bridge network ${chainId === baseSepoliaChain.id ? baseSepoliaChain.name : expectedChain.name}`
+                  : `Network ${expectedChain.name}`}
             </Link>
           ) : (
             <Badge
@@ -87,7 +93,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <BellRing className="mr-1 h-3.5 w-3.5" />
               {wrongNetwork
                 ? `Wrong network (expected ${expectedChain.name})`
-                : `Network ${expectedChain.name}`}
+                : isBridgePairNetwork
+                  ? `Bridge network ${chainId === baseSepoliaChain.id ? baseSepoliaChain.name : expectedChain.name}`
+                  : `Network ${expectedChain.name}`}
             </Badge>
           )}
         </div>

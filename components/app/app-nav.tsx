@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, Award, BarChart3, BookOpen, Droplets, Vote } from "lucide-react";
+import { ArrowLeftRight, Award, BarChart3, BookOpen, Droplets, Waypoints, Vote } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "@ui";
 import { ACADEMY_ENABLED } from "@/lib/academy/availability";
@@ -22,6 +22,7 @@ export const appRoutes: AppRoute[] = [
   { href: "/liquidity", label: "Liquidity", icon: Droplets, matchPrefix: "/liquidity" },
   { href: "/vote", label: "Vote", icon: Vote },
   { href: "/earn", label: "Earn", icon: BarChart3, matchPrefix: "/earn" },
+  { href: "/bridge", label: "Bridge", icon: Waypoints, matchPrefix: "/bridge" },
   // Keep the route definition intact so the feature can be restored by the flag.
   ...(ACADEMY_ENABLED ? [academyRoute] : []),
   { href: "/docs", label: "Docs", icon: BookOpen, matchPrefix: "/docs" },
