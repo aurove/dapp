@@ -122,6 +122,19 @@ export function getActiveChain(environment = resolveAppEnvironment()): Chain {
   return withMulticall(hardhat);
 }
 
+/** Chains the wallet may stay on without the header Wrong Network CTA. */
+export function getAllowedAppChainIds(
+  pathname: string | null | undefined,
+  environment: AppEnvironment = resolveAppEnvironment(),
+): number[] {
+  const expectedChain = getActiveChain(environment);
+  // Horizon deposit/withdraw needs Base Sepolia as a peer of Mezo Testnet.
+  if (pathname?.startsWith("/bridge") && environment === "testnet") {
+    return [expectedChain.id, baseSepoliaChain.id];
+  }
+  return [expectedChain.id];
+}
+
 export const supportedChains = [
   withMulticall(hardhat),
   mezoTestnetChain,

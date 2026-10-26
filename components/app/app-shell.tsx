@@ -8,7 +8,12 @@ import { Badge } from "@ui";
 import { usePathname } from "next/navigation";
 import { AppNav } from "@/components/app/app-nav";
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";
-import { baseSepoliaChain, getActiveChain, resolveAppEnvironment } from "@/lib/config/chains";
+import {
+  baseSepoliaChain,
+  getActiveChain,
+  getAllowedAppChainIds,
+  resolveAppEnvironment,
+} from "@/lib/config/chains";
 import { useChainId } from "wagmi";
 import { XAccountLink } from "./x-account-link";
 
@@ -17,6 +22,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const appEnvironment = resolveAppEnvironment();
   const expectedChain = useMemo(() => getActiveChain(appEnvironment), [appEnvironment]);
+  const allowedChainIds = useMemo(
+    () => getAllowedAppChainIds(pathname, appEnvironment),
+    [pathname, appEnvironment],
+  );
   const networkSwitchHref =
     appEnvironment === "testnet"
       ? `https://www.aurove.xyz${pathname}`
@@ -26,8 +35,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isBridgePairNetwork =
     pathname.startsWith("/bridge") &&
     appEnvironment === "testnet" &&
-    (chainId === expectedChain.id || chainId === baseSepoliaChain.id);
-  const wrongNetwork = chainId !== undefined && chainId !== expectedChain.id && !isBridgePairNetwork;
+    allowedChainIds.includes(chainId);
+  const wrongNetwork = chainId !== undefined && !allowedChainIds.includes(chainId);
   const year = useMemo(() => new Date().getFullYear(), []);
 
   return (

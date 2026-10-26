@@ -28,6 +28,9 @@ export type BridgeHistoryEntry = {
   symbol: string;
   amount: string;
   submittedAt: number;
+  /** Set after a successful local redeem or when Wormholescan records destination delivery. */
+  completedAt?: number;
+  destinationTxHash?: Hex;
 };
 
 export type WormholeOperation = {
@@ -232,6 +235,33 @@ export function saveBridgeHistoryEntry(entry: BridgeHistoryEntry): BridgeHistory
   return writeBridgeHistory(entry.account, next);
 }
 
+/** Persist local redeem completion so Complete hides before Wormholescan indexes delivery. */
+export function markBridgeHistoryCompleted(
+  account: Address,
+  sourceTxHash: Hex,
+  destinationTxHash?: Hex | null,
+): BridgeHistoryEntry[] {
+  if (typeof window === "undefined") return [];
+  const expected = sourceTxHash.toLowerCase();
+  const entries = readBridgeHistory(account).map((entry) => {
+    if (entry.sourceTxHash.toLowerCase() !== expected) return entry;
+    return {
+      ...entry,
+      completedAt: entry.completedAt ?? Date.now(),
+      destinationTxHash: (destinationTxHash as Hex | undefined) ?? entry.destinationTxHash,
+    };
+  });
+  return writeBridgeHistory(account, entries);
+}
+
+export function isBridgeHistoryEntryCompleted(
+  entry: BridgeHistoryEntry,
+  operation?: WormholeOperation,
+): boolean {
+  if (entry.completedAt || entry.destinationTxHash) return true;
+  return Boolean(operation?.targetChain?.transaction?.txHash);
+}
+
 async function fetchWormholeOperationsByAddress(address: string): Promise<WormholeOperation[]> {
   const url = new URL(`${TESTNET_API}/operations`);
   url.searchParams.set("address", address);
@@ -346,6 +376,15 @@ export function wormholeOperationToBridgeHistoryEntry(
     formatTrimmedAmount(std.amount, std.normalizedDecimals) ??
     "0";
 
+  const destinationTxHash = operation.targetChain?.transaction?.txHash;
+  const completed =
+    typeof destinationTxHash === "string" && destinationTxHash.startsWith("0x")
+      ? {
+          completedAt: Date.now(),
+          destinationTxHash: destinationTxHash as Hex,
+        }
+      : {};
+
   return {
     id: `${sourceChainId}:${sourceTxHash.toLowerCase()}`,
     account: account.toLowerCase() as Address,
@@ -358,6 +397,7 @@ export function wormholeOperationToBridgeHistoryEntry(
     symbol: asset,
     amount,
     submittedAt: parseSubmittedAt(operation.sourceChain?.timestamp),
+    ...completed,
   };
 }
 
@@ -373,8 +413,18 @@ export function mergeBridgeHistoryEntries(
   }
   for (const entry of remoteEntries) {
     const key = entry.sourceTxHash.toLowerCase();
-    // Prefer locally saved rows (exact share amounts from the app) when both exist.
-    if (!byTx.has(key)) byTx.set(key, { ...entry, account: account.toLowerCase() as Address });
+    const remote = { ...entry, account: account.toLowerCase() as Address };
+    const existing = byTx.get(key);
+    if (!existing) {
+      byTx.set(key, remote);
+      continue;
+    }
+    // Keep local amount/metadata; absorb remote completion when Wormholescan catches up.
+    byTx.set(key, {
+      ...existing,
+      completedAt: existing.completedAt ?? remote.completedAt,
+      destinationTxHash: existing.destinationTxHash ?? remote.destinationTxHash,
+    });
   }
 
   return writeBridgeHistory(account, [...byTx.values()]);
@@ -403,11 +453,28 @@ export function getWormholeOperationStatus(operation: WormholeOperation | undefi
   return "In progress · awaiting VAA";
 }
 
+export function getBridgeHistoryStatus(
+  entry: BridgeHistoryEntry,
+  operation: WormholeOperation | undefined,
+) {
+  if (isBridgeHistoryEntryCompleted(entry, operation)) return "Completed";
+  return getWormholeOperationStatus(operation);
+}
+
 /** True when the VAA is ready but destination delivery has not been recorded. */
 export function isWormholeDeliveryPending(operation: WormholeOperation | undefined) {
   if (!operation?.sourceChain) return false;
   if (operation.targetChain?.transaction?.txHash) return false;
   return Boolean(getWormholeOperationVaaBase64(operation) || operation.vaa);
+}
+
+/** Show Complete only when delivery is still pending and not already finished locally. */
+export function canManualRedeemBridgeTransfer(
+  entry: BridgeHistoryEntry,
+  operation: WormholeOperation | undefined,
+) {
+  if (isBridgeHistoryEntryCompleted(entry, operation)) return false;
+  return isWormholeDeliveryPending(operation);
 }
 
 export function getWormholeTxUrl(hash: string) {

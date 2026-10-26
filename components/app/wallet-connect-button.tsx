@@ -12,7 +12,7 @@ type WalletConnectButtonProps = {
 };
 
 export function WalletConnectButton({ children }: WalletConnectButtonProps) {
-  const { expectedChain, switchToExpectedChain } = useAppChainSwitch();
+  const { isAllowedChain, switchToExpectedChain } = useAppChainSwitch();
   const { isAuthenticated, isAuthenticating, loginWithWallet } = useWalletAuth();
 
   return (
@@ -20,7 +20,8 @@ export function WalletConnectButton({ children }: WalletConnectButtonProps) {
       {({ account, chain, mounted, openAccountModal, openChainModal, openConnectModal }) => {
         const ready = mounted;
         const connected = ready && account && chain;
-        const wrongNetwork = Boolean(chain?.unsupported || chain?.id !== expectedChain.id);
+        // On /bridge (testnet), Base Sepolia is allowed alongside Mezo for deposits.
+        const wrongNetwork = Boolean(connected && !isAllowedChain(chain?.id, chain?.unsupported));
         const needsSignIn = connected && !isAuthenticated;
         const handleSignIn = () => {
           void loginWithWallet({ force: true });

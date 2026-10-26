@@ -33,14 +33,15 @@ import { createTxNotificationLifecycle } from "@/lib/notifications/txLifecycle";
 import { getParsedError } from "@/lib/tx-flow/getParsedError";
 import { useTxFlowRuntime } from "@/lib/providers/web3-providers";
 import {
+  canManualRedeemBridgeTransfer,
   fetchWormholeOperationByTxHash,
   fetchWormholeOperationsForHistory,
   findWormholeOperation,
+  getBridgeHistoryStatus,
   getChainTxUrl,
-  getWormholeOperationStatus,
   getWormholeOperationVaaBase64,
   getWormholeTxUrl,
-  isWormholeDeliveryPending,
+  markBridgeHistoryCompleted,
   readBridgeHistory,
   saveBridgeHistoryEntry,
   seedBridgeHistoryFromWormholescan,
@@ -245,6 +246,23 @@ export function HorizonBridgePage() {
     staleTime: 10_000,
   });
 
+  // Persist Wormholescan destination delivery so Complete stays hidden after refresh.
+  useEffect(() => {
+    if (!address || !historyQuery.data?.length) return;
+    const current = readBridgeHistory(address);
+    let touched = false;
+    for (const entry of current) {
+      if (entry.completedAt || entry.destinationTxHash) continue;
+      const operation = findWormholeOperation(historyQuery.data, entry.sourceTxHash);
+      const destinationTxHash = operation?.targetChain?.transaction?.txHash;
+      if (destinationTxHash?.startsWith("0x")) {
+        markBridgeHistoryCompleted(address, entry.sourceTxHash, destinationTxHash as `0x${string}`);
+        touched = true;
+      }
+    }
+    if (touched) setBridgeHistory(readBridgeHistory(address));
+  }, [address, historyQuery.data]);
+
   const switchToSourceNetwork = async () => {
     await switchChainAsync({ chainId: sourceChainId });
     return true;
@@ -427,9 +445,6 @@ export function HorizonBridgePage() {
     setNotice({ tone: "error", message });
   };
 
-  const canManualRedeem = (_entry: BridgeHistoryEntry, operation: Parameters<typeof isWormholeDeliveryPending>[0]) =>
-    isWormholeDeliveryPending(operation);
-
   const completePendingTransfer = async (entry: BridgeHistoryEntry) => {
     if (!address || !walletClient || !publicClient || redeemingId) return;
     const asset = horizonAssetFromBridgeSymbol(entry.symbol);
@@ -471,10 +486,13 @@ export function HorizonBridgePage() {
         },
       });
 
+      // Hide Complete immediately; Wormholescan destination indexing can lag.
+      setBridgeHistory(markBridgeHistoryCompleted(address, entry.sourceTxHash, result.destinationTxHash));
+
       if (result.alreadyExecuted) {
         setNotice({
           tone: "info",
-          message: `This transfer was already completed on ${result.destinationName}. Refresh history to sync Wormholescan.`,
+          message: `This transfer was already completed on ${result.destinationName}.`,
         });
       } else {
         setNotice({
@@ -839,9 +857,10 @@ export function HorizonBridgePage() {
             <div className="space-y-3">
               {bridgeHistory.map((entry) => {
                 const operation = findWormholeOperation(historyQuery.data, entry.sourceTxHash);
-                const status = getWormholeOperationStatus(operation);
-                const targetHash = operation?.targetChain?.transaction?.txHash;
-                const showRedeem = canManualRedeem(entry, operation);
+                const status = getBridgeHistoryStatus(entry, operation);
+                const targetHash =
+                  entry.destinationTxHash ?? operation?.targetChain?.transaction?.txHash;
+                const showRedeem = canManualRedeemBridgeTransfer(entry, operation);
                 const redeemLabel =
                   entry.destinationChainId === 84532 ? "Complete on Base" : "Complete on Mezo";
                 const redeemBusy = redeemingId === entry.id;

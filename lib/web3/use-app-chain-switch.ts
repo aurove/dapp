@@ -1,9 +1,12 @@
 "use client";
 
+import { useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { useSwitchChain } from "wagmi";
 
 import {
   getActiveChain,
+  getAllowedAppChainIds,
   getMezoTestnetRpcHttp,
   mezoTestnetChain,
   resolveAppEnvironment,
@@ -26,8 +29,20 @@ function getWalletRpcUrl(expectedChain: ReturnType<typeof getActiveChain>): stri
 }
 
 export function useAppChainSwitch() {
+  const pathname = usePathname();
   const { switchChainAsync } = useSwitchChain();
-  const expectedChain = getActiveChain(resolveAppEnvironment());
+  const environment = resolveAppEnvironment();
+  const expectedChain = getActiveChain(environment);
+  const allowedChainIds = useMemo(
+    () => getAllowedAppChainIds(pathname, environment),
+    [pathname, environment],
+  );
+
+  function isAllowedChain(chainId: number | undefined, unsupported?: boolean) {
+    if (unsupported) return false;
+    if (chainId === undefined) return true;
+    return allowedChainIds.includes(chainId);
+  }
 
   async function switchToExpectedChain(onFailure?: () => void) {
     try {
@@ -47,6 +62,8 @@ export function useAppChainSwitch() {
 
   return {
     expectedChain,
+    allowedChainIds,
+    isAllowedChain,
     switchToExpectedChain,
   };
 }
