@@ -9,9 +9,14 @@ import { erc20Abi, formatEther, formatUnits, parseUnits, type Abi, type Address 
 import { useAccount, useChainId, usePublicClient, useReadContract, useSwitchChain, useWalletClient } from "wagmi";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from "@ui";
 import { getContractConfig } from "@/contracts/shared";
-import { mezoTestnetChain, resolveAppEnvironment } from "@/lib/config/chains";
+import { baseSepoliaChain, mezoTestnetChain, resolveAppEnvironment } from "@/lib/config/chains";
 import { HORIZON_TESTNET, getHorizonPeerChain, type HorizonNativeChainId } from "@/lib/bridge/horizon";
-import { initiateHorizonNttTransfer, quoteHorizonNttDeliveryFee } from "@/lib/bridge/ntt-transfer";
+import {
+  horizonAssetFromBridgeSymbol,
+  initiateHorizonNttTransfer,
+  quoteHorizonNttDeliveryFee,
+  redeemHorizonNttTransfer,
+} from "@/lib/bridge/ntt-transfer";
 import { BridgeTokenInput } from "@/components/features/bridge/bridge-token-input";
 import {
   BRIDGE_FAMILY_CONFIG,
@@ -28,11 +33,14 @@ import { createTxNotificationLifecycle } from "@/lib/notifications/txLifecycle";
 import { getParsedError } from "@/lib/tx-flow/getParsedError";
 import { useTxFlowRuntime } from "@/lib/providers/web3-providers";
 import {
+  fetchWormholeOperationByTxHash,
   fetchWormholeOperations,
   findWormholeOperation,
   getChainTxUrl,
   getWormholeOperationStatus,
+  getWormholeOperationVaaBase64,
   getWormholeTxUrl,
+  isWormholeDeliveryPending,
   readBridgeHistory,
   saveBridgeHistoryEntry,
   type BridgeHistoryEntry,
@@ -83,6 +91,7 @@ export function HorizonBridgePage() {
   const [amount, setAmount] = useState("");
   const [amountFocused, setAmountFocused] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [redeemingId, setRedeemingId] = useState<string | null>(null);
   const [bridgeHistory, setBridgeHistory] = useState<BridgeHistoryEntry[]>([]);
   const [notice, setNotice] = useState<{ tone: "success" | "error" | "info"; message: string } | null>(null);
 
@@ -402,6 +411,74 @@ export function HorizonBridgePage() {
   const onFlowError = (message: string) => {
     setBusy(false);
     setNotice({ tone: "error", message });
+  };
+
+  const canManualRedeem = (_entry: BridgeHistoryEntry, operation: Parameters<typeof isWormholeDeliveryPending>[0]) =>
+    isWormholeDeliveryPending(operation);
+
+  const completePendingTransfer = async (entry: BridgeHistoryEntry) => {
+    if (!address || !walletClient || !publicClient || redeemingId) return;
+    const asset = horizonAssetFromBridgeSymbol(entry.symbol);
+    if (!asset) {
+      setNotice({ tone: "error", message: `Unknown bridge asset ${entry.symbol}.` });
+      return;
+    }
+
+    setRedeemingId(entry.id);
+    setNotice(null);
+    try {
+      if (chainId !== entry.destinationChainId) {
+        await switchChainAsync({ chainId: entry.destinationChainId });
+      }
+
+      let operation = findWormholeOperation(historyQuery.data, entry.sourceTxHash);
+      let vaaBase64 = getWormholeOperationVaaBase64(operation);
+      if (!vaaBase64) {
+        operation = (await fetchWormholeOperationByTxHash(entry.sourceTxHash)) ?? undefined;
+        vaaBase64 = getWormholeOperationVaaBase64(operation);
+      }
+      if (!vaaBase64) {
+        throw new Error("Wormholescan does not have a published VAA for this transfer yet. Refresh and try again.");
+      }
+
+      const destinationChain =
+        entry.destinationChainId === 84532 ? baseSepoliaChain : mezoTestnetChain;
+      const result = await redeemHorizonNttTransfer({
+        asset,
+        destinationChainId: entry.destinationChainId,
+        vaaBase64,
+        account: address,
+        // Casts absorb duplicate viem type copies under pnpm.
+        walletClient: walletClient as never,
+        publicClient: publicClient as never,
+        viemChain: destinationChain,
+        onUnsignedTx: async (description) => {
+          notify?.info("Confirm redeem", description);
+        },
+      });
+
+      if (result.alreadyExecuted) {
+        setNotice({
+          tone: "info",
+          message: `This transfer was already completed on ${result.destinationName}. Refresh history to sync Wormholescan.`,
+        });
+      } else {
+        setNotice({
+          tone: "success",
+          message: `Redeem confirmed on ${result.destinationName}${
+            result.destinationTxHash ? ` (${result.destinationTxHash.slice(0, 10)}…)` : ""
+          }. Peer tokens should appear in your wallet shortly.`,
+        });
+        notify?.success("Bridge redeem confirmed", `Delivery completed on ${result.destinationName}.`);
+      }
+      await historyQuery.refetch();
+    } catch (error) {
+      const message = getParsedError(error);
+      setNotice({ tone: "error", message });
+      notify?.error("Bridge redeem failed", message);
+    } finally {
+      setRedeemingId(null);
+    }
   };
 
   const bridgeActionLabel = isWithdraw ? "Withdraw to Base" : "Deposit to Mezo";
@@ -733,6 +810,10 @@ export function HorizonBridgePage() {
                 const operation = findWormholeOperation(historyQuery.data, entry.sourceTxHash);
                 const status = getWormholeOperationStatus(operation);
                 const targetHash = operation?.targetChain?.transaction?.txHash;
+                const showRedeem = canManualRedeem(entry, operation);
+                const redeemLabel =
+                  entry.destinationChainId === 84532 ? "Complete on Base" : "Complete on Mezo";
+                const redeemBusy = redeemingId === entry.id;
                 return (
                   <div key={entry.id} className="rounded-xl border border-[var(--line)] p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -783,6 +864,32 @@ export function HorizonBridgePage() {
                         View on Wormholescan <ExternalLink className="h-3 w-3" />
                       </a>
                     </div>
+                    {showRedeem ? (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs leading-5 text-muted">
+                          Automatic relay has not finished delivery. Redeem the published VAA on{" "}
+                          {entry.destinationName} to mint or unlock your tokens.
+                        </p>
+                        <Button
+                          type="button"
+                          className="w-full sm:w-auto"
+                          disabled={!isConnected || Boolean(redeemingId) || busy}
+                          onClick={() => void completePendingTransfer(entry)}
+                        >
+                          {redeemBusy ? (
+                            <>
+                              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                              Completing…
+                            </>
+                          ) : (
+                            <>
+                              <Check className="mr-2 h-4 w-4" />
+                              {redeemLabel}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}

@@ -18,10 +18,38 @@ export type BridgeHistoryEntry = {
 };
 
 export type WormholeOperation = {
-  vaa?: unknown;
-  sourceChain?: { transaction?: { txHash?: string }; status?: string };
-  targetChain?: { transaction?: { txHash?: string }; status?: string };
+  vaa?: {
+    raw?: string;
+    guardianSetIndex?: number;
+    isDuplicated?: boolean;
+  };
+  sourceChain?: { transaction?: { txHash?: string }; status?: string; chainId?: number };
+  targetChain?: { transaction?: { txHash?: string }; status?: string; chainId?: number };
 };
+
+export function getWormholeOperationVaaBase64(operation: WormholeOperation | undefined): string | null {
+  const raw = operation?.vaa?.raw;
+  return typeof raw === "string" && raw.length > 0 ? raw : null;
+}
+
+export async function fetchWormholeOperationByTxHash(txHash: string): Promise<WormholeOperation | null> {
+  const url = new URL(`${TESTNET_API}/operations`);
+  url.searchParams.set("txHash", txHash);
+  url.searchParams.set("pageSize", "10");
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Wormholescan returned ${response.status}.`);
+  const result: unknown = await response.json();
+  if (!result || typeof result !== "object" || !Array.isArray((result as { operations?: unknown }).operations)) {
+    return null;
+  }
+  const operations = (result as { operations: WormholeOperation[] }).operations;
+  const expected = txHash.toLowerCase();
+  return (
+    operations.find((operation) => operation.sourceChain?.transaction?.txHash?.toLowerCase() === expected) ??
+    operations[0] ??
+    null
+  );
+}
 
 function storageKey(account: Address) {
   return `${HISTORY_PREFIX}${account.toLowerCase()}`;
@@ -82,9 +110,18 @@ export function findWormholeOperation(operations: WormholeOperation[] | undefine
 
 export function getWormholeOperationStatus(operation: WormholeOperation | undefined) {
   if (!operation?.sourceChain) return "Waiting for Wormholescan";
-  if (operation.targetChain) return "Completed";
-  if (operation.vaa) return "VAA published · delivery pending";
+  if (operation.targetChain?.transaction?.txHash || operation.targetChain) return "Completed";
+  if (getWormholeOperationVaaBase64(operation) || operation.vaa) {
+    return "VAA published · delivery pending";
+  }
   return "In progress · awaiting VAA";
+}
+
+/** True when the VAA is ready but destination delivery has not been recorded. */
+export function isWormholeDeliveryPending(operation: WormholeOperation | undefined) {
+  if (!operation?.sourceChain) return false;
+  if (operation.targetChain?.transaction?.txHash) return false;
+  return Boolean(getWormholeOperationVaaBase64(operation) || operation.vaa);
 }
 
 export function getWormholeTxUrl(hash: string) {

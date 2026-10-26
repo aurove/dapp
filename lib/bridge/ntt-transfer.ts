@@ -1,12 +1,16 @@
 import {
   Wormhole,
+  deserialize,
+  encoding,
   signAndSendWait,
+  toNative,
   type Chain,
   type TransactionId,
 } from "@wormhole-foundation/sdk";
 import { EvmNtt } from "@wormhole-foundation/sdk-evm-ntt";
+import { register as registerNttPayloads } from "@wormhole-foundation/sdk-definitions-ntt";
 import { JsonRpcProvider, type Provider } from "ethers";
-import type { Address, Hex, PublicClient, WalletClient } from "viem";
+import { createPublicClient, http, type Address, type Chain as ViemChain, type Hex, type PublicClient, type WalletClient } from "viem";
 import {
   getHorizonChain,
   getHorizonNttContracts,
@@ -17,6 +21,15 @@ import {
   type HorizonWormholeChain,
 } from "@/lib/bridge/horizon";
 import { WagmiEvmSignAndSendSigner } from "@/lib/bridge/wagmi-evm-signer";
+import { baseSepoliaChain, mezoTestnetChain } from "@/lib/config/chains";
+
+let nttPayloadsRegistered = false;
+
+function ensureNttPayloadsRegistered() {
+  if (nttPayloadsRegistered) return;
+  registerNttPayloads();
+  nttPayloadsRegistered = true;
+}
 
 export type HorizonNttTransferParams = {
   asset: HorizonBridgeAsset;
@@ -100,7 +113,7 @@ export async function initiateHorizonNttTransfer(
     automatic,
   });
 
-  const sender = Wormhole.chainAddress(source.wormholeChain, account);
+  const sender = toNative(source.wormholeChain, account);
   const recipient = Wormhole.chainAddress(destination.wormholeChain, account);
 
   const signer = new WagmiEvmSignAndSendSigner(
@@ -110,7 +123,7 @@ export async function initiateHorizonNttTransfer(
     publicClient,
   );
 
-  const transfer = ntt.transfer(sender.address, amount, recipient, {
+  const transfer = ntt.transfer(sender, amount, recipient, {
     queue: false,
     automatic,
   });
@@ -160,4 +173,113 @@ export async function quoteHorizonNttDeliveryFee(params: {
     queue: false,
     automatic: params.automatic ?? true,
   });
+}
+
+export type HorizonNttRedeemParams = {
+  asset: HorizonBridgeAsset;
+  /** Chain where the peer/share should be minted or unlocked. */
+  destinationChainId: HorizonNativeChainId;
+  /** Wormholescan `vaa.raw` base64 string. */
+  vaaBase64: string;
+  account: Address;
+  walletClient: WalletClient;
+  publicClient: PublicClient;
+  /** Explicit viem chain for sendTransaction after a network switch. */
+  viemChain?: ViemChain;
+  onUnsignedTx?: (description: string) => void | Promise<void>;
+};
+
+export type HorizonNttRedeemResult = {
+  destinationChainId: HorizonNativeChainId;
+  destinationName: string;
+  destinationTxHash: Hex | null;
+  alreadyExecuted: boolean;
+};
+
+/**
+ * Manually redeem a published NTT VAA on the destination chain.
+ * Used when automatic relay does not complete delivery (common on this testnet route).
+ */
+export async function redeemHorizonNttTransfer(
+  params: HorizonNttRedeemParams,
+): Promise<HorizonNttRedeemResult> {
+  const { asset, destinationChainId, vaaBase64, account, walletClient, publicClient } = params;
+  assertHorizonChainId(destinationChainId);
+  ensureNttPayloadsRegistered();
+
+  const destination = getHorizonChain(destinationChainId);
+  if (!destination) {
+    throw new Error("Unsupported destination chain for redeem.");
+  }
+
+  let attestation;
+  try {
+    attestation = deserialize("Ntt:WormholeTransfer", encoding.b64.decode(vaaBase64));
+  } catch (error) {
+    throw new Error(
+      `Could not decode the Wormhole VAA for redeem: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  const contracts = getHorizonNttContracts(destinationChainId, asset);
+  const ntt = await createHorizonNtt({
+    wormholeChain: destination.wormholeChain,
+    rpc: destination.rpc,
+    contracts,
+  });
+
+  if (await ntt.getIsExecuted(attestation)) {
+    return {
+      destinationChainId,
+      destinationName: destination.name,
+      destinationTxHash: null,
+      alreadyExecuted: true,
+    };
+  }
+
+  const viemChain =
+    params.viemChain ?? (destinationChainId === 84532 ? baseSepoliaChain : mezoTestnetChain);
+  // Wait on the destination RPC even if wagmi's publicClient still points at the source chain.
+  const destinationPublicClient =
+    publicClient.chain?.id === destinationChainId
+      ? publicClient
+      : (createPublicClient({
+          chain: viemChain,
+          transport: http(destination.rpc),
+        }) as unknown as PublicClient);
+
+  const signer = new WagmiEvmSignAndSendSigner(
+    destination.wormholeChain as Chain,
+    account,
+    walletClient,
+    destinationPublicClient,
+    viemChain,
+  );
+
+  const redeem = ntt.redeem([attestation]);
+  async function* withProgress() {
+    for await (const unsigned of redeem) {
+      await params.onUnsignedTx?.(unsigned.description);
+      yield unsigned;
+    }
+  }
+
+  const txIds = await signAndSendWait(withProgress(), signer);
+  if (txIds.length === 0) {
+    throw new Error("Wormhole NTT redeem produced no transactions.");
+  }
+
+  return {
+    destinationChainId,
+    destinationName: destination.name,
+    destinationTxHash: txIds[txIds.length - 1]!.txid as Hex,
+    alreadyExecuted: false,
+  };
+}
+
+export function horizonAssetFromBridgeSymbol(symbol: string): HorizonBridgeAsset | null {
+  const normalized = symbol.trim();
+  if (normalized === "avBTCv") return "avBTCv";
+  if (normalized === "avMEZOv") return "avMEZOv";
+  return null;
 }

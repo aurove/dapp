@@ -4,7 +4,7 @@ import type {
   SignAndSendSigner,
   UnsignedTransaction,
 } from "@wormhole-foundation/sdk";
-import type { Address, Hex, PublicClient, WalletClient } from "viem";
+import type { Address, Chain as ViemChain, Hex, PublicClient, WalletClient } from "viem";
 
 type EvmTxRequest = {
   to?: unknown;
@@ -58,6 +58,7 @@ export class WagmiEvmSignAndSendSigner<N extends Network, C extends Chain>
     private readonly account: Address,
     private readonly walletClient: WalletClient,
     private readonly publicClient: PublicClient,
+    private readonly viemChain?: ViemChain,
   ) {}
 
   chain(): C {
@@ -70,6 +71,7 @@ export class WagmiEvmSignAndSendSigner<N extends Network, C extends Chain>
 
   async signAndSend(txs: UnsignedTransaction<N, C>[]): Promise<string[]> {
     const hashes: string[] = [];
+    const chain = this.viemChain ?? this.walletClient.chain;
 
     for (const unsigned of txs) {
       const request = (unsigned as UnsignedTransaction<N, C> & { transaction?: EvmTxRequest }).transaction;
@@ -79,7 +81,7 @@ export class WagmiEvmSignAndSendSigner<N extends Network, C extends Chain>
 
       const hash = await this.walletClient.sendTransaction({
         account: this.account,
-        chain: this.walletClient.chain,
+        chain,
         to: String(request.to) as Address,
         data: toHexData(request.data),
         value: toHexQuantity(request.value) ?? 0n,
