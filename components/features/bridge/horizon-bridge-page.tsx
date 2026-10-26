@@ -34,7 +34,7 @@ import { getParsedError } from "@/lib/tx-flow/getParsedError";
 import { useTxFlowRuntime } from "@/lib/providers/web3-providers";
 import {
   fetchWormholeOperationByTxHash,
-  fetchWormholeOperations,
+  fetchWormholeOperationsForHistory,
   findWormholeOperation,
   getChainTxUrl,
   getWormholeOperationStatus,
@@ -43,6 +43,7 @@ import {
   isWormholeDeliveryPending,
   readBridgeHistory,
   saveBridgeHistoryEntry,
+  seedBridgeHistoryFromWormholescan,
   type BridgeHistoryEntry,
 } from "@/lib/bridge/wormholescan";
 import { formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
@@ -104,6 +105,19 @@ export function HorizonBridgePage() {
   const isWithdraw = bridgeMode === "withdraw";
 
   useEffect(() => setBridgeHistory(address ? readBridgeHistory(address) : []), [address]);
+
+  const historySeedQuery = useQuery({
+    queryKey: ["horizon-bridge-history-seed", address?.toLowerCase()],
+    queryFn: () => seedBridgeHistoryFromWormholescan(address!),
+    enabled: Boolean(address && testnetEnabled),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (historySeedQuery.data) setBridgeHistory(historySeedQuery.data);
+  }, [historySeedQuery.data]);
 
   const vaultConfig = getContractConfig(31611, familyConfig.vaultContract);
   const id20Config = getContractConfig(31611, familyConfig.id20Contract);
@@ -221,11 +235,11 @@ export function HorizonBridgePage() {
 
   const historyQuery = useQuery({
     queryKey: [
-      "horizon-bridge-history",
+      "horizon-bridge-history-status",
       address?.toLowerCase(),
-      bridgeHistory.map((item) => item.sourceTransceiver.toLowerCase()).sort().join(","),
+      bridgeHistory.map((item) => item.sourceTxHash.toLowerCase()).sort().join(","),
     ],
-    queryFn: () => fetchWormholeOperations(bridgeHistory.map((item) => item.sourceTransceiver)),
+    queryFn: () => fetchWormholeOperationsForHistory(address!, bridgeHistory),
     enabled: Boolean(address && bridgeHistory.length > 0),
     refetchInterval: bridgeHistory.length > 0 ? 20_000 : false,
     staleTime: 10_000,
@@ -780,17 +794,26 @@ export function HorizonBridgePage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <CardTitle>Bridge history</CardTitle>
-              <CardDescription className="mt-1">Track transfers sent from this wallet through Wormhole.</CardDescription>
+              <CardDescription className="mt-1">
+                Transfers for this wallet, seeded from Wormholescan and kept in sync locally.
+              </CardDescription>
             </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => void historyQuery.refetch()}
-              disabled={!bridgeHistory.length || historyQuery.isFetching}
+              onClick={() => {
+                void historySeedQuery.refetch();
+                void historyQuery.refetch();
+              }}
+              disabled={!address || historyQuery.isFetching || historySeedQuery.isFetching}
               aria-label="Refresh bridge history"
             >
-              <RefreshCw className={`mr-2 h-4 w-4 ${historyQuery.isFetching ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${
+                  historyQuery.isFetching || historySeedQuery.isFetching ? "animate-spin" : ""
+                }`}
+              />
               Refresh
             </Button>
           </div>
@@ -800,9 +823,17 @@ export function HorizonBridgePage() {
             <p className="rounded-xl border border-dashed border-[var(--line)] p-4 text-sm text-muted">
               Connect the wallet used to bridge to see its history.
             </p>
+          ) : historySeedQuery.isFetching && bridgeHistory.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-[var(--line)] p-4 text-sm text-muted">
+              Loading transfers from Wormholescan…
+            </p>
+          ) : historySeedQuery.isError && bridgeHistory.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-[var(--line)] p-4 text-sm text-muted">
+              Could not reach Wormholescan to load history. Refresh to try again.
+            </p>
           ) : bridgeHistory.length === 0 ? (
             <p className="rounded-xl border border-dashed border-[var(--line)] p-4 text-sm text-muted">
-              Your bridge transfers will appear here after you send one.
+              No Horizon bridge transfers found for this wallet yet.
             </p>
           ) : (
             <div className="space-y-3">
