@@ -1,5 +1,4 @@
 import {
-  Wormhole,
   deserialize,
   encoding,
   signAndSendWait,
@@ -7,7 +6,7 @@ import {
   type TransactionId,
 } from "@wormhole-foundation/sdk";
 import { EvmNtt } from "@wormhole-foundation/sdk-evm-ntt";
-import { toNative } from "@wormhole-foundation/sdk-definitions";
+import { toNative, type ChainAddress } from "@wormhole-foundation/sdk-definitions";
 import { register as registerNttPayloads } from "@wormhole-foundation/sdk-definitions-ntt";
 import { JsonRpcProvider, type Provider } from "ethers";
 import { createPublicClient, http, type Address, type Chain as ViemChain, type Hex, type PublicClient, type WalletClient } from "viem";
@@ -114,7 +113,10 @@ export async function initiateHorizonNttTransfer(
   });
 
   const sender = toNative(source.wormholeChain, account);
-  const recipient = Wormhole.chainAddress(destination.wormholeChain, account);
+  const recipient: ChainAddress = {
+    chain: destination.wormholeChain,
+    address: toNative(destination.wormholeChain, account),
+  };
 
   const signer = new WagmiEvmSignAndSendSigner(
     source.wormholeChain as Chain,
