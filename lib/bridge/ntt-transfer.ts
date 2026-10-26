@@ -3,11 +3,11 @@ import {
   deserialize,
   encoding,
   signAndSendWait,
-  toNative,
   type Chain,
   type TransactionId,
 } from "@wormhole-foundation/sdk";
 import { EvmNtt } from "@wormhole-foundation/sdk-evm-ntt";
+import { toNative } from "@wormhole-foundation/sdk-definitions";
 import { register as registerNttPayloads } from "@wormhole-foundation/sdk-definitions-ntt";
 import { JsonRpcProvider, type Provider } from "ethers";
 import { createPublicClient, http, type Address, type Chain as ViemChain, type Hex, type PublicClient, type WalletClient } from "viem";
