@@ -41,20 +41,21 @@ function parsePositiveInteger(value: string | null): number | null {
 }
 
 type AcademyPageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function AcademyPage({ searchParams }: AcademyPageProps) {
   if (!ACADEMY_ENABLED) notFound();
 
+  const resolvedSearchParams = await searchParams;
   const cookieStore = await cookies();
   const headerStore = await headers();
   const session = await getCurrentWalletAuthContextFromCookies(cookieStore);
   const service = createAcademyService();
   const origin = getRequestOrigin({ headers: headerStore });
   const leaderboardPage =
-    parsePositiveInteger(getSearchParam(searchParams, "leaderboardPage")) ?? 1;
-  const leaderboardEpoch = parsePositiveInteger(getSearchParam(searchParams, "epoch"));
+    parsePositiveInteger(getSearchParam(resolvedSearchParams, "leaderboardPage")) ?? 1;
+  const leaderboardEpoch = parsePositiveInteger(getSearchParam(resolvedSearchParams, "epoch"));
   const initialSummary = session
     ? await service.getSummary({
         userId: session.user.id,
