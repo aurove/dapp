@@ -27,6 +27,7 @@ import {
   type BridgeSource,
 } from "@/components/features/bridge/bridge-sources";
 import { makeBridgeVaultConversionStep } from "@/components/features/bridge/bridge-vault-batch";
+import { UseOnAerodromePanel } from "@/components/features/bridge/use-on-aerodrome-panel";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { type TxStep } from "@/lib/tx-flow";
 import { createTxNotificationLifecycle } from "@/lib/notifications/txLifecycle";
@@ -731,28 +732,31 @@ export function HorizonBridgePage() {
 
         <div className="space-y-5">
           {isWithdraw ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Withdraw path</CardTitle>
-                <CardDescription>
-                  Pick a variant in the amount field. Non-vault balances are batched into vault shares on Mezo before the
-                  Base transfer.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="flex gap-3 rounded-xl border border-[var(--line)] p-3">
-                  <Check className="mt-0.5 h-4 w-4 text-emerald-500" />
-                  <p className="leading-5">Vault shares bridge directly.</p>
-                </div>
-                <div className="flex gap-3 rounded-xl border border-[var(--line)] p-3">
-                  <ArrowUpRight className="mt-0.5 h-4 w-4 text-muted" />
-                  <p className="leading-5">
-                    ID20, liquid tranche, and veNFT paths batch into one convert step (EIP-5792 when the wallet supports
-                    it; otherwise sequential calls), then bridge.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Withdraw path</CardTitle>
+                  <CardDescription>
+                    Pick a variant in the amount field. Non-vault balances are batched into vault shares on Mezo before the
+                    Base transfer.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="flex gap-3 rounded-xl border border-[var(--line)] p-3">
+                    <Check className="mt-0.5 h-4 w-4 text-emerald-500" />
+                    <p className="leading-5">Vault shares bridge directly.</p>
+                  </div>
+                  <div className="flex gap-3 rounded-xl border border-[var(--line)] p-3">
+                    <ArrowUpRight className="mt-0.5 h-4 w-4 text-muted" />
+                    <p className="leading-5">
+                      ID20, liquid tranche, and veNFT paths batch into one convert step (EIP-5792 when the wallet supports
+                      it; otherwise sequential calls), then bridge.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              <UseOnAerodromePanel asset={familyConfig.asset} />
+            </>
           ) : (
             <Card>
               <CardHeader>
