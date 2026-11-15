@@ -83,8 +83,6 @@ export function HorizonBridgePage() {
   const chainId = useChainId();
   const { address, isConnected } = useAccount();
   const { switchChainAsync } = useSwitchChain();
-  const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
   const { notify } = useTxFlowRuntime();
   const portfolio = usePortfolioSummary();
   const walletPortfolio = useWalletPortfolio();
@@ -102,6 +100,10 @@ export function HorizonBridgePage() {
   const testnetEnabled = environment === "testnet";
   const familyConfig = BRIDGE_FAMILY_CONFIG[family];
   const sourceChainId = sourceChainIdForMode(bridgeMode);
+  // Bind clients to the bridge source chain so Deposit on Base does not reuse a
+  // Mezo-scoped wallet client (MetaMask 4100: account/method not authorized).
+  const { data: walletClient } = useWalletClient({ chainId: sourceChainId });
+  const publicClient = usePublicClient({ chainId: sourceChainId });
   const source = HORIZON_TESTNET[sourceChainId];
   const destination = getHorizonPeerChain(sourceChainId);
   const onSourceChain = chainId === sourceChainId;

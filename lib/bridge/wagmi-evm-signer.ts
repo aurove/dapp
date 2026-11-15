@@ -11,6 +11,7 @@ import {
   type PublicClient,
   type WalletClient,
   decodeErrorResult,
+  getAddress,
 } from "viem";
 
 const NTT_MANAGER_ERRORS = [
@@ -83,6 +84,16 @@ function withGasBuffer(estimate: bigint): bigint {
   return (estimate * GAS_BUFFER_BPS) / BPS_DENOM;
 }
 
+function isUnauthorizedProviderError(error: unknown): boolean {
+  const code =
+    (error as { code?: number })?.code ??
+    (error as { cause?: { code?: number } })?.cause?.code ??
+    (error as { details?: string })?.details;
+  if (code === 4100) return true;
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /not been authorized by the user/i.test(message);
+}
+
 function enrichEstimateGasError(error: unknown): Error {
   const data =
     (error as { data?: Hex })?.data ??
@@ -104,6 +115,15 @@ function enrichEstimateGasError(error: unknown): Error {
     }
   }
 
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+function enrichSendError(error: unknown): Error {
+  if (isUnauthorizedProviderError(error)) {
+    return new Error(
+      "MetaMask has not authorized this account for the site. Unlock MetaMask, select the connected account, reconnect the wallet, then try Deposit again.",
+    );
+  }
   return error instanceof Error ? error : new Error(String(error));
 }
 
@@ -134,11 +154,45 @@ export class WagmiEvmSignAndSendSigner<N extends Network, C extends Chain>
     return this.account;
   }
 
+  /**
+   * MetaMask 4100 fires when eth_sendTransaction uses a `from` that is not in
+   * the site's authorized account list (or not the selected account). Re-check
+   * permissions and prefer the wallet's exact address casing / hoisted account.
+   */
+  private async resolveSenderAccount(): Promise<Address> {
+    const expected = this.account.toLowerCase();
+    const hoisted = this.walletClient.account?.address;
+    if (hoisted && hoisted.toLowerCase() === expected) {
+      return getAddress(hoisted);
+    }
+
+    let addresses = await this.walletClient.getAddresses().catch(() => [] as Address[]);
+    let match = addresses.find((address) => address.toLowerCase() === expected);
+    if (!match) {
+      addresses = await this.walletClient.requestAddresses();
+      match = addresses.find((address) => address.toLowerCase() === expected);
+    }
+    if (!match) {
+      throw new Error(
+        `Wallet account ${this.account} is not authorized for this site. Select it in MetaMask, reconnect, then try again.`,
+      );
+    }
+    return getAddress(match);
+  }
+
   async signAndSend(txs: UnsignedTransaction<N, C>[]): Promise<string[]> {
     const hashes: string[] = [];
     const chain = this.viemChain ?? this.walletClient.chain;
     const chainId = chain?.id ?? this.publicClient.chain?.id;
     const maxGas = maxTxGasForChain(chainId);
+    const sender = await this.resolveSenderAccount();
+    // Prefer the hoisted JSON-RPC account object when it matches — raw address
+    // strings are more likely to trip MetaMask 4100 after a network switch.
+    const accountForSend =
+      this.walletClient.account &&
+      this.walletClient.account.address.toLowerCase() === sender.toLowerCase()
+        ? this.walletClient.account
+        : sender;
 
     for (const unsigned of txs) {
       const request = (unsigned as UnsignedTransaction<N, C> & { transaction?: EvmTxRequest }).transaction;
@@ -155,7 +209,7 @@ export class WagmiEvmSignAndSendSigner<N extends Network, C extends Chain>
       if (needsEstimate) {
         try {
           const estimated = await this.publicClient.estimateGas({
-            account: this.account,
+            account: sender,
             to,
             data,
             value,
@@ -175,22 +229,26 @@ export class WagmiEvmSignAndSendSigner<N extends Network, C extends Chain>
         gas = maxGas;
       }
 
-      const hash = await this.walletClient.sendTransaction({
-        account: this.account,
-        chain,
-        to,
-        data,
-        value,
-        gas,
-        maxFeePerGas: toHexQuantity(request.maxFeePerGas),
-        maxPriorityFeePerGas: toHexQuantity(request.maxPriorityFeePerGas),
-        nonce: request.nonce !== undefined && request.nonce !== null
-          ? Number(request.nonce)
-          : undefined,
-      });
+      try {
+        const hash = await this.walletClient.sendTransaction({
+          account: accountForSend,
+          chain,
+          to,
+          data,
+          value,
+          gas,
+          maxFeePerGas: toHexQuantity(request.maxFeePerGas),
+          maxPriorityFeePerGas: toHexQuantity(request.maxPriorityFeePerGas),
+          nonce: request.nonce !== undefined && request.nonce !== null
+            ? Number(request.nonce)
+            : undefined,
+        });
 
-      await this.publicClient.waitForTransactionReceipt({ hash });
-      hashes.push(hash);
+        await this.publicClient.waitForTransactionReceipt({ hash });
+        hashes.push(hash);
+      } catch (error) {
+        throw enrichSendError(error);
+      }
     }
 
     return hashes;
