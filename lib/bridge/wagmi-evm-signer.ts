@@ -16,6 +16,15 @@ type EvmTxRequest = {
   nonce?: unknown;
 };
 
+/** EIP-7825 / Base per-tx gas ceiling (2^24). Exceeding this yields RPC 0x14a34. */
+const BASE_MAX_TX_GAS = 16_777_216n;
+
+/** Soft ceiling used when estimating on other chains so wallets never fall back to block.gasLimit. */
+const DEFAULT_MAX_TX_GAS = 30_000_000n;
+
+const GAS_BUFFER_BPS = 12500n; // +25%
+const BPS_DENOM = 10000n;
+
 function toHexQuantity(value: unknown): bigint | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value === "bigint") return value;
@@ -46,9 +55,23 @@ function toHexData(value: unknown): Hex | undefined {
   return undefined;
 }
 
+function maxTxGasForChain(chainId: number | undefined): bigint {
+  // Base mainnet + Base Sepolia enforce EIP-7825 (2^24).
+  if (chainId === 8453 || chainId === 84532) return BASE_MAX_TX_GAS;
+  return DEFAULT_MAX_TX_GAS;
+}
+
+function withGasBuffer(estimate: bigint): bigint {
+  return (estimate * GAS_BUFFER_BPS) / BPS_DENOM;
+}
+
 /**
  * Wormhole SignAndSendSigner backed by a wagmi/viem wallet client.
  * Used so NTT unsigned transactions from the SDK can be signed in the browser.
+ *
+ * EvmNtt often leaves `gasLimit` null. Without an explicit gas, some wallets
+ * fall back to block.gasLimit (~120M on Base), which Base rejects as above the
+ * 16,777,216 per-tx ceiling. We always resolve and cap gas before send.
  */
 export class WagmiEvmSignAndSendSigner<N extends Network, C extends Chain>
   implements SignAndSendSigner<N, C>
@@ -72,6 +95,8 @@ export class WagmiEvmSignAndSendSigner<N extends Network, C extends Chain>
   async signAndSend(txs: UnsignedTransaction<N, C>[]): Promise<string[]> {
     const hashes: string[] = [];
     const chain = this.viemChain ?? this.walletClient.chain;
+    const chainId = chain?.id ?? this.publicClient.chain?.id;
+    const maxGas = maxTxGasForChain(chainId);
 
     for (const unsigned of txs) {
       const request = (unsigned as UnsignedTransaction<N, C> & { transaction?: EvmTxRequest }).transaction;
@@ -79,13 +104,42 @@ export class WagmiEvmSignAndSendSigner<N extends Network, C extends Chain>
         throw new Error(`Missing destination for Wormhole tx: ${unsigned.description}`);
       }
 
+      const to = String(request.to) as Address;
+      const data = toHexData(request.data);
+      const value = toHexQuantity(request.value) ?? 0n;
+      let gas = toHexQuantity(request.gasLimit);
+
+      const needsEstimate = gas === undefined || gas > maxGas;
+      if (needsEstimate) {
+        try {
+          const estimated = await this.publicClient.estimateGas({
+            account: this.account,
+            to,
+            data,
+            value,
+          });
+          gas = withGasBuffer(estimated);
+        } catch (error) {
+          // If SDK supplied an over-limit gas, still clamp so the wallet can attempt send.
+          if (gas !== undefined && gas > maxGas) {
+            gas = maxGas;
+          } else {
+            throw error;
+          }
+        }
+      }
+
+      if (gas !== undefined && gas > maxGas) {
+        gas = maxGas;
+      }
+
       const hash = await this.walletClient.sendTransaction({
         account: this.account,
         chain,
-        to: String(request.to) as Address,
-        data: toHexData(request.data),
-        value: toHexQuantity(request.value) ?? 0n,
-        gas: toHexQuantity(request.gasLimit),
+        to,
+        data,
+        value,
+        gas,
         maxFeePerGas: toHexQuantity(request.maxFeePerGas),
         maxPriorityFeePerGas: toHexQuantity(request.maxPriorityFeePerGas),
         nonce: request.nonce !== undefined && request.nonce !== null

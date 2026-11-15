@@ -364,6 +364,8 @@ export function HorizonBridgePage() {
           await lifecycle.onAwaitingWalletConfirmation?.({ key: "horizon-ntt-sdk-transfer", label, ctx, meta });
           const shareAmount = await resolveShareAmountForBridge(selectedSource, maxAmount, ctx.publicClient);
           if (shareAmount <= 0n) throw new Error("Bridge amount resolved to zero shares.");
+          const sourceViemChain =
+            sourceChainId === 84532 ? baseSepoliaChain : mezoTestnetChain;
           const result = await initiateHorizonNttTransfer({
             asset: familyConfig.asset,
             amount: shareAmount,
@@ -371,6 +373,7 @@ export function HorizonBridgePage() {
             account: ctx.account,
             walletClient,
             publicClient: ctx.publicClient,
+            viemChain: sourceViemChain,
             automatic: true,
             onUnsignedTx: async (description) => {
               if (description.toLowerCase().includes("approve")) {

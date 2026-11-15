@@ -37,6 +37,8 @@ export type HorizonNttTransferParams = {
   account: Address;
   walletClient: WalletClient;
   publicClient: PublicClient;
+  /** Explicit viem chain for sendTransaction (avoids wallet falling back to wrong chain). */
+  viemChain?: ViemChain;
   /** When true, enable Wormhole transceiver relay (skipRelay = false). */
   automatic?: boolean;
   onUnsignedTx?: (description: string) => void | Promise<void>;
@@ -118,11 +120,14 @@ export async function initiateHorizonNttTransfer(
     address: toNative(destination.wormholeChain, account),
   };
 
+  const viemChain =
+    params.viemChain ?? (sourceChainId === 84532 ? baseSepoliaChain : mezoTestnetChain);
   const signer = new WagmiEvmSignAndSendSigner(
     source.wormholeChain as Chain,
     account,
     walletClient,
     publicClient,
+    viemChain,
   );
 
   const transfer = ntt.transfer(sender, amount, recipient, {
