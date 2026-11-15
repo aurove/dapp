@@ -126,8 +126,13 @@ export function HorizonBridgePage() {
   const peerConfig = getContractConfig(84532, familyConfig.peerContract);
   const ledgerConfig = getContractConfig(31611, "Ledger");
   const vaultAsset = (vaultConfig?.linkedData as { asset?: Address } | undefined)?.asset ?? null;
-  const vaultToken = vaultConfig?.address as Address | undefined;
-  const peerToken = peerConfig?.address as Address | undefined;
+  // Prefer Horizon NTT book (horizon.ts) so Deposit/Withdraw balances match live managers.
+  const vaultToken =
+    (HORIZON_TESTNET[31611].assets[familyConfig.asset].token as Address | undefined) ??
+    (vaultConfig?.address as Address | undefined);
+  const peerToken =
+    (HORIZON_TESTNET[84532].assets[familyConfig.asset].token as Address | undefined) ??
+    (peerConfig?.address as Address | undefined);
   const id20Token = (id20Config?.address as Address | undefined) ?? vaultAsset ?? undefined;
 
   const vaultBalance = useReadContract({

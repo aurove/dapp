@@ -13993,7 +13993,7 @@ const contracts = {
       ],
     },
     avBTCVault: {
-      address: "0xb4122E019693A7A7c470519093599D0c45f7CF12",
+      address: "0x8e95C83A5144dcdD6ce79D7fBd58057b689f086f",
       deploymentBlock: 16294841,
       linkedData: {
         contractName: "Vault",
@@ -15609,7 +15609,7 @@ const contracts = {
       ],
     },
     avMEZOVault: {
-      address: "0xe65dA484Ec0820b4E9c8be731D38E27368b4aAC6",
+      address: "0x2C45a18a23d5bfFf3Fc0c4Bff6376dA1d943373c",
       deploymentBlock: 16294843,
       linkedData: {
         contractName: "Vault",
@@ -19200,7 +19200,7 @@ const contracts = {
       ],
     },
     VaultFactory: {
-      address: "0x5f6AcDD6390f0C93e93482A917d8798376F56e17",
+      address: "0x48E6cF84FFEd65AeB7Ee560123065606Df4D1f99",
       deploymentBlock: 16294840,
       abi: [
         {
@@ -32514,7 +32514,7 @@ const contracts = {
   },
   84532: {
     avBTCvPeer: {
-      address: "0xb25912d67A8fb9C7Acb8b2eB4c1600aF7872D132",
+      address: "0x0d36e2B7350950662859A82A91E13Ad7d0E594E0",
       deploymentBlock: 48669556,
       abi: [
         {
@@ -32750,7 +32750,7 @@ const contracts = {
       ],
     },
     avMEZOvPeer: {
-      address: "0x2E9eAa58834c39a8bDe92886Cbf8A18954bFF855",
+      address: "0x172096f3F0F98B9dc1302695A48044D6A3D799C9",
       deploymentBlock: 48669571,
       abi: [
         {
