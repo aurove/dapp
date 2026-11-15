@@ -14,6 +14,7 @@ import { HORIZON_TESTNET, getHorizonPeerChain, type HorizonNativeChainId } from 
 import {
   horizonAssetFromBridgeSymbol,
   initiateHorizonNttTransfer,
+  trimHorizonNttAmount,
   quoteHorizonNttDeliveryFee,
   redeemHorizonNttTransfer,
 } from "@/lib/bridge/ntt-transfer";
@@ -298,7 +299,9 @@ export function HorizonBridgePage() {
 
   const setMaxAmount = () => {
     if (!selectedSource || selectedSource.balanceRaw <= 0n) return;
-    setAmount(formatUnits(selectedSource.balanceRaw, selectedSource.decimals));
+    // Wormhole NTT rejects dust below 8 decimals (TransferAmountHasDust).
+    const bridgable = trimHorizonNttAmount(selectedSource.balanceRaw, selectedSource.decimals);
+    setAmount(formatUnits(bridgable > 0n ? bridgable : 0n, selectedSource.decimals));
   };
 
   const resolveShareAmountForBridge = async (
@@ -306,16 +309,19 @@ export function HorizonBridgePage() {
     assetsOrShares: bigint,
     client: NonNullable<typeof publicClient>,
   ) => {
-    if (bridgeSource.kind === "vault" || bridgeSource.kind === "peer") return assetsOrShares;
+    if (bridgeSource.kind === "vault" || bridgeSource.kind === "peer") {
+      return trimHorizonNttAmount(assetsOrShares, bridgeSource.decimals);
+    }
     if (!vaultConfig?.address || !vaultConfig.abi) {
       throw new Error("Horizon vault is not configured on Mezo.");
     }
-    return client.readContract({
+    const shares = (await client.readContract({
       address: vaultConfig.address as Address,
       abi: vaultConfig.abi as Abi,
       functionName: "previewDeposit",
       args: [assetsOrShares],
-    }) as Promise<bigint>;
+    })) as bigint;
+    return trimHorizonNttAmount(shares, 18);
   };
 
   const buildBridgeSteps = (): TxStep[] => {

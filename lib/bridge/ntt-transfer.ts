@@ -30,6 +30,22 @@ function ensureNttPayloadsRegistered() {
   nttPayloadsRegistered = true;
 }
 
+/** Wormhole TrimmedAmount wire precision (see NTT TransferAmountHasDust). */
+export const NTT_TRIMMED_DECIMALS = 8;
+
+/**
+ * Floor `amount` so it has no dust below Wormhole's 8-decimal wire precision.
+ * Horizon vault/peer tokens are 18 decimals; untrimmed Max balances revert with
+ * TransferAmountHasDust(amount, dust).
+ */
+export function trimHorizonNttAmount(amount: bigint, tokenDecimals = 18): bigint {
+  if (amount <= 0n) return 0n;
+  const decimals = Math.min(Math.max(tokenDecimals, 0), 255);
+  if (decimals <= NTT_TRIMMED_DECIMALS) return amount;
+  const factor = 10n ** BigInt(decimals - NTT_TRIMMED_DECIMALS);
+  return (amount / factor) * factor;
+}
+
 export type HorizonNttTransferParams = {
   asset: HorizonBridgeAsset;
   amount: bigint;
@@ -97,6 +113,14 @@ export async function initiateHorizonNttTransfer(
     throw new Error("Enter a positive amount to bridge.");
   }
 
+  // NTT managers revert TransferAmountHasDust unless amount is truncated to 8 decimals.
+  const transferAmount = trimHorizonNttAmount(amount, 18);
+  if (transferAmount <= 0n) {
+    throw new Error(
+      "Amount is below Wormhole NTT precision (8 decimals). Bridge a larger amount.",
+    );
+  }
+
   const source = getHorizonChain(sourceChainId);
   if (!source) {
     throw new Error("Connect to Mezo Testnet or Base Sepolia to bridge.");
@@ -130,7 +154,7 @@ export async function initiateHorizonNttTransfer(
     viemChain,
   );
 
-  const transfer = ntt.transfer(sender, amount, recipient, {
+  const transfer = ntt.transfer(sender, transferAmount, recipient, {
     queue: false,
     automatic,
   });

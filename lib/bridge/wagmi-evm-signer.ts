@@ -4,7 +4,25 @@ import type {
   SignAndSendSigner,
   UnsignedTransaction,
 } from "@wormhole-foundation/sdk";
-import type { Address, Chain as ViemChain, Hex, PublicClient, WalletClient } from "viem";
+import {
+  type Address,
+  type Chain as ViemChain,
+  type Hex,
+  type PublicClient,
+  type WalletClient,
+  decodeErrorResult,
+} from "viem";
+
+const NTT_MANAGER_ERRORS = [
+  {
+    type: "error",
+    name: "TransferAmountHasDust",
+    inputs: [
+      { name: "amount", type: "uint256" },
+      { name: "dust", type: "uint256" },
+    ],
+  },
+] as const;
 
 type EvmTxRequest = {
   to?: unknown;
@@ -63,6 +81,30 @@ function maxTxGasForChain(chainId: number | undefined): bigint {
 
 function withGasBuffer(estimate: bigint): bigint {
   return (estimate * GAS_BUFFER_BPS) / BPS_DENOM;
+}
+
+function enrichEstimateGasError(error: unknown): Error {
+  const data =
+    (error as { data?: Hex })?.data ??
+    (error as { cause?: { data?: Hex } })?.cause?.data ??
+    (error as { walk?: (fn: (e: unknown) => unknown) => unknown })?.walk?.((e) =>
+      (e as { data?: Hex })?.data ? e : undefined,
+    );
+
+  if (typeof data === "string" && data.startsWith("0x") && data.length >= 10) {
+    try {
+      const decoded = decodeErrorResult({ abi: NTT_MANAGER_ERRORS, data: data as Hex });
+      if (decoded.errorName === "TransferAmountHasDust") {
+        return new Error(
+          "Amount has dust below Wormhole NTT precision (8 decimals). Use Max or round down the amount.",
+        );
+      }
+    } catch {
+      // keep original error
+    }
+  }
+
+  return error instanceof Error ? error : new Error(String(error));
 }
 
 /**
@@ -124,7 +166,7 @@ export class WagmiEvmSignAndSendSigner<N extends Network, C extends Chain>
           if (gas !== undefined && gas > maxGas) {
             gas = maxGas;
           } else {
-            throw error;
+            throw enrichEstimateGasError(error);
           }
         }
       }
