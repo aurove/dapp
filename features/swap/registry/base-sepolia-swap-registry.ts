@@ -1,11 +1,11 @@
 import type { Address, PublicClient } from "viem";
 import {
   AERO_BASE_SEPOLIA_CHAIN_ID,
-  getAerodromeMusdAddress,
-  getAerodromePoolConfigs,
-  getAerodromeRouterConfig,
-  type AerodromePoolConfig,
-} from "@/lib/bridge/aerodrome-pools";
+  getAeroMusdAddress,
+  getAeroPoolConfigs,
+  getAeroRouterConfig,
+  type AeroPoolConfig,
+} from "@/lib/bridge/aero-pools";
 import { SLIPSTREAM_POOL_ABI, SLIPSTREAM_SWAP_ROUTER_ABI } from "@/lib/bridge/slipstream-abis";
 import type { SwapAsset, SwapPool, SwapRegistry } from "../domain";
 import { getSwapRoutingConfig } from "./routing-config";
@@ -33,7 +33,7 @@ function erc20Asset(params: {
   };
 }
 
-function buildBaseAssets(chainId: number, pools: AerodromePoolConfig[], musd: Address): SwapAsset[] {
+function buildBaseAssets(chainId: number, pools: AeroPoolConfig[], musd: Address): SwapAsset[] {
   const bySymbol = new Map<string, SwapAsset>();
   bySymbol.set(
     "MUSD",
@@ -63,9 +63,9 @@ function buildBaseAssets(chainId: number, pools: AerodromePoolConfig[], musd: Ad
  */
 export async function loadBaseSepoliaSwapRegistry(client: PublicClient): Promise<SwapRegistry> {
   const chainId = AERO_BASE_SEPOLIA_CHAIN_ID;
-  const routers = getAerodromeRouterConfig();
-  const musd = getAerodromeMusdAddress();
-  const configured = getAerodromePoolConfigs().filter((pool) => pool.ready && pool.pool && pool.musd);
+  const routers = getAeroRouterConfig();
+  const musd = getAeroMusdAddress();
+  const configured = getAeroPoolConfigs().filter((pool) => pool.ready && pool.pool && pool.musd);
 
   if (!routers.swapRouter) {
     throw new Error("Base Sepolia Slipstream SwapRouter is not configured");
@@ -163,7 +163,7 @@ export async function loadBaseSepoliaSwapRegistry(client: PublicClient): Promise
 
 /** Pure helper for unit tests — no RPC. */
 export function buildBaseSepoliaSwapAssetsForTest(): SwapAsset[] {
-  const musd = getAerodromeMusdAddress();
+  const musd = getAeroMusdAddress();
   if (!musd) return [];
-  return buildBaseAssets(AERO_BASE_SEPOLIA_CHAIN_ID, getAerodromePoolConfigs(), musd);
+  return buildBaseAssets(AERO_BASE_SEPOLIA_CHAIN_ID, getAeroPoolConfigs(), musd);
 }

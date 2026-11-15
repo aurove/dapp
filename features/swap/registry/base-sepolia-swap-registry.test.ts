@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   AERO_BASE_SEPOLIA_CHAIN_ID,
-  getAerodromeMusdAddress,
-  getAerodromePoolConfigs,
-  getAerodromeRouterConfig,
-} from "@/lib/bridge/aerodrome-pools";
+  getAeroMusdAddress,
+  getAeroPoolConfigs,
+  getAeroRouterConfig,
+} from "@/lib/bridge/aero-pools";
 import { canSwapRoute } from "../routing";
 import type { SwapPool, SwapRegistry } from "../domain";
 import { SLIPSTREAM_POOL_ABI, SLIPSTREAM_SWAP_ROUTER_ABI } from "@/lib/bridge/slipstream-abis";
@@ -17,10 +17,10 @@ describe("base sepolia swap registry helpers", () => {
     const assets = buildBaseSepoliaSwapAssetsForTest();
     const symbols = assets.map((asset) => asset.symbol).sort();
     assert.deepEqual(symbols, ["MUSD", "avBTCv", "avMEZOv"]);
-    const pools = getAerodromePoolConfigs();
+    const pools = getAeroPoolConfigs();
     assert.equal(pools.every((pool) => pool.ready), true);
-    assert.ok(getAerodromeMusdAddress());
-    assert.ok(getAerodromeRouterConfig().swapRouter);
+    assert.ok(getAeroMusdAddress());
+    assert.ok(getAeroRouterConfig().swapRouter);
   });
 
   it("routes peer↔MUSD and peer↔peer via MUSD", () => {
@@ -28,7 +28,7 @@ describe("base sepolia swap registry helpers", () => {
     const musd = assets.find((asset) => asset.symbol === "MUSD")!;
     const avmezov = assets.find((asset) => asset.symbol === "avMEZOv")!;
     const avbtcv = assets.find((asset) => asset.symbol === "avBTCv")!;
-    const configured = getAerodromePoolConfigs();
+    const configured = getAeroPoolConfigs();
     const pools: SwapPool[] = configured.map((pool) => ({
       key: pool.key,
       address: pool.pool!,
@@ -43,7 +43,7 @@ describe("base sepolia swap registry helpers", () => {
       chainId: AERO_BASE_SEPOLIA_CHAIN_ID,
       revision: "test",
       clRouter: {
-        address: getAerodromeRouterConfig().swapRouter!,
+        address: getAeroRouterConfig().swapRouter!,
         abi: SLIPSTREAM_SWAP_ROUTER_ABI,
       },
       assets,

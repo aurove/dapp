@@ -27,7 +27,7 @@ import {
   type BridgeSource,
 } from "@/components/features/bridge/bridge-sources";
 import { makeBridgeVaultConversionStep } from "@/components/features/bridge/bridge-vault-batch";
-import { UseOnAerodromePanel } from "@/components/features/bridge/use-on-aerodrome-panel";
+import { UseOnAeroPanel } from "@/components/features/bridge/use-on-aero-panel";
 import TransactionFlowButton from "@/lib/tx-flow/TransactionFlowButton";
 import { type TxStep } from "@/lib/tx-flow";
 import { createTxNotificationLifecycle } from "@/lib/notifications/txLifecycle";
@@ -755,7 +755,7 @@ export function HorizonBridgePage() {
                   </div>
                 </CardContent>
               </Card>
-              <UseOnAerodromePanel asset={familyConfig.asset} />
+              <UseOnAeroPanel asset={familyConfig.asset} />
             </>
           ) : (
             <Card>

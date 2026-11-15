@@ -16,7 +16,7 @@ import type {
   SwapPool,
   SwapRegistry,
 } from "../domain";
-import { AERO_BASE_SEPOLIA_CHAIN_ID } from "@/lib/bridge/aerodrome-pools";
+import { AERO_BASE_SEPOLIA_CHAIN_ID } from "@/lib/bridge/aero-pools";
 import { loadBaseSepoliaSwapRegistry } from "./base-sepolia-swap-registry";
 import { getSwapRoutingConfig } from "./routing-config";
 

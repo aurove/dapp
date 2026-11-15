@@ -26,10 +26,10 @@ export const AERO_BASE_SEPOLIA_DEFAULTS = {
   },
 } as const;
 
-export type AerodromePoolKey = "avMEZOv-MUSD" | "avBTCv-MUSD";
+export type AeroPoolKey = "avMEZOv-MUSD" | "avBTCv-MUSD";
 
-export type AerodromePoolConfig = {
-  key: AerodromePoolKey;
+export type AeroPoolConfig = {
+  key: AeroPoolKey;
   asset: HorizonBridgeAsset;
   shareSymbol: "avMEZOv" | "avBTCv";
   share: Address;
@@ -41,14 +41,14 @@ export type AerodromePoolConfig = {
   ready: boolean;
 };
 
-export type AerodromeRouterConfig = {
+export type AeroRouterConfig = {
   swapRouter: Address | null;
   positionManager: Address | null;
 };
 
 const DOCS = {
   horizonAero: "https://github.com/Aurove/horizon/blob/main/aero/README.md",
-  aerodrome: "https://aerodrome.finance/",
+  aero: "https://aerodrome.finance/",
   poolsRunbook: "https://github.com/Aurove/horizon/blob/main/aero/README.md#create--seed-horizon-sharemusd-pools",
 } as const;
 
@@ -70,7 +70,7 @@ const PEER_SHARES = {
 } as const;
 
 /** Optional env overrides after `horizon/aero` broadcast writes pools.json. */
-function poolAddressFromEnv(key: AerodromePoolKey): Address | null {
+function poolAddressFromEnv(key: AeroPoolKey): Address | null {
   if (key === "avMEZOv-MUSD") {
     return (
       readOptionalAddress(process.env.NEXT_PUBLIC_AERO_AVMEZOV_MUSD_POOL) ??
@@ -83,7 +83,7 @@ function poolAddressFromEnv(key: AerodromePoolKey): Address | null {
   );
 }
 
-export function getAerodromeMusdAddress(): Address | null {
+export function getAeroMusdAddress(): Address | null {
   return (
     readOptionalAddress(process.env.NEXT_PUBLIC_AERO_MUSD_ADDRESS) ??
     readOptionalAddress(process.env.NEXT_PUBLIC_AERO_DEMO_MUSD_ADDRESS) ??
@@ -91,7 +91,7 @@ export function getAerodromeMusdAddress(): Address | null {
   );
 }
 
-export function getAerodromeRouterConfig(): AerodromeRouterConfig {
+export function getAeroRouterConfig(): AeroRouterConfig {
   return {
     swapRouter:
       readOptionalAddress(process.env.NEXT_PUBLIC_AERO_SWAP_ROUTER) ??
@@ -102,10 +102,10 @@ export function getAerodromeRouterConfig(): AerodromeRouterConfig {
   };
 }
 
-export function getAerodromePoolConfigs(): AerodromePoolConfig[] {
-  const musd = getAerodromeMusdAddress();
+export function getAeroPoolConfigs(): AeroPoolConfig[] {
+  const musd = getAeroMusdAddress();
 
-  const rows: Array<Omit<AerodromePoolConfig, "ready">> = [
+  const rows: Array<Omit<AeroPoolConfig, "ready">> = [
     {
       key: "avMEZOv-MUSD",
       asset: "avMEZOv",
@@ -133,16 +133,16 @@ export function getAerodromePoolConfigs(): AerodromePoolConfig[] {
   }));
 }
 
-export function getAerodromePoolForAsset(asset: HorizonBridgeAsset): AerodromePoolConfig {
-  const pools = getAerodromePoolConfigs();
+export function getAeroPoolForAsset(asset: HorizonBridgeAsset): AeroPoolConfig {
+  const pools = getAeroPoolConfigs();
   return pools.find((pool) => pool.asset === asset) ?? pools[0]!;
 }
 
-export function areAerodromePoolsReady(pools = getAerodromePoolConfigs()): boolean {
+export function areAeroPoolsReady(pools = getAeroPoolConfigs()): boolean {
   return pools.length > 0 && pools.every((pool) => pool.ready);
 }
 
-export function getAerodromeDocs() {
+export function getAeroDocs() {
   return DOCS;
 }
 
@@ -150,6 +150,6 @@ export function getBaseSepoliaAddressUrl(address: Address): string {
   return `https://sepolia.basescan.org/address/${address}`;
 }
 
-export function shortAerodromeAddress(value: Address): string {
+export function shortAeroAddress(value: Address): string {
   return `${value.slice(0, 6)}…${value.slice(-4)}`;
 }

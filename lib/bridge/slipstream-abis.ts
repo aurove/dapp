@@ -1,7 +1,7 @@
 import type { Abi } from "viem";
 
 /**
- * Minimal Slipstream / Aerodrome CL surfaces used by Base Sepolia Horizon swaps.
+ * Minimal Slipstream / Aero CL surfaces used by Base Sepolia Horizon swaps.
  * Matches Mezo CL router param shapes (tickSpacing instead of Uniswap fee).
  */
 export const SLIPSTREAM_SWAP_ROUTER_ABI = [

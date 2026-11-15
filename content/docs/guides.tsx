@@ -511,9 +511,9 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
     slug: "guides/swap",
     title: "Swap",
     description: "Swap supported assets on the /swap interface, including deposit-and-wrap routes.",
-    tags: ["guides", "swap", "review swap", "slippage", "base sepolia", "aerodrome"],
+    tags: ["guides", "swap", "review swap", "slippage", "base sepolia", "aero"],
     searchText:
-      "swap review sell buy slippage deadline aurove route direct pool route base sepolia aerodrome avMEZOv avBTCv MUSD network switch",
+      "swap review sell buy slippage deadline aurove route direct pool route base sepolia aero avMEZOv avBTCv MUSD network switch",
     Content: () => (
       <>
         <h1>Swap</h1>
@@ -528,7 +528,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
           The Swap UI is live. Deposit-then-swap routes call the same Ledger deposit path as Earn,
           so they currently revert while managers have <code>mTokenId = 0</code>. Direct pool swaps
           also need inventory in the Aurove pools, which currently have zero Aurove token supply.
-          On testnet Base Sepolia, Horizon peer / MUSD pairs route through Aerodrome Slipstream.
+          On testnet Base Sepolia, Horizon peer / MUSD pairs route through Aero Slipstream.
         </ProductionStatus>
         <h2>Networks</h2>
         <ul>
@@ -538,7 +538,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
           </li>
           <li>
             <strong>Base Sepolia (testnet)</strong> — Horizon vault peers{" "}
-            <code>avMEZOv</code> / <code>avBTCv</code> and <code>MUSD</code> on Aerodrome Slipstream
+            <code>avMEZOv</code> / <code>avBTCv</code> and <code>MUSD</code> on Aero Slipstream
             CL200 pools, including multi-hop peer↔peer via MUSD. Use the header network control to
             switch Mezo ↔ Base. Deep links like <code>/swap?sell=avMEZOv&amp;buy=MUSD</code>{" "}
             preselect the pair after bridging.

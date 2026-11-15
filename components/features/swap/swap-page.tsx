@@ -30,7 +30,7 @@ import {
   cn,
 } from "@ui";
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";
-import { AERO_BASE_SEPOLIA_CHAIN_ID } from "@/lib/bridge/aerodrome-pools";
+import { AERO_BASE_SEPOLIA_CHAIN_ID } from "@/lib/bridge/aero-pools";
 import { hasChainTimestampPassed } from "@/lib/web3/chain-time";
 import { useChainDeadline } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
@@ -946,13 +946,13 @@ export function SwapPage() {
             <h2 className="text-lg font-semibold text-foreground">Swap</h2>
             {isBaseSepolia ? (
               <Badge className="normal-case tracking-normal text-[10px]">
-                Base Sepolia · Aerodrome Slipstream
+                Base Sepolia · Aero Slipstream
               </Badge>
             ) : null}
           </div>
           <p className="flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
             {isBaseSepolia
-              ? "Trade Horizon peers and MUSD on Aerodrome"
+              ? "Trade Horizon peers and MUSD on Aero"
               : "Swap through Mezo CL and AMM"}
             {registry && registryQuery.isError ? (
               <>

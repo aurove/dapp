@@ -5,17 +5,17 @@ import { ArrowLeftRight, ExternalLink, Layers2, Plus } from "lucide-react";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ui";
 import type { HorizonBridgeAsset } from "@/lib/bridge/horizon";
 import {
-  areAerodromePoolsReady,
-  getAerodromeDocs,
-  getAerodromePoolConfigs,
-  getAerodromePoolForAsset,
-  getAerodromeRouterConfig,
+  areAeroPoolsReady,
+  getAeroDocs,
+  getAeroPoolConfigs,
+  getAeroPoolForAsset,
+  getAeroRouterConfig,
   getBaseSepoliaAddressUrl,
-  shortAerodromeAddress,
-  type AerodromePoolConfig,
-} from "@/lib/bridge/aerodrome-pools";
+  shortAeroAddress,
+  type AeroPoolConfig,
+} from "@/lib/bridge/aero-pools";
 
-type UseOnAerodromePanelProps = {
+type UseOnAeroPanelProps = {
   /** Currently selected bridge family asset — highlights the matching pool. */
   asset: HorizonBridgeAsset;
 };
@@ -24,7 +24,7 @@ function PoolRow({
   pool,
   highlighted,
 }: {
-  pool: AerodromePoolConfig;
+  pool: AeroPoolConfig;
   highlighted: boolean;
 }) {
   return (
@@ -54,7 +54,7 @@ function PoolRow({
             target="_blank"
             rel="noreferrer"
           >
-            {shortAerodromeAddress(pool.pool)}
+            {shortAeroAddress(pool.pool)}
             <ExternalLink className="h-3 w-3" />
           </a>
         ) : (
@@ -62,19 +62,19 @@ function PoolRow({
         )}
       </div>
       <p className="mt-2 text-xs leading-5 text-muted">
-        Peer {shortAerodromeAddress(pool.share)}
-        {pool.musd ? ` · MUSD ${shortAerodromeAddress(pool.musd)}` : " · MUSD TBD (DemoMUSD)"}
+        Peer {shortAeroAddress(pool.share)}
+        {pool.musd ? ` · MUSD ${shortAeroAddress(pool.musd)}` : " · MUSD TBD (DemoMUSD)"}
       </p>
     </div>
   );
 }
 
-export function UseOnAerodromePanel({ asset }: UseOnAerodromePanelProps) {
-  const pools = getAerodromePoolConfigs();
-  const selected = getAerodromePoolForAsset(asset);
-  const routers = getAerodromeRouterConfig();
-  const ready = areAerodromePoolsReady(pools);
-  const docs = getAerodromeDocs();
+export function UseOnAeroPanel({ asset }: UseOnAeroPanelProps) {
+  const pools = getAeroPoolConfigs();
+  const selected = getAeroPoolForAsset(asset);
+  const routers = getAeroRouterConfig();
+  const ready = areAeroPoolsReady(pools);
+  const docs = getAeroDocs();
   const peerSymbol = selected.shareSymbol;
   const swapHref = `/swap?sell=${encodeURIComponent(peerSymbol)}&buy=MUSD`;
   const explorerHref =
@@ -95,9 +95,9 @@ export function UseOnAerodromePanel({ asset }: UseOnAerodromePanelProps) {
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle>Use on Aerodrome</CardTitle>
+            <CardTitle>Use on Aero</CardTitle>
             <CardDescription className="mt-1">
-              After withdraw lands on Base Sepolia, trade or LP the vault peer against MUSD on Aerodrome
+              After withdraw lands on Base Sepolia, trade or LP the vault peer against MUSD on Aero
               Slipstream.
             </CardDescription>
           </div>
@@ -117,7 +117,7 @@ export function UseOnAerodromePanel({ asset }: UseOnAerodromePanelProps) {
           <li className="flex gap-2">
             <span className="font-medium text-foreground">3.</span>
             <span>
-              Swap {peerSymbol} → MUSD or add {peerSymbol} / MUSD liquidity on Aerodrome.
+              Swap {peerSymbol} → MUSD or add {peerSymbol} / MUSD liquidity on Aero.
             </span>
           </li>
         </ol>
@@ -177,8 +177,8 @@ export function UseOnAerodromePanel({ asset }: UseOnAerodromePanelProps) {
                 </a>
               </Button>
               <Button asChild variant="ghost" size="sm">
-                <a href={docs.aerodrome} target="_blank" rel="noreferrer">
-                  Aerodrome
+                <a href={docs.aero} target="_blank" rel="noreferrer">
+                  Aero
                   <ExternalLink className="ml-2 h-3.5 w-3.5" />
                 </a>
               </Button>
