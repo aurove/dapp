@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { SwapPage } from "@/components/features/swap";
 import { ProductSeo } from "@/components/site/product-seo";
@@ -17,7 +18,9 @@ export const metadata: Metadata = createPageMetadata({
 export default function AppSwapPage() {
   return (
     <div className="space-y-6">
-      <SwapPage />
+      <Suspense fallback={null}>
+        <SwapPage />
+      </Suspense>
       <ProductSeo
         path="/swap"
         title={TITLE}

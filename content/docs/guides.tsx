@@ -511,8 +511,9 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
     slug: "guides/swap",
     title: "Swap",
     description: "Swap supported assets on the /swap interface, including deposit-and-wrap routes.",
-    tags: ["guides", "swap", "review swap", "slippage"],
-    searchText: "swap review sell buy slippage deadline aurove route direct pool route",
+    tags: ["guides", "swap", "review swap", "slippage", "base sepolia", "aerodrome"],
+    searchText:
+      "swap review sell buy slippage deadline aurove route direct pool route base sepolia aerodrome avMEZOv avBTCv MUSD network switch",
     Content: () => (
       <>
         <h1>Swap</h1>
@@ -527,22 +528,38 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
           The Swap UI is live. Deposit-then-swap routes call the same Ledger deposit path as Earn,
           so they currently revert while managers have <code>mTokenId = 0</code>. Direct pool swaps
           also need inventory in the Aurove pools, which currently have zero Aurove token supply.
+          On testnet Base Sepolia, Horizon peer / MUSD pairs route through Aerodrome Slipstream.
         </ProductionStatus>
+        <h2>Networks</h2>
+        <ul>
+          <li>
+            <strong>Mezo</strong> — ERC-20, veNFT, and Ledger tranche sells into ID20 / ERC-20 buys
+            through Mezo CL and AMM routes.
+          </li>
+          <li>
+            <strong>Base Sepolia (testnet)</strong> — Horizon vault peers{" "}
+            <code>avMEZOv</code> / <code>avBTCv</code> against <code>MUSD</code> on Aerodrome
+            Slipstream CL200 pools. Use the header network control to switch Mezo ↔ Base. Deep links
+            like <code>/swap?sell=avMEZOv&amp;buy=MUSD</code> preselect the pair after bridging.
+          </li>
+        </ul>
         <h2>Before you start</h2>
         <ul>
-          <li>Connect a wallet on Mezo Mainnet.</li>
-          <li>Hold the asset you want to sell, plus BTC for gas.</li>
+          <li>Connect a wallet on Mezo (mainnet or testnet) or Base Sepolia for Horizon peers.</li>
+          <li>Hold the asset you want to sell, plus native gas (BTC on Mezo, ETH on Base).</li>
         </ul>
         <h2>Steps</h2>
         <ol>
           <li>
-            Open <DocRouteLink href="/swap">Swap</DocRouteLink>.
+            Open <DocRouteLink href="/swap">Swap</DocRouteLink>. On testnet, pick Mezo or Base in the
+            header network control.
           </li>
           <li>
-            Choose <strong>Sell</strong> and <strong>Buy</strong> assets. Sell groups are{" "}
+            Choose <strong>Sell</strong> and <strong>Buy</strong> assets. On Mezo, sell groups are{" "}
             <strong>ERC-20 tokens</strong>, <strong>veNFT positions</strong>, and{" "}
-            <strong>Ledger tranches</strong>. Buy groups are <strong>ID20 tokens</strong> and{" "}
-            <strong>Other ERC-20 tokens</strong>.
+            <strong>Ledger tranches</strong>; buy groups are <strong>ID20 tokens</strong> and{" "}
+            <strong>Other ERC-20 tokens</strong>. On Base Sepolia, sell/buy are Horizon peers and
+            MUSD only.
           </li>
           <li>Enter an amount. Use Max when you want the full wallet balance.</li>
           <li>
@@ -564,7 +581,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
         </ol>
         <p>
           Success shows <strong>Swap confirmed</strong>. The bought asset is in your wallet. Some
-          routes deposit and wrap into ID20 before the concentrated-liquidity hop; leftover
+          Mezo routes deposit and wrap into ID20 before the concentrated-liquidity hop; leftover
           exact-output value is refunded as ID20, not as the original BTC, MEZO, veNFT, or ERC-1155.
         </p>
         <h2>If something fails</h2>

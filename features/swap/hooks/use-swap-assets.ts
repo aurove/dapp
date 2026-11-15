@@ -54,24 +54,32 @@ export function useSwapAssets(
     queryKey: ["swap", "balances", registry?.chainId, address?.toLowerCase(), registry?.revision],
     queryFn: async () => {
       if (!client || !address) return {} as Record<string, bigint>;
+      const ledger = registry!.ledger;
+      const trancheContracts =
+        ledger && trancheAssets.length
+          ? trancheAssets.map((asset) => ({
+              address: ledger.address,
+              abi: ledger.abi,
+              functionName: "balanceOf" as const,
+              args: [address, asset.trancheId!] as const,
+            }))
+          : [];
       const results = await client.multicall({
         allowFailure: true,
         contracts: [
           ...dynamicFungibleAssets.map((asset) => ({
             address: asset.address,
             abi: erc20Abi,
-            functionName: "balanceOf",
-            args: [address],
+            functionName: "balanceOf" as const,
+            args: [address] as const,
           })),
-          ...trancheAssets.map((asset) => ({
-            address: registry!.ledger.address,
-            abi: registry!.ledger.abi,
-            functionName: "balanceOf",
-            args: [address, asset.trancheId!],
-          })),
+          ...trancheContracts,
         ],
       });
-      const assets = [...dynamicFungibleAssets, ...trancheAssets];
+      const assets = [
+        ...dynamicFungibleAssets,
+        ...(ledger ? trancheAssets : []),
+      ];
       return Object.fromEntries(
         assets.map((asset, index) => {
           const result = results[index];

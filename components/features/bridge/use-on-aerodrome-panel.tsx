@@ -76,8 +76,8 @@ export function UseOnAerodromePanel({ asset }: UseOnAerodromePanelProps) {
   const ready = areAerodromePoolsReady(pools);
   const docs = getAerodromeDocs();
   const peerSymbol = selected.shareSymbol;
-
-  const swapHref =
+  const swapHref = `/swap?sell=${encodeURIComponent(peerSymbol)}&buy=MUSD`;
+  const explorerHref =
     selected.pool != null
       ? getBaseSepoliaAddressUrl(selected.pool)
       : routers.swapRouter
@@ -131,21 +131,26 @@ export function UseOnAerodromePanel({ asset }: UseOnAerodromePanelProps) {
 
         {ready ? (
           <div className="grid gap-2 sm:grid-cols-2">
-            {swapHref ? (
-              <Button asChild className="w-full">
-                <a href={swapHref} target="_blank" rel="noreferrer">
-                  <ArrowLeftRight className="mr-2 h-4 w-4" />
-                  Swap {peerSymbol} → MUSD
-                  <ExternalLink className="ml-2 h-3.5 w-3.5 opacity-70" />
-                </a>
-              </Button>
-            ) : null}
+            <Button asChild className="w-full">
+              <Link href={swapHref}>
+                <ArrowLeftRight className="mr-2 h-4 w-4" />
+                Swap {peerSymbol} → MUSD
+              </Link>
+            </Button>
             {lpHref ? (
               <Button asChild variant="outline" className="w-full">
                 <a href={lpHref} target="_blank" rel="noreferrer">
                   <Plus className="mr-2 h-4 w-4" />
                   Add liquidity
                   <ExternalLink className="ml-2 h-3.5 w-3.5 opacity-70" />
+                </a>
+              </Button>
+            ) : null}
+            {explorerHref ? (
+              <Button asChild variant="ghost" size="sm" className="sm:col-span-2">
+                <a href={explorerHref} target="_blank" rel="noreferrer">
+                  View pool on Basescan
+                  <ExternalLink className="ml-2 h-3.5 w-3.5" />
                 </a>
               </Button>
             ) : null}

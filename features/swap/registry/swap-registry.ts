@@ -15,36 +15,14 @@ import type {
   SwapBasicPool,
   SwapPool,
   SwapRegistry,
-  SwapRoutingConfig,
 } from "../domain";
+import { AERO_BASE_SEPOLIA_CHAIN_ID } from "@/lib/bridge/aerodrome-pools";
+import { loadBaseSepoliaSwapRegistry } from "./base-sepolia-swap-registry";
+import { getSwapRoutingConfig } from "./routing-config";
+
+export { getSwapRoutingConfig } from "./routing-config";
 
 type ReadResult = { status: "success"; result: unknown } | { status: "failure"; error: unknown };
-
-function boundedInteger(
-  value: string | undefined,
-  fallback: number,
-  minimum: number,
-  maximum: number,
-): number {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) ? Math.max(minimum, Math.min(maximum, parsed)) : fallback;
-}
-
-export function getSwapRoutingConfig(): SwapRoutingConfig {
-  return {
-    maxHops: boundedInteger(process.env.NEXT_PUBLIC_SWAP_MAX_HOPS, 3, 1, 5),
-    maxCandidateRoutes: boundedInteger(process.env.NEXT_PUBLIC_SWAP_MAX_CANDIDATE_ROUTES, 8, 1, 64),
-    quoteTtlSeconds: BigInt(
-      boundedInteger(process.env.NEXT_PUBLIC_SWAP_QUOTE_TTL_SECONDS, 30, 5, 300),
-    ),
-    quoteTimeoutMs: boundedInteger(
-      process.env.NEXT_PUBLIC_SWAP_QUOTE_TIMEOUT_MS,
-      15_000,
-      3_000,
-      60_000,
-    ),
-  };
-}
 
 function hasFunction(abi: Abi, name: string): boolean {
   return abi.some((item) => item.type === "function" && item.name === name);
@@ -168,6 +146,9 @@ export async function loadSwapRegistry(
   client: PublicClient,
   chainId: number,
 ): Promise<SwapRegistry> {
+  if (chainId === AERO_BASE_SEPOLIA_CHAIN_ID) {
+    return loadBaseSepoliaSwapRegistry(client);
+  }
   if (!getContractsByChainId(chainId)) throw new Error("Swaps are not configured on this network");
   const clRouter = getContractConfig(chainId, "CLSwapRouter");
   const auroveRouter = getContractConfig(chainId, "AuroveZapRouter");

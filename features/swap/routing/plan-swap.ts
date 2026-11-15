@@ -233,6 +233,14 @@ export function planSwap(
     deadline: intent.deadline,
     path: encodedPath,
   };
+  const auroveRouter = registry.auroveRouter;
+  const ledger = registry.ledger;
+  if (!auroveRouter?.address || !ledger?.address) {
+    return {
+      type: "unsupported",
+      reason: "Aurove zap routes are not available on this network",
+    };
+  }
   if (
     intent.tokenIn.form === "underlying" &&
     intent.tokenIn.variant &&
@@ -249,19 +257,19 @@ export function planSwap(
       type: "auroveDepositWrapThenSwap",
       ...common,
       deposit,
-      routerAddress: registry.auroveRouter.address,
+      routerAddress: auroveRouter.address,
       routerLabel: "Aurove route",
       contractFunction: functionName,
       contractCall: {
-        address: registry.auroveRouter.address,
-        abi: registry.auroveRouter.abi,
+        address: auroveRouter.address,
+        abi: auroveRouter.abi,
         functionName,
         args: [deposit, params],
       },
       approval: {
         kind: "erc20",
         token: intent.tokenIn.address,
-        spender: registry.auroveRouter.address,
+        spender: auroveRouter.address,
         amount: deposit.value,
       },
       affectedPortfolioDomains: [
@@ -285,19 +293,19 @@ export function planSwap(
       ...common,
       trancheId: intent.tokenIn.trancheId,
       wrapAmount,
-      routerAddress: registry.auroveRouter.address,
+      routerAddress: auroveRouter.address,
       routerLabel: "Aurove route",
       contractFunction: functionName,
       contractCall: {
-        address: registry.auroveRouter.address,
-        abi: registry.auroveRouter.abi,
+        address: auroveRouter.address,
+        abi: auroveRouter.abi,
         functionName,
         args: [intent.tokenIn.trancheId, wrapAmount, params],
       },
       approval: {
         kind: "erc1155",
-        token: registry.ledger.address,
-        operator: registry.auroveRouter.address,
+        token: ledger.address,
+        operator: auroveRouter.address,
       },
       affectedPortfolioDomains: [
         ...new Set([
@@ -354,14 +362,14 @@ export function planSwap(
     };
     if (amountIn < totalUnits) {
       const depositCall = {
-        address: registry.ledger.address,
-        abi: registry.ledger.abi,
+        address: ledger.address,
+        abi: ledger.abi,
         functionName: "depositVeNft",
         args: [deposit.variant, deposit.epochs, deposit.value, intent.account],
       };
       const swapCall = {
-        address: registry.auroveRouter.address,
-        abi: registry.auroveRouter.abi,
+        address: auroveRouter.address,
+        abi: auroveRouter.abi,
         functionName: "zapTrancheExactInput",
         args: [intent.tokenIn.trancheId, amountIn, params],
       };
@@ -374,7 +382,7 @@ export function planSwap(
         depositCall,
         swapCall,
         veNft,
-        routerAddress: registry.auroveRouter.address,
+        routerAddress: auroveRouter.address,
         routerLabel: "Aurove route",
         contractFunction: "depositVeNft + zapTrancheExactInput",
         contractCall: swapCall,
@@ -384,13 +392,13 @@ export function planSwap(
             {
               kind: "erc721",
               token: intent.tokenIn.address,
-              operator: registry.ledger.address,
+              operator: ledger.address,
               tokenId: intent.tokenIn.tokenId,
             },
             {
               kind: "erc1155",
-              token: registry.ledger.address,
-              operator: registry.auroveRouter.address,
+              token: ledger.address,
+              operator: auroveRouter.address,
             },
           ],
         },
@@ -412,19 +420,19 @@ export function planSwap(
       ...common,
       deposit,
       veNft,
-      routerAddress: registry.auroveRouter.address,
+      routerAddress: auroveRouter.address,
       routerLabel: "Aurove route",
       contractFunction: functionName,
       contractCall: {
-        address: registry.auroveRouter.address,
-        abi: registry.auroveRouter.abi,
+        address: auroveRouter.address,
+        abi: auroveRouter.abi,
         functionName,
         args: [deposit, params],
       },
       approval: {
         kind: "erc721",
         token: intent.tokenIn.address,
-        operator: registry.auroveRouter.address,
+        operator: auroveRouter.address,
         tokenId: intent.tokenIn.tokenId,
       },
       affectedPortfolioDomains: [

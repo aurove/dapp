@@ -27,17 +27,17 @@ export const HORIZON_TESTNET = {
     rpc: process.env.NEXT_PUBLIC_MEZO_TESTNET_RPC_HTTP || "https://rpc.test.mezo.org",
     assets: {
       avBTCv: {
-        token: "0xb4122E019693A7A7c470519093599D0c45f7CF12",
-        manager: "0x7F47719ca9B033843e575fA49F847220337De151",
+        token: "0x8e95C83A5144dcdD6ce79D7fBd58057b689f086f",
+        manager: "0x01B2C64505f367203429753029EA8BEB66987a09",
         transceiver: {
-          wormhole: "0xE17A087AbCf0a45072d110078E1937911d4829E7",
+          wormhole: "0xA21328Abc178E1b47eC9A14f40e7100372678d10",
         },
       },
       avMEZOv: {
-        token: "0xe65dA484Ec0820b4E9c8be731D38E27368b4aAC6",
-        manager: "0x0F909054b03dBfAd5212c2209051F37CD3e582c9",
+        token: "0x2C45a18a23d5bfFf3Fc0c4Bff6376dA1d943373c",
+        manager: "0x2a0B2726f7822cEBdE9D665D049a42f13Fa6A517",
         transceiver: {
-          wormhole: "0xF1E1Fa9dBa06D8Ce388d48492bf45616d7eF61fB",
+          wormhole: "0x6201F4c88aAfDd627108467dafA81464E3eb885a",
         },
       },
     },
@@ -51,17 +51,17 @@ export const HORIZON_TESTNET = {
     rpc: process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_HTTP || "https://sepolia.base.org",
     assets: {
       avBTCv: {
-        token: "0xb25912d67A8Fb9C7Acb8b2eB4c1600aF7872D132",
-        manager: "0x862f45A57f83393AC5a01c5860DF2A5e051501C4",
+        token: "0x0d36e2B7350950662859A82A91E13Ad7d0E594E0",
+        manager: "0x96e12AD5F0402a458823A8E2A6Ea0E986DCD358e",
         transceiver: {
-          wormhole: "0xf22EaAecdA0E2144154a964C2294549a3Ba999C4",
+          wormhole: "0x82C8d99f67eB28b023387236051cB292c9A477AA",
         },
       },
       avMEZOv: {
-        token: "0x2E9eAa58834c39a8bDe92886Cbf8A18954bFF855",
-        manager: "0xe97416e5Cac85493Eee13ecc165275Dcb8A5bDed",
+        token: "0x172096f3F0F98B9dc1302695A48044D6A3D799C9",
+        manager: "0x79D11c9d7F5d5ef676c4c87Cf9deEC5D972bd8A1",
         transceiver: {
-          wormhole: "0xA64616831f8B430469E9101F35Ba778a485d3848",
+          wormhole: "0x9383b1ACAf2bD2B0F6b205Be9fFbCcBfC78A8300",
         },
       },
     },

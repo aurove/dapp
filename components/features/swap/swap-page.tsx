@@ -11,11 +11,13 @@ import {
   Settings2,
   XCircle,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { formatUnits, parseUnits, zeroAddress, type Address } from "viem";
 import { useAccount } from "wagmi";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import {
+  Badge,
   Button,
   Dialog,
   DialogContent,
@@ -28,6 +30,7 @@ import {
   cn,
 } from "@ui";
 import { WalletConnectButton } from "@/components/app/wallet-connect-button";
+import { AERO_BASE_SEPOLIA_CHAIN_ID } from "@/lib/bridge/aerodrome-pools";
 import { hasChainTimestampPassed } from "@/lib/web3/chain-time";
 import { useChainDeadline } from "@/lib/web3/use-chain-time";
 import { formatCompactRawTokenAmount } from "@/lib/web3/value-parsers";
@@ -50,6 +53,16 @@ import {
   type SwapRouteCandidate,
   type SwapTradeType,
 } from "@/features/swap";
+
+function findAssetByQuerySymbol(
+  assets: readonly SwapAsset[] | undefined,
+  symbol: string | null,
+): SwapAsset | undefined {
+  if (!assets || !symbol) return undefined;
+  const normalized = symbol.trim().toLowerCase();
+  if (!normalized) return undefined;
+  return assets.find((asset) => asset.symbol.toLowerCase() === normalized);
+}
 
 const swapSchema = Yup.object({
   amount: Yup.string()
@@ -573,8 +586,10 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 export function SwapPage() {
   const marketPrices = useMarketPrices();
   const account = useAccount();
+  const searchParams = useSearchParams();
   const registryQuery = useSwapRegistry();
   const registry = registryQuery.data;
+  const isBaseSepolia = registry?.chainId === AERO_BASE_SEPOLIA_CHAIN_ID;
   const [sellId, setSellId] = useState<string>();
   const [buyId, setBuyId] = useState<string>();
   const [tradeType, setTradeType] = useState<SwapTradeType>("exactInput");
@@ -584,6 +599,7 @@ export function SwapPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [openDetailsKey, setOpenDetailsKey] = useState<string>();
   const [selectedRoute, setSelectedRoute] = useState<{ key: string; id: string }>();
+  const appliedQueryKeyRef = useRef<string | undefined>(undefined);
   const formik = useFormik({
     initialValues: { amount: "", slippage: "0.5", deadline: "20" },
     validationSchema: swapSchema,
@@ -592,8 +608,33 @@ export function SwapPage() {
   const deadlineWindowSeconds = BigInt(Math.round(deadlineMinutes * 60));
   const { chainTimestamp, deadline, isChainTimeLoading } = useChainDeadline(deadlineWindowSeconds);
 
+  // Apply ?sell=&buy= deep-links once per registry revision (bridge panel → /swap).
+  useEffect(() => {
+    if (!registry) return;
+    const sellParam = searchParams.get("sell");
+    const buyParam = searchParams.get("buy");
+    if (!sellParam && !buyParam) return;
+    const queryKey = `${registry.revision}:${sellParam ?? ""}:${buyParam ?? ""}`;
+    if (appliedQueryKeyRef.current === queryKey) return;
+    const nextSell = findAssetByQuerySymbol(registry.assets, sellParam);
+    const nextBuy = findAssetByQuerySymbol(registry.assets, buyParam);
+    if (nextSell) setSellId(nextSell.id);
+    if (nextBuy) setBuyId(nextBuy.id);
+    appliedQueryKeyRef.current = queryKey;
+  }, [registry, searchParams]);
+
+  // Drop stale asset ids when the wallet switches Mezo ↔ Base.
+  useEffect(() => {
+    if (!registry) return;
+    if (sellId && !registry.assets.some((asset) => asset.id === sellId)) setSellId(undefined);
+    if (buyId && !registry.assets.some((asset) => asset.id === buyId)) setBuyId(undefined);
+  }, [buyId, registry, sellId]);
+
+  const querySell = findAssetByQuerySymbol(registry?.assets, searchParams.get("sell"));
+  const queryBuy = findAssetByQuerySymbol(registry?.assets, searchParams.get("buy"));
   const resolvedSellId =
-    sellId ??
+    (sellId && registry?.assets.some((asset) => asset.id === sellId) ? sellId : undefined) ??
+    querySell?.id ??
     registry?.assets.find((asset) => asset.id === "erc20:MUSD")?.id ??
     registry?.assets[0]?.id;
   const sell = registry?.assets.find((asset) => asset.id === resolvedSellId);
@@ -611,7 +652,10 @@ export function SwapPage() {
             canSwapRoute(registry, sell.executableAddress, asset.executableAddress),
         ))
       : undefined;
-  const resolvedBuyId = buyId ?? routedDefaultBuy?.id;
+  const resolvedBuyId =
+    (buyId && registry?.assets.some((asset) => asset.id === buyId) ? buyId : undefined) ??
+    (queryBuy && queryBuy.id !== sell?.id ? queryBuy.id : undefined) ??
+    routedDefaultBuy?.id;
   const buy = registry?.assets.find((asset) => asset.id === resolvedBuyId);
   const sellAssets = useSwapAssets(registry, buy, "sell");
   const buyAssets = useSwapAssets(registry, sell, "buy");
@@ -898,9 +942,18 @@ export function SwapPage() {
     >
       <div className="flex items-center justify-between px-2 pb-3 pt-1">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Swap</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold text-foreground">Swap</h2>
+            {isBaseSepolia ? (
+              <Badge className="normal-case tracking-normal text-[10px]">
+                Base Sepolia · Aerodrome Slipstream
+              </Badge>
+            ) : null}
+          </div>
           <p className="flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
-            Swap through Mezo CL and AMM
+            {isBaseSepolia
+              ? "Trade Horizon peers against MUSD on Aerodrome"
+              : "Swap through Mezo CL and AMM"}
             {registry && registryQuery.isError ? (
               <>
                 <span>·</span>

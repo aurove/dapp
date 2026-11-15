@@ -10,6 +10,22 @@ export const CANONICAL_MUSD_MAINNET = getAddress(
   "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186",
 );
 
+/**
+ * Base Sepolia MUSD (Mezo testnet NTT spoke). Hub Mezo testnet MUSD is
+ * `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` — do not use that address on Base.
+ */
+export const BASE_SEPOLIA_MUSD = getAddress("0x560985f804De8187E8FBA94F7127Bc4c0e54AEA5");
+
+/** Live minimal Slipstream stack on Base Sepolia (2026-11-10 redeploy). */
+export const AERO_BASE_SEPOLIA_DEFAULTS = {
+  swapRouter: getAddress("0xE056f7fF35B952E7BE7D78b8F68c0F293fB6E6Ba"),
+  positionManager: getAddress("0xB0D6450Ed37Da105B7ea3cd29D1256616DaA9B5F"),
+  pools: {
+    "avMEZOv-MUSD": getAddress("0xD084DB8cBbE7865d4dAcaF35e4a4A6a436D0EEe8"),
+    "avBTCv-MUSD": getAddress("0x95D890750550791E44a1d1f4986443d51696BdA5"),
+  },
+} as const;
+
 export type AerodromePoolKey = "avMEZOv-MUSD" | "avBTCv-MUSD";
 
 export type AerodromePoolConfig = {
@@ -56,22 +72,33 @@ const PEER_SHARES = {
 /** Optional env overrides after `horizon/aero` broadcast writes pools.json. */
 function poolAddressFromEnv(key: AerodromePoolKey): Address | null {
   if (key === "avMEZOv-MUSD") {
-    return readOptionalAddress(process.env.NEXT_PUBLIC_AERO_AVMEZOV_MUSD_POOL);
+    return (
+      readOptionalAddress(process.env.NEXT_PUBLIC_AERO_AVMEZOV_MUSD_POOL) ??
+      AERO_BASE_SEPOLIA_DEFAULTS.pools["avMEZOv-MUSD"]
+    );
   }
-  return readOptionalAddress(process.env.NEXT_PUBLIC_AERO_AVBTCV_MUSD_POOL);
+  return (
+    readOptionalAddress(process.env.NEXT_PUBLIC_AERO_AVBTCV_MUSD_POOL) ??
+    AERO_BASE_SEPOLIA_DEFAULTS.pools["avBTCv-MUSD"]
+  );
 }
 
 export function getAerodromeMusdAddress(): Address | null {
   return (
     readOptionalAddress(process.env.NEXT_PUBLIC_AERO_MUSD_ADDRESS) ??
-    readOptionalAddress(process.env.NEXT_PUBLIC_AERO_DEMO_MUSD_ADDRESS)
+    readOptionalAddress(process.env.NEXT_PUBLIC_AERO_DEMO_MUSD_ADDRESS) ??
+    BASE_SEPOLIA_MUSD
   );
 }
 
 export function getAerodromeRouterConfig(): AerodromeRouterConfig {
   return {
-    swapRouter: readOptionalAddress(process.env.NEXT_PUBLIC_AERO_SWAP_ROUTER),
-    positionManager: readOptionalAddress(process.env.NEXT_PUBLIC_AERO_POSITION_MANAGER),
+    swapRouter:
+      readOptionalAddress(process.env.NEXT_PUBLIC_AERO_SWAP_ROUTER) ??
+      AERO_BASE_SEPOLIA_DEFAULTS.swapRouter,
+    positionManager:
+      readOptionalAddress(process.env.NEXT_PUBLIC_AERO_POSITION_MANAGER) ??
+      AERO_BASE_SEPOLIA_DEFAULTS.positionManager,
   };
 }
 

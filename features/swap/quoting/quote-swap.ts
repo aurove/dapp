@@ -382,7 +382,7 @@ function routeLabel(hops: readonly SwapHop[]): string {
     venues.length === 1
       ? venues[0] === "basic"
         ? "Mezo AMM"
-        : "Mezo CL"
+        : "CL pool"
       : "Mixed";
   return hops.length === 1 ? `Direct ${venueText}` : `${hops.length}-hop ${venueText}`;
 }

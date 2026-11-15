@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -121,7 +122,9 @@ export default function HomePage() {
           </div>
 
           <div id="swap-interface" className="landing-hero__swap scroll-mt-6" tabIndex={-1}>
-            <SwapPage />
+            <Suspense fallback={null}>
+              <SwapPage />
+            </Suspense>
           </div>
         </div>
       </section>

@@ -47,8 +47,10 @@ export interface SwapRegistry {
   chainId: number;
   revision: string;
   clRouter: { address: Address; abi: Abi };
-  auroveRouter: { address: Address; abi: Abi };
-  ledger: { address: Address; abi: Abi };
+  /** Mezo zap router — omitted on Base Sepolia peer/MUSD markets. */
+  auroveRouter?: { address: Address; abi: Abi };
+  /** Mezo Ledger — omitted on Base Sepolia peer/MUSD markets. */
+  ledger?: { address: Address; abi: Abi };
   basicRouter?: { address: Address; factory: Address; abi: Abi };
   assets: readonly SwapAsset[];
   pools: readonly SwapPool[];
