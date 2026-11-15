@@ -538,9 +538,10 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
           </li>
           <li>
             <strong>Base Sepolia (testnet)</strong> — Horizon vault peers{" "}
-            <code>avMEZOv</code> / <code>avBTCv</code> against <code>MUSD</code> on Aerodrome
-            Slipstream CL200 pools. Use the header network control to switch Mezo ↔ Base. Deep links
-            like <code>/swap?sell=avMEZOv&amp;buy=MUSD</code> preselect the pair after bridging.
+            <code>avMEZOv</code> / <code>avBTCv</code> and <code>MUSD</code> on Aerodrome Slipstream
+            CL200 pools, including multi-hop peer↔peer via MUSD. Use the header network control to
+            switch Mezo ↔ Base. Deep links like <code>/swap?sell=avMEZOv&amp;buy=MUSD</code>{" "}
+            preselect the pair after bridging.
           </li>
         </ul>
         <h2>Before you start</h2>
@@ -559,7 +560,7 @@ export const GUIDE_PAGES: DocPageDefinition[] = [
             <strong>ERC-20 tokens</strong>, <strong>veNFT positions</strong>, and{" "}
             <strong>Ledger tranches</strong>; buy groups are <strong>ID20 tokens</strong> and{" "}
             <strong>Other ERC-20 tokens</strong>. On Base Sepolia, sell/buy are Horizon peers and
-            MUSD only.
+            MUSD; any listed pair can route (direct or via MUSD).
           </li>
           <li>Enter an amount. Use Max when you want the full wallet balance.</li>
           <li>

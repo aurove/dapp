@@ -23,7 +23,7 @@ describe("base sepolia swap registry helpers", () => {
     assert.ok(getAerodromeRouterConfig().swapRouter);
   });
 
-  it("routes peer↔MUSD and rejects peer↔peer", () => {
+  it("routes peer↔MUSD and peer↔peer via MUSD", () => {
     const assets = buildBaseSepoliaSwapAssetsForTest();
     const musd = assets.find((asset) => asset.symbol === "MUSD")!;
     const avmezov = assets.find((asset) => asset.symbol === "avMEZOv")!;
@@ -38,6 +38,7 @@ describe("base sepolia swap registry helpers", () => {
       tickSpacing: pool.tickSpacing,
       fee: 3000,
     }));
+    const routing = { ...getSwapRoutingConfig(), maxHops: Math.max(getSwapRoutingConfig().maxHops, 2) };
     const registry: SwapRegistry = {
       chainId: AERO_BASE_SEPOLIA_CHAIN_ID,
       revision: "test",
@@ -47,12 +48,12 @@ describe("base sepolia swap registry helpers", () => {
       },
       assets,
       pools,
-      // Mirror production Base registry: single-hop only (no peer↔peer via MUSD).
-      routing: { ...getSwapRoutingConfig(), maxHops: 1 },
+      routing,
     };
 
     assert.equal(canSwapRoute(registry, avmezov.address, musd.address), true);
     assert.equal(canSwapRoute(registry, musd.address, avbtcv.address), true);
-    assert.equal(canSwapRoute(registry, avmezov.address, avbtcv.address), false);
+    assert.equal(canSwapRoute(registry, avmezov.address, avbtcv.address), true);
+    assert.equal(canSwapRoute(registry, avbtcv.address, avmezov.address), true);
   });
 });

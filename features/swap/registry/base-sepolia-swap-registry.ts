@@ -147,6 +147,7 @@ export async function loadBaseSepoliaSwapRegistry(client: PublicClient): Promise
   }
 
   const assets = buildBaseAssets(chainId, configured, musd);
+  const routing = getSwapRoutingConfig();
 
   return {
     chainId,
@@ -155,8 +156,8 @@ export async function loadBaseSepoliaSwapRegistry(client: PublicClient): Promise
     assets,
     pools,
     basicPools: [],
-    // Single-hop only: peer↔MUSD pools exist; peer↔peer has no direct pool and is out of scope.
-    routing: { ...getSwapRoutingConfig(), maxHops: 1 },
+    // Allow multi-hop so peer↔peer routes via MUSD (avMEZOv → MUSD → avBTCv).
+    routing: { ...routing, maxHops: Math.max(routing.maxHops, 2) },
   };
 }
 

@@ -952,7 +952,7 @@ export function SwapPage() {
           </div>
           <p className="flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
             {isBaseSepolia
-              ? "Trade Horizon peers against MUSD on Aerodrome"
+              ? "Trade Horizon peers and MUSD on Aerodrome"
               : "Swap through Mezo CL and AMM"}
             {registry && registryQuery.isError ? (
               <>
