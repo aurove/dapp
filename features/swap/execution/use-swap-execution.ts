@@ -13,8 +13,8 @@ import type { SwapExecutionPlan, SwapQuote } from "../domain";
 export type SwapExecutionState = "idle" | "reviewing" | "unlocking" | "depositing" | "submitting" | "pending" | "confirmed" | "failed-simulation" | "failed";
 
 export function useSwapExecution(params: { plan?: SwapExecutionPlan; quote?: SwapQuote; verifyApproval: () => Promise<boolean> }) {
-  const { address } = useAccount();
-  const client = usePublicClient();
+  const { address, chainId } = useAccount();
+  const client = usePublicClient(chainId !== undefined ? { chainId } : undefined);
   const queryClient = useQueryClient();
   const { writeContractAsync } = useWriteContract();
   const [state, setState] = useState<SwapExecutionState>("idle");

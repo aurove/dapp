@@ -11,7 +11,9 @@ const MARKET_GC_TIME_MS = 30 * 60_000;
 
 export function useSwapRegistry() {
   const chainId = useChainId();
-  const client = usePublicClient();
+  // Pin the public client to the wallet chain so Base registry multicalls do not
+  // race against a stale Mezo client during network switches.
+  const client = usePublicClient({ chainId });
   const wallet = useWalletPortfolio();
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ["swap", "registry", chainId] as const, [chainId]);

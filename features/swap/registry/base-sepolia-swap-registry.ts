@@ -78,15 +78,31 @@ export async function loadBaseSepoliaSwapRegistry(client: PublicClient): Promise
   }
 
   const poolAddresses = configured.map((pool) => pool.pool!);
-  const results = (await client.multicall({
-    allowFailure: true,
-    contracts: poolAddresses.flatMap((address) => [
-      { address, abi: SLIPSTREAM_POOL_ABI, functionName: "token0" },
-      { address, abi: SLIPSTREAM_POOL_ABI, functionName: "token1" },
-      { address, abi: SLIPSTREAM_POOL_ABI, functionName: "tickSpacing" },
-      { address, abi: SLIPSTREAM_POOL_ABI, functionName: "fee" },
-    ]),
-  })) as ReadResult[];
+  const contracts = poolAddresses.flatMap((address) => [
+    { address, abi: SLIPSTREAM_POOL_ABI, functionName: "token0" as const },
+    { address, abi: SLIPSTREAM_POOL_ABI, functionName: "token1" as const },
+    { address, abi: SLIPSTREAM_POOL_ABI, functionName: "tickSpacing" as const },
+    { address, abi: SLIPSTREAM_POOL_ABI, functionName: "fee" as const },
+  ]);
+
+  let results: ReadResult[];
+  try {
+    results = (await client.multicall({
+      allowFailure: true,
+      contracts,
+    })) as ReadResult[];
+  } catch {
+    // Chains without multicall3 (or RPC multicall outages) fall back to direct reads.
+    results = [];
+    for (const contract of contracts) {
+      try {
+        const result = await client.readContract(contract);
+        results.push({ status: "success", result });
+      } catch (error) {
+        results.push({ status: "failure", error });
+      }
+    }
+  }
 
   const pools: SwapPool[] = poolAddresses.flatMap((address, index) => {
     const values = results.slice(index * 4, index * 4 + 4);
@@ -94,11 +110,21 @@ export async function loadBaseSepoliaSwapRegistry(client: PublicClient): Promise
     const [token0, token1, tickSpacing, fee] = values.map((item) =>
       item.status === "success" ? item.result : null,
     );
+    const spacing =
+      typeof tickSpacing === "number"
+        ? tickSpacing
+        : typeof tickSpacing === "bigint"
+          ? Number(tickSpacing)
+          : null;
+    const feeValue =
+      typeof fee === "number" ? fee : typeof fee === "bigint" ? Number(fee) : null;
     if (
       typeof token0 !== "string" ||
       typeof token1 !== "string" ||
-      typeof tickSpacing !== "number" ||
-      typeof fee !== "number"
+      spacing === null ||
+      !Number.isFinite(spacing) ||
+      feeValue === null ||
+      !Number.isFinite(feeValue)
     ) {
       return [];
     }
@@ -110,8 +136,8 @@ export async function loadBaseSepoliaSwapRegistry(client: PublicClient): Promise
         abi: SLIPSTREAM_POOL_ABI,
         token0: token0 as Address,
         token1: token1 as Address,
-        tickSpacing,
-        fee,
+        tickSpacing: spacing,
+        fee: feeValue,
       },
     ];
   });

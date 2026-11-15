@@ -38,7 +38,9 @@ export function useSwapAssets(
 ) {
   const portfolio = usePortfolioSummary();
   const { address } = useAccount();
-  const client = usePublicClient();
+  const client = usePublicClient(
+    registry?.chainId !== undefined ? { chainId: registry.chainId } : undefined,
+  );
   const dynamicFungibleAssets = useMemo(
     () =>
       registry?.assets.filter(

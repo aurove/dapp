@@ -114,6 +114,13 @@ export const baseSepoliaChain: Chain = defineChain({
     default: { name: "BaseScan", url: "https://sepolia.basescan.org" },
   },
   testnet: true,
+  // Required for wagmi/viem client.multicall (Base swap registry + quotes).
+  contracts: {
+    multicall3: {
+      address: MULTICALL3_ADDRESS,
+      blockCreated: 1059647,
+    },
+  },
 });
 
 export function getActiveChain(environment = resolveAppEnvironment()): Chain {

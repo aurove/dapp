@@ -17,7 +17,8 @@ export function useSwapQuote(params: {
   slippageBps: number;
   maxHops?: number;
 }) {
-  const client = usePublicClient();
+  const chainId = params.registry?.chainId;
+  const client = usePublicClient(chainId !== undefined ? { chainId } : undefined);
   const [debouncedAmount, setDebouncedAmount] = useState(params.amount);
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedAmount(params.amount), 350);

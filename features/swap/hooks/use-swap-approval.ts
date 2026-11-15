@@ -54,7 +54,7 @@ function flattenApprovals(approval: ApprovalRequirement | undefined): SingleAppr
 
 export function useSwapApproval(plan: SwapExecutionPlan | undefined) {
   const { address, chain } = useAccount();
-  const client = usePublicClient();
+  const client = usePublicClient(chain?.id !== undefined ? { chainId: chain.id } : undefined);
   const { writeContractAsync, isPending: isWalletPending } = useWriteContract();
   const queryClient = useQueryClient();
   const { contracts, notify } = useTxFlowRuntime();
