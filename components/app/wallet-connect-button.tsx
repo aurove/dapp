@@ -6,21 +6,23 @@ import { ChevronDown, LoaderCircle, LogIn } from "lucide-react";
 import { Button } from "@ui";
 import { useWalletAuth } from "@/lib/auth/provider";
 import { useAppChainSwitch } from "@/lib/web3/use-app-chain-switch";
+import { NetworkControl } from "@/components/app/network-control";
 
 type WalletConnectButtonProps = {
   children?: ReactNode;
 };
 
 export function WalletConnectButton({ children }: WalletConnectButtonProps) {
-  const { isAllowedChain, switchToExpectedChain } = useAppChainSwitch();
+  const { isAllowedChain, switchToExpectedChain, switchableChains } = useAppChainSwitch();
   const { isAuthenticated, isAuthenticating, loginWithWallet } = useWalletAuth();
+  const showNetworkControl = switchableChains.length > 1;
 
   return (
     <ConnectButton.Custom>
       {({ account, chain, mounted, openAccountModal, openChainModal, openConnectModal }) => {
         const ready = mounted;
         const connected = ready && account && chain;
-        // On /bridge (testnet), Base Sepolia is allowed alongside Mezo for deposits.
+        // Unsupported chain (e.g. Ethereum mainnet) — not Mezo/Base on testnet.
         const wrongNetwork = Boolean(connected && !isAllowedChain(chain?.id, chain?.unsupported));
         const needsSignIn = connected && !isAuthenticated;
         const handleSignIn = () => {
@@ -47,30 +49,37 @@ export function WalletConnectButton({ children }: WalletConnectButtonProps) {
 
         if (!connected) {
           return (
-            <Button type="button" size="sm" onClick={openConnectModal}>
-              Connect Wallet
-            </Button>
+            <div className="flex items-center gap-2">
+              {showNetworkControl ? <NetworkControl className="hidden sm:inline-flex" /> : null}
+              <Button type="button" size="sm" onClick={openConnectModal}>
+                Connect Wallet
+              </Button>
+            </div>
           );
         }
 
         if (wrongNetwork) {
           return (
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                void switchToExpectedChain(openChainModal);
-              }}
-            >
-              Wrong Network
-            </Button>
+            <div className="flex items-center gap-2">
+              {showNetworkControl ? <NetworkControl /> : null}
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                onClick={() => {
+                  void switchToExpectedChain(openChainModal);
+                }}
+              >
+                Wrong Network
+              </Button>
+            </div>
           );
         }
 
         if (children != null) {
           return (
             <div className="flex items-center gap-2">
+              {showNetworkControl ? <NetworkControl /> : null}
               {children}
               {needsSignIn ? signInButton : null}
             </div>
@@ -79,6 +88,7 @@ export function WalletConnectButton({ children }: WalletConnectButtonProps) {
 
         return (
           <div className="flex items-center gap-2">
+            {showNetworkControl ? <NetworkControl /> : null}
             {needsSignIn ? signInButton : null}
             <Button type="button" variant="secondary" size="sm" onClick={openAccountModal} className="gap-1">
               {account.displayName}

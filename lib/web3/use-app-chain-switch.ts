@@ -2,18 +2,21 @@
 
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
+import type { Chain } from "viem";
 import { useSwitchChain } from "wagmi";
 
 import {
+  baseSepoliaChain,
   getActiveChain,
   getAllowedAppChainIds,
   getMezoTestnetRpcHttp,
+  getSwitchableAppChains,
   mezoTestnetChain,
   resolveAppEnvironment,
 } from "@/lib/config/chains";
 
-function getWalletRpcUrl(expectedChain: ReturnType<typeof getActiveChain>): string | undefined {
-  if (expectedChain.id === mezoTestnetChain.id) {
+function getWalletRpcUrl(chain: Chain): string | undefined {
+  if (chain.id === mezoTestnetChain.id) {
     const browserRpcUrl = getMezoTestnetRpcHttp();
     if (typeof window !== "undefined") {
       try {
@@ -25,7 +28,11 @@ function getWalletRpcUrl(expectedChain: ReturnType<typeof getActiveChain>): stri
     return browserRpcUrl;
   }
 
-  return expectedChain.rpcUrls.default.http[0];
+  return chain.rpcUrls.default.http[0];
+}
+
+function findSwitchableChain(chains: readonly Chain[], chainId: number): Chain | undefined {
+  return chains.find((chain) => chain.id === chainId);
 }
 
 export function useAppChainSwitch() {
@@ -37,6 +44,10 @@ export function useAppChainSwitch() {
     () => getAllowedAppChainIds(pathname, environment),
     [pathname, environment],
   );
+  const switchableChains = useMemo(
+    () => getSwitchableAppChains(environment),
+    [environment],
+  );
 
   function isAllowedChain(chainId: number | undefined, unsupported?: boolean) {
     if (unsupported) return false;
@@ -44,13 +55,27 @@ export function useAppChainSwitch() {
     return allowedChainIds.includes(chainId);
   }
 
-  async function switchToExpectedChain(onFailure?: () => void) {
+  async function switchToChain(chainId: number, onFailure?: () => void) {
+    const target = findSwitchableChain(switchableChains, chainId);
+    if (!target) {
+      onFailure?.();
+      return false;
+    }
     try {
       await switchChainAsync({
-        chainId: expectedChain.id,
+        chainId: target.id,
         addEthereumChainParameter: (() => {
-          const rpcUrl = getWalletRpcUrl(expectedChain);
-          return rpcUrl ? { rpcUrls: [rpcUrl] } : undefined;
+          const rpcUrl = getWalletRpcUrl(target);
+          return rpcUrl
+            ? {
+                chainName: target.name,
+                nativeCurrency: target.nativeCurrency,
+                rpcUrls: [rpcUrl],
+                blockExplorerUrls: target.blockExplorers?.default?.url
+                  ? [target.blockExplorers.default.url]
+                  : undefined,
+              }
+            : undefined;
         })(),
       });
       return true;
@@ -60,10 +85,26 @@ export function useAppChainSwitch() {
     }
   }
 
+  async function switchToExpectedChain(onFailure?: () => void) {
+    return switchToChain(expectedChain.id, onFailure);
+  }
+
+  async function switchToMezo(onFailure?: () => void) {
+    return switchToChain(mezoTestnetChain.id, onFailure);
+  }
+
+  async function switchToBaseSepolia(onFailure?: () => void) {
+    return switchToChain(baseSepoliaChain.id, onFailure);
+  }
+
   return {
     expectedChain,
     allowedChainIds,
+    switchableChains,
     isAllowedChain,
+    switchToChain,
     switchToExpectedChain,
+    switchToMezo,
+    switchToBaseSepolia,
   };
 }

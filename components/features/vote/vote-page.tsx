@@ -12,6 +12,7 @@ import { executePreparedWriteStep } from "@/lib/tx-flow/execute";
 import { makeAddressWriteStep } from "@/lib/tx-flow/steps";
 import { getParsedError } from "@/lib/tx-flow/getParsedError";
 import type { TxPreparedWriteStep } from "@/lib/tx-flow/types";
+import { MezoRequiredGate } from "@/components/app/mezo-required-gate";
 import { useUserVeNFTs } from "@/components/features/earn/hooks/use-user-ve-nfts";
 import { fetchVoteData, type VoteData } from "./vote-data";
 import { allocationWeights, voteShare, votingRestriction, projectedIncentive } from "./vote-model";
@@ -68,7 +69,11 @@ export function VotePageSkeleton() {
 export function VotePage(props: VotePageProps) {
   const { address } = useAccount();
   const chainId = useChainId();
-  return <VotePageContent key={`${chainId}:${address ?? "disconnected"}`} {...props} />;
+  return (
+    <MezoRequiredGate feature="Vote">
+      <VotePageContent key={`${chainId}:${address ?? "disconnected"}`} {...props} />
+    </MezoRequiredGate>
+  );
 }
 
 function VotePageContent({ initialData, initialChainId, initialUpdatedAt }: VotePageProps) {

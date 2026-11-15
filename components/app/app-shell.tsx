@@ -12,10 +12,19 @@ import {
   baseSepoliaChain,
   getActiveChain,
   getAllowedAppChainIds,
+  mezoTestnetChain,
   resolveAppEnvironment,
 } from "@/lib/config/chains";
 import { useChainId } from "wagmi";
 import { XAccountLink } from "./x-account-link";
+
+function walletChainLabel(chainId: number | undefined, allowed: boolean): string {
+  if (chainId === undefined) return "Wallet disconnected";
+  if (!allowed) return "Unsupported wallet network";
+  if (chainId === baseSepoliaChain.id) return baseSepoliaChain.name;
+  if (chainId === mezoTestnetChain.id) return mezoTestnetChain.name;
+  return `Chain ${chainId}`;
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const chainId = useChainId();
@@ -26,17 +35,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     () => getAllowedAppChainIds(pathname, appEnvironment),
     [pathname, appEnvironment],
   );
-  const networkSwitchHref =
+  const siteSwitchHref =
     appEnvironment === "testnet"
       ? `https://www.aurove.xyz${pathname}`
       : appEnvironment === "mainnet"
         ? `https://testnet.aurove.xyz${pathname}`
         : null;
-  const isBridgePairNetwork =
-    pathname.startsWith("/bridge") &&
-    appEnvironment === "testnet" &&
-    allowedChainIds.includes(chainId);
   const wrongNetwork = chainId !== undefined && !allowedChainIds.includes(chainId);
+  const walletLabel = walletChainLabel(chainId, !wrongNetwork);
   const year = useMemo(() => new Date().getFullYear(), []);
 
   return (
@@ -72,41 +78,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-2 px-4 pb-3 md:px-6">
-          {networkSwitchHref ? (
+          <Badge
+            className={
+              wrongNetwork
+                ? "normal-case tracking-normal border-red-400/30 bg-red-500/10 text-red-700 dark:text-red-100"
+                : "normal-case tracking-normal border-emerald-400/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100"
+            }
+          >
+            <BellRing className="mr-1 h-3.5 w-3.5" />
+            Wallet {walletLabel}
+          </Badge>
+          {siteSwitchHref ? (
             <Link
-              href={networkSwitchHref}
+              href={siteSwitchHref}
               prefetch={false}
-              aria-label={`Switch to ${appEnvironment === "testnet" ? "Mezo Mainnet" : "Mezo Testnet"}`}
-              title={`Switch to ${appEnvironment === "testnet" ? "Mezo Mainnet" : "Mezo Testnet"}`}
-              className={`inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                wrongNetwork
-                  ? "border-red-400/30 bg-red-500/10 text-red-700 dark:text-red-100"
-                  : "border-emerald-400/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100"
-              }`}
+              aria-label={`Open ${appEnvironment === "testnet" ? "mainnet" : "testnet"} app`}
+              title={`Open ${appEnvironment === "testnet" ? "Mezo Mainnet" : "Mezo Testnet"} deployment`}
+              className="inline-flex items-center rounded-full border border-[var(--line)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              <BellRing className="mr-1 h-3.5 w-3.5" />
-              {wrongNetwork
-                ? `Wrong network (expected ${expectedChain.name})`
-                : isBridgePairNetwork
-                  ? `Bridge network ${chainId === baseSepoliaChain.id ? baseSepoliaChain.name : expectedChain.name}`
-                  : `Network ${expectedChain.name}`}
+              App {expectedChain.name} →{" "}
+              {appEnvironment === "testnet" ? "Mainnet site" : "Testnet site"}
             </Link>
-          ) : (
-            <Badge
-              className={
-                wrongNetwork
-                  ? "normal-case tracking-normal border-red-400/30 bg-red-500/10 text-red-700 dark:text-red-100"
-                  : "normal-case tracking-normal border-emerald-400/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100"
-              }
-            >
-              <BellRing className="mr-1 h-3.5 w-3.5" />
-              {wrongNetwork
-                ? `Wrong network (expected ${expectedChain.name})`
-                : isBridgePairNetwork
-                  ? `Bridge network ${chainId === baseSepoliaChain.id ? baseSepoliaChain.name : expectedChain.name}`
-                  : `Network ${expectedChain.name}`}
-            </Badge>
-          )}
+          ) : null}
         </div>
       </header>
 
