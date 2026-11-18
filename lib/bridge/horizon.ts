@@ -16,7 +16,7 @@ export type HorizonChainConfig = {
   assets: Record<HorizonBridgeAsset, Ntt.Contracts>;
 };
 
-/** Mezo Testnet ↔ Base Sepolia NTT deployments for Horizon vault shares. */
+/** Mezo Testnet ↔ Base Sepolia NTT deployments for Horizon vault shares (Wave 2). */
 export const HORIZON_TESTNET = {
   31611: {
     name: "Mezo Testnet",
@@ -67,6 +67,15 @@ export const HORIZON_TESTNET = {
     },
   },
 } as const satisfies Record<31611 | 84532, HorizonChainConfig>;
+
+/**
+ * Pre–Wave 2 Base Sepolia peer tokens (2026-11-10 redeploy). Deposit / swap / NTT
+ * use `HORIZON_TESTNET` only; these addresses are for stranded-balance detection.
+ */
+export const HORIZON_LEGACY_BASE_PEERS = {
+  avBTCv: "0xb25912d67A8fb9C7Acb8b2eB4c1600aF7872D132",
+  avMEZOv: "0x2E9eAa58834c39a8bDe92886Cbf8A18954bFF855",
+} as const satisfies Record<HorizonBridgeAsset, Address>;
 
 export type HorizonNativeChainId = keyof typeof HORIZON_TESTNET;
 

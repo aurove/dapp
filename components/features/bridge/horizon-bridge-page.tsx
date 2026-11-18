@@ -2,15 +2,20 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownToLine, ArrowLeftRight, ArrowUpRight, Check, ExternalLink, RefreshCw, ShieldCheck, Waypoints } from "lucide-react";
 import { erc20Abi, formatEther, formatUnits, parseUnits, type Abi, type Address } from "viem";
-import { useAccount, useChainId, usePublicClient, useReadContract, useSwitchChain, useWalletClient } from "wagmi";
+import { useAccount, useChainId, usePublicClient, useSwitchChain, useWalletClient } from "wagmi";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from "@ui";
 import { getContractConfig } from "@/contracts/shared";
 import { baseSepoliaChain, mezoTestnetChain, resolveAppEnvironment } from "@/lib/config/chains";
-import { HORIZON_TESTNET, getHorizonPeerChain, type HorizonNativeChainId } from "@/lib/bridge/horizon";
+import {
+  HORIZON_LEGACY_BASE_PEERS,
+  HORIZON_TESTNET,
+  getHorizonPeerChain,
+  type HorizonNativeChainId,
+} from "@/lib/bridge/horizon";
 import {
   horizonAssetFromBridgeSymbol,
   initiateHorizonNttTransfer,
@@ -104,10 +109,30 @@ export function HorizonBridgePage() {
   // Mezo-scoped wallet client (MetaMask 4100: account/method not authorized).
   const { data: walletClient } = useWalletClient({ chainId: sourceChainId });
   const publicClient = usePublicClient({ chainId: sourceChainId });
+  // Pin balance reads to each chain's public client (same pattern as Base /swap).
+  const mezoPublicClient = usePublicClient({ chainId: 31611 });
+  const basePublicClient = usePublicClient({ chainId: 84532 });
   const source = HORIZON_TESTNET[sourceChainId];
   const destination = getHorizonPeerChain(sourceChainId);
   const onSourceChain = chainId === sourceChainId;
   const isWithdraw = bridgeMode === "withdraw";
+
+  // Wallet often connects on Base after the page defaulted to Withdraw (Mezo),
+  // or hydrates still on Mezo while the wallet is already on Base. Switch to
+  // Deposit the first time we observe Base (manual Withdraw on Base still works).
+  const sawBaseChainRef = useRef(false);
+  useEffect(() => {
+    if (chainId !== 84532) {
+      sawBaseChainRef.current = false;
+      return;
+    }
+    if (sawBaseChainRef.current) return;
+    sawBaseChainRef.current = true;
+    setBridgeMode("deposit");
+    setSelectedSourceId(null);
+    setAmount("");
+    setNotice(null);
+  }, [chainId]);
 
   useEffect(() => setBridgeHistory(address ? readBridgeHistory(address) : []), [address]);
 
@@ -136,23 +161,55 @@ export function HorizonBridgePage() {
   const peerToken =
     (HORIZON_TESTNET[84532].assets[familyConfig.asset].token as Address | undefined) ??
     (peerConfig?.address as Address | undefined);
+  const legacyPeerToken = HORIZON_LEGACY_BASE_PEERS[familyConfig.asset] as Address;
   const id20Token = (id20Config?.address as Address | undefined) ?? vaultAsset ?? undefined;
 
-  const vaultBalance = useReadContract({
-    chainId: 31611,
-    address: vaultToken,
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: Boolean(address && vaultToken && isWithdraw) },
+  const vaultBalance = useQuery({
+    queryKey: ["horizon-bridge", "vault-balance", vaultToken, address?.toLowerCase()],
+    queryFn: async () => {
+      if (!mezoPublicClient || !vaultToken || !address) return 0n;
+      return mezoPublicClient.readContract({
+        address: vaultToken,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [address],
+      });
+    },
+    enabled: Boolean(mezoPublicClient && address && vaultToken && isWithdraw),
+    staleTime: 15_000,
+    retry: 1,
   });
-  const peerBalance = useReadContract({
-    chainId: 84532,
-    address: peerToken,
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: Boolean(address && peerToken && !isWithdraw) },
+
+  const peerBalance = useQuery({
+    queryKey: ["horizon-bridge", "peer-balance", peerToken, address?.toLowerCase()],
+    queryFn: async () => {
+      if (!basePublicClient || !peerToken || !address) return 0n;
+      return basePublicClient.readContract({
+        address: peerToken,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [address],
+      });
+    },
+    enabled: Boolean(basePublicClient && address && peerToken && !isWithdraw),
+    staleTime: 15_000,
+    retry: 1,
+  });
+
+  const legacyPeerBalance = useQuery({
+    queryKey: ["horizon-bridge", "legacy-peer-balance", legacyPeerToken, address?.toLowerCase()],
+    queryFn: async () => {
+      if (!basePublicClient || !address) return 0n;
+      return basePublicClient.readContract({
+        address: legacyPeerToken,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [address],
+      });
+    },
+    enabled: Boolean(basePublicClient && address && !isWithdraw),
+    staleTime: 30_000,
+    retry: 1,
   });
 
   const sources = useMemo(
@@ -218,6 +275,11 @@ export function HorizonBridgePage() {
     isWithdraw
       ? Boolean(address && (vaultBalance.isPending || vaultBalance.isFetching || portfolio.isLoading || portfolio.isFetching))
       : Boolean(address && (peerBalance.isPending || peerBalance.isFetching));
+  const showLegacyPeerWarning =
+    !isWithdraw &&
+    Boolean(address) &&
+    (peerBalance.data ?? 0n) === 0n &&
+    (legacyPeerBalance.data ?? 0n) > 0n;
 
   const canBridge = Boolean(
     onSourceChain &&
@@ -699,6 +761,34 @@ export function HorizonBridgePage() {
               <p role="alert" className="text-xs text-red-700 dark:text-red-200">
                 Could not read your {familyConfig.peerSymbol} peer balance on Base Sepolia.
               </p>
+            ) : null}
+            {showLegacyPeerWarning ? (
+              <div
+                role="status"
+                className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-5 text-amber-950 dark:text-amber-100"
+              >
+                <p>
+                  This wallet holds{" "}
+                  <span className="font-semibold">
+                    {formatCompactRawTokenAmount(
+                      legacyPeerBalance.data,
+                      18,
+                      familyConfig.peerSymbol,
+                    )}
+                  </span>{" "}
+                  on the pre–Wave 2 Base peer ({shortAddress(legacyPeerToken)}). Deposit and Swap use
+                  the Wave 2 peer ({shortAddress(peerToken)}), which is currently 0 for this wallet.
+                </p>
+                <p>
+                  Buy Wave 2 {familyConfig.peerSymbol} on Swap (you can sell MUSD), then return here to
+                  Deposit to Mezo.
+                </p>
+                <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
+                  <Link href={`/swap?sell=MUSD&buy=${familyConfig.peerSymbol}`}>
+                    Swap MUSD → {familyConfig.peerSymbol}
+                  </Link>
+                </Button>
+              </div>
             ) : null}
 
             {deliveryFeeQuery.data !== undefined ? (
